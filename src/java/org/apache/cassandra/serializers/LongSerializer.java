@@ -15,41 +15,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class LongSerializer extends TypeSerializer<Long>
-{
-    public static final LongSerializer instance = new LongSerializer();
+public class LongSerializer extends TypeSerializer<Long> {
 
-    public <V> Long deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LongSerializer.class);
+
+    public static final transient LongSerializer instance = new LongSerializer();
+
+    public <V> Long deserialize(V value, ValueAccessor<V> accessor) {
         return accessor.isEmpty(value) ? null : accessor.toLong(value);
     }
 
-    public ByteBuffer serialize(Long value)
-    {
+    public ByteBuffer serialize(Long value) {
         return value == null ? ByteBufferUtil.EMPTY_BYTE_BUFFER : ByteBufferUtil.bytes(value);
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (accessor.size(value) != 8 && !accessor.isEmpty(value))
             throw new MarshalException(String.format("Expected 8 or 0 byte long (%d)", accessor.size(value)));
     }
 
-    public String toString(Long value)
-    {
+    public String toString(Long value) {
         return value == null ? "" : String.valueOf(value);
     }
 
-    public Class<Long> getType()
-    {
+    public Class<Long> getType() {
         return Long.class;
     }
 }

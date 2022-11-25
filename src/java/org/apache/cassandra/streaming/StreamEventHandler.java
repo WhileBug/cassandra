@@ -19,8 +19,10 @@ package org.apache.cassandra.streaming;
 
 import com.google.common.util.concurrent.FutureCallback;
 
-public interface StreamEventHandler extends FutureCallback<StreamState>
-{
+public interface StreamEventHandler extends FutureCallback<StreamState> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamEventHandler.class);
+
     /**
      * Callback for various streaming events.
      *

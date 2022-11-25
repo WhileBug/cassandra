@@ -15,61 +15,58 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.audit;
 
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.cassandra.diag.DiagnosticEvent;
 import org.apache.cassandra.diag.DiagnosticEventService;
 
 /**
  * {@Link AuditLogEntry} wrapper to expose audit events as {@link DiagnosticEvent}s.
  */
-public final class AuditEvent extends DiagnosticEvent
-{
-    private final AuditLogEntry entry;
+public final class AuditEvent extends DiagnosticEvent {
 
-    private AuditEvent(AuditLogEntry entry)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuditEvent.class);
+
+    private final transient AuditLogEntry entry;
+
+    private AuditEvent(AuditLogEntry entry) {
         this.entry = entry;
     }
 
-    static void create(AuditLogEntry entry)
-    {
+    static void create(AuditLogEntry entry) {
         if (isEnabled(entry.getType()))
             DiagnosticEventService.instance().publish(new AuditEvent(entry));
     }
 
-    private static boolean isEnabled(AuditLogEntryType type)
-    {
+    private static boolean isEnabled(AuditLogEntryType type) {
         return DiagnosticEventService.instance().isEnabled(AuditEvent.class, type);
     }
 
-    public Enum<?> getType()
-    {
+    public Enum<?> getType() {
         return entry.getType();
     }
 
-    public String getSource()
-    {
+    public String getSource() {
         return entry.getSource().toString(true);
     }
 
-    public AuditLogEntry getEntry()
-    {
+    public AuditLogEntry getEntry() {
         return entry;
     }
 
-    public Map<String, Serializable> toMap()
-    {
+    public Map<String, Serializable> toMap() {
         HashMap<String, Serializable> ret = new HashMap<>();
-        if (entry.getKeyspace() != null) ret.put("keyspace", entry.getKeyspace());
-        if (entry.getOperation() != null) ret.put("operation", entry.getOperation());
-        if (entry.getScope() != null) ret.put("scope", entry.getScope());
-        if (entry.getUser() != null) ret.put("user", entry.getUser());
+        if (entry.getKeyspace() != null)
+            ret.put("keyspace", entry.getKeyspace());
+        if (entry.getOperation() != null)
+            ret.put("operation", entry.getOperation());
+        if (entry.getScope() != null)
+            ret.put("scope", entry.getScope());
+        if (entry.getUser() != null)
+            ret.put("user", entry.getUser());
         return ret;
     }
 }

@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.index.sasi.analyzer.filter.BasicResultFilters;
 import org.apache.cassandra.index.sasi.analyzer.filter.FilterPipelineBuilder;
@@ -33,7 +32,6 @@ import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.serializers.MarshalException;
 import org.apache.cassandra.utils.ByteBufferUtil;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,92 +39,79 @@ import org.slf4j.LoggerFactory;
  * Analyzer that does *not* tokenize the input. Optionally will
  * apply filters for the input output as defined in analyzers options
  */
-public class NonTokenizingAnalyzer extends AbstractAnalyzer
-{
-    private static final Logger logger = LoggerFactory.getLogger(NonTokenizingAnalyzer.class);
+public class NonTokenizingAnalyzer extends AbstractAnalyzer {
 
-    private static final Set<AbstractType<?>> VALID_ANALYZABLE_TYPES = new HashSet<AbstractType<?>>()
-    {{
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NonTokenizingAnalyzer.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(NonTokenizingAnalyzer.class);
+
+    private static final transient Set<AbstractType<?>> VALID_ANALYZABLE_TYPES = new HashSet<AbstractType<?>>() {
+
+        {
             add(UTF8Type.instance);
             add(AsciiType.instance);
-    }};
+        }
+    };
 
-    private AbstractType<?> validator;
-    private NonTokenizingOptions options;
-    private FilterPipelineTask filterPipeline;
+    private transient AbstractType<?> validator;
 
-    private ByteBuffer input;
-    private boolean hasNext = false;
+    private transient NonTokenizingOptions options;
+
+    private transient FilterPipelineTask filterPipeline;
+
+    private transient ByteBuffer input;
+
+    private transient boolean hasNext = false;
 
     @Override
-    public void validate(Map<String, String> options, ColumnMetadata cm) throws ConfigurationException
-    {
+    public void validate(Map<String, String> options, ColumnMetadata cm) throws ConfigurationException {
         super.validate(options, cm);
-        if (options.containsKey(NonTokenizingOptions.CASE_SENSITIVE) &&
-            (options.containsKey(NonTokenizingOptions.NORMALIZE_LOWERCASE)
-             || options.containsKey(NonTokenizingOptions.NORMALIZE_UPPERCASE)))
-            throw new ConfigurationException("case_sensitive option cannot be specified together " +
-                                               "with either normalize_lowercase or normalize_uppercase");
+        if (options.containsKey(NonTokenizingOptions.CASE_SENSITIVE) && (options.containsKey(NonTokenizingOptions.NORMALIZE_LOWERCASE) || options.containsKey(NonTokenizingOptions.NORMALIZE_UPPERCASE)))
+            throw new ConfigurationException("case_sensitive option cannot be specified together " + "with either normalize_lowercase or normalize_uppercase");
     }
 
-    public void init(Map<String, String> options, AbstractType<?> validator)
-    {
+    public void init(Map<String, String> options, AbstractType<?> validator) {
         init(NonTokenizingOptions.buildFromMap(options), validator);
     }
 
-    public void init(NonTokenizingOptions tokenizerOptions, AbstractType<?> validator)
-    {
+    public void init(NonTokenizingOptions tokenizerOptions, AbstractType<?> validator) {
         this.validator = validator;
         this.options = tokenizerOptions;
         this.filterPipeline = getFilterPipeline();
     }
 
-    public boolean hasNext()
-    {
+    public boolean hasNext() {
         // check that we know how to handle the input, otherwise bail
         if (!VALID_ANALYZABLE_TYPES.contains(validator))
             return false;
-
-        if (hasNext)
-        {
+        if (hasNext) {
             String inputStr;
-
-            try
-            {
+            try {
                 inputStr = validator.getString(input);
                 if (inputStr == null)
                     throw new MarshalException(String.format("'null' deserialized value for %s with %s", ByteBufferUtil.bytesToHex(input), validator));
-
                 Object pipelineRes = FilterPipelineExecutor.execute(filterPipeline, inputStr);
                 if (pipelineRes == null)
                     return false;
-
                 next = validator.fromString(normalize((String) pipelineRes));
                 return true;
-            }
-            catch (MarshalException e)
-            {
+            } catch (MarshalException e) {
                 logger.error("Failed to deserialize value with " + validator, e);
                 return false;
-            }
-            finally
-            {
+            } finally {
                 hasNext = false;
             }
         }
-
         return false;
     }
 
-    public void reset(ByteBuffer input)
-    {
+    public void reset(ByteBuffer input) {
         this.next = null;
         this.input = input;
         this.hasNext = true;
     }
 
-    private FilterPipelineTask getFilterPipeline()
-    {
+    private FilterPipelineTask getFilterPipeline() {
         FilterPipelineBuilder builder = new FilterPipelineBuilder(new BasicResultFilters.NoOperation());
         if (options.isCaseSensitive() && options.shouldLowerCaseOutput())
             builder = builder.add("to_lower", new BasicResultFilters.LowerCase());
@@ -138,8 +123,7 @@ public class NonTokenizingAnalyzer extends AbstractAnalyzer
     }
 
     @Override
-    public boolean isCompatibleWith(AbstractType<?> validator)
-    {
+    public boolean isCompatibleWith(AbstractType<?> validator) {
         return VALID_ANALYZABLE_TYPES.contains(validator);
     }
 }

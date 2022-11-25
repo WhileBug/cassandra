@@ -24,55 +24,48 @@ import org.apache.cassandra.db.Directories;
 import org.apache.cassandra.db.lifecycle.LifecycleTransaction;
 import org.apache.cassandra.utils.OutputHandler;
 import org.apache.commons.cli.*;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.function.BiPredicate;
-
 import static org.apache.cassandra.tools.BulkLoader.CmdLineOptions;
 
-public class StandaloneSSTableUtil
-{
-    private static final String TOOL_NAME = "sstableutil";
-    private static final String TYPE_OPTION  = "type";
-    private static final String OP_LOG_OPTION  = "oplog";
-    private static final String VERBOSE_OPTION  = "verbose";
-    private static final String DEBUG_OPTION  = "debug";
-    private static final String HELP_OPTION  = "help";
-    private static final String CLEANUP_OPTION = "cleanup";
+public class StandaloneSSTableUtil {
 
-    public static void main(String args[])
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StandaloneSSTableUtil.class);
+
+    private static final transient String TOOL_NAME = "sstableutil";
+
+    private static final transient String TYPE_OPTION = "type";
+
+    private static final transient String OP_LOG_OPTION = "oplog";
+
+    private static final transient String VERBOSE_OPTION = "verbose";
+
+    private static final transient String DEBUG_OPTION = "debug";
+
+    private static final transient String HELP_OPTION = "help";
+
+    private static final transient String CLEANUP_OPTION = "cleanup";
+
+    public static void main(String[] args) {
         Options options = Options.parseArgs(args);
-        try
-        {
+        try {
             // load keyspace descriptions.
             Util.initDatabaseDescriptor();
             Schema.instance.loadFromDisk(false);
-
             TableMetadata metadata = Schema.instance.getTableMetadata(options.keyspaceName, options.cfName);
             if (metadata == null)
-                throw new IllegalArgumentException(String.format("Unknown keyspace/table %s.%s",
-                                                                 options.keyspaceName,
-                                                                 options.cfName));
-
+                throw new IllegalArgumentException(String.format("Unknown keyspace/table %s.%s", options.keyspaceName, options.cfName));
             OutputHandler handler = new OutputHandler.SystemOutput(options.verbose, options.debug);
-
-            if (options.cleanup)
-            {
+            if (options.cleanup) {
                 handler.output("Cleaning up...");
                 LifecycleTransaction.removeUnfinishedLeftovers(metadata);
-            }
-            else
-            {
+            } else {
                 handler.output("Listing files...");
                 listFiles(options, metadata, handler);
             }
-
             System.exit(0);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             System.err.println(e.getMessage());
             if (options.debug)
                 e.printStackTrace(System.err);
@@ -80,23 +73,16 @@ public class StandaloneSSTableUtil
         }
     }
 
-    private static void listFiles(Options options, TableMetadata metadata, OutputHandler handler) throws IOException
-    {
+    private static void listFiles(Options options, TableMetadata metadata, OutputHandler handler) throws IOException {
         Directories directories = new Directories(metadata);
-
-        for (File dir : directories.getCFDirectories())
-        {
-            for (File file : LifecycleTransaction.getFiles(dir.toPath(), getFilter(options), Directories.OnTxnErr.THROW))
-                handler.output(file.getCanonicalPath());
+        for (File dir : directories.getCFDirectories()) {
+            for (File file : LifecycleTransaction.getFiles(dir.toPath(), getFilter(options), Directories.OnTxnErr.THROW)) handler.output(file.getCanonicalPath());
         }
     }
 
-    private static BiPredicate<File, Directories.FileType> getFilter(Options options)
-    {
-        return (file, type) ->
-        {
-            switch(type)
-            {
+    private static BiPredicate<File, Directories.FileType> getFilter(Options options) {
+        return (file, type) -> {
+            switch(type) {
                 case FINAL:
                     return options.type != Options.FileType.TMP;
                 case TEMPORARY:
@@ -109,38 +95,32 @@ public class StandaloneSSTableUtil
         };
     }
 
-    private static class Options
-    {
-        public enum FileType
-        {
-            ALL("all", "list all files, final or temporary"),
-            TMP("tmp", "list temporary files only"),
-            FINAL("final", "list final files only");
+    private static class Options {
+
+        public enum FileType {
+
+            ALL("all", "list all files, final or temporary"), TMP("tmp", "list temporary files only"), FINAL("final", "list final files only");
 
             public String option;
+
             public String descr;
-            FileType(String option, String descr)
-            {
+
+            FileType(String option, String descr) {
                 this.option = option;
                 this.descr = descr;
             }
 
-            static FileType fromOption(String option)
-            {
-                for (FileType fileType : FileType.values())
-                {
+            static FileType fromOption(String option) {
+                for (FileType fileType : FileType.values()) {
                     if (fileType.option.equals(option))
                         return fileType;
                 }
-
                 return FileType.ALL;
             }
 
-            static String descr()
-            {
+            static String descr() {
                 StringBuilder str = new StringBuilder();
-                for (FileType fileType : FileType.values())
-                {
+                for (FileType fileType : FileType.values()) {
                     str.append(fileType.option);
                     str.append(" (");
                     str.append(fileType.descr);
@@ -150,73 +130,63 @@ public class StandaloneSSTableUtil
             }
         }
 
-        public final String keyspaceName;
-        public final String cfName;
+        public final transient String keyspaceName;
 
-        public boolean debug;
-        public boolean verbose;
-        public boolean oplogs;
-        public boolean cleanup;
-        public FileType type;
+        public final transient String cfName;
 
-        private Options(String keyspaceName, String cfName)
-        {
+        public transient boolean debug;
+
+        public transient boolean verbose;
+
+        public transient boolean oplogs;
+
+        public transient boolean cleanup;
+
+        public transient FileType type;
+
+        private Options(String keyspaceName, String cfName) {
             this.keyspaceName = keyspaceName;
             this.cfName = cfName;
         }
 
-        public static Options parseArgs(String cmdArgs[])
-        {
+        public static Options parseArgs(String[] cmdArgs) {
             CommandLineParser parser = new GnuParser();
             CmdLineOptions options = getCmdLineOptions();
-            try
-            {
+            try {
                 CommandLine cmd = parser.parse(options, cmdArgs, false);
-
-                if (cmd.hasOption(HELP_OPTION))
-                {
+                if (cmd.hasOption(HELP_OPTION)) {
                     printUsage(options);
                     System.exit(0);
                 }
-
                 String[] args = cmd.getArgs();
-                if (args.length != 2)
-                {
+                if (args.length != 2) {
                     String msg = args.length < 2 ? "Missing arguments" : "Too many arguments";
                     System.err.println(msg);
                     printUsage(options);
                     System.exit(1);
                 }
-
                 String keyspaceName = args[0];
                 String cfName = args[1];
-
                 Options opts = new Options(keyspaceName, cfName);
-
                 opts.debug = cmd.hasOption(DEBUG_OPTION);
                 opts.verbose = cmd.hasOption(VERBOSE_OPTION);
                 opts.type = FileType.fromOption(cmd.getOptionValue(TYPE_OPTION));
                 opts.oplogs = cmd.hasOption(OP_LOG_OPTION);
                 opts.cleanup = cmd.hasOption(CLEANUP_OPTION);
-
                 return opts;
-            }
-            catch (ParseException e)
-            {
+            } catch (ParseException e) {
                 errorMsg(e.getMessage(), options);
                 return null;
             }
         }
 
-        private static void errorMsg(String msg, CmdLineOptions options)
-        {
+        private static void errorMsg(String msg, CmdLineOptions options) {
             System.err.println(msg);
             printUsage(options);
             System.exit(1);
         }
 
-        private static CmdLineOptions getCmdLineOptions()
-        {
+        private static CmdLineOptions getCmdLineOptions() {
             CmdLineOptions options = new CmdLineOptions();
             options.addOption("c", CLEANUP_OPTION, "clean-up any outstanding transactions");
             options.addOption("d", DEBUG_OPTION, "display stack traces");
@@ -224,16 +194,14 @@ public class StandaloneSSTableUtil
             options.addOption("o", OP_LOG_OPTION, "include operation logs");
             options.addOption("t", TYPE_OPTION, true, FileType.descr());
             options.addOption("v", VERBOSE_OPTION, "verbose output");
-
             return options;
         }
 
-        public static void printUsage(CmdLineOptions options)
-        {
+        public static void printUsage(CmdLineOptions options) {
             String usage = String.format("%s [options] <keyspace> <column_family>", TOOL_NAME);
             StringBuilder header = new StringBuilder();
             header.append("--\n");
-            header.append("List sstable files for the provided table." );
+            header.append("List sstable files for the provided table.");
             header.append("\n--\n");
             header.append("Options are:");
             new HelpFormatter().printHelp(usage, header.toString(), options, "");

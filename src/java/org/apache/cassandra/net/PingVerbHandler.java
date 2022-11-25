@@ -17,13 +17,14 @@
  */
 package org.apache.cassandra.net;
 
-class PingVerbHandler implements IVerbHandler<PingRequest>
-{
-    static final PingVerbHandler instance = new PingVerbHandler();
+class PingVerbHandler implements IVerbHandler<PingRequest> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PingVerbHandler.class);
+
+    static final transient PingVerbHandler instance = new PingVerbHandler();
 
     @Override
-    public void doVerb(Message<PingRequest> message)
-    {
+    public void doVerb(Message<PingRequest> message) {
         MessagingService.instance().send(message.emptyResponse(), message.from(), message.payload.connectionType);
     }
 }

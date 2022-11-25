@@ -23,15 +23,17 @@ import java.util.Locale;
 /**
  * A schema element (keyspace, udt, udf, uda, table, index, view).
  */
-public interface SchemaElement
-{
+public interface SchemaElement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaElement.class);
+
     /**
      * Comparator used to sort {@code Describable} name.
      */
-    Comparator<SchemaElement> NAME_COMPARATOR = (o1, o2) -> o1.elementName().compareToIgnoreCase(o2.elementName());
+    transient Comparator<SchemaElement> NAME_COMPARATOR = (o1, o2) -> o1.elementName().compareToIgnoreCase(o2.elementName());
 
-    enum SchemaElementType
-    {
+    enum SchemaElementType {
+
         KEYSPACE,
         TYPE,
         FUNCTION,
@@ -41,8 +43,7 @@ public interface SchemaElement
         MATERIALIZED_VIEW;
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return super.toString().toLowerCase(Locale.US);
         }
     }
@@ -68,21 +69,16 @@ public interface SchemaElement
      */
     String elementName();
 
-    default String elementNameQuotedIfNeeded()
-    {
+    default String elementNameQuotedIfNeeded() {
         String name = elementName();
-        if (elementType() == SchemaElementType.FUNCTION
-                || elementType() == SchemaElementType.AGGREGATE)
-        {
+        if (elementType() == SchemaElementType.FUNCTION || elementType() == SchemaElementType.AGGREGATE) {
             int index = name.indexOf('(');
             return ColumnIdentifier.maybeQuote(name.substring(0, index)) + name.substring(index);
         }
-
         return ColumnIdentifier.maybeQuote(name);
     }
 
-    default String elementKeyspaceQuotedIfNeeded()
-    {
+    default String elementKeyspaceQuotedIfNeeded() {
         return ColumnIdentifier.maybeQuote(elementKeyspace());
     }
 

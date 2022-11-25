@@ -29,13 +29,14 @@ package org.apache.cassandra.db.rows;
  * reverse clustering order if isReverseOrder is true), and the Row objects returned
  * by next() are only valid until the next call to hasNext() or next().
  */
-public interface RowIterator extends BaseRowIterator<Row>
-{
+public interface RowIterator extends BaseRowIterator<Row> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RowIterator.class);
+
     /**
      * Returns whether the provided iterator has no data.
      */
-    public default boolean isEmpty()
-    {
+    public default boolean isEmpty() {
         return staticRow().isEmpty() && !hasNext();
     }
 }

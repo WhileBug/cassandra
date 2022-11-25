@@ -21,10 +21,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.concurrent.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.io.FSError;
@@ -38,20 +36,22 @@ import org.apache.cassandra.io.util.FileUtils;
  * using the same shared write buffer. In the near future, when CASSANDRA-9428 (compression) is implemented,
  * will also share a compression buffer.
  */
-final class HintsWriteExecutor
-{
-    private static final Logger logger = LoggerFactory.getLogger(HintsWriteExecutor.class);
+final class HintsWriteExecutor {
 
-    static final int WRITE_BUFFER_SIZE = 256 << 10;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintsWriteExecutor.class);
 
-    private final HintsCatalog catalog;
-    private final ByteBuffer writeBuffer;
-    private final ExecutorService executor;
+    private static final transient Logger logger = LoggerFactory.getLogger(HintsWriteExecutor.class);
 
-    HintsWriteExecutor(HintsCatalog catalog)
-    {
+    static final transient int WRITE_BUFFER_SIZE = 256 << 10;
+
+    private final transient HintsCatalog catalog;
+
+    private final transient ByteBuffer writeBuffer;
+
+    private final transient ExecutorService executor;
+
+    HintsWriteExecutor(HintsCatalog catalog) {
         this.catalog = catalog;
-
         writeBuffer = ByteBuffer.allocateDirect(WRITE_BUFFER_SIZE);
         executor = DebuggableThreadPoolExecutor.createWithFixedPoolSize("HintsWriteExecutor", 1);
     }
@@ -59,15 +59,11 @@ final class HintsWriteExecutor
     /*
      * Should be very fast (worst case scenario - write a few 10s of megabytes to disk).
      */
-    void shutdownBlocking()
-    {
+    void shutdownBlocking() {
         executor.shutdown();
-        try
-        {
+        try {
             executor.awaitTermination(1, TimeUnit.MINUTES);
-        }
-        catch (InterruptedException e)
-        {
+        } catch (InterruptedException e) {
             throw new AssertionError(e);
         }
     }
@@ -75,175 +71,142 @@ final class HintsWriteExecutor
     /**
      * Flush the provided buffer, recycle it and offer it back to the pool.
      */
-    Future<?> flushBuffer(HintsBuffer buffer, HintsBufferPool bufferPool)
-    {
+    Future<?> flushBuffer(HintsBuffer buffer, HintsBufferPool bufferPool) {
         return executor.submit(new FlushBufferTask(buffer, bufferPool));
     }
 
     /**
      * Flush the current buffer, but without clearing/recycling it.
      */
-    Future<?> flushBufferPool(HintsBufferPool bufferPool)
-    {
+    Future<?> flushBufferPool(HintsBufferPool bufferPool) {
         return executor.submit(new FlushBufferPoolTask(bufferPool));
     }
 
     /**
      * Flush the current buffer just for the specified hints stores. Without clearing/recycling it.
      */
-    Future<?> flushBufferPool(HintsBufferPool bufferPool, Iterable<HintsStore> stores)
-    {
+    Future<?> flushBufferPool(HintsBufferPool bufferPool, Iterable<HintsStore> stores) {
         return executor.submit(new PartiallyFlushBufferPoolTask(bufferPool, stores));
     }
 
-    void fsyncWritersBlockingly(Iterable<HintsStore> stores)
-    {
-        try
-        {
+    void fsyncWritersBlockingly(Iterable<HintsStore> stores) {
+        try {
             executor.submit(new FsyncWritersTask(stores)).get();
-        }
-        catch (InterruptedException | ExecutionException e)
-        {
+        } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
 
-    Future<?> closeWriter(HintsStore store)
-    {
+    Future<?> closeWriter(HintsStore store) {
         return executor.submit(store::closeWriter);
     }
 
-    Future<?> closeAllWriters()
-    {
+    Future<?> closeAllWriters() {
         return executor.submit(() -> catalog.stores().forEach(HintsStore::closeWriter));
     }
 
-    private final class FlushBufferTask implements Runnable
-    {
-        private final HintsBuffer buffer;
-        private final HintsBufferPool bufferPool;
+    private final class FlushBufferTask implements Runnable {
 
-        FlushBufferTask(HintsBuffer buffer, HintsBufferPool bufferPool)
-        {
+        private final transient HintsBuffer buffer;
+
+        private final transient HintsBufferPool bufferPool;
+
+        FlushBufferTask(HintsBuffer buffer, HintsBufferPool bufferPool) {
             this.buffer = buffer;
             this.bufferPool = bufferPool;
         }
 
-        public void run()
-        {
+        public void run() {
             buffer.waitForModifications();
-
-            try
-            {
+            try {
                 flush(buffer);
-            }
-            finally
-            {
+            } finally {
                 HintsBuffer recycledBuffer = buffer.recycle();
                 bufferPool.offer(recycledBuffer);
             }
         }
     }
 
-    private final class FlushBufferPoolTask implements Runnable
-    {
-        private final HintsBufferPool bufferPool;
+    private final class FlushBufferPoolTask implements Runnable {
 
-        FlushBufferPoolTask(HintsBufferPool bufferPool)
-        {
+        private final transient HintsBufferPool bufferPool;
+
+        FlushBufferPoolTask(HintsBufferPool bufferPool) {
             this.bufferPool = bufferPool;
         }
 
-        public void run()
-        {
+        public void run() {
             HintsBuffer buffer = bufferPool.currentBuffer();
             buffer.waitForModifications();
-            try
-            {
+            try {
                 flush(buffer);
-            }
-            catch(FSError e)
-            {
+            } catch (FSError e) {
                 logger.error("Unable to flush hint buffer: {}", e.getLocalizedMessage(), e);
                 FileUtils.handleFSErrorAndPropagate(e);
             }
         }
     }
 
-    private final class PartiallyFlushBufferPoolTask implements Runnable
-    {
-        private final HintsBufferPool bufferPool;
-        private final Iterable<HintsStore> stores;
+    private final class PartiallyFlushBufferPoolTask implements Runnable {
 
-        PartiallyFlushBufferPoolTask(HintsBufferPool bufferPool, Iterable<HintsStore> stores)
-        {
+        private final transient HintsBufferPool bufferPool;
+
+        private final transient Iterable<HintsStore> stores;
+
+        PartiallyFlushBufferPoolTask(HintsBufferPool bufferPool, Iterable<HintsStore> stores) {
             this.bufferPool = bufferPool;
             this.stores = stores;
         }
 
-        public void run()
-        {
+        public void run() {
             HintsBuffer buffer = bufferPool.currentBuffer();
             buffer.waitForModifications();
             stores.forEach(store -> flush(buffer.consumingHintsIterator(store.hostId), store));
         }
     }
 
-    private final class FsyncWritersTask implements Runnable
-    {
-        private final Iterable<HintsStore> stores;
+    private final class FsyncWritersTask implements Runnable {
 
-        FsyncWritersTask(Iterable<HintsStore> stores)
-        {
+        private final transient Iterable<HintsStore> stores;
+
+        FsyncWritersTask(Iterable<HintsStore> stores) {
             this.stores = stores;
         }
 
-        public void run()
-        {
+        public void run() {
             stores.forEach(HintsStore::fsyncWriter);
             catalog.fsyncDirectory();
         }
     }
 
-    private void flush(HintsBuffer buffer)
-    {
+    private void flush(HintsBuffer buffer) {
         buffer.hostIds().forEach(hostId -> flush(buffer.consumingHintsIterator(hostId), catalog.get(hostId)));
     }
 
-    private void flush(Iterator<ByteBuffer> iterator, HintsStore store)
-    {
-        while (true)
-        {
+    private void flush(Iterator<ByteBuffer> iterator, HintsStore store) {
+        while (true) {
             if (iterator.hasNext())
                 flushInternal(iterator, store);
-
             if (!iterator.hasNext())
                 break;
-
             // exceeded the size limit for an individual file, but still have more to write
             // close the current writer and continue flushing to a new one in the next iteration
             store.closeWriter();
         }
     }
 
-    @SuppressWarnings("resource")   // writer not closed here
-    private void flushInternal(Iterator<ByteBuffer> iterator, HintsStore store)
-    {
+    // writer not closed here
+    @SuppressWarnings("resource")
+    private void flushInternal(Iterator<ByteBuffer> iterator, HintsStore store) {
         long maxHintsFileSize = DatabaseDescriptor.getMaxHintsFileSize();
-
         HintsWriter writer = store.getOrOpenWriter();
-
-        try (HintsWriter.Session session = writer.newSession(writeBuffer))
-        {
-            while (iterator.hasNext())
-            {
+        try (HintsWriter.Session session = writer.newSession(writeBuffer)) {
+            while (iterator.hasNext()) {
                 session.append(iterator.next());
                 if (session.position() >= maxHintsFileSize)
                     break;
             }
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new FSWriteError(e, writer.descriptor().fileName());
         }
     }

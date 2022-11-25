@@ -19,80 +19,75 @@ package org.apache.cassandra.index.sasi.analyzer;
 
 import java.util.Map;
 
-public class NonTokenizingOptions
-{
-    public static final String NORMALIZE_LOWERCASE = "normalize_lowercase";
-    public static final String NORMALIZE_UPPERCASE = "normalize_uppercase";
-    public static final String CASE_SENSITIVE = "case_sensitive";
+public class NonTokenizingOptions {
 
-    private boolean caseSensitive;
-    private boolean upperCaseOutput;
-    private boolean lowerCaseOutput;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NonTokenizingOptions.class);
 
-    public boolean isCaseSensitive()
-    {
+    public static final transient String NORMALIZE_LOWERCASE = "normalize_lowercase";
+
+    public static final transient String NORMALIZE_UPPERCASE = "normalize_uppercase";
+
+    public static final transient String CASE_SENSITIVE = "case_sensitive";
+
+    private transient boolean caseSensitive;
+
+    private transient boolean upperCaseOutput;
+
+    private transient boolean lowerCaseOutput;
+
+    public boolean isCaseSensitive() {
         return caseSensitive;
     }
 
-    public void setCaseSensitive(boolean caseSensitive)
-    {
+    public void setCaseSensitive(boolean caseSensitive) {
         this.caseSensitive = caseSensitive;
     }
 
-    public boolean shouldUpperCaseOutput()
-    {
+    public boolean shouldUpperCaseOutput() {
         return upperCaseOutput;
     }
 
-    public void setUpperCaseOutput(boolean upperCaseOutput)
-    {
+    public void setUpperCaseOutput(boolean upperCaseOutput) {
         this.upperCaseOutput = upperCaseOutput;
     }
 
-    public boolean shouldLowerCaseOutput()
-    {
+    public boolean shouldLowerCaseOutput() {
         return lowerCaseOutput;
     }
 
-    public void setLowerCaseOutput(boolean lowerCaseOutput)
-    {
+    public void setLowerCaseOutput(boolean lowerCaseOutput) {
         this.lowerCaseOutput = lowerCaseOutput;
     }
 
-    public static class OptionsBuilder
-    {
-        private boolean caseSensitive = true;
-        private boolean upperCaseOutput = false;
-        private boolean lowerCaseOutput = false;
+    public static class OptionsBuilder {
 
-        public OptionsBuilder()
-        {
+        private transient boolean caseSensitive = true;
+
+        private transient boolean upperCaseOutput = false;
+
+        private transient boolean lowerCaseOutput = false;
+
+        public OptionsBuilder() {
         }
 
-        public OptionsBuilder caseSensitive(boolean caseSensitive)
-        {
+        public OptionsBuilder caseSensitive(boolean caseSensitive) {
             this.caseSensitive = caseSensitive;
             return this;
         }
 
-        public OptionsBuilder upperCaseOutput(boolean upperCaseOutput)
-        {
+        public OptionsBuilder upperCaseOutput(boolean upperCaseOutput) {
             this.upperCaseOutput = upperCaseOutput;
             return this;
         }
 
-        public OptionsBuilder lowerCaseOutput(boolean lowerCaseOutput)
-        {
+        public OptionsBuilder lowerCaseOutput(boolean lowerCaseOutput) {
             this.lowerCaseOutput = lowerCaseOutput;
             return this;
         }
 
-        public NonTokenizingOptions build()
-        {
+        public NonTokenizingOptions build() {
             if (lowerCaseOutput && upperCaseOutput)
-                throw new IllegalArgumentException("Options to normalize terms cannot be " +
-                        "both uppercase and lowercase at the same time");
-
+                throw new IllegalArgumentException("Options to normalize terms cannot be " + "both uppercase and lowercase at the same time");
             NonTokenizingOptions options = new NonTokenizingOptions();
             options.setCaseSensitive(caseSensitive);
             options.setUpperCaseOutput(upperCaseOutput);
@@ -101,42 +96,34 @@ public class NonTokenizingOptions
         }
     }
 
-    public static NonTokenizingOptions buildFromMap(Map<String, String> optionsMap)
-    {
+    public static NonTokenizingOptions buildFromMap(Map<String, String> optionsMap) {
         OptionsBuilder optionsBuilder = new OptionsBuilder();
-
-        for (Map.Entry<String, String> entry : optionsMap.entrySet())
-        {
-            switch (entry.getKey())
-            {
+        for (Map.Entry<String, String> entry : optionsMap.entrySet()) {
+            switch(entry.getKey()) {
                 case NORMALIZE_LOWERCASE:
-                {
-                    boolean bool = Boolean.parseBoolean(entry.getValue());
-                    optionsBuilder = optionsBuilder.lowerCaseOutput(bool);
-                    break;
-                }
+                    {
+                        boolean bool = Boolean.parseBoolean(entry.getValue());
+                        optionsBuilder = optionsBuilder.lowerCaseOutput(bool);
+                        break;
+                    }
                 case NORMALIZE_UPPERCASE:
-                {
-                    boolean bool = Boolean.parseBoolean(entry.getValue());
-                    optionsBuilder = optionsBuilder.upperCaseOutput(bool);
-                    break;
-                }
+                    {
+                        boolean bool = Boolean.parseBoolean(entry.getValue());
+                        optionsBuilder = optionsBuilder.upperCaseOutput(bool);
+                        break;
+                    }
                 case CASE_SENSITIVE:
-                {
-                    boolean bool = Boolean.parseBoolean(entry.getValue());
-                    optionsBuilder = optionsBuilder.caseSensitive(bool);
-                    break;
-                }
+                    {
+                        boolean bool = Boolean.parseBoolean(entry.getValue());
+                        optionsBuilder = optionsBuilder.caseSensitive(bool);
+                        break;
+                    }
             }
         }
         return optionsBuilder.build();
     }
 
-    public static NonTokenizingOptions getDefaultOptions()
-    {
-        return new OptionsBuilder()
-                .caseSensitive(true).lowerCaseOutput(false)
-                .upperCaseOutput(false)
-                .build();
+    public static NonTokenizingOptions getDefaultOptions() {
+        return new OptionsBuilder().caseSensitive(true).lowerCaseOutput(false).upperCaseOutput(false).build();
     }
 }

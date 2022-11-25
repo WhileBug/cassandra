@@ -15,28 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.dht;
 
 import java.util.HashSet;
 import java.util.Set;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.locator.IEndpointSnitch;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.FBUtilities;
 
-public class Datacenters
-{
+public class Datacenters {
 
-    private static class DCHandle
-    {
-        private static final String thisDc = DatabaseDescriptor.getEndpointSnitch().getLocalDatacenter();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Datacenters.class);
+
+    private static class DCHandle {
+
+        private static final transient String thisDc = DatabaseDescriptor.getEndpointSnitch().getLocalDatacenter();
     }
 
-    public static String thisDatacenter()
-    {
+    public static String thisDatacenter() {
         return DCHandle.thisDc;
     }
 
@@ -45,19 +43,15 @@ public class Datacenters
      * All peers of current node are fetched from {@link TokenMetadata} and then a set is build by fetching DC name of each peer.
      * @return a set of valid DC names
      */
-    public static Set<String> getValidDatacenters()
-    {
+    public static Set<String> getValidDatacenters() {
         final Set<String> validDataCenters = new HashSet<>();
         final IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
-
         // Add data center of localhost.
         validDataCenters.add(thisDatacenter());
         // Fetch and add DCs of all peers.
-        for (InetAddressAndPort peer : StorageService.instance.getTokenMetadata().getAllEndpoints())
-        {
+        for (InetAddressAndPort peer : StorageService.instance.getTokenMetadata().getAllEndpoints()) {
             validDataCenters.add(snitch.getDatacenter(peer));
         }
-
         return validDataCenters;
     }
 }

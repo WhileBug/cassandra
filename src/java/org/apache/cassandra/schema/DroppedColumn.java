@@ -20,40 +20,37 @@ package org.apache.cassandra.schema;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
-public final class DroppedColumn
-{
-    public final ColumnMetadata column;
-    public final long droppedTime; // drop timestamp, in microseconds, yet with millisecond granularity
+public final class DroppedColumn {
 
-    public DroppedColumn(ColumnMetadata column, long droppedTime)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DroppedColumn.class);
+
+    public final transient ColumnMetadata column;
+
+    // drop timestamp, in microseconds, yet with millisecond granularity
+    public final transient long droppedTime;
+
+    public DroppedColumn(ColumnMetadata column, long droppedTime) {
         this.column = column;
         this.droppedTime = droppedTime;
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof DroppedColumn))
             return false;
-
         DroppedColumn dc = (DroppedColumn) o;
-
         return column.equals(dc.column) && droppedTime == dc.droppedTime;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(column, droppedTime);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return MoreObjects.toStringHelper(this).add("column", column).add("droppedTime", droppedTime).toString();
     }
 }

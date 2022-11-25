@@ -19,20 +19,19 @@ package org.apache.cassandra.cql3;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.cql3.restrictions.Restriction;
 import org.apache.cassandra.cql3.statements.Bound;
 import org.apache.cassandra.exceptions.InvalidRequestException;
-
 import static org.apache.cassandra.cql3.statements.RequestValidations.invalidRequest;
 
-public abstract class Relation
-{
-    protected Operator relationType;
+public abstract class Relation {
 
-    public Operator operator()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Relation.class);
+
+    protected transient Operator relationType;
+
+    public Operator operator() {
         return relationType;
     }
 
@@ -51,8 +50,7 @@ public abstract class Relation
      *
      * @return <code>true</code> if this relation apply to multiple columns, <code>false</code> otherwise.
      */
-    public boolean isMultiColumn()
-    {
+    public boolean isMultiColumn() {
         return false;
     }
 
@@ -61,8 +59,7 @@ public abstract class Relation
      *
      * @return <code>true</code> if this relation is a token relation, <code>false</code> otherwise.
      */
-    public boolean onToken()
-    {
+    public boolean onToken() {
         return false;
     }
 
@@ -71,8 +68,7 @@ public abstract class Relation
      * @return <code>true</code>  if the operator of this relation is a <code>CONTAINS</code>, <code>false</code>
      * otherwise.
      */
-    public final boolean isContains()
-    {
+    public final boolean isContains() {
         return relationType == Operator.CONTAINS;
     }
 
@@ -81,8 +77,7 @@ public abstract class Relation
      * @return <code>true</code>  if the operator of this relation is a <code>CONTAINS_KEY</code>, <code>false</code>
      * otherwise.
      */
-    public final boolean isContainsKey()
-    {
+    public final boolean isContainsKey() {
         return relationType == Operator.CONTAINS_KEY;
     }
 
@@ -91,8 +86,7 @@ public abstract class Relation
      * @return <code>true</code>  if the operator of this relation is a <code>IN</code>, <code>false</code>
      * otherwise.
      */
-    public final boolean isIN()
-    {
+    public final boolean isIN() {
         return relationType == Operator.IN;
     }
 
@@ -101,18 +95,12 @@ public abstract class Relation
      * @return <code>true</code>  if the operator of this relation is a <code>EQ</code>, <code>false</code>
      * otherwise.
      */
-    public final boolean isEQ()
-    {
+    public final boolean isEQ() {
         return relationType == Operator.EQ;
     }
 
-    public final boolean isLIKE()
-    {
-        return relationType == Operator.LIKE_PREFIX
-                || relationType == Operator.LIKE_SUFFIX
-                || relationType == Operator.LIKE_CONTAINS
-                || relationType == Operator.LIKE_MATCHES
-                || relationType == Operator.LIKE;
+    public final boolean isLIKE() {
+        return relationType == Operator.LIKE_PREFIX || relationType == Operator.LIKE_SUFFIX || relationType == Operator.LIKE_CONTAINS || relationType == Operator.LIKE_MATCHES || relationType == Operator.LIKE;
     }
 
     /**
@@ -120,12 +108,8 @@ public abstract class Relation
      *
      * @return <code>true</code> if the operator of this relation is a <code>Slice</code>, <code>false</code> otherwise.
      */
-    public final boolean isSlice()
-    {
-        return relationType == Operator.GT
-                || relationType == Operator.GTE
-                || relationType == Operator.LTE
-                || relationType == Operator.LT;
+    public final boolean isSlice() {
+        return relationType == Operator.GT || relationType == Operator.GTE || relationType == Operator.LTE || relationType == Operator.LT;
     }
 
     /**
@@ -136,26 +120,34 @@ public abstract class Relation
      * @return the <code>Restriction</code> corresponding to this <code>Relation</code>
      * @throws InvalidRequestException if this <code>Relation</code> is not valid
      */
-    public final Restriction toRestriction(TableMetadata table, VariableSpecifications boundNames)
-    {
-        switch (relationType)
-        {
-            case EQ: return newEQRestriction(table, boundNames);
-            case LT: return newSliceRestriction(table, boundNames, Bound.END, false);
-            case LTE: return newSliceRestriction(table, boundNames, Bound.END, true);
-            case GTE: return newSliceRestriction(table, boundNames, Bound.START, true);
-            case GT: return newSliceRestriction(table, boundNames, Bound.START, false);
-            case IN: return newINRestriction(table, boundNames);
-            case CONTAINS: return newContainsRestriction(table, boundNames, false);
-            case CONTAINS_KEY: return newContainsRestriction(table, boundNames, true);
-            case IS_NOT: return newIsNotRestriction(table, boundNames);
+    public final Restriction toRestriction(TableMetadata table, VariableSpecifications boundNames) {
+        switch(relationType) {
+            case EQ:
+                return newEQRestriction(table, boundNames);
+            case LT:
+                return newSliceRestriction(table, boundNames, Bound.END, false);
+            case LTE:
+                return newSliceRestriction(table, boundNames, Bound.END, true);
+            case GTE:
+                return newSliceRestriction(table, boundNames, Bound.START, true);
+            case GT:
+                return newSliceRestriction(table, boundNames, Bound.START, false);
+            case IN:
+                return newINRestriction(table, boundNames);
+            case CONTAINS:
+                return newContainsRestriction(table, boundNames, false);
+            case CONTAINS_KEY:
+                return newContainsRestriction(table, boundNames, true);
+            case IS_NOT:
+                return newIsNotRestriction(table, boundNames);
             case LIKE_PREFIX:
             case LIKE_SUFFIX:
             case LIKE_CONTAINS:
             case LIKE_MATCHES:
             case LIKE:
                 return newLikeRestriction(table, boundNames, relationType);
-            default: throw invalidRequest("Unsupported \"!=\" relation: %s", this);
+            default:
+                throw invalidRequest("Unsupported \"!=\" relation: %s", this);
         }
     }
 
@@ -189,10 +181,7 @@ public abstract class Relation
      * @return a new slice restriction instance
      * @throws InvalidRequestException if the <code>Relation</code> is not valid
      */
-    protected abstract Restriction newSliceRestriction(TableMetadata table,
-                                                       VariableSpecifications boundNames,
-                                                       Bound bound,
-                                                       boolean inclusive);
+    protected abstract Restriction newSliceRestriction(TableMetadata table, VariableSpecifications boundNames, Bound bound, boolean inclusive);
 
     /**
      * Creates a new Contains restriction instance.
@@ -219,10 +208,7 @@ public abstract class Relation
      * @return the <code>Term</code> corresponding to the specified <code>Raw</code>
      * @throws InvalidRequestException if the <code>Raw</code> term is not valid
      */
-    protected abstract Term toTerm(List<? extends ColumnSpecification> receivers,
-                                   Term.Raw raw,
-                                   String keyspace,
-                                   VariableSpecifications boundNames);
+    protected abstract Term toTerm(List<? extends ColumnSpecification> receivers, Term.Raw raw, String keyspace, VariableSpecifications boundNames);
 
     /**
      * Converts the specified <code>Raw</code> terms into a <code>Term</code>s.
@@ -234,18 +220,11 @@ public abstract class Relation
      * @return the <code>Term</code>s corresponding to the specified <code>Raw</code> terms
      * @throws InvalidRequestException if the <code>Raw</code> terms are not valid
      */
-    protected final List<Term> toTerms(List<? extends ColumnSpecification> receivers,
-                                       List<? extends Term.Raw> raws,
-                                       String keyspace,
-                                       VariableSpecifications boundNames)
-    {
+    protected final List<Term> toTerms(List<? extends ColumnSpecification> receivers, List<? extends Term.Raw> raws, String keyspace, VariableSpecifications boundNames) {
         if (raws == null)
             return null;
-
         List<Term> terms = new ArrayList<>(raws.size());
-        for (int i = 0, m = raws.size(); i < m; i++)
-            terms.add(toTerm(receivers, raws.get(i), keyspace, boundNames));
-
+        for (int i = 0, m = raws.size(); i < m; i++) terms.add(toTerm(receivers, raws.get(i), keyspace, boundNames));
         return terms;
     }
 
@@ -266,8 +245,7 @@ public abstract class Relation
     public abstract String toCQLString();
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toCQLString();
     }
 }

@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 import java.io.IOException;
 import java.util.UUID;
-
 import org.apache.cassandra.io.util.DataOutputStreamPlus;
 import org.apache.cassandra.schema.TableId;
 
@@ -31,8 +29,10 @@ import org.apache.cassandra.schema.TableId;
  * All the data contained in a given stream needs to have the same repairedAt timestamp (or 0) and pendingRepair
  * id (or null).
  */
-public interface OutgoingStream
-{
+public interface OutgoingStream {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutgoingStream.class);
+
     /**
      * Write the streams data into the socket
      */
@@ -44,6 +44,7 @@ public interface OutgoingStream
     void finish();
 
     long getRepairedAt();
+
     UUID getPendingRepair();
 
     String getName();
@@ -53,6 +54,8 @@ public interface OutgoingStream
      * stats metadata update and index redistribution will change file sizes.
      */
     long getEstimatedSize();
+
     TableId getTableId();
+
     int getNumFiles();
 }

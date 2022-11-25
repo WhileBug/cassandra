@@ -18,18 +18,18 @@
  */
 package org.apache.cassandra.utils.memory;
 
-public class SlabPool extends MemtablePool
-{
-    final boolean allocateOnHeap;
+public class SlabPool extends MemtablePool {
 
-    public SlabPool(long maxOnHeapMemory, long maxOffHeapMemory, float cleanupThreshold, MemtableCleaner cleaner)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SlabPool.class);
+
+    final transient boolean allocateOnHeap;
+
+    public SlabPool(long maxOnHeapMemory, long maxOffHeapMemory, float cleanupThreshold, MemtableCleaner cleaner) {
         super(maxOnHeapMemory, maxOffHeapMemory, cleanupThreshold, cleaner);
         this.allocateOnHeap = maxOffHeapMemory == 0;
     }
 
-    public MemtableAllocator newAllocator()
-    {
+    public MemtableAllocator newAllocator() {
         return new SlabAllocator(onHeap.newAllocator(), offHeap.newAllocator(), allocateOnHeap);
     }
 }

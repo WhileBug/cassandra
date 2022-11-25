@@ -1,4 +1,5 @@
 package org.apache.cassandra.triggers;
+
 /*
  *
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,10 +20,7 @@ package org.apache.cassandra.triggers;
  * under the License.
  *
  */
-
-
 import java.util.Collection;
-
 import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.db.partitions.Partition;
 
@@ -38,8 +36,10 @@ import org.apache.cassandra.db.partitions.Partition;
  *
  * <br><b>The API is still beta and can change.</b>
  */
-public interface ITrigger
-{
+public interface ITrigger {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ITrigger.class);
+
     /**
      * Called exactly once per CF update, returned mutations are atomically updated.
      *

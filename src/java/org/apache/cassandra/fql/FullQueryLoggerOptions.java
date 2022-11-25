@@ -15,26 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.fql;
 
 import org.apache.commons.lang3.StringUtils;
-
 import org.apache.cassandra.utils.binlog.BinLogOptions;
 
-public class FullQueryLoggerOptions extends BinLogOptions
-{
-    public String log_dir = StringUtils.EMPTY;
+public class FullQueryLoggerOptions extends BinLogOptions {
 
-    public String toString()
-    {
-        return "FullQueryLoggerOptions{" +
-               "log_dir='" + log_dir + '\'' +
-               ", archive_command='" + archive_command + '\'' +
-               ", roll_cycle='" + roll_cycle + '\'' +
-               ", block=" + block +
-               ", max_queue_weight=" + max_queue_weight +
-               ", max_log_size=" + max_log_size +
-               '}';
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FullQueryLoggerOptions.class);
+
+    public transient String log_dir = StringUtils.EMPTY;
+
+    public String toString() {
+        return "FullQueryLoggerOptions{" + "log_dir='" + log_dir + '\'' + ", archive_command='" + archive_command + '\'' + ", roll_cycle='" + roll_cycle + '\'' + ", block=" + block + ", max_queue_weight=" + max_queue_weight + ", max_log_size=" + max_log_size + '}';
     }
 }

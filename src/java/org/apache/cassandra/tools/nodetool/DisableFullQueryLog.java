@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
@@ -23,11 +22,12 @@ import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "disablefullquerylog", description = "Disable the full query log")
-public class DisableFullQueryLog extends NodeToolCmd
-{
+public class DisableFullQueryLog extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DisableFullQueryLog.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.stopFullQueryLogger();
     }
 }

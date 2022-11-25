@@ -19,27 +19,27 @@ package org.apache.cassandra.db.rows;
 
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.AbstractIterator;
-
 import org.apache.cassandra.db.*;
 
-public abstract class AbstractUnfilteredRowIterator extends AbstractIterator<Unfiltered> implements UnfilteredRowIterator
-{
-    protected final TableMetadata metadata;
-    protected final DecoratedKey partitionKey;
-    protected final DeletionTime partitionLevelDeletion;
-    protected final RegularAndStaticColumns columns;
-    protected final Row staticRow;
-    protected final boolean isReverseOrder;
-    protected final EncodingStats stats;
+public abstract class AbstractUnfilteredRowIterator extends AbstractIterator<Unfiltered> implements UnfilteredRowIterator {
 
-    protected AbstractUnfilteredRowIterator(TableMetadata metadata,
-                                            DecoratedKey partitionKey,
-                                            DeletionTime partitionLevelDeletion,
-                                            RegularAndStaticColumns columns,
-                                            Row staticRow,
-                                            boolean isReverseOrder,
-                                            EncodingStats stats)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractUnfilteredRowIterator.class);
+
+    protected final transient TableMetadata metadata;
+
+    protected final transient DecoratedKey partitionKey;
+
+    protected final transient DeletionTime partitionLevelDeletion;
+
+    protected final transient RegularAndStaticColumns columns;
+
+    protected final transient Row staticRow;
+
+    protected final transient boolean isReverseOrder;
+
+    protected final transient EncodingStats stats;
+
+    protected AbstractUnfilteredRowIterator(TableMetadata metadata, DecoratedKey partitionKey, DeletionTime partitionLevelDeletion, RegularAndStaticColumns columns, Row staticRow, boolean isReverseOrder, EncodingStats stats) {
         this.metadata = metadata;
         this.partitionKey = partitionKey;
         this.partitionLevelDeletion = partitionLevelDeletion;
@@ -49,42 +49,34 @@ public abstract class AbstractUnfilteredRowIterator extends AbstractIterator<Unf
         this.stats = stats;
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return metadata;
     }
 
-    public RegularAndStaticColumns columns()
-    {
+    public RegularAndStaticColumns columns() {
         return columns;
     }
 
-    public boolean isReverseOrder()
-    {
+    public boolean isReverseOrder() {
         return isReverseOrder;
     }
 
-    public DecoratedKey partitionKey()
-    {
+    public DecoratedKey partitionKey() {
         return partitionKey;
     }
 
-    public DeletionTime partitionLevelDeletion()
-    {
+    public DeletionTime partitionLevelDeletion() {
         return partitionLevelDeletion;
     }
 
-    public Row staticRow()
-    {
+    public Row staticRow() {
         return staticRow;
     }
 
-    public EncodingStats stats()
-    {
+    public EncodingStats stats() {
         return stats;
     }
 
-    public void close()
-    {
+    public void close() {
     }
 }

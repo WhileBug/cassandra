@@ -24,10 +24,11 @@ import java.nio.ByteBuffer;
 /**
  * Base type for the numeric types.
  */
-public abstract class NumberType<T extends Number> extends AbstractType<T>
-{
-    protected NumberType(ComparisonType comparisonType)
-    {
+public abstract class NumberType<T extends Number> extends AbstractType<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NumberType.class);
+
+    protected NumberType(ComparisonType comparisonType) {
         super(comparisonType);
     }
 
@@ -35,8 +36,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * Checks if this type support floating point numbers.
      * @return {@code true} if this type support floating point numbers, {@code false} otherwise.
      */
-    public boolean isFloatingPoint()
-    {
+    public boolean isFloatingPoint() {
         return false;
     }
 
@@ -47,8 +47,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @return the converted value
      * @throws UnsupportedOperationException if the value cannot be converted without losing precision
      */
-    protected BigInteger toBigInteger(ByteBuffer value)
-    {
+    protected BigInteger toBigInteger(ByteBuffer value) {
         return BigInteger.valueOf(toLong(value));
     }
 
@@ -58,16 +57,12 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @param value the value to convert
      * @return the converted value
      */
-    protected BigDecimal toBigDecimal(ByteBuffer value)
-    {
+    protected BigDecimal toBigDecimal(ByteBuffer value) {
         double d = toDouble(value);
-
         if (Double.isNaN(d))
             throw new NumberFormatException("A NaN cannot be converted into a decimal");
-
         if (Double.isInfinite(d))
             throw new NumberFormatException("An infinite number cannot be converted into a decimal");
-
         return BigDecimal.valueOf(d);
     }
 
@@ -78,8 +73,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @return the converted value
      * @throws UnsupportedOperationException if the value cannot be converted without losing precision
      */
-    protected byte toByte(ByteBuffer value)
-    {
+    protected byte toByte(ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
 
@@ -90,8 +84,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @return the converted value
      * @throws UnsupportedOperationException if the value cannot be converted without losing precision
      */
-    protected short toShort(ByteBuffer value)
-    {
+    protected short toShort(ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
 
@@ -102,8 +95,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @return the converted value
      * @throws UnsupportedOperationException if the value cannot be converted without losing precision
      */
-    protected int toInt(ByteBuffer value)
-    {
+    protected int toInt(ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
 
@@ -114,8 +106,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @return the converted value
      * @throws UnsupportedOperationException if the value cannot be converted without losing precision
      */
-    protected long toLong(ByteBuffer value)
-    {
+    protected long toLong(ByteBuffer value) {
         return toInt(value);
     }
 
@@ -126,8 +117,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @return the converted value
      * @throws UnsupportedOperationException if the value cannot be converted without losing precision
      */
-    protected float toFloat(ByteBuffer value)
-    {
+    protected float toFloat(ByteBuffer value) {
         return toInt(value);
     }
 
@@ -138,8 +128,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @return the converted value
      * @throws UnsupportedOperationException if the value cannot be converted without losing precision
      */
-    protected double toDouble(ByteBuffer value)
-    {
+    protected double toDouble(ByteBuffer value) {
         return toLong(value);
     }
 
@@ -152,10 +141,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @param right the right argument
      * @return the addition result
      */
-    public abstract ByteBuffer add(NumberType<?> leftType,
-                                   ByteBuffer left,
-                                   NumberType<?> rightType,
-                                   ByteBuffer right);
+    public abstract ByteBuffer add(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right);
 
     /**
      * Substracts the left argument from the right one.
@@ -166,10 +152,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @param right the right argument
      * @return the substraction result
      */
-    public abstract ByteBuffer substract(NumberType<?> leftType,
-                                         ByteBuffer left,
-                                         NumberType<?> rightType,
-                                         ByteBuffer right);
+    public abstract ByteBuffer substract(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right);
 
     /**
      * Multiplies the left argument with the right one.
@@ -180,10 +163,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @param right the right argument
      * @return the multiplication result
      */
-    public abstract ByteBuffer multiply(NumberType<?> leftType,
-                                        ByteBuffer left,
-                                        NumberType<?> rightType,
-                                        ByteBuffer right);
+    public abstract ByteBuffer multiply(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right);
 
     /**
      * Divides the left argument by the right one.
@@ -194,10 +174,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @param right the right argument
      * @return the division result
      */
-    public abstract ByteBuffer divide(NumberType<?> leftType,
-                                      ByteBuffer left,
-                                      NumberType<?> rightType,
-                                      ByteBuffer right);
+    public abstract ByteBuffer divide(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right);
 
     /**
      * Return the remainder.
@@ -208,10 +185,7 @@ public abstract class NumberType<T extends Number> extends AbstractType<T>
      * @param right the right argument
      * @return the remainder
      */
-    public abstract ByteBuffer mod(NumberType<?> leftType,
-                                   ByteBuffer left,
-                                   NumberType<?> rightType,
-                                   ByteBuffer right);
+    public abstract ByteBuffer mod(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right);
 
     /**
      * Negates the argument.

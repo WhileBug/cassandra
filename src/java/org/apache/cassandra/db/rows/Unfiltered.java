@@ -34,9 +34,14 @@ import org.apache.cassandra.db.Clusterable;
  * and cell values with multiple backing types. Also, by the time you're dealing with
  * Unfiltered objects, the backing type should be considered opaque.
  */
-public interface Unfiltered extends Clusterable
-{
-    public enum Kind { ROW, RANGE_TOMBSTONE_MARKER }
+public interface Unfiltered extends Clusterable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Unfiltered.class);
+
+    public enum Kind {
+
+        ROW, RANGE_TOMBSTONE_MARKER
+    }
 
     /**
      * The kind of the atom: either row or range tombstone marker.
@@ -68,19 +73,20 @@ public interface Unfiltered extends Clusterable
      * @return true if any deletion is invalid
      */
     public boolean hasInvalidDeletions();
+
     public boolean isEmpty();
 
     public String toString(TableMetadata metadata);
+
     public String toString(TableMetadata metadata, boolean fullDetails);
+
     public String toString(TableMetadata metadata, boolean includeClusterKeys, boolean fullDetails);
 
-    default boolean isRow()
-    {
+    default boolean isRow() {
         return kind() == Kind.ROW;
     }
 
-    default boolean isRangeTombstoneMarker()
-    {
+    default boolean isRangeTombstoneMarker() {
         return kind() == Kind.RANGE_TOMBSTONE_MARKER;
     }
 }

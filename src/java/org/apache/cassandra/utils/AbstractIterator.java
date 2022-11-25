@@ -20,69 +20,63 @@ package org.apache.cassandra.utils;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
 import com.google.common.collect.PeekingIterator;
 
-public abstract class AbstractIterator<V> implements Iterator<V>, PeekingIterator<V>, CloseableIterator<V>
-{
+public abstract class AbstractIterator<V> implements Iterator<V>, PeekingIterator<V>, CloseableIterator<V> {
 
-    private static enum State { MUST_FETCH, HAS_NEXT, DONE, FAILED }
-    private State state = State.MUST_FETCH;
-    private V next;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractIterator.class);
 
-    protected V endOfData()
-    {
+    private static enum State {
+
+        MUST_FETCH, HAS_NEXT, DONE, FAILED
+    }
+
+    private transient State state = State.MUST_FETCH;
+
+    private transient V next;
+
+    protected V endOfData() {
         state = State.DONE;
         return null;
     }
 
     protected abstract V computeNext();
 
-    public boolean hasNext()
-    {
-        switch (state)
-        {
+    public boolean hasNext() {
+        switch(state) {
             case MUST_FETCH:
                 state = State.FAILED;
                 next = computeNext();
-
             default:
                 if (state == State.DONE)
                     return false;
-
                 state = State.HAS_NEXT;
                 return true;
-
             case FAILED:
                 throw new IllegalStateException();
         }
     }
 
-    public V next()
-    {
+    public V next() {
         if (state != State.HAS_NEXT && !hasNext())
             throw new NoSuchElementException();
-
         state = State.MUST_FETCH;
         V result = next;
         next = null;
         return result;
     }
 
-    public V peek()
-    {
+    public V peek() {
         if (!hasNext())
             throw new NoSuchElementException();
         return next;
     }
 
-    public void remove()
-    {
+    public void remove() {
         throw new UnsupportedOperationException();
     }
 
-    public void close()
-    {
-        //no-op
+    public void close() {
+        // no-op
     }
 }

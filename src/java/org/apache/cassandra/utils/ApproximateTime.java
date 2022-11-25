@@ -15,21 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.ScheduledExecutors;
 import org.apache.cassandra.config.Config;
-
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.cassandra.utils.ApproximateTime.Measurement.ALMOST_NOW;
 import static org.apache.cassandra.utils.ApproximateTime.Measurement.ALMOST_SAME_TIME;
@@ -41,115 +37,119 @@ import static org.apache.cassandra.utils.ApproximateTime.Measurement.ALMOST_SAME
  *   - A mechanism for converting between nanoTime and currentTimeMillis measurements.
  *     These conversions may have drifted, and they offer no absolute guarantees on precision
  */
-public class ApproximateTime
-{
-    private static final Logger logger = LoggerFactory.getLogger(ApproximateTime.class);
-    private static final int ALMOST_NOW_UPDATE_INTERVAL_MS = Math.max(1, Integer.parseInt(System.getProperty(Config.PROPERTY_PREFIX + "approximate_time_precision_ms", "2")));
-    private static final String CONVERSION_UPDATE_INTERVAL_PROPERTY = Config.PROPERTY_PREFIX + "NANOTIMETOMILLIS_TIMESTAMP_UPDATE_INTERVAL";
-    private static final long ALMOST_SAME_TIME_UPDATE_INTERVAL_MS = Long.getLong(CONVERSION_UPDATE_INTERVAL_PROPERTY, 10000);
+public class ApproximateTime {
 
-    public static class AlmostSameTime
-    {
-        final long millis;
-        final long nanos;
-        final long error; // maximum error of millis measurement (in nanos)
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ApproximateTime.class);
 
-        private AlmostSameTime(long millis, long nanos, long error)
-        {
+    private static final transient Logger logger = LoggerFactory.getLogger(ApproximateTime.class);
+
+    private static final transient int ALMOST_NOW_UPDATE_INTERVAL_MS = Math.max(1, Integer.parseInt(System.getProperty(Config.PROPERTY_PREFIX + "approximate_time_precision_ms", "2")));
+
+    private static final transient String CONVERSION_UPDATE_INTERVAL_PROPERTY = Config.PROPERTY_PREFIX + "NANOTIMETOMILLIS_TIMESTAMP_UPDATE_INTERVAL";
+
+    private static final transient long ALMOST_SAME_TIME_UPDATE_INTERVAL_MS = Long.getLong(CONVERSION_UPDATE_INTERVAL_PROPERTY, 10000);
+
+    public static class AlmostSameTime {
+
+        final transient long millis;
+
+        final transient long nanos;
+
+        // maximum error of millis measurement (in nanos)
+        final transient long error;
+
+        private AlmostSameTime(long millis, long nanos, long error) {
             this.millis = millis;
             this.nanos = nanos;
             this.error = error;
         }
 
-        public long toCurrentTimeMillis(long nanoTime)
-        {
+        public long toCurrentTimeMillis(long nanoTime) {
             return millis + TimeUnit.NANOSECONDS.toMillis(nanoTime - nanos);
         }
 
-        public long toNanoTime(long currentTimeMillis)
-        {
+        public long toNanoTime(long currentTimeMillis) {
             return nanos + MILLISECONDS.toNanos(currentTimeMillis - millis);
         }
     }
 
-    public enum Measurement { ALMOST_NOW, ALMOST_SAME_TIME }
+    public enum Measurement {
 
-    private static volatile Future<?> almostNowUpdater;
-    private static volatile Future<?> almostSameTimeUpdater;
+        ALMOST_NOW, ALMOST_SAME_TIME
+    }
 
-    private static volatile long almostNowMillis;
-    private static volatile long almostNowNanos;
+    private static volatile transient Future<?> almostNowUpdater;
 
-    private static volatile AlmostSameTime almostSameTime = new AlmostSameTime(0L, 0L, Long.MAX_VALUE);
-    private static double failedAlmostSameTimeUpdateModifier = 1.0;
+    private static volatile transient Future<?> almostSameTimeUpdater;
 
-    private static final Runnable refreshAlmostNow = () -> {
+    private static volatile transient long almostNowMillis;
+
+    private static volatile transient long almostNowNanos;
+
+    private static volatile transient AlmostSameTime almostSameTime = new AlmostSameTime(0L, 0L, Long.MAX_VALUE);
+
+    private static transient double failedAlmostSameTimeUpdateModifier = 1.0;
+
+    private static final transient Runnable refreshAlmostNow = () -> {
         almostNowMillis = System.currentTimeMillis();
         almostNowNanos = System.nanoTime();
     };
 
-    private static final Runnable refreshAlmostSameTime = () -> {
+    private static final transient Runnable refreshAlmostSameTime = () -> {
         final int tries = 3;
         long[] samples = new long[2 * tries + 1];
         samples[0] = System.nanoTime();
-        for (int i = 1 ; i < samples.length ; i += 2)
-        {
+        for (int i = 1; i < samples.length; i += 2) {
             samples[i] = System.currentTimeMillis();
             samples[i + 1] = System.nanoTime();
         }
-
         int best = 1;
         // take sample with minimum delta between calls
-        for (int i = 3 ; i < samples.length - 1 ; i += 2)
-        {
-            if ((samples[i+1] - samples[i-1]) < (samples[best+1]-samples[best-1]))
+        for (int i = 3; i < samples.length - 1; i += 2) {
+            if ((samples[i + 1] - samples[i - 1]) < (samples[best + 1] - samples[best - 1]))
                 best = i;
         }
-
         long millis = samples[best];
-        long nanos = (samples[best+1] / 2) + (samples[best-1] / 2);
-        long error = (samples[best+1] / 2) - (samples[best-1] / 2);
-
+        long nanos = (samples[best + 1] / 2) + (samples[best - 1] / 2);
+        long error = (samples[best + 1] / 2) - (samples[best - 1] / 2);
         AlmostSameTime prev = almostSameTime;
         AlmostSameTime next = new AlmostSameTime(millis, nanos, error);
-
-        if (next.error > prev.error && next.error > prev.error * failedAlmostSameTimeUpdateModifier)
-        {
+        if (next.error > prev.error && next.error > prev.error * failedAlmostSameTimeUpdateModifier) {
             failedAlmostSameTimeUpdateModifier *= 1.1;
             return;
         }
-
         failedAlmostSameTimeUpdateModifier = 1.0;
         almostSameTime = next;
     };
 
-    static
-    {
+    static {
         start(ALMOST_NOW);
         start(ALMOST_SAME_TIME);
     }
 
-    public static synchronized void stop(Measurement measurement)
-    {
-        switch (measurement)
-        {
+    public static synchronized void stop(Measurement measurement) {
+        switch(measurement) {
             case ALMOST_NOW:
                 almostNowUpdater.cancel(true);
-                try { almostNowUpdater.get(); } catch (Throwable t) { }
+                try {
+                    almostNowUpdater.get();
+                } catch (Throwable t) {
+                }
                 almostNowUpdater = null;
                 break;
             case ALMOST_SAME_TIME:
                 almostSameTimeUpdater.cancel(true);
-                try { almostSameTimeUpdater.get(); } catch (Throwable t) { }
+                try {
+                    almostSameTimeUpdater.get();
+                } catch (Throwable t) {
+                }
                 almostSameTimeUpdater = null;
                 break;
         }
     }
 
-    public static synchronized void start(Measurement measurement)
-    {
-        switch (measurement)
-        {
+    public static synchronized void start(Measurement measurement) {
+        switch(measurement) {
             case ALMOST_NOW:
                 if (almostNowUpdater != null)
                     throw new IllegalStateException("Already running");
@@ -167,26 +167,26 @@ public class ApproximateTime
         }
     }
 
-
     /**
      * Request an immediate refresh; this shouldn't generally be invoked, except perhaps by tests
      */
     @VisibleForTesting
-    public static synchronized void refresh(Measurement measurement)
-    {
+    public static synchronized void refresh(Measurement measurement) {
         stop(measurement);
         start(measurement);
     }
 
-    /** no guarantees about relationship to nanoTime; non-monotonic (tracks currentTimeMillis as closely as possible) */
-    public static long currentTimeMillis()
-    {
+    /**
+     * no guarantees about relationship to nanoTime; non-monotonic (tracks currentTimeMillis as closely as possible)
+     */
+    public static long currentTimeMillis() {
         return almostNowMillis;
     }
 
-    /** no guarantees about relationship to currentTimeMillis; monotonic */
-    public static long nanoTime()
-    {
+    /**
+     * no guarantees about relationship to currentTimeMillis; monotonic
+     */
+    public static long nanoTime() {
         return almostNowNanos;
     }
 }

@@ -13,41 +13,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.index.sasi.utils;
 
 import java.util.NoSuchElementException;
-
 import com.google.common.collect.PeekingIterator;
-
 import static com.google.common.base.Preconditions.checkState;
 
 // This is fork of the Guava AbstractIterator, the only difference
 // is that state & next variables are now protected, this was required
 // for SkippableIterator.skipTo(..) to void all previous state.
-public abstract class AbstractIterator<T> implements PeekingIterator<T>
-{
-    protected State state = State.NOT_READY;
+public abstract class AbstractIterator<T> implements PeekingIterator<T> {
 
-    /** Constructor for use by subclasses. */
-    protected AbstractIterator() {}
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractIterator.class);
 
-    protected enum State
-    {
-        /** We have computed the next element and haven't returned it yet. */
-        READY,
+    protected transient State state = State.NOT_READY;
 
-        /** We haven't yet computed or have already returned the element. */
-        NOT_READY,
-
-        /** We have reached the end of the data and are finished. */
-        DONE,
-
-        /** We've suffered an exception and are kaput. */
-        FAILED,
+    /**
+     * Constructor for use by subclasses.
+     */
+    protected AbstractIterator() {
     }
 
-    protected T next;
+    protected enum State {
+
+        /**
+         * We have computed the next element and haven't returned it yet.
+         */
+        READY,
+        /**
+         * We haven't yet computed or have already returned the element.
+         */
+        NOT_READY,
+        /**
+         * We have reached the end of the data and are finished.
+         */
+        DONE,
+        /**
+         * We've suffered an exception and are kaput.
+         */
+        FAILED
+    }
+
+    protected transient T next;
 
     /**
      * Returns the next element. <b>Note:</b> the implementation must call {@link
@@ -86,55 +93,42 @@ public abstract class AbstractIterator<T> implements PeekingIterator<T>
      * @return {@code null}; a convenience so your {@code computeNext}
      *     implementation can use the simple statement {@code return endOfData();}
      */
-    protected final T endOfData()
-    {
+    protected final T endOfData() {
         state = State.DONE;
         return null;
     }
 
-    public final boolean hasNext()
-    {
+    public final boolean hasNext() {
         checkState(state != State.FAILED);
-
-        switch (state)
-        {
+        switch(state) {
             case DONE:
                 return false;
-
             case READY:
                 return true;
-
             default:
         }
-
         return tryToComputeNext();
     }
 
-    protected boolean tryToComputeNext()
-    {
-        state = State.FAILED; // temporary pessimism
+    protected boolean tryToComputeNext() {
+        // temporary pessimism
+        state = State.FAILED;
         next = computeNext();
-
-        if (state != State.DONE)
-        {
+        if (state != State.DONE) {
             state = State.READY;
             return true;
         }
-
         return false;
     }
 
-    public final T next()
-    {
+    public final T next() {
         if (!hasNext())
             throw new NoSuchElementException();
-
         state = State.NOT_READY;
         return next;
     }
 
-    public void remove()
-    {
+    public void remove() {
         throw new UnsupportedOperationException();
     }
 
@@ -145,11 +139,9 @@ public abstract class AbstractIterator<T> implements PeekingIterator<T>
      * <p>Implementations of {@code AbstractIterator} that wish to expose this
      * functionality should implement {@code PeekingIterator}.
      */
-    public final T peek()
-    {
+    public final T peek() {
         if (!hasNext())
             throw new NoSuchElementException();
-
         return next;
     }
 }

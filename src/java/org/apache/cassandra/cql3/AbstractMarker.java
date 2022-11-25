@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3;
 
 import java.util.List;
-
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.CollectionType;
@@ -28,49 +27,44 @@ import org.apache.cassandra.exceptions.InvalidRequestException;
 /**
  * A single bind marker.
  */
-public abstract class AbstractMarker extends Term.NonTerminal
-{
-    protected final int bindIndex;
-    protected final ColumnSpecification receiver;
+public abstract class AbstractMarker extends Term.NonTerminal {
 
-    protected AbstractMarker(int bindIndex, ColumnSpecification receiver)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractMarker.class);
+
+    protected final transient int bindIndex;
+
+    protected final transient ColumnSpecification receiver;
+
+    protected AbstractMarker(int bindIndex, ColumnSpecification receiver) {
         this.bindIndex = bindIndex;
         this.receiver = receiver;
     }
 
-    public void collectMarkerSpecification(VariableSpecifications boundNames)
-    {
+    public void collectMarkerSpecification(VariableSpecifications boundNames) {
         boundNames.add(bindIndex, receiver);
     }
 
-    public boolean containsBindMarker()
-    {
+    public boolean containsBindMarker() {
         return true;
     }
 
-    public void addFunctionsTo(List<Function> functions)
-    {
+    public void addFunctionsTo(List<Function> functions) {
     }
 
     /**
      * A parsed, but non prepared, bind marker.
      */
-    public static class Raw extends Term.Raw
-    {
-        protected final int bindIndex;
+    public static class Raw extends Term.Raw {
 
-        public Raw(int bindIndex)
-        {
+        protected final transient int bindIndex;
+
+        public Raw(int bindIndex) {
             this.bindIndex = bindIndex;
         }
 
-        public NonTerminal prepare(String keyspace, ColumnSpecification receiver) throws InvalidRequestException
-        {
-            if (receiver.type.isCollection())
-            {
-                switch (((CollectionType) receiver.type).kind)
-                {
+        public NonTerminal prepare(String keyspace, ColumnSpecification receiver) throws InvalidRequestException {
+            if (receiver.type.isCollection()) {
+                switch(((CollectionType) receiver.type).kind) {
                     case LIST:
                         return new Lists.Marker(bindIndex, receiver);
                     case SET:
@@ -80,56 +74,48 @@ public abstract class AbstractMarker extends Term.NonTerminal
                     default:
                         throw new AssertionError();
                 }
-            }
-            else if (receiver.type.isUDT())
-            {
+            } else if (receiver.type.isUDT()) {
                 return new UserTypes.Marker(bindIndex, receiver);
             }
-
             return new Constants.Marker(bindIndex, receiver);
         }
 
         @Override
-        public AssignmentTestable.TestResult testAssignment(String keyspace, ColumnSpecification receiver)
-        {
+        public AssignmentTestable.TestResult testAssignment(String keyspace, ColumnSpecification receiver) {
             return AssignmentTestable.TestResult.WEAKLY_ASSIGNABLE;
         }
 
-        public AbstractType<?> getExactTypeIfKnown(String keyspace)
-        {
+        public AbstractType<?> getExactTypeIfKnown(String keyspace) {
             return null;
         }
 
         @Override
-        public String getText()
-        {
+        public String getText() {
             return "?";
         }
     }
 
-    /** A MultiColumnRaw version of AbstractMarker.Raw */
-    public static abstract class MultiColumnRaw extends Term.MultiColumnRaw
-    {
-        protected final int bindIndex;
+    /**
+     * A MultiColumnRaw version of AbstractMarker.Raw
+     */
+    public static abstract class MultiColumnRaw extends Term.MultiColumnRaw {
 
-        public MultiColumnRaw(int bindIndex)
-        {
+        protected final transient int bindIndex;
+
+        public MultiColumnRaw(int bindIndex) {
             this.bindIndex = bindIndex;
         }
 
-        public NonTerminal prepare(String keyspace, ColumnSpecification receiver) throws InvalidRequestException
-        {
+        public NonTerminal prepare(String keyspace, ColumnSpecification receiver) throws InvalidRequestException {
             throw new AssertionError("MultiColumnRaw..prepare() requires a list of receivers");
         }
 
-        public AssignmentTestable.TestResult testAssignment(String keyspace, ColumnSpecification receiver)
-        {
+        public AssignmentTestable.TestResult testAssignment(String keyspace, ColumnSpecification receiver) {
             return AssignmentTestable.TestResult.WEAKLY_ASSIGNABLE;
         }
 
         @Override
-        public String getText()
-        {
+        public String getText() {
             return "?";
         }
     }
@@ -140,22 +126,19 @@ public abstract class AbstractMarker extends Term.NonTerminal
      *
      * Because a single type is used, a List is used to represent the values.
      */
-    public static final class INRaw extends Raw
-    {
-        public INRaw(int bindIndex)
-        {
+    public static final class INRaw extends Raw {
+
+        public INRaw(int bindIndex) {
             super(bindIndex);
         }
 
-        private static ColumnSpecification makeInReceiver(ColumnSpecification receiver)
-        {
+        private static ColumnSpecification makeInReceiver(ColumnSpecification receiver) {
             ColumnIdentifier inName = new ColumnIdentifier("in(" + receiver.name + ")", true);
             return new ColumnSpecification(receiver.ksName, receiver.cfName, inName, ListType.getInstance(receiver.type, false));
         }
 
         @Override
-        public Lists.Marker prepare(String keyspace, ColumnSpecification receiver) throws InvalidRequestException
-        {
+        public Lists.Marker prepare(String keyspace, ColumnSpecification receiver) throws InvalidRequestException {
             return new Lists.Marker(bindIndex, makeInReceiver(receiver));
         }
     }

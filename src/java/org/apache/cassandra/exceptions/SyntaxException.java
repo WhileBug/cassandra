@@ -17,10 +17,11 @@
  */
 package org.apache.cassandra.exceptions;
 
-public class SyntaxException extends RequestValidationException
-{
-    public SyntaxException(String msg)
-    {
+public class SyntaxException extends RequestValidationException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SyntaxException.class);
+
+    public SyntaxException(String msg) {
         super(ExceptionCode.SYNTAX_ERROR, msg);
     }
 }

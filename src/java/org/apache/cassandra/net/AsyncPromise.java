@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.net;
 
 import java.util.concurrent.CancellationException;
@@ -23,10 +22,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -34,7 +31,6 @@ import io.netty.util.concurrent.Promise;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.ThrowableUtil;
 import org.apache.cassandra.utils.concurrent.WaitQueue;
-
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.*;
 
 /**
@@ -64,100 +60,101 @@ import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.*;
  *
  * @param <V>
  */
-public class AsyncPromise<V> implements Promise<V>
-{
-    private static final Logger logger = LoggerFactory.getLogger(AsyncPromise.class);
+public class AsyncPromise<V> implements Promise<V> {
 
-    private final EventExecutor executor;
-    private volatile Object result;
-    private volatile GenericFutureListener<? extends Future<? super V>> listeners;
-    private volatile WaitQueue waiting;
-    private static final AtomicReferenceFieldUpdater<AsyncPromise, Object> resultUpdater = newUpdater(AsyncPromise.class, Object.class, "result");
-    private static final AtomicReferenceFieldUpdater<AsyncPromise, GenericFutureListener> listenersUpdater = newUpdater(AsyncPromise.class, GenericFutureListener.class, "listeners");
-    private static final AtomicReferenceFieldUpdater<AsyncPromise, WaitQueue> waitingUpdater = newUpdater(AsyncPromise.class, WaitQueue.class, "waiting");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AsyncPromise.class);
 
-    private static final FailureHolder UNSET = new FailureHolder(null);
-    private static final FailureHolder UNCANCELLABLE = new FailureHolder(null);
-    private static final FailureHolder CANCELLED = new FailureHolder(ThrowableUtil.unknownStackTrace(new CancellationException(), AsyncPromise.class, "cancel(...)"));
+    private static final transient Logger logger = LoggerFactory.getLogger(AsyncPromise.class);
 
-    private static final DeferredGenericFutureListener NOTIFYING = future -> {};
-    private static interface DeferredGenericFutureListener<F extends Future<?>> extends GenericFutureListener<F> {}
+    private final transient EventExecutor executor;
 
-    private static final class FailureHolder
-    {
-        final Throwable cause;
-        private FailureHolder(Throwable cause)
-        {
+    private volatile transient Object result;
+
+    private volatile transient GenericFutureListener<? extends Future<? super V>> listeners;
+
+    private volatile transient WaitQueue waiting;
+
+    private static final transient AtomicReferenceFieldUpdater<AsyncPromise, Object> resultUpdater = newUpdater(AsyncPromise.class, Object.class, "result");
+
+    private static final transient AtomicReferenceFieldUpdater<AsyncPromise, GenericFutureListener> listenersUpdater = newUpdater(AsyncPromise.class, GenericFutureListener.class, "listeners");
+
+    private static final transient AtomicReferenceFieldUpdater<AsyncPromise, WaitQueue> waitingUpdater = newUpdater(AsyncPromise.class, WaitQueue.class, "waiting");
+
+    private static final transient FailureHolder UNSET = new FailureHolder(null);
+
+    private static final transient FailureHolder UNCANCELLABLE = new FailureHolder(null);
+
+    private static final transient FailureHolder CANCELLED = new FailureHolder(ThrowableUtil.unknownStackTrace(new CancellationException(), AsyncPromise.class, "cancel(...)"));
+
+    private static final transient DeferredGenericFutureListener NOTIFYING = future -> {
+    };
+
+    private static interface DeferredGenericFutureListener<F extends Future<?>> extends GenericFutureListener<F> {
+    }
+
+    private static final class FailureHolder {
+
+        final transient Throwable cause;
+
+        private FailureHolder(Throwable cause) {
             this.cause = cause;
         }
     }
 
-    public AsyncPromise(EventExecutor executor)
-    {
+    public AsyncPromise(EventExecutor executor) {
         this(executor, UNSET);
     }
 
-    private AsyncPromise(EventExecutor executor, FailureHolder initialState)
-    {
+    private AsyncPromise(EventExecutor executor, FailureHolder initialState) {
         this.executor = executor;
         this.result = initialState;
     }
 
-    public AsyncPromise(EventExecutor executor, GenericFutureListener<? extends Future<? super V>> listener)
-    {
+    public AsyncPromise(EventExecutor executor, GenericFutureListener<? extends Future<? super V>> listener) {
         this(executor);
         this.listeners = listener;
     }
 
-    AsyncPromise(EventExecutor executor, FailureHolder initialState, GenericFutureListener<? extends Future<? super V>> listener)
-    {
+    AsyncPromise(EventExecutor executor, FailureHolder initialState, GenericFutureListener<? extends Future<? super V>> listener) {
         this(executor, initialState);
         this.listeners = listener;
     }
 
-    public static <V> AsyncPromise<V> uncancellable(EventExecutor executor)
-    {
+    public static <V> AsyncPromise<V> uncancellable(EventExecutor executor) {
         return new AsyncPromise<>(executor, UNCANCELLABLE);
     }
 
-    public static <V> AsyncPromise<V> uncancellable(EventExecutor executor, GenericFutureListener<? extends Future<? super V>> listener)
-    {
+    public static <V> AsyncPromise<V> uncancellable(EventExecutor executor, GenericFutureListener<? extends Future<? super V>> listener) {
         return new AsyncPromise<>(executor, UNCANCELLABLE);
     }
 
-    public Promise<V> setSuccess(V v)
-    {
+    public Promise<V> setSuccess(V v) {
         if (!trySuccess(v))
             throw new IllegalStateException("complete already: " + this);
         return this;
     }
 
-    public Promise<V> setFailure(Throwable throwable)
-    {
+    public Promise<V> setFailure(Throwable throwable) {
         if (!tryFailure(throwable))
             throw new IllegalStateException("complete already: " + this);
         return this;
     }
 
-    public boolean trySuccess(V v)
-    {
+    public boolean trySuccess(V v) {
         return trySet(v);
     }
 
-    public boolean tryFailure(Throwable throwable)
-    {
+    public boolean tryFailure(Throwable throwable) {
         return trySet(new FailureHolder(throwable));
     }
 
-    public boolean setUncancellable()
-    {
+    public boolean setUncancellable() {
         if (trySet(UNCANCELLABLE))
             return true;
         return result == UNCANCELLABLE;
     }
 
-    public boolean cancel(boolean b)
-    {
+    public boolean cancel(boolean b) {
         return trySet(CANCELLED);
     }
 
@@ -171,17 +168,13 @@ public class AsyncPromise<V> implements Promise<V>
      *
      * If the update succeeds, and the new state implies isDone(), any listeners and waiters will be notified
      */
-    private boolean trySet(Object v)
-    {
-        while (true)
-        {
+    private boolean trySet(Object v) {
+        while (true) {
             Object current = result;
             if (isDone(current) || (current == UNCANCELLABLE && v == CANCELLED))
                 return false;
-            if (resultUpdater.compareAndSet(this, current, v))
-            {
-                if (v != UNCANCELLABLE)
-                {
+            if (resultUpdater.compareAndSet(this, current, v)) {
+                if (v != UNCANCELLABLE) {
                     notifyListeners();
                     notifyWaiters();
                 }
@@ -190,44 +183,36 @@ public class AsyncPromise<V> implements Promise<V>
         }
     }
 
-    public boolean isSuccess()
-    {
+    public boolean isSuccess() {
         return isSuccess(result);
     }
 
-    private static boolean isSuccess(Object result)
-    {
+    private static boolean isSuccess(Object result) {
         return !(result instanceof FailureHolder);
     }
 
-    public boolean isCancelled()
-    {
+    public boolean isCancelled() {
         return isCancelled(result);
     }
 
-    private static boolean isCancelled(Object result)
-    {
+    private static boolean isCancelled(Object result) {
         return result == CANCELLED;
     }
 
-    public boolean isDone()
-    {
+    public boolean isDone() {
         return isDone(result);
     }
 
-    private static boolean isDone(Object result)
-    {
+    private static boolean isDone(Object result) {
         return result != UNSET && result != UNCANCELLABLE;
     }
 
-    public boolean isCancellable()
-    {
+    public boolean isCancellable() {
         Object result = this.result;
         return result == UNSET;
     }
 
-    public Throwable cause()
-    {
+    public Throwable cause() {
         Object result = this.result;
         if (result instanceof FailureHolder)
             return ((FailureHolder) result).cause;
@@ -238,22 +223,19 @@ public class AsyncPromise<V> implements Promise<V>
      * if isSuccess(), returns the value, otherwise returns null
      */
     @SuppressWarnings("unchecked")
-    public V getNow()
-    {
+    public V getNow() {
         Object result = this.result;
         if (isSuccess(result))
             return (V) result;
         return null;
     }
 
-    public V get() throws InterruptedException, ExecutionException
-    {
+    public V get() throws InterruptedException, ExecutionException {
         await();
         return getWhenDone();
     }
 
-    public V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
-    {
+    public V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
         if (!await(timeout, unit))
             throw new TimeoutException();
         return getWhenDone();
@@ -264,8 +246,7 @@ public class AsyncPromise<V> implements Promise<V>
      * either the success result or throws the suitable exception under failure
      */
     @SuppressWarnings("unchecked")
-    private V getWhenDone() throws ExecutionException
-    {
+    private V getWhenDone() throws ExecutionException {
         Object result = this.result;
         if (isSuccess(result))
             return (V) result;
@@ -278,8 +259,7 @@ public class AsyncPromise<V> implements Promise<V>
      * waits for completion; in case of failure rethrows the original exception without a new wrapping exception
      * so may cause problems for reporting stack traces
      */
-    public Promise<V> sync() throws InterruptedException
-    {
+    public Promise<V> sync() throws InterruptedException {
         await();
         rethrowIfFailed();
         return this;
@@ -289,144 +269,119 @@ public class AsyncPromise<V> implements Promise<V>
      * waits for completion; in case of failure rethrows the original exception without a new wrapping exception
      * so may cause problems for reporting stack traces
      */
-    public Promise<V> syncUninterruptibly()
-    {
+    public Promise<V> syncUninterruptibly() {
         awaitUninterruptibly();
         rethrowIfFailed();
         return this;
     }
 
-    private void rethrowIfFailed()
-    {
+    private void rethrowIfFailed() {
         Throwable cause = this.cause();
-        if (cause != null)
-        {
+        if (cause != null) {
             PlatformDependent.throwException(cause);
         }
     }
 
-    public Promise<V> addListener(GenericFutureListener<? extends Future<? super V>> listener)
-    {
+    public Promise<V> addListener(GenericFutureListener<? extends Future<? super V>> listener) {
         listenersUpdater.accumulateAndGet(this, listener, AsyncPromise::appendListener);
         if (isDone())
             notifyListeners();
         return this;
     }
 
-    public Promise<V> addListeners(GenericFutureListener<? extends Future<? super V>> ... listeners)
-    {
+    public Promise<V> addListeners(GenericFutureListener<? extends Future<? super V>>... listeners) {
         // this could be more efficient if we cared, but we do not
         return addListener(future -> {
-            for (GenericFutureListener<? extends Future<? super V>> listener : listeners)
-                AsyncPromise.invokeListener((GenericFutureListener<Future<? super V>>)listener, future);
+            for (GenericFutureListener<? extends Future<? super V>> listener : listeners) AsyncPromise.invokeListener((GenericFutureListener<Future<? super V>>) listener, future);
         });
     }
 
-    public Promise<V> removeListener(GenericFutureListener<? extends Future<? super V>> listener)
-    {
+    public Promise<V> removeListener(GenericFutureListener<? extends Future<? super V>> listener) {
         throw new UnsupportedOperationException();
     }
 
-    public Promise<V> removeListeners(GenericFutureListener<? extends Future<? super V>> ... listeners)
-    {
+    public Promise<V> removeListeners(GenericFutureListener<? extends Future<? super V>>... listeners) {
         throw new UnsupportedOperationException();
     }
 
     @SuppressWarnings("unchecked")
-    private void notifyListeners()
-    {
-        if (!executor.inEventLoop())
-        {
+    private void notifyListeners() {
+        if (!executor.inEventLoop()) {
             // submit this method, to guarantee we invoke in the submitted order
             executor.execute(this::notifyListeners);
             return;
         }
-
         if (listeners == null || listeners instanceof DeferredGenericFutureListener<?>)
-            return; // either no listeners, or we are already notifying listeners, so we'll get to the new one when ready
-
+            // either no listeners, or we are already notifying listeners, so we'll get to the new one when ready
+            return;
         // first run our notifiers
-        while (true)
-        {
+        while (true) {
             GenericFutureListener listeners = listenersUpdater.getAndSet(this, NOTIFYING);
             if (listeners != null)
                 invokeListener(listeners, this);
-
             if (listenersUpdater.compareAndSet(this, NOTIFYING, null))
                 return;
         }
     }
 
-    private static <F extends Future<?>> void invokeListener(GenericFutureListener<F> listener, F future)
-    {
-        try
-        {
+    private static <F extends Future<?>> void invokeListener(GenericFutureListener<F> listener, F future) {
+        try {
             listener.operationComplete(future);
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             logger.error("Failed to invoke listener {} to {}", listener, future, t);
         }
     }
 
-    private static <F extends Future<?>> GenericFutureListener<F> appendListener(GenericFutureListener<F> prevListener, GenericFutureListener<F> newListener)
-    {
+    private static <F extends Future<?>> GenericFutureListener<F> appendListener(GenericFutureListener<F> prevListener, GenericFutureListener<F> newListener) {
         GenericFutureListener<F> result = newListener;
-
-        if (prevListener != null && prevListener != NOTIFYING)
-        {
+        if (prevListener != null && prevListener != NOTIFYING) {
             result = future -> {
                 invokeListener(prevListener, future);
                 // we will wrap the outer invocation with invokeListener, so no need to do it here too
                 newListener.operationComplete(future);
             };
         }
-
-        if (prevListener instanceof DeferredGenericFutureListener<?>)
-        {
+        if (prevListener instanceof DeferredGenericFutureListener<?>) {
             GenericFutureListener<F> wrap = result;
             result = (DeferredGenericFutureListener<F>) wrap::operationComplete;
         }
-
         return result;
     }
 
-    public Promise<V> await() throws InterruptedException
-    {
-        await(0L, (signal, nanos) -> { signal.await(); return true; } );
+    public Promise<V> await() throws InterruptedException {
+        await(0L, (signal, nanos) -> {
+            signal.await();
+            return true;
+        });
         return this;
     }
 
-    public Promise<V> awaitUninterruptibly()
-    {
-        await(0L, (signal, nanos) -> { signal.awaitUninterruptibly(); return true; } );
+    public Promise<V> awaitUninterruptibly() {
+        await(0L, (signal, nanos) -> {
+            signal.awaitUninterruptibly();
+            return true;
+        });
         return this;
     }
 
-    public boolean await(long timeout, TimeUnit unit) throws InterruptedException
-    {
-        return await(unit.toNanos(timeout),
-                     (signal, nanos) -> signal.awaitUntil(nanos + System.nanoTime()));
+    public boolean await(long timeout, TimeUnit unit) throws InterruptedException {
+        return await(unit.toNanos(timeout), (signal, nanos) -> signal.awaitUntil(nanos + System.nanoTime()));
     }
 
-    public boolean await(long timeoutMillis) throws InterruptedException
-    {
+    public boolean await(long timeoutMillis) throws InterruptedException {
         return await(timeoutMillis, TimeUnit.MILLISECONDS);
     }
 
-    public boolean awaitUninterruptibly(long timeout, TimeUnit unit)
-    {
-        return await(unit.toNanos(timeout),
-                     (signal, nanos) -> signal.awaitUntilUninterruptibly(nanos + System.nanoTime()));
+    public boolean awaitUninterruptibly(long timeout, TimeUnit unit) {
+        return await(unit.toNanos(timeout), (signal, nanos) -> signal.awaitUntilUninterruptibly(nanos + System.nanoTime()));
     }
 
-    public boolean awaitUninterruptibly(long timeoutMillis)
-    {
+    public boolean awaitUninterruptibly(long timeoutMillis) {
         return awaitUninterruptibly(timeoutMillis, TimeUnit.MILLISECONDS);
     }
 
-    interface Awaiter<T extends Throwable>
-    {
+    interface Awaiter<T extends Throwable> {
+
         boolean await(WaitQueue.Signal value, long nanos) throws T;
     }
 
@@ -435,15 +390,12 @@ public class AsyncPromise<V> implements Promise<V>
      * so that we can implement this without any unnecessary lambda allocations, although not
      * all implementations need the nanos parameter (i.e. those that wait indefinitely)
      */
-    private <T extends Throwable> boolean await(long nanos, Awaiter<T> awaiter) throws T
-    {
+    private <T extends Throwable> boolean await(long nanos, Awaiter<T> awaiter) throws T {
         if (isDone())
             return true;
-
         WaitQueue.Signal await = registerToWait();
         if (null != await)
             return awaiter.await(await, nanos);
-
         return true;
     }
 
@@ -451,13 +403,11 @@ public class AsyncPromise<V> implements Promise<V>
      * Register a signal that will be notified when the promise is completed;
      * if the promise becomes completed before this signal is registered, null is returned
      */
-    private WaitQueue.Signal registerToWait()
-    {
+    private WaitQueue.Signal registerToWait() {
         WaitQueue waiting = this.waiting;
         if (waiting == null && !waitingUpdater.compareAndSet(this, null, waiting = new WaitQueue()))
             waiting = this.waiting;
         assert waiting != null;
-
         WaitQueue.Signal signal = waiting.register();
         if (!isDone())
             return signal;
@@ -465,15 +415,13 @@ public class AsyncPromise<V> implements Promise<V>
         return null;
     }
 
-    private void notifyWaiters()
-    {
+    private void notifyWaiters() {
         WaitQueue waiting = this.waiting;
         if (waiting != null)
             waiting.signalAll();
     }
 
-    public String toString()
-    {
+    public String toString() {
         Object result = this.result;
         if (isSuccess(result))
             return "(success: " + result + ')';

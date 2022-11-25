@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.rows;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ByteArrayAccessor;
 import org.apache.cassandra.db.marshal.ByteType;
 import org.apache.cassandra.db.marshal.ValueAccessor;
@@ -27,22 +25,25 @@ import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.ObjectSizes;
 import org.apache.cassandra.utils.memory.ByteBufferCloner;
-
 import static org.apache.cassandra.utils.ByteArrayUtil.EMPTY_BYTE_ARRAY;
 
-public class ArrayCell extends AbstractCell<byte[]>
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new ArrayCell(ColumnMetadata.regularColumn("", "", "", ByteType.instance), 0L, 0, 0, EMPTY_BYTE_ARRAY, null));
+public class ArrayCell extends AbstractCell<byte[]> {
 
-    private final long timestamp;
-    private final int ttl;
-    private final int localDeletionTime;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ArrayCell.class);
 
-    private final byte[] value;
-    private final CellPath path;
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new ArrayCell(ColumnMetadata.regularColumn("", "", "", ByteType.instance), 0L, 0, 0, EMPTY_BYTE_ARRAY, null));
 
-    public ArrayCell(ColumnMetadata column, long timestamp, int ttl, int localDeletionTime, byte[] value, CellPath path)
-    {
+    private final transient long timestamp;
+
+    private final transient int ttl;
+
+    private final transient int localDeletionTime;
+
+    private final transient byte[] value;
+
+    private final transient CellPath path;
+
+    public ArrayCell(ColumnMetadata column, long timestamp, int ttl, int localDeletionTime, byte[] value, CellPath path) {
         super(column);
         this.timestamp = timestamp;
         this.ttl = ttl;
@@ -51,68 +52,55 @@ public class ArrayCell extends AbstractCell<byte[]>
         this.path = path;
     }
 
-    public long timestamp()
-    {
+    public long timestamp() {
         return timestamp;
     }
 
-    public int ttl()
-    {
+    public int ttl() {
         return ttl;
     }
 
-    public int localDeletionTime()
-    {
+    public int localDeletionTime() {
         return localDeletionTime;
     }
 
-    public byte[] value()
-    {
+    public byte[] value() {
         return value;
     }
 
-    public ValueAccessor<byte[]> accessor()
-    {
+    public ValueAccessor<byte[]> accessor() {
         return ByteArrayAccessor.instance;
     }
 
-    public CellPath path()
-    {
+    public CellPath path() {
         return path;
     }
 
-    public Cell<?> withUpdatedColumn(ColumnMetadata newColumn)
-    {
+    public Cell<?> withUpdatedColumn(ColumnMetadata newColumn) {
         return new ArrayCell(newColumn, timestamp, ttl, localDeletionTime, value, path);
     }
 
-    public Cell<?> withUpdatedValue(ByteBuffer newValue)
-    {
+    public Cell<?> withUpdatedValue(ByteBuffer newValue) {
         return new ArrayCell(column, timestamp, ttl, localDeletionTime, ByteBufferUtil.getArray(newValue), path);
     }
 
-    public Cell<?> withUpdatedTimestampAndLocalDeletionTime(long newTimestamp, int newLocalDeletionTime)
-    {
+    public Cell<?> withUpdatedTimestampAndLocalDeletionTime(long newTimestamp, int newLocalDeletionTime) {
         return new ArrayCell(column, newTimestamp, ttl, newLocalDeletionTime, value, path);
     }
 
     @Override
-    public Cell<?> withSkippedValue()
-    {
+    public Cell<?> withSkippedValue() {
         return new ArrayCell(column, timestamp, ttl, localDeletionTime, EMPTY_BYTE_ARRAY, path);
     }
 
     @Override
-    public Cell<?> clone(ByteBufferCloner cloner)
-    {
+    public Cell<?> clone(ByteBufferCloner cloner) {
         if (value.length == 0)
             return this;
-
         return super.clone(cloner);
     }
 
-    public long unsharedHeapSizeExcludingData()
-    {
+    public long unsharedHeapSizeExcludingData() {
         return EMPTY_SIZE + ObjectSizes.sizeOfArray(value) - value.length + (path == null ? 0 : path.unsharedHeapSizeExcludingData());
     }
 }

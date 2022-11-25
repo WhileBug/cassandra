@@ -20,7 +20,6 @@ package org.apache.cassandra.tools.nodetool;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
-
 import java.io.PrintStream;
 import java.net.UnknownHostException;
 import java.text.DecimalFormat;
@@ -29,33 +28,35 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
-
 import org.apache.cassandra.locator.EndpointSnitchInfoMBean;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 import org.apache.cassandra.tools.nodetool.formatter.TableBuilder;
-
 import com.google.common.collect.ArrayListMultimap;
 
 @SuppressWarnings("UseOfSystemOutOrSystemErr")
 @Command(name = "status", description = "Print cluster information (state, load, IDs, ...)")
-public class Status extends NodeToolCmd
-{
+public class Status extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Status.class);
+
     @Arguments(usage = "[<keyspace>]", description = "The keyspace name")
-    private String keyspace = null;
+    private transient String keyspace = null;
 
-    @Option(title = "resolve_ip", name = {"-r", "--resolve-ip"}, description = "Show node domain names instead of IPs")
-    private boolean resolveIp = false;
+    @Option(title = "resolve_ip", name = { "-r", "--resolve-ip" }, description = "Show node domain names instead of IPs")
+    private transient boolean resolveIp = false;
 
-    private boolean isTokenPerNode = true;
-    private Collection<String> joiningNodes, leavingNodes, movingNodes, liveNodes, unreachableNodes;
-    private Map<String, String> loadMap, hostIDMap;
-    private EndpointSnitchInfoMBean epSnitchInfo;
+    private transient boolean isTokenPerNode = true;
+
+    private transient Collection<String> joiningNodes, leavingNodes, movingNodes, liveNodes, unreachableNodes;
+
+    private transient Map<String, String> loadMap, hostIDMap;
+
+    private transient EndpointSnitchInfoMBean epSnitchInfo;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         PrintStream out = probe.output().out;
         joiningNodes = probe.getJoiningNodes(true);
         leavingNodes = probe.getLeavingNodes(true);
@@ -66,56 +67,39 @@ public class Status extends NodeToolCmd
         unreachableNodes = probe.getUnreachableNodes(true);
         hostIDMap = probe.getHostIdMap(true);
         epSnitchInfo = probe.getEndpointSnitchInfoProxy();
-
         StringBuilder errors = new StringBuilder();
         TableBuilder.SharedTable sharedTable = new TableBuilder.SharedTable("  ");
-
         Map<String, Float> ownerships = null;
         boolean hasEffectiveOwns = false;
-        try
-        {
+        try {
             ownerships = probe.effectiveOwnershipWithPort(keyspace);
             hasEffectiveOwns = true;
-        }
-        catch (IllegalStateException e)
-        {
+        } catch (IllegalStateException e) {
             ownerships = probe.getOwnershipWithPort();
             errors.append("Note: ").append(e.getMessage()).append("%n");
-        }
-        catch (IllegalArgumentException ex)
-        {
+        } catch (IllegalArgumentException ex) {
             out.printf("%nError: %s%n", ex.getMessage());
             System.exit(1);
         }
-
         SortedMap<String, SetHostStatWithPort> dcs = NodeTool.getOwnershipByDcWithPort(probe, resolveIp, tokensToEndpoints, ownerships);
-
         // More tokens than nodes (aka vnodes)?
         if (dcs.size() < tokensToEndpoints.size())
             isTokenPerNode = false;
-
         // Datacenters
-        for (Map.Entry<String, SetHostStatWithPort> dc : dcs.entrySet())
-        {
+        for (Map.Entry<String, SetHostStatWithPort> dc : dcs.entrySet()) {
             TableBuilder tableBuilder = sharedTable.next();
             addNodesHeader(hasEffectiveOwns, tableBuilder);
-
             ArrayListMultimap<String, HostStatWithPort> hostToTokens = ArrayListMultimap.create();
-            for (HostStatWithPort stat : dc.getValue())
-                hostToTokens.put(stat.endpointWithPort.getHostAddressAndPort(), stat);
-
-            for (String endpoint : hostToTokens.keySet())
-            {
+            for (HostStatWithPort stat : dc.getValue()) hostToTokens.put(stat.endpointWithPort.getHostAddressAndPort(), stat);
+            for (String endpoint : hostToTokens.keySet()) {
                 Float owns = ownerships.get(endpoint);
                 List<HostStatWithPort> tokens = hostToTokens.get(endpoint);
                 addNode(endpoint, owns, tokens.get(0), tokens.size(), hasEffectiveOwns, tableBuilder);
             }
         }
-
         Iterator<TableBuilder> results = sharedTable.complete().iterator();
         boolean first = true;
-        for (Map.Entry<String, SetHostStatWithPort> dc : dcs.entrySet())
-        {
+        for (Map.Entry<String, SetHostStatWithPort> dc : dcs.entrySet()) {
             if (!first) {
                 out.println();
             }
@@ -124,62 +108,53 @@ public class Status extends NodeToolCmd
             out.print(dcHeader);
             for (int i = 0; i < (dcHeader.length() - 1); i++) out.print('=');
             out.println();
-
             // Legend
             out.println("Status=Up/Down");
             out.println("|/ State=Normal/Leaving/Joining/Moving");
             TableBuilder dcTable = results.next();
             dcTable.printTo(out);
         }
-
         out.printf("%n" + errors);
     }
 
-    private void addNodesHeader(boolean hasEffectiveOwns, TableBuilder tableBuilder)
-    {
+    private void addNodesHeader(boolean hasEffectiveOwns, TableBuilder tableBuilder) {
         String owns = hasEffectiveOwns ? "Owns (effective)" : "Owns";
-
         if (isTokenPerNode)
             tableBuilder.add("--", "Address", "Load", owns, "Host ID", "Token", "Rack");
         else
             tableBuilder.add("--", "Address", "Load", "Tokens", owns, "Host ID", "Rack");
     }
 
-    private void addNode(String endpoint, Float owns, HostStatWithPort hostStat, int size, boolean hasEffectiveOwns,
-                           TableBuilder tableBuilder)
-    {
+    private void addNode(String endpoint, Float owns, HostStatWithPort hostStat, int size, boolean hasEffectiveOwns, TableBuilder tableBuilder) {
         String status, state, load, strOwns, hostID, rack, epDns;
-        if (liveNodes.contains(endpoint)) status = "U";
-        else if (unreachableNodes.contains(endpoint)) status = "D";
-        else status = "?";
-        if (joiningNodes.contains(endpoint)) state = "J";
-        else if (leavingNodes.contains(endpoint)) state = "L";
-        else if (movingNodes.contains(endpoint)) state = "M";
-        else state = "N";
-
+        if (liveNodes.contains(endpoint))
+            status = "U";
+        else if (unreachableNodes.contains(endpoint))
+            status = "D";
+        else
+            status = "?";
+        if (joiningNodes.contains(endpoint))
+            state = "J";
+        else if (leavingNodes.contains(endpoint))
+            state = "L";
+        else if (movingNodes.contains(endpoint))
+            state = "M";
+        else
+            state = "N";
         String statusAndState = status.concat(state);
         load = loadMap.getOrDefault(endpoint, "?");
         strOwns = owns != null && hasEffectiveOwns ? new DecimalFormat("##0.0%").format(owns) : "?";
         hostID = hostIDMap.get(endpoint);
-
-        try
-        {
+        try {
             rack = epSnitchInfo.getRack(endpoint);
-        }
-        catch (UnknownHostException e)
-        {
+        } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
-
         epDns = hostStat.ipOrDns(printPort);
-        if (isTokenPerNode)
-        {
+        if (isTokenPerNode) {
             tableBuilder.add(statusAndState, epDns, load, strOwns, hostID, hostStat.token, rack);
-        }
-        else
-        {
+        } else {
             tableBuilder.add(statusAndState, epDns, load, String.valueOf(size), strOwns, hostID, rack);
         }
     }
-
 }

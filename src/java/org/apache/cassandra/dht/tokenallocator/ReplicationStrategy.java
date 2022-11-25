@@ -17,8 +17,10 @@
  */
 package org.apache.cassandra.dht.tokenallocator;
 
-interface ReplicationStrategy<Unit>
-{
+interface ReplicationStrategy<Unit> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicationStrategy.class);
+
     int replicas();
 
     /**

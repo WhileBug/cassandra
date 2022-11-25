@@ -15,23 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.streaming;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
-
 import org.apache.cassandra.db.lifecycle.LifecycleNewTracker;
 import org.apache.cassandra.io.sstable.SSTable;
 import org.apache.cassandra.streaming.StreamReceiveTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.db.Mutation;
@@ -54,26 +50,27 @@ import org.apache.cassandra.utils.CloseableIterator;
 import org.apache.cassandra.utils.Throwables;
 import org.apache.cassandra.utils.concurrent.Refs;
 
-public class CassandraStreamReceiver implements StreamReceiver
-{
-    private static final Logger logger = LoggerFactory.getLogger(CassandraStreamReceiver.class);
+public class CassandraStreamReceiver implements StreamReceiver {
 
-    private static final int MAX_ROWS_PER_BATCH = Integer.getInteger("cassandra.repair.mutation_repair_rows_per_batch", 100);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraStreamReceiver.class);
 
-    private final ColumnFamilyStore cfs;
-    private final StreamSession session;
+    private static final transient Logger logger = LoggerFactory.getLogger(CassandraStreamReceiver.class);
+
+    private static final transient int MAX_ROWS_PER_BATCH = Integer.getInteger("cassandra.repair.mutation_repair_rows_per_batch", 100);
+
+    private final transient ColumnFamilyStore cfs;
+
+    private final transient StreamSession session;
 
     // Transaction tracking new files received
-    private final LifecycleTransaction txn;
+    private final transient LifecycleTransaction txn;
 
-    //  holds references to SSTables received
-    protected Collection<SSTableReader> sstables;
+    // holds references to SSTables received
+    protected transient Collection<SSTableReader> sstables;
 
-    private final boolean requiresWritePath;
+    private final transient boolean requiresWritePath;
 
-
-    public CassandraStreamReceiver(ColumnFamilyStore cfs, StreamSession session, int totalFiles)
-    {
+    public CassandraStreamReceiver(ColumnFamilyStore cfs, StreamSession session, int totalFiles) {
         this.cfs = cfs;
         this.session = session;
         // this is an "offline" transaction, as we currently manually expose the sstables once done;
@@ -83,32 +80,25 @@ public class CassandraStreamReceiver implements StreamReceiver
         this.requiresWritePath = requiresWritePath(cfs);
     }
 
-    public static CassandraStreamReceiver fromReceiver(StreamReceiver receiver)
-    {
+    public static CassandraStreamReceiver fromReceiver(StreamReceiver receiver) {
         Preconditions.checkArgument(receiver instanceof CassandraStreamReceiver);
         return (CassandraStreamReceiver) receiver;
     }
 
-    private static CassandraIncomingFile getFile(IncomingStream stream)
-    {
+    private static CassandraIncomingFile getFile(IncomingStream stream) {
         Preconditions.checkArgument(stream instanceof CassandraIncomingFile, "Wrong stream type: {}", stream);
         return (CassandraIncomingFile) stream;
     }
 
     @Override
     @SuppressWarnings("resource")
-    public synchronized void received(IncomingStream stream)
-    {
+    public synchronized void received(IncomingStream stream) {
         CassandraIncomingFile file = getFile(stream);
-
         Collection<SSTableReader> finished = null;
         SSTableMultiWriter sstable = file.getSSTable();
-        try
-        {
+        try {
             finished = sstable.finish(true);
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             Throwables.maybeFail(sstable.abort(t));
         }
         txn.update(finished, false);
@@ -116,8 +106,7 @@ public class CassandraStreamReceiver implements StreamReceiver
     }
 
     @Override
-    public void discardStream(IncomingStream stream)
-    {
+    public void discardStream(IncomingStream stream) {
         CassandraIncomingFile file = getFile(stream);
         Throwables.maybeFail(file.getSSTable().abort(null));
     }
@@ -125,50 +114,40 @@ public class CassandraStreamReceiver implements StreamReceiver
     /**
      * @return a LifecycleNewTracker whose operations are synchronised on this StreamReceiveTask.
      */
-    public synchronized LifecycleNewTracker createLifecycleNewTracker()
-    {
-        return new LifecycleNewTracker()
-        {
+    public synchronized LifecycleNewTracker createLifecycleNewTracker() {
+        return new LifecycleNewTracker() {
+
             @Override
-            public void trackNew(SSTable table)
-            {
-                synchronized (CassandraStreamReceiver.this)
-                {
+            public void trackNew(SSTable table) {
+                synchronized (CassandraStreamReceiver.this) {
                     txn.trackNew(table);
                 }
             }
 
             @Override
-            public void untrackNew(SSTable table)
-            {
-                synchronized (CassandraStreamReceiver.this)
-                {
+            public void untrackNew(SSTable table) {
+                synchronized (CassandraStreamReceiver.this) {
                     txn.untrackNew(table);
                 }
             }
 
-            public OperationType opType()
-            {
+            public OperationType opType() {
                 return txn.opType();
             }
         };
     }
 
-
     @Override
-    public synchronized void abort()
-    {
+    public synchronized void abort() {
         sstables.clear();
         txn.abort();
     }
 
-    private boolean hasViews(ColumnFamilyStore cfs)
-    {
+    private boolean hasViews(ColumnFamilyStore cfs) {
         return !Iterables.isEmpty(View.findAll(cfs.metadata.keyspace, cfs.getTableName()));
     }
 
-    private boolean hasCDC(ColumnFamilyStore cfs)
-    {
+    private boolean hasCDC(ColumnFamilyStore cfs) {
         return cfs.metadata().params.cdc;
     }
 
@@ -188,78 +167,54 @@ public class CassandraStreamReceiver implements StreamReceiver
     private void sendThroughWritePath(ColumnFamilyStore cfs, Collection<SSTableReader> readers) {
         boolean hasCdc = hasCDC(cfs);
         ColumnFilter filter = ColumnFilter.all(cfs.metadata());
-        for (SSTableReader reader : readers)
-        {
+        for (SSTableReader reader : readers) {
             Keyspace ks = Keyspace.open(reader.getKeyspaceName());
             // When doing mutation-based repair we split each partition into smaller batches
             // ({@link Stream MAX_ROWS_PER_BATCH}) to avoid OOMing and generating heap pressure
             try (ISSTableScanner scanner = reader.getScanner();
-                 CloseableIterator<UnfilteredRowIterator> throttledPartitions = ThrottledUnfilteredIterator.throttle(scanner, MAX_ROWS_PER_BATCH))
-            {
-                while (throttledPartitions.hasNext())
-                {
+                CloseableIterator<UnfilteredRowIterator> throttledPartitions = ThrottledUnfilteredIterator.throttle(scanner, MAX_ROWS_PER_BATCH)) {
+                while (throttledPartitions.hasNext()) {
                     // MV *can* be applied unsafe if there's no CDC on the CFS as we flush
                     // before transaction is done.
-                    //
+                    // 
                     // If the CFS has CDC, however, these updates need to be written to the CommitLog
                     // so they get archived into the cdc_raw folder
-                    ks.apply(new Mutation(PartitionUpdate.fromIterator(throttledPartitions.next(), filter)),
-                             hasCdc,
-                             true,
-                             false);
+                    ks.apply(new Mutation(PartitionUpdate.fromIterator(throttledPartitions.next(), filter)), hasCdc, true, false);
                 }
             }
         }
     }
 
-    public synchronized  void finishTransaction()
-    {
+    public synchronized void finishTransaction() {
         txn.finish();
     }
 
     @Override
-    public void finished()
-    {
+    public void finished() {
         boolean requiresWritePath = requiresWritePath(cfs);
         Collection<SSTableReader> readers = sstables;
-
-        try (Refs<SSTableReader> refs = Refs.ref(readers))
-        {
-            if (requiresWritePath)
-            {
+        try (Refs<SSTableReader> refs = Refs.ref(readers)) {
+            if (requiresWritePath) {
                 sendThroughWritePath(cfs, readers);
-            }
-            else
-            {
+            } else {
                 finishTransaction();
-
                 // add sstables (this will build secondary indexes too, see CASSANDRA-10130)
                 logger.debug("[Stream #{}] Received {} sstables from {} ({})", session.planId(), readers.size(), session.peer, readers);
                 cfs.addSSTables(readers);
-
-                //invalidate row and counter cache
-                if (cfs.isRowCacheEnabled() || cfs.metadata().isCounter())
-                {
+                // invalidate row and counter cache
+                if (cfs.isRowCacheEnabled() || cfs.metadata().isCounter()) {
                     List<Bounds<Token>> boundsToInvalidate = new ArrayList<>(readers.size());
                     readers.forEach(sstable -> boundsToInvalidate.add(new Bounds<Token>(sstable.first.getToken(), sstable.last.getToken())));
                     Set<Bounds<Token>> nonOverlappingBounds = Bounds.getNonOverlappingBounds(boundsToInvalidate);
-
-                    if (cfs.isRowCacheEnabled())
-                    {
+                    if (cfs.isRowCacheEnabled()) {
                         int invalidatedKeys = cfs.invalidateRowCache(nonOverlappingBounds);
                         if (invalidatedKeys > 0)
-                            logger.debug("[Stream #{}] Invalidated {} row cache entries on table {}.{} after stream " +
-                                         "receive task completed.", session.planId(), invalidatedKeys,
-                                         cfs.keyspace.getName(), cfs.getTableName());
+                            logger.debug("[Stream #{}] Invalidated {} row cache entries on table {}.{} after stream " + "receive task completed.", session.planId(), invalidatedKeys, cfs.keyspace.getName(), cfs.getTableName());
                     }
-
-                    if (cfs.metadata().isCounter())
-                    {
+                    if (cfs.metadata().isCounter()) {
                         int invalidatedKeys = cfs.invalidateCounterCache(nonOverlappingBounds);
                         if (invalidatedKeys > 0)
-                            logger.debug("[Stream #{}] Invalidated {} counter cache entries on table {}.{} after stream " +
-                                         "receive task completed.", session.planId(), invalidatedKeys,
-                                         cfs.keyspace.getName(), cfs.getTableName());
+                            logger.debug("[Stream #{}] Invalidated {} counter cache entries on table {}.{} after stream " + "receive task completed.", session.planId(), invalidatedKeys, cfs.keyspace.getName(), cfs.getTableName());
                     }
                 }
             }
@@ -267,12 +222,10 @@ public class CassandraStreamReceiver implements StreamReceiver
     }
 
     @Override
-    public void cleanup()
-    {
+    public void cleanup() {
         // We don't keep the streamed sstables since we've applied them manually so we abort the txn and delete
         // the streamed sstables.
-        if (requiresWritePath)
-        {
+        if (requiresWritePath) {
             cfs.forceBlockingFlush();
             abort();
         }

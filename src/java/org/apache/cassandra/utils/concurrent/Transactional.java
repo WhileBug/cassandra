@@ -55,8 +55,10 @@ import static org.apache.cassandra.utils.Throwables.merge;
  * aren't made prior to calling close(), the semantics of its close() method differ significantly from
  * most AutoCloseable implementations.
  */
-public interface Transactional extends AutoCloseable
-{
+public interface Transactional extends AutoCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Transactional.class);
+
     /**
      * A simple abstract implementation of Transactional behaviour.
      * In general this should be used as the base class for any transactional implementations.
@@ -64,38 +66,38 @@ public interface Transactional extends AutoCloseable
      * If the implementation wraps any internal Transactional objects, it must proxy every
      * commit() and abort() call onto each internal object to ensure correct behaviour
      */
-    abstract class AbstractTransactional implements Transactional
-    {
-        public enum State
-        {
-            IN_PROGRESS,
-            READY_TO_COMMIT,
-            COMMITTED,
-            ABORTED;
+    abstract class AbstractTransactional implements Transactional {
+
+        public enum State {
+
+            IN_PROGRESS, READY_TO_COMMIT, COMMITTED, ABORTED
         }
 
-        private State state = State.IN_PROGRESS;
+        private transient State state = State.IN_PROGRESS;
 
         // the methods for actually performing the necessary behaviours, that are themselves protected against
         // improper use by the external implementations provided by this class. empty default implementations
         // could be provided, but we consider it safer to force implementers to consider explicitly their presence
-
         protected abstract Throwable doCommit(Throwable accumulate);
+
         protected abstract Throwable doAbort(Throwable accumulate);
 
         // these only needs to perform cleanup of state unique to this instance; any internal
         // Transactional objects will perform cleanup in the commit() or abort() calls
-
         /**
          * perform an exception-safe pre-abort/commit cleanup;
          * this will be run after prepareToCommit (so before commit), and before abort
          */
-        protected Throwable doPreCleanup(Throwable accumulate){ return accumulate; }
+        protected Throwable doPreCleanup(Throwable accumulate) {
+            return accumulate;
+        }
 
         /**
          * perform an exception-safe post-abort cleanup
          */
-        protected Throwable doPostCleanup(Throwable accumulate){ return accumulate; }
+        protected Throwable doPostCleanup(Throwable accumulate) {
+            return accumulate;
+        }
 
         /**
          * Do any preparatory work prior to commit. This method should throw any exceptions that can be encountered
@@ -106,8 +108,7 @@ public interface Transactional extends AutoCloseable
         /**
          * commit any effects of this transaction object graph, then cleanup; delegates first to doCommit, then to doCleanup
          */
-        public final Throwable commit(Throwable accumulate)
-        {
+        public final Throwable commit(Throwable accumulate) {
             if (state != State.READY_TO_COMMIT)
                 throw new IllegalStateException("Cannot commit unless READY_TO_COMMIT; state is " + state);
             accumulate = doCommit(accumulate);
@@ -119,18 +120,13 @@ public interface Transactional extends AutoCloseable
         /**
          * rollback any effects of this transaction object graph; delegates first to doCleanup, then to doAbort
          */
-        public final Throwable abort(Throwable accumulate)
-        {
+        public final Throwable abort(Throwable accumulate) {
             if (state == State.ABORTED)
                 return accumulate;
-            if (state == State.COMMITTED)
-            {
-                try
-                {
+            if (state == State.COMMITTED) {
+                try {
                     throw new IllegalStateException("Attempted to abort a committed operation");
-                }
-                catch (Throwable t)
-                {
+                } catch (Throwable t) {
                     accumulate = merge(accumulate, t);
                 }
                 return accumulate;
@@ -144,10 +140,8 @@ public interface Transactional extends AutoCloseable
         }
 
         // if we are committed or aborted, then we are done; otherwise abort
-        public final void close()
-        {
-            switch (state)
-            {
+        public final void close() {
+            switch(state) {
                 case COMMITTED:
                 case ABORTED:
                     break;
@@ -160,11 +154,9 @@ public interface Transactional extends AutoCloseable
          * The first phase of commit: delegates to doPrepare(), with valid state transition enforcement.
          * This call should be propagated onto any child objects participating in the transaction
          */
-        public final void prepareToCommit()
-        {
+        public final void prepareToCommit() {
             if (state != State.IN_PROGRESS)
                 throw new IllegalStateException("Cannot prepare to commit unless IN_PROGRESS; state is " + state);
-
             doPrepare();
             maybeFail(doPreCleanup(null));
             state = State.READY_TO_COMMIT;
@@ -174,8 +166,7 @@ public interface Transactional extends AutoCloseable
          * convenience method to both prepareToCommit() and commit() in one operation;
          * only of use to outer-most transactional object of an object graph
          */
-        public Object finish()
-        {
+        public Object finish() {
             prepareToCommit();
             commit();
             return this;
@@ -183,20 +174,17 @@ public interface Transactional extends AutoCloseable
 
         // convenience method wrapping abort, and throwing any exception encountered
         // only of use to (and to be used by) outer-most object in a transactional graph
-        public final void abort()
-        {
+        public final void abort() {
             maybeFail(abort(null));
         }
 
         // convenience method wrapping commit, and throwing any exception encountered
         // only of use to (and to be used by) outer-most object in a transactional graph
-        public final void commit()
-        {
+        public final void commit() {
             maybeFail(commit(null));
         }
 
-        public final State state()
-        {
+        public final State state() {
             return state;
         }
     }

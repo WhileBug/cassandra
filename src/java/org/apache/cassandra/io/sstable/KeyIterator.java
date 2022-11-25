@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.RowIndexEntry;
 import org.apache.cassandra.dht.IPartitioner;
@@ -32,136 +31,115 @@ import org.apache.cassandra.utils.AbstractIterator;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.CloseableIterator;
 
-public class KeyIterator extends AbstractIterator<DecoratedKey> implements CloseableIterator<DecoratedKey>
-{
-    private final static class In
-    {
-        private final File path;
-        private volatile RandomAccessReader in;
+public class KeyIterator extends AbstractIterator<DecoratedKey> implements CloseableIterator<DecoratedKey> {
 
-        public In(File path)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyIterator.class);
+
+    private final static class In {
+
+        private final transient File path;
+
+        private volatile transient RandomAccessReader in;
+
+        public In(File path) {
             this.path = path;
         }
 
-        private void maybeInit()
-        {
+        private void maybeInit() {
             if (in != null)
                 return;
-
-            synchronized (this)
-            {
-                if (in == null)
-                {
+            synchronized (this) {
+                if (in == null) {
                     in = RandomAccessReader.open(path);
                 }
             }
         }
 
-        public DataInputPlus get()
-        {
+        public DataInputPlus get() {
             maybeInit();
             return in;
         }
 
-        public boolean isEOF()
-        {
+        public boolean isEOF() {
             maybeInit();
             return in.isEOF();
         }
 
-        public void close()
-        {
+        public void close() {
             if (in != null)
                 in.close();
         }
 
-        public long getFilePointer()
-        {
+        public long getFilePointer() {
             maybeInit();
             return in.getFilePointer();
         }
 
-        public long length()
-        {
+        public long length() {
             maybeInit();
             return in.length();
         }
     }
 
-    private final Descriptor desc;
-    private final In in;
-    private final IPartitioner partitioner;
-    private final ReadWriteLock fileAccessLock;
+    private final transient Descriptor desc;
 
-    private long keyPosition;
+    private final transient In in;
 
-    public KeyIterator(Descriptor desc, TableMetadata metadata)
-    {
+    private final transient IPartitioner partitioner;
+
+    private final transient ReadWriteLock fileAccessLock;
+
+    private transient long keyPosition;
+
+    public KeyIterator(Descriptor desc, TableMetadata metadata) {
         this.desc = desc;
         in = new In(new File(desc.filenameFor(Component.PRIMARY_INDEX)));
         partitioner = metadata.partitioner;
         fileAccessLock = new ReentrantReadWriteLock();
     }
 
-    protected DecoratedKey computeNext()
-    {
+    protected DecoratedKey computeNext() {
         fileAccessLock.readLock().lock();
-        try
-        {
+        try {
             if (in.isEOF())
                 return endOfData();
-
             keyPosition = in.getFilePointer();
             DecoratedKey key = partitioner.decorateKey(ByteBufferUtil.readWithShortLength(in.get()));
-            RowIndexEntry.Serializer.skip(in.get(), desc.version); // skip remainder of the entry
+            // skip remainder of the entry
+            RowIndexEntry.Serializer.skip(in.get(), desc.version);
             return key;
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException(e);
-        }
-        finally
-        {
+        } finally {
             fileAccessLock.readLock().unlock();
         }
     }
 
-    public void close()
-    {
+    public void close() {
         fileAccessLock.writeLock().lock();
-        try
-        {
+        try {
             in.close();
-        }
-        finally
-        {
+        } finally {
             fileAccessLock.writeLock().unlock();
         }
     }
 
-    public long getBytesRead()
-    {
+    public long getBytesRead() {
         fileAccessLock.readLock().lock();
-        try
-        {
+        try {
             return in.getFilePointer();
-        }
-        finally
-        {
+        } finally {
             fileAccessLock.readLock().unlock();
         }
     }
 
-    public long getTotalBytes()
-    {
+    public long getTotalBytes() {
         // length is final in the referenced object.
         // no need to acquire the lock
         return in.length();
     }
 
-    public long getKeyPosition()
-    {
+    public long getKeyPosition() {
         return keyPosition;
     }
 }

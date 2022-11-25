@@ -15,15 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.transform;
 
 import java.util.Collections;
 import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.compaction.OperationType;
@@ -35,26 +32,29 @@ import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.DiagnosticSnapshotService;
 import org.apache.cassandra.utils.FBUtilities;
 
-public class DuplicateRowChecker extends Transformation<BaseRowIterator<?>>
-{
-    private static final Logger logger = LoggerFactory.getLogger(DuplicateRowChecker.class);
+public class DuplicateRowChecker extends Transformation<BaseRowIterator<?>> {
 
-    Clustering<?> previous = null;
-    int duplicatesDetected = 0;
-    boolean hadNonEqualDuplicates = false;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DuplicateRowChecker.class);
 
-    final String stage;
-    final List<InetAddressAndPort> replicas;
-    final TableMetadata metadata;
-    final DecoratedKey key;
-    final boolean snapshotOnDuplicate;
+    private static final transient Logger logger = LoggerFactory.getLogger(DuplicateRowChecker.class);
 
-    DuplicateRowChecker(final DecoratedKey key,
-                        final TableMetadata metadata,
-                        final String stage,
-                        final boolean snapshotOnDuplicate,
-                        final List<InetAddressAndPort> replicas)
-    {
+    transient Clustering<?> previous = null;
+
+    transient int duplicatesDetected = 0;
+
+    transient boolean hadNonEqualDuplicates = false;
+
+    final transient String stage;
+
+    final transient List<InetAddressAndPort> replicas;
+
+    final transient TableMetadata metadata;
+
+    final transient DecoratedKey key;
+
+    final transient boolean snapshotOnDuplicate;
+
+    DuplicateRowChecker(final DecoratedKey key, final TableMetadata metadata, final String stage, final boolean snapshotOnDuplicate, final List<InetAddressAndPort> replicas) {
         this.key = key;
         this.metadata = metadata;
         this.stage = stage;
@@ -62,42 +62,30 @@ public class DuplicateRowChecker extends Transformation<BaseRowIterator<?>>
         this.replicas = replicas;
     }
 
-    protected DeletionTime applyToDeletion(DeletionTime deletionTime)
-    {
+    protected DeletionTime applyToDeletion(DeletionTime deletionTime) {
         return deletionTime;
     }
 
-    protected RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker)
-    {
+    protected RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker) {
         return marker;
     }
 
-    protected Row applyToStatic(Row row)
-    {
+    protected Row applyToStatic(Row row) {
         return row;
     }
 
-    protected Row applyToRow(Row row)
-    {
-        if (null != previous && metadata.comparator.compare(row.clustering(), previous) == 0)
-        {
+    protected Row applyToRow(Row row) {
+        if (null != previous && metadata.comparator.compare(row.clustering(), previous) == 0) {
             duplicatesDetected++;
             hadNonEqualDuplicates |= !row.clustering().equals(previous);
         }
-
         previous = row.clustering();
         return row;
     }
 
-    protected void onPartitionClose()
-    {
-        if (duplicatesDetected > 0)
-        {
-            logger.warn("Detected {} duplicate rows for {} during {}.{}",
-                        duplicatesDetected,
-                        metadata.partitionKeyType.getString(key.getKey()),
-                        stage,
-                        hadNonEqualDuplicates ? " Some duplicates had different byte representation." : "");
+    protected void onPartitionClose() {
+        if (duplicatesDetected > 0) {
+            logger.warn("Detected {} duplicate rows for {} during {}.{}", duplicatesDetected, metadata.partitionKeyType.getString(key.getKey()), stage, hadNonEqualDuplicates ? " Some duplicates had different byte representation." : "");
             if (snapshotOnDuplicate)
                 DiagnosticSnapshotService.duplicateRows(metadata, replicas);
         }
@@ -106,39 +94,27 @@ public class DuplicateRowChecker extends Transformation<BaseRowIterator<?>>
         super.onPartitionClose();
     }
 
-    public static UnfilteredPartitionIterator duringCompaction(final UnfilteredPartitionIterator iterator, OperationType type)
-    {
+    public static UnfilteredPartitionIterator duringCompaction(final UnfilteredPartitionIterator iterator, OperationType type) {
         if (!DatabaseDescriptor.checkForDuplicateRowsDuringCompaction())
             return iterator;
         final List<InetAddressAndPort> address = Collections.singletonList(FBUtilities.getBroadcastAddressAndPort());
         final boolean snapshot = DatabaseDescriptor.snapshotOnDuplicateRowDetection();
-        return Transformation.apply(iterator, new Transformation<UnfilteredRowIterator>()
-        {
-            protected UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition)
-            {
-                return Transformation.apply(partition, new DuplicateRowChecker(partition.partitionKey(),
-                                                                               partition.metadata(),
-                                                                               type.toString(),
-                                                                               snapshot,
-                                                                               address));
+        return Transformation.apply(iterator, new Transformation<UnfilteredRowIterator>() {
+
+            protected UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition) {
+                return Transformation.apply(partition, new DuplicateRowChecker(partition.partitionKey(), partition.metadata(), type.toString(), snapshot, address));
             }
         });
     }
 
-    public static PartitionIterator duringRead(final PartitionIterator iterator, final List<InetAddressAndPort> replicas)
-    {
+    public static PartitionIterator duringRead(final PartitionIterator iterator, final List<InetAddressAndPort> replicas) {
         if (!DatabaseDescriptor.checkForDuplicateRowsDuringReads())
             return iterator;
         final boolean snapshot = DatabaseDescriptor.snapshotOnDuplicateRowDetection();
-        return Transformation.apply(iterator, new Transformation<RowIterator>()
-        {
-            protected RowIterator applyToPartition(RowIterator partition)
-            {
-                return Transformation.apply(partition, new DuplicateRowChecker(partition.partitionKey(),
-                                                                               partition.metadata(),
-                                                                               "Read",
-                                                                               snapshot,
-                                                                               replicas));
+        return Transformation.apply(iterator, new Transformation<RowIterator>() {
+
+            protected RowIterator applyToPartition(RowIterator partition) {
+                return Transformation.apply(partition, new DuplicateRowChecker(partition.partitionKey(), partition.metadata(), "Read", snapshot, replicas));
             }
         });
     }

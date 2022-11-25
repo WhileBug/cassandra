@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads.repair;
 
 import java.util.Map;
 import java.util.function.Consumer;
-
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.db.partitions.PartitionIterator;
@@ -34,49 +32,41 @@ import org.apache.cassandra.service.reads.DigestResolver;
 /**
  * Bypasses the read repair path for short read protection and testing
  */
-public class NoopReadRepair<E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>> implements ReadRepair<E, P>
-{
-    public static final NoopReadRepair instance = new NoopReadRepair();
+public class NoopReadRepair<E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>> implements ReadRepair<E, P> {
 
-    private NoopReadRepair() {}
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NoopReadRepair.class);
+
+    public static final transient NoopReadRepair instance = new NoopReadRepair();
+
+    private NoopReadRepair() {
+    }
 
     @Override
-    public UnfilteredPartitionIterators.MergeListener getMergeListener(P replicas)
-    {
+    public UnfilteredPartitionIterators.MergeListener getMergeListener(P replicas) {
         return UnfilteredPartitionIterators.MergeListener.NOOP;
     }
 
     @Override
-    public void startRepair(DigestResolver<E, P> digestResolver, Consumer<PartitionIterator> resultConsumer)
-    {
+    public void startRepair(DigestResolver<E, P> digestResolver, Consumer<PartitionIterator> resultConsumer) {
         resultConsumer.accept(digestResolver.getData());
     }
 
-    public void awaitReads() throws ReadTimeoutException
-    {
+    public void awaitReads() throws ReadTimeoutException {
     }
 
     @Override
-    public void maybeSendAdditionalReads()
-    {
-
+    public void maybeSendAdditionalReads() {
     }
 
     @Override
-    public void maybeSendAdditionalWrites()
-    {
-
+    public void maybeSendAdditionalWrites() {
     }
 
     @Override
-    public void awaitWrites()
-    {
-
+    public void awaitWrites() {
     }
 
     @Override
-    public void repairPartition(DecoratedKey partitionKey, Map<Replica, Mutation> mutations, ReplicaPlan.ForTokenWrite writePlan)
-    {
-
+    public void repairPartition(DecoratedKey partitionKey, Map<Replica, Mutation> mutations, ReplicaPlan.ForTokenWrite writePlan) {
     }
 }

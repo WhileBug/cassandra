@@ -24,107 +24,96 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
  *
  * If contention/false sharing ever become a problem, consider introducing padding.
  */
-class InboundCounters
-{
-    private volatile long errorCount;
-    private volatile long errorBytes;
+class InboundCounters {
 
-    private static final AtomicLongFieldUpdater<InboundCounters> errorCountUpdater =
-        AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "errorCount");
-    private static final AtomicLongFieldUpdater<InboundCounters> errorBytesUpdater =
-        AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "errorBytes");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InboundCounters.class);
 
-    void addError(int bytes)
-    {
+    private volatile transient long errorCount;
+
+    private volatile transient long errorBytes;
+
+    private static final transient AtomicLongFieldUpdater<InboundCounters> errorCountUpdater = AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "errorCount");
+
+    private static final transient AtomicLongFieldUpdater<InboundCounters> errorBytesUpdater = AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "errorBytes");
+
+    void addError(int bytes) {
         errorCountUpdater.incrementAndGet(this);
         errorBytesUpdater.addAndGet(this, bytes);
     }
 
-    long errorCount()
-    {
+    long errorCount() {
         return errorCount;
     }
 
-    long errorBytes()
-    {
+    long errorBytes() {
         return errorBytes;
     }
 
-    private volatile long expiredCount;
-    private volatile long expiredBytes;
+    private volatile transient long expiredCount;
 
-    private static final AtomicLongFieldUpdater<InboundCounters> expiredCountUpdater =
-        AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "expiredCount");
-    private static final AtomicLongFieldUpdater<InboundCounters> expiredBytesUpdater =
-        AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "expiredBytes");
+    private volatile transient long expiredBytes;
 
-    void addExpired(int bytes)
-    {
+    private static final transient AtomicLongFieldUpdater<InboundCounters> expiredCountUpdater = AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "expiredCount");
+
+    private static final transient AtomicLongFieldUpdater<InboundCounters> expiredBytesUpdater = AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "expiredBytes");
+
+    void addExpired(int bytes) {
         expiredCountUpdater.incrementAndGet(this);
         expiredBytesUpdater.addAndGet(this, bytes);
     }
 
-    long expiredCount()
-    {
+    long expiredCount() {
         return expiredCount;
     }
 
-    long expiredBytes()
-    {
+    long expiredBytes() {
         return expiredBytes;
     }
 
-    private volatile long processedCount;
-    private volatile long processedBytes;
+    private volatile transient long processedCount;
 
-    private static final AtomicLongFieldUpdater<InboundCounters> processedCountUpdater =
-        AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "processedCount");
-    private static final AtomicLongFieldUpdater<InboundCounters> processedBytesUpdater =
-        AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "processedBytes");
+    private volatile transient long processedBytes;
 
-    void addProcessed(int bytes)
-    {
+    private static final transient AtomicLongFieldUpdater<InboundCounters> processedCountUpdater = AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "processedCount");
+
+    private static final transient AtomicLongFieldUpdater<InboundCounters> processedBytesUpdater = AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "processedBytes");
+
+    void addProcessed(int bytes) {
         processedCountUpdater.incrementAndGet(this);
         processedBytesUpdater.addAndGet(this, bytes);
     }
 
-    long processedCount()
-    {
+    long processedCount() {
         return processedCount;
     }
 
-    long processedBytes()
-    {
+    long processedBytes() {
         return processedBytes;
     }
 
-    private volatile long scheduledCount;
-    private volatile long scheduledBytes;
+    private volatile transient long scheduledCount;
 
-    private static final AtomicLongFieldUpdater<InboundCounters> scheduledCountUpdater =
-        AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "scheduledCount");
-    private static final AtomicLongFieldUpdater<InboundCounters> scheduledBytesUpdater =
-        AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "scheduledBytes");
+    private volatile transient long scheduledBytes;
 
-    void addPending(int bytes)
-    {
+    private static final transient AtomicLongFieldUpdater<InboundCounters> scheduledCountUpdater = AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "scheduledCount");
+
+    private static final transient AtomicLongFieldUpdater<InboundCounters> scheduledBytesUpdater = AtomicLongFieldUpdater.newUpdater(InboundCounters.class, "scheduledBytes");
+
+    void addPending(int bytes) {
         scheduledCountUpdater.incrementAndGet(this);
         scheduledBytesUpdater.addAndGet(this, bytes);
     }
 
-    void removePending(int bytes)
-    {
+    void removePending(int bytes) {
         scheduledCountUpdater.decrementAndGet(this);
         scheduledBytesUpdater.addAndGet(this, -bytes);
     }
 
-    long scheduledCount()
-    {
+    long scheduledCount() {
         return scheduledCount;
     }
 
-    long scheduledBytes()
-    {
+    long scheduledBytes() {
         return scheduledBytes;
     }
 }

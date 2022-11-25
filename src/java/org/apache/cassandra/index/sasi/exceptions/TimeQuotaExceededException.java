@@ -17,9 +17,11 @@
  */
 package org.apache.cassandra.index.sasi.exceptions;
 
-public class TimeQuotaExceededException extends RuntimeException
-{
+public class TimeQuotaExceededException extends RuntimeException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TimeQuotaExceededException.class);
+
     public TimeQuotaExceededException(String message) {
-	super(message);
+        super(message);
     }
 }

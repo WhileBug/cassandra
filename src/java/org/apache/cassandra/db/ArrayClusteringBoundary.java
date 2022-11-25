@@ -15,46 +15,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import com.google.common.base.Preconditions;
-
 import org.apache.cassandra.utils.ObjectSizes;
 
-public class ArrayClusteringBoundary extends ArrayClusteringBoundOrBoundary implements ClusteringBoundary<byte[]>
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new ArrayClusteringBoundary(ClusteringPrefix.Kind.INCL_START_BOUND, EMPTY_VALUES_ARRAY));
+public class ArrayClusteringBoundary extends ArrayClusteringBoundOrBoundary implements ClusteringBoundary<byte[]> {
 
-    public ArrayClusteringBoundary(Kind kind, byte[][] values)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ArrayClusteringBoundary.class);
+
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new ArrayClusteringBoundary(ClusteringPrefix.Kind.INCL_START_BOUND, EMPTY_VALUES_ARRAY));
+
+    public ArrayClusteringBoundary(Kind kind, byte[][] values) {
         super(kind, values);
     }
 
-    public long unsharedHeapSize()
-    {
+    public long unsharedHeapSize() {
         return EMPTY_SIZE + ObjectSizes.sizeOfArray(values) + values.length;
     }
 
-    public static ClusteringBoundary<byte[]> create(Kind kind, byte[][] values)
-    {
+    public static ClusteringBoundary<byte[]> create(Kind kind, byte[][] values) {
         Preconditions.checkArgument(kind.isBoundary(), "Expected boundary clustering kind, got %s", kind);
         return new ArrayClusteringBoundary(kind, values);
     }
 
     @Override
-    public ClusteringBoundary<byte[]> invert()
-    {
+    public ClusteringBoundary<byte[]> invert() {
         return create(kind().invert(), values);
     }
 
-    public ClusteringBound<byte[]> openBound(boolean reversed)
-    {
+    public ClusteringBound<byte[]> openBound(boolean reversed) {
         return ArrayClusteringBound.create(kind.openBoundOfBoundary(reversed), values);
     }
 
-    public ClusteringBound<byte[]> closeBound(boolean reversed)
-    {
+    public ClusteringBound<byte[]> closeBound(boolean reversed) {
         return ArrayClusteringBound.create(kind.closeBoundOfBoundary(reversed), values);
     }
 }

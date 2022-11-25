@@ -17,35 +17,32 @@
  */
 package org.apache.cassandra.utils;
 
+public class DefaultValue<T> {
 
-public class DefaultValue<T>
-{
-    private final T originalValue;
-    private T currentValue;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DefaultValue.class);
 
-    public DefaultValue(T value)
-    {
+    private final transient T originalValue;
+
+    private transient T currentValue;
+
+    public DefaultValue(T value) {
         originalValue = value;
         currentValue = value;
     }
 
-    public T value()
-    {
+    public T value() {
         return currentValue;
     }
 
-    public void set(T i)
-    {
+    public void set(T i) {
         currentValue = i;
     }
 
-    public void reset()
-    {
+    public void reset() {
         currentValue = originalValue;
     }
 
-    public boolean isModified()
-    {
+    public boolean isModified() {
         return originalValue != currentValue;
     }
 }

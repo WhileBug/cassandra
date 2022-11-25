@@ -18,14 +18,15 @@
 package org.apache.cassandra.index.sasi.sa;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.index.sasi.disk.TokenTreeBuilder;
 import org.apache.cassandra.utils.Pair;
-
 import com.google.common.collect.AbstractIterator;
 
-public abstract class TermIterator extends AbstractIterator<Pair<IndexedTerm, TokenTreeBuilder>>
-{
+public abstract class TermIterator extends AbstractIterator<Pair<IndexedTerm, TokenTreeBuilder>> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TermIterator.class);
+
     public abstract ByteBuffer minTerm();
+
     public abstract ByteBuffer maxTerm();
 }

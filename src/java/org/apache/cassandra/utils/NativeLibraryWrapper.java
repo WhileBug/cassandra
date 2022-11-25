@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 import com.sun.jna.Pointer;
@@ -24,8 +23,10 @@ import com.sun.jna.Pointer;
  * An interface to implement for using OS specific native methods.
  * @see NativeLibrary
  */
-interface NativeLibraryWrapper
-{
+interface NativeLibraryWrapper {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativeLibraryWrapper.class);
+
     /**
      * Checks if the library has been successfully linked.
      * @return {@code true} if the library has been successfully linked, {@code false} otherwise.
@@ -33,12 +34,20 @@ interface NativeLibraryWrapper
     boolean isAvailable();
 
     int callMlockall(int flags) throws UnsatisfiedLinkError, RuntimeException;
+
     int callMunlockall() throws UnsatisfiedLinkError, RuntimeException;
+
     int callFcntl(int fd, int command, long flags) throws UnsatisfiedLinkError, RuntimeException;
+
     int callPosixFadvise(int fd, long offset, int len, int flag) throws UnsatisfiedLinkError, RuntimeException;
+
     int callOpen(String path, int flags) throws UnsatisfiedLinkError, RuntimeException;
+
     int callFsync(int fd) throws UnsatisfiedLinkError, RuntimeException;
+
     int callClose(int fd) throws UnsatisfiedLinkError, RuntimeException;
+
     Pointer callStrerror(int errnum) throws UnsatisfiedLinkError, RuntimeException;
+
     long callGetpid() throws UnsatisfiedLinkError, RuntimeException;
 }

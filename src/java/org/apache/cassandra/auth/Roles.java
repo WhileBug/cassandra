@@ -22,40 +22,36 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.exceptions.RequestExecutionException;
 import org.apache.cassandra.exceptions.UnauthorizedException;
 
-public class Roles
-{
-    private static final Logger logger = LoggerFactory.getLogger(Roles.class);
+public class Roles {
 
-    private static final Role NO_ROLE = new Role("", false, false, Collections.emptyMap(), Collections.emptySet());
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Roles.class);
 
-    private static RolesCache cache;
-    static
-    {
-        initRolesCache(DatabaseDescriptor.getRoleManager(),
-                       () -> DatabaseDescriptor.getAuthenticator().requireAuthentication());
+    private static final transient Logger logger = LoggerFactory.getLogger(Roles.class);
+
+    private static final transient Role NO_ROLE = new Role("", false, false, Collections.emptyMap(), Collections.emptySet());
+
+    private static transient RolesCache cache;
+
+    static {
+        initRolesCache(DatabaseDescriptor.getRoleManager(), () -> DatabaseDescriptor.getAuthenticator().requireAuthentication());
     }
 
     @VisibleForTesting
-    public static void initRolesCache(IRoleManager roleManager, BooleanSupplier enableCache)
-    {
+    public static void initRolesCache(IRoleManager roleManager, BooleanSupplier enableCache) {
         if (cache != null)
             cache.unregisterMBean();
         cache = new RolesCache(roleManager, enableCache);
     }
 
     @VisibleForTesting
-    public static void clearCache()
-    {
+    public static void clearCache() {
         cache.invalidate();
     }
 
@@ -68,8 +64,7 @@ public class Roles
      * @param primaryRole the Role
      * @return set of all granted Roles for the primary Role
      */
-    public static Set<RoleResource> getRoles(RoleResource primaryRole)
-    {
+    public static Set<RoleResource> getRoles(RoleResource primaryRole) {
         return cache.getRoleResources(primaryRole);
     }
 
@@ -84,8 +79,7 @@ public class Roles
      * @param primaryRole identifies the role
      * @return set of detailed info for all of the roles granted to the primary
      */
-    public static Set<Role> getRoleDetails(RoleResource primaryRole)
-    {
+    public static Set<Role> getRoleDetails(RoleResource primaryRole) {
         return cache.getRoles(primaryRole);
     }
 
@@ -96,18 +90,12 @@ public class Roles
      * @param role the primary role
      * @return true if the role has superuser status, false otherwise
      */
-    public static boolean hasSuperuserStatus(RoleResource role)
-    {
-        try
-        {
-            for (Role r : getRoleDetails(role))
-                if (r.isSuper)
-                    return true;
-
+    public static boolean hasSuperuserStatus(RoleResource role) {
+        try {
+            for (Role r : getRoleDetails(role)) if (r.isSuper)
+                return true;
             return false;
-        }
-        catch (RequestExecutionException e)
-        {
+        } catch (RequestExecutionException e) {
             logger.debug("Failed to authorize {} for super-user permission", role.getRoleName());
             throw new UnauthorizedException("Unable to perform authorization of super-user permission: " + e.getMessage(), e);
         }
@@ -119,18 +107,12 @@ public class Roles
      * @param role the role identifier
      * @return true if the role has the canLogin privilege, false otherwise
      */
-    public static boolean canLogin(final RoleResource role)
-    {
-        try
-        {
-            for (Role r : getRoleDetails(role))
-                if (r.resource.equals(role))
-                    return r.canLogin;
-
+    public static boolean canLogin(final RoleResource role) {
+        try {
+            for (Role r : getRoleDetails(role)) if (r.resource.equals(role))
+                return r.canLogin;
             return false;
-        }
-        catch (RequestExecutionException e)
-        {
+        } catch (RequestExecutionException e) {
             logger.debug("Failed to authorize {} for login permission", role.getRoleName());
             throw new UnauthorizedException("Unable to perform authorization of login permission: " + e.getMessage(), e);
         }
@@ -143,57 +125,43 @@ public class Roles
      * @return map of option_name -> value. If no options are set for the named role, the map will be empty
      * but never null.
      */
-    public static Map<String, String> getOptions(RoleResource role)
-    {
-        for (Role r : getRoleDetails(role))
-            if (r.resource.equals(role))
-                return r.options;
-
+    public static Map<String, String> getOptions(RoleResource role) {
+        for (Role r : getRoleDetails(role)) if (r.resource.equals(role))
+            return r.options;
         return NO_ROLE.options;
     }
 
-   /**
-    * Return the NullObject Role instance which can be safely used to indicate no information is available
-    * when querying for a specific named role.
-    * @return singleton null role object
-    */
-   public static Role nullRole()
-   {
-       return NO_ROLE;
-   }
+    /**
+     * Return the NullObject Role instance which can be safely used to indicate no information is available
+     * when querying for a specific named role.
+     * @return singleton null role object
+     */
+    public static Role nullRole() {
+        return NO_ROLE;
+    }
 
-   /**
-    * Just a convenience method which compares a role instance with the null object version, indicating if the
-    * return from some query/lookup method was a valid Role or indicates that the role does not exist.
-    * @param role
-    * @return true if the supplied role is the null role instance, false otherwise.
-    */
-   public static boolean isNullRole(Role role)
-   {
-       return NO_ROLE.equals(role);
-   }
+    /**
+     * Just a convenience method which compares a role instance with the null object version, indicating if the
+     * return from some query/lookup method was a valid Role or indicates that the role does not exist.
+     * @param role
+     * @return true if the supplied role is the null role instance, false otherwise.
+     */
+    public static boolean isNullRole(Role role) {
+        return NO_ROLE.equals(role);
+    }
 
-
-   /**
-    * Constructs a Role object from a RoleResource, using the methods of the supplied IRoleManager.
-    * This is used by the default implementation of IRoleManager#getRoleDetails so that IRoleManager impls
-    * which don't implement an optimized getRoleDetails remain compatible. Depending on the IRoleManager
-    * implementation this could be quite heavyweight, so should not be used on any hot path.
-    *
-    * @param resource identifies the role
-    * @param roleManager provides lookup functions to retrieve role info
-    * @return Role object including superuser status, login privilege, custom options and the set of roles
-    * granted to identified role.
-    */
-   public static Role fromRoleResource(RoleResource resource, IRoleManager roleManager)
-   {
-       return new Role(resource.getName(),
-                       roleManager.isSuper(resource),
-                       roleManager.canLogin(resource),
-                       roleManager.getCustomOptions(resource),
-                       roleManager.getRoles(resource, false)
-                                  .stream()
-                                  .map(RoleResource::getRoleName)
-                                  .collect(Collectors.toSet()));
-   }
+    /**
+     * Constructs a Role object from a RoleResource, using the methods of the supplied IRoleManager.
+     * This is used by the default implementation of IRoleManager#getRoleDetails so that IRoleManager impls
+     * which don't implement an optimized getRoleDetails remain compatible. Depending on the IRoleManager
+     * implementation this could be quite heavyweight, so should not be used on any hot path.
+     *
+     * @param resource identifies the role
+     * @param roleManager provides lookup functions to retrieve role info
+     * @return Role object including superuser status, login privilege, custom options and the set of roles
+     * granted to identified role.
+     */
+    public static Role fromRoleResource(RoleResource resource, IRoleManager roleManager) {
+        return new Role(resource.getName(), roleManager.isSuper(resource), roleManager.canLogin(resource), roleManager.getCustomOptions(resource), roleManager.getRoles(resource, false).stream().map(RoleResource::getRoleName).collect(Collectors.toSet()));
+    }
 }

@@ -15,14 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 import java.util.Collections;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.sun.jna.LastErrorException;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
@@ -35,29 +32,23 @@ import com.sun.jna.Pointer;
  * @see org.apache.cassandra.utils.NativeLibraryWrapper
  * @see NativeLibrary
  */
-public class NativeLibraryWindows implements NativeLibraryWrapper
-{
-    private static final Logger logger = LoggerFactory.getLogger(NativeLibraryWindows.class);
+public class NativeLibraryWindows implements NativeLibraryWrapper {
 
-    private static boolean available;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativeLibraryWindows.class);
 
-    static
-    {
-        try
-        {
+    private static final transient Logger logger = LoggerFactory.getLogger(NativeLibraryWindows.class);
+
+    private static transient boolean available;
+
+    static {
+        try {
             Native.register(com.sun.jna.NativeLibrary.getInstance("kernel32", Collections.emptyMap()));
             available = true;
-        }
-        catch (NoClassDefFoundError e)
-        {
+        } catch (NoClassDefFoundError e) {
             logger.warn("JNA not found. Native methods will be disabled.");
-        }
-        catch (UnsatisfiedLinkError e)
-        {
+        } catch (UnsatisfiedLinkError e) {
             logger.error("Failed to link the Windows/Kernel32 library against JNA. Native methods will be unavailable.", e);
-        }
-        catch (NoSuchMethodError e)
-        {
+        } catch (NoSuchMethodError e) {
             logger.warn("Obsolete version of JNA present; unable to register Windows/Kernel32 library. Upgrade to JNA 3.2.7 or later");
         }
     }
@@ -69,43 +60,35 @@ public class NativeLibraryWindows implements NativeLibraryWrapper
      */
     private static native long GetCurrentProcessId() throws LastErrorException;
 
-    public int callMlockall(int flags) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callMlockall(int flags) throws UnsatisfiedLinkError, RuntimeException {
         throw new UnsatisfiedLinkError();
     }
 
-    public int callMunlockall() throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callMunlockall() throws UnsatisfiedLinkError, RuntimeException {
         throw new UnsatisfiedLinkError();
     }
 
-    public int callFcntl(int fd, int command, long flags) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callFcntl(int fd, int command, long flags) throws UnsatisfiedLinkError, RuntimeException {
         throw new UnsatisfiedLinkError();
     }
 
-    public int callPosixFadvise(int fd, long offset, int len, int flag) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callPosixFadvise(int fd, long offset, int len, int flag) throws UnsatisfiedLinkError, RuntimeException {
         throw new UnsatisfiedLinkError();
     }
 
-    public int callOpen(String path, int flags) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callOpen(String path, int flags) throws UnsatisfiedLinkError, RuntimeException {
         throw new UnsatisfiedLinkError();
     }
 
-    public int callFsync(int fd) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callFsync(int fd) throws UnsatisfiedLinkError, RuntimeException {
         throw new UnsatisfiedLinkError();
     }
 
-    public int callClose(int fd) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callClose(int fd) throws UnsatisfiedLinkError, RuntimeException {
         throw new UnsatisfiedLinkError();
     }
 
-    public Pointer callStrerror(int errnum) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public Pointer callStrerror(int errnum) throws UnsatisfiedLinkError, RuntimeException {
         throw new UnsatisfiedLinkError();
     }
 
@@ -114,13 +97,11 @@ public class NativeLibraryWindows implements NativeLibraryWrapper
      * @throws UnsatisfiedLinkError if we fail to link against Sigar
      * @throws RuntimeException if another unexpected error is thrown by Sigar
      */
-    public long callGetpid() throws UnsatisfiedLinkError, RuntimeException
-    {
+    public long callGetpid() throws UnsatisfiedLinkError, RuntimeException {
         return GetCurrentProcessId();
     }
 
-    public boolean isAvailable()
-    {
+    public boolean isAvailable() {
         return available;
     }
 }

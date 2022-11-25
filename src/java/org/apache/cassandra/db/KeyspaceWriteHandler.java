@@ -15,15 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import org.apache.cassandra.exceptions.RequestExecutionException;
 
-public interface KeyspaceWriteHandler
-{
+public interface KeyspaceWriteHandler {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyspaceWriteHandler.class);
+
     // mutation can be null if makeDurable is false
     WriteContext beginWrite(Mutation mutation, boolean makeDurable) throws RequestExecutionException;
+
     WriteContext createContextForIndexing();
+
     WriteContext createContextForRead();
 }

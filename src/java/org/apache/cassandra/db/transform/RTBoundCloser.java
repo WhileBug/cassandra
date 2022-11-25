@@ -35,89 +35,71 @@ import org.apache.cassandra.db.rows.*;
  *
  * See CASSANDRA-14515 for context.
  */
-public final class RTBoundCloser extends Transformation<UnfilteredRowIterator>
-{
-    private RTBoundCloser()
-    {
+public final class RTBoundCloser extends Transformation<UnfilteredRowIterator> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RTBoundCloser.class);
+
+    private RTBoundCloser() {
     }
 
-    public static UnfilteredPartitionIterator close(UnfilteredPartitionIterator partitions)
-    {
+    public static UnfilteredPartitionIterator close(UnfilteredPartitionIterator partitions) {
         return Transformation.apply(partitions, new RTBoundCloser());
     }
 
-    public static UnfilteredRowIterator close(UnfilteredRowIterator partition)
-    {
+    public static UnfilteredRowIterator close(UnfilteredRowIterator partition) {
         RowsTransformation transformation = new RowsTransformation(partition);
         return Transformation.apply(MoreRows.extend(partition, transformation, partition.columns()), transformation);
     }
 
     @Override
-    public UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition)
-    {
+    public UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition) {
         RowsTransformation transformation = new RowsTransformation(partition);
         return Transformation.apply(MoreRows.extend(partition, transformation, partition.columns()), transformation);
     }
 
-    private final static class RowsTransformation extends Transformation implements MoreRows<UnfilteredRowIterator>
-    {
-        private final UnfilteredRowIterator partition;
+    private final static class RowsTransformation extends Transformation implements MoreRows<UnfilteredRowIterator> {
 
-        private Clustering<?> lastRowClustering;
-        private DeletionTime openMarkerDeletionTime;
+        private final transient UnfilteredRowIterator partition;
 
-        private RowsTransformation(UnfilteredRowIterator partition)
-        {
+        private transient Clustering<?> lastRowClustering;
+
+        private transient DeletionTime openMarkerDeletionTime;
+
+        private RowsTransformation(UnfilteredRowIterator partition) {
             this.partition = partition;
         }
 
         @Override
-        public Row applyToRow(Row row)
-        {
+        public Row applyToRow(Row row) {
             lastRowClustering = row.clustering();
             return row;
         }
 
         @Override
-        public RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker)
-        {
-            openMarkerDeletionTime =
-                marker.isOpen(partition.isReverseOrder()) ? marker.openDeletionTime(partition.isReverseOrder()) : null;
+        public RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker) {
+            openMarkerDeletionTime = marker.isOpen(partition.isReverseOrder()) ? marker.openDeletionTime(partition.isReverseOrder()) : null;
             lastRowClustering = null;
             return marker;
         }
 
         @Override
-        public UnfilteredRowIterator moreContents()
-        {
+        public UnfilteredRowIterator moreContents() {
             // there is no open RT in the stream - nothing for us to do
             if (null == openMarkerDeletionTime)
                 return null;
-
             /*
              * there *is* an open RT in the stream, but there have been no rows after the opening bound - this must
              * never happen in scenarios where RTBoundCloser is meant to be used; the last encountered clustering
              * should be either a closing bound marker - if the iterator was exhausted fully - or a live row - if
              * DataLimits stopped it short in the middle of an RT.
              */
-            if (null == lastRowClustering)
-            {
+            if (null == lastRowClustering) {
                 String message = String.format("UnfilteredRowIterator for %s has an open RT bound as its last item", partition.metadata());
                 throw new IllegalStateException(message);
             }
-
             // create an artificial inclusive closing RT bound with bound matching last seen row's clustering
-            RangeTombstoneBoundMarker closingBound =
-                RangeTombstoneBoundMarker.inclusiveClose(partition.isReverseOrder(), lastRowClustering, openMarkerDeletionTime);
-
-            return UnfilteredRowIterators.singleton(closingBound,
-                                                    partition.metadata(),
-                                                    partition.partitionKey(),
-                                                    partition.partitionLevelDeletion(),
-                                                    partition.columns(),
-                                                    partition.staticRow(),
-                                                    partition.isReverseOrder(),
-                                                    partition.stats());
+            RangeTombstoneBoundMarker closingBound = RangeTombstoneBoundMarker.inclusiveClose(partition.isReverseOrder(), lastRowClustering, openMarkerDeletionTime);
+            return UnfilteredRowIterators.singleton(closingBound, partition.metadata(), partition.partitionKey(), partition.partitionLevelDeletion(), partition.columns(), partition.staticRow(), partition.isReverseOrder(), partition.stats());
         }
     }
 }

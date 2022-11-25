@@ -19,10 +19,8 @@ package org.apache.cassandra.db.virtual;
 
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.IMutation;
@@ -34,84 +32,72 @@ import org.apache.cassandra.schema.TableId;
  *
  * Mainly overrides {@link #apply()} to go straight to {@link VirtualTable#apply(PartitionUpdate)} for every table involved.
  */
-public final class VirtualMutation implements IMutation
-{
-    private final String keyspaceName;
-    private final DecoratedKey partitionKey;
-    private final ImmutableMap<TableId, PartitionUpdate> modifications;
+public final class VirtualMutation implements IMutation {
 
-    public VirtualMutation(PartitionUpdate update)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VirtualMutation.class);
+
+    private final transient String keyspaceName;
+
+    private final transient DecoratedKey partitionKey;
+
+    private final transient ImmutableMap<TableId, PartitionUpdate> modifications;
+
+    public VirtualMutation(PartitionUpdate update) {
         this(update.metadata().keyspace, update.partitionKey(), ImmutableMap.of(update.metadata().id, update));
     }
 
-    public VirtualMutation(String keyspaceName, DecoratedKey partitionKey, ImmutableMap<TableId, PartitionUpdate> modifications)
-    {
+    public VirtualMutation(String keyspaceName, DecoratedKey partitionKey, ImmutableMap<TableId, PartitionUpdate> modifications) {
         this.keyspaceName = keyspaceName;
         this.partitionKey = partitionKey;
         this.modifications = modifications;
     }
 
     @Override
-    public void apply()
-    {
+    public void apply() {
         modifications.forEach((id, update) -> VirtualKeyspaceRegistry.instance.getTableNullable(id).apply(update));
     }
 
     @Override
-    public String getKeyspaceName()
-    {
+    public String getKeyspaceName() {
         return keyspaceName;
     }
 
     @Override
-    public Collection<TableId> getTableIds()
-    {
+    public Collection<TableId> getTableIds() {
         return modifications.keySet();
     }
 
     @Override
-    public DecoratedKey key()
-    {
+    public DecoratedKey key() {
         return partitionKey;
     }
 
     @Override
-    public long getTimeout(TimeUnit unit)
-    {
+    public long getTimeout(TimeUnit unit) {
         return DatabaseDescriptor.getWriteRpcTimeout(unit);
     }
 
     @Override
-    public String toString(boolean shallow)
-    {
-        MoreObjects.ToStringHelper helper =
-            MoreObjects.toStringHelper(this)
-                       .add("keyspace", keyspaceName)
-                       .add("partition key", partitionKey);
-
+    public String toString(boolean shallow) {
+        MoreObjects.ToStringHelper helper = MoreObjects.toStringHelper(this).add("keyspace", keyspaceName).add("partition key", partitionKey);
         if (shallow)
             helper.add("tables", getTableIds());
         else
             helper.add("modifications", getPartitionUpdates());
-
         return helper.toString();
     }
 
     @Override
-    public Collection<PartitionUpdate> getPartitionUpdates()
-    {
+    public Collection<PartitionUpdate> getPartitionUpdates() {
         return modifications.values();
     }
 
     @Override
-    public void validateIndexedColumns()
-    {
+    public void validateIndexedColumns() {
         // no-op
     }
 
-    public void validateSize(int version, int overhead)
-    {
+    public void validateSize(int version, int overhead) {
         // no-op
     }
 }

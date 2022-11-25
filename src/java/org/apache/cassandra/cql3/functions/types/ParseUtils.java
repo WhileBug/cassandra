@@ -25,29 +25,14 @@ import java.util.concurrent.TimeUnit;
 /**
  * Simple utility class used to help parsing CQL values (mainly UDT and collection ones).
  */
-public abstract class ParseUtils
-{
+public abstract class ParseUtils {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ParseUtils.class);
 
     /**
      * Valid ISO-8601 patterns for CQL timestamp literals.
      */
-    private static final String[] iso8601Patterns =
-    new String[]{
-    "yyyy-MM-dd HH:mm",
-    "yyyy-MM-dd HH:mm:ss",
-    "yyyy-MM-dd HH:mmZ",
-    "yyyy-MM-dd HH:mm:ssZ",
-    "yyyy-MM-dd HH:mm:ss.SSS",
-    "yyyy-MM-dd HH:mm:ss.SSSZ",
-    "yyyy-MM-dd'T'HH:mm",
-    "yyyy-MM-dd'T'HH:mmZ",
-    "yyyy-MM-dd'T'HH:mm:ss",
-    "yyyy-MM-dd'T'HH:mm:ssZ",
-    "yyyy-MM-dd'T'HH:mm:ss.SSS",
-    "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
-    "yyyy-MM-dd",
-    "yyyy-MM-ddZ"
-    };
+    private static final transient String[] iso8601Patterns = new String[] { "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mmZ", "yyyy-MM-dd HH:mm:ssZ", "yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss.SSSZ", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mmZ", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm:ssZ", "yyyy-MM-dd'T'HH:mm:ss.SSS", "yyyy-MM-dd'T'HH:mm:ss.SSSZ", "yyyy-MM-dd", "yyyy-MM-ddZ" };
 
     /**
      * Returns the index of the first character in toParse from idx that is not a "space".
@@ -56,8 +41,7 @@ public abstract class ParseUtils
      * @param idx     the index to start skipping space from.
      * @return the index of the first character in toParse from idx that is not a "space.
      */
-    static int skipSpaces(String toParse, int idx)
-    {
+    static int skipSpaces(String toParse, int idx) {
         while (isBlank(toParse.charAt(idx))) ++idx;
         return idx;
     }
@@ -71,79 +55,60 @@ public abstract class ParseUtils
      * @return the index ending the CQL value starting at {@code idx}.
      * @throws IllegalArgumentException if idx doesn't point to the start of a valid CQL value.
      */
-    static int skipCQLValue(String toParse, int idx)
-    {
-        if (idx >= toParse.length()) throw new IllegalArgumentException();
-
-        if (isBlank(toParse.charAt(idx))) throw new IllegalArgumentException();
-
+    static int skipCQLValue(String toParse, int idx) {
+        if (idx >= toParse.length())
+            throw new IllegalArgumentException();
+        if (isBlank(toParse.charAt(idx)))
+            throw new IllegalArgumentException();
         int cbrackets = 0;
         int sbrackets = 0;
         int parens = 0;
         boolean inString = false;
-
-        do
-        {
+        do {
             char c = toParse.charAt(idx);
-            if (inString)
-            {
-                if (c == '\'')
-                {
-                    if (idx + 1 < toParse.length() && toParse.charAt(idx + 1) == '\'')
-                    {
-                        ++idx; // this is an escaped quote, skip it
-                    }
-                    else
-                    {
+            if (inString) {
+                if (c == '\'') {
+                    if (idx + 1 < toParse.length() && toParse.charAt(idx + 1) == '\'') {
+                        // this is an escaped quote, skip it
+                        ++idx;
+                    } else {
                         inString = false;
-                        if (cbrackets == 0 && sbrackets == 0 && parens == 0) return idx + 1;
+                        if (cbrackets == 0 && sbrackets == 0 && parens == 0)
+                            return idx + 1;
                     }
                 }
                 // Skip any other character
-            }
-            else if (c == '\'')
-            {
+            } else if (c == '\'') {
                 inString = true;
-            }
-            else if (c == '{')
-            {
+            } else if (c == '{') {
                 ++cbrackets;
-            }
-            else if (c == '[')
-            {
+            } else if (c == '[') {
                 ++sbrackets;
-            }
-            else if (c == '(')
-            {
+            } else if (c == '(') {
                 ++parens;
-            }
-            else if (c == '}')
-            {
-                if (cbrackets == 0) return idx;
-
+            } else if (c == '}') {
+                if (cbrackets == 0)
+                    return idx;
                 --cbrackets;
-                if (cbrackets == 0 && sbrackets == 0 && parens == 0) return idx + 1;
-            }
-            else if (c == ']')
-            {
-                if (sbrackets == 0) return idx;
-
+                if (cbrackets == 0 && sbrackets == 0 && parens == 0)
+                    return idx + 1;
+            } else if (c == ']') {
+                if (sbrackets == 0)
+                    return idx;
                 --sbrackets;
-                if (cbrackets == 0 && sbrackets == 0 && parens == 0) return idx + 1;
-            }
-            else if (c == ')')
-            {
-                if (parens == 0) return idx;
-
+                if (cbrackets == 0 && sbrackets == 0 && parens == 0)
+                    return idx + 1;
+            } else if (c == ')') {
+                if (parens == 0)
+                    return idx;
                 --parens;
-                if (cbrackets == 0 && sbrackets == 0 && parens == 0) return idx + 1;
-            }
-            else if (isBlank(c) || !isIdentifierChar(c))
-            {
-                if (cbrackets == 0 && sbrackets == 0 && parens == 0) return idx;
+                if (cbrackets == 0 && sbrackets == 0 && parens == 0)
+                    return idx + 1;
+            } else if (isBlank(c) || !isIdentifierChar(c)) {
+                if (cbrackets == 0 && sbrackets == 0 && parens == 0)
+                    return idx;
             }
         } while (++idx < toParse.length());
-
         if (inString || cbrackets != 0 || sbrackets != 0 || parens != 0)
             throw new IllegalArgumentException();
         return idx;
@@ -158,27 +123,25 @@ public abstract class ParseUtils
      * @return the index ending the CQL identifier starting at {@code idx}.
      * @throws IllegalArgumentException if idx doesn't point to the start of a valid CQL identifier.
      */
-    static int skipCQLId(String toParse, int idx)
-    {
-        if (idx >= toParse.length()) throw new IllegalArgumentException();
-
+    static int skipCQLId(String toParse, int idx) {
+        if (idx >= toParse.length())
+            throw new IllegalArgumentException();
         char c = toParse.charAt(idx);
-        if (isIdentifierChar(c))
-        {
+        if (isIdentifierChar(c)) {
             while (idx < toParse.length() && isIdentifierChar(toParse.charAt(idx))) idx++;
             return idx;
         }
-
-        if (c != '"') throw new IllegalArgumentException();
-
-        while (++idx < toParse.length())
-        {
+        if (c != '"')
+            throw new IllegalArgumentException();
+        while (++idx < toParse.length()) {
             c = toParse.charAt(idx);
-            if (c != '"') continue;
-
+            if (c != '"')
+                continue;
             if (idx + 1 < toParse.length() && toParse.charAt(idx + 1) == '\"')
-                ++idx; // this is an escaped double quote, skip it
-            else return idx + 1;
+                // this is an escaped double quote, skip it
+                ++idx;
+            else
+                return idx + 1;
         }
         throw new IllegalArgumentException();
     }
@@ -191,16 +154,8 @@ public abstract class ParseUtils
      * @return {@code true} if the given character is allowed in a CQL identifier, {@code false}
      * otherwise.
      */
-    static boolean isIdentifierChar(int c)
-    {
-        return (c >= '0' && c <= '9')
-               || (c >= 'a' && c <= 'z')
-               || (c >= 'A' && c <= 'Z')
-               || c == '-'
-               || c == '+'
-               || c == '.'
-               || c == '_'
-               || c == '&';
+    static boolean isIdentifierChar(int c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '-' || c == '+' || c == '.' || c == '_' || c == '&';
     }
 
     /**
@@ -211,8 +166,7 @@ public abstract class ParseUtils
      * @return {@code true} if the given character is a valid whitespace character, {@code false}
      * otherwise.
      */
-    static boolean isBlank(int c)
-    {
+    static boolean isBlank(int c) {
         return c == ' ' || c == '\t' || c == '\n';
     }
 
@@ -224,14 +178,14 @@ public abstract class ParseUtils
      * @return {@code true} if the given string corresponds to a valid CQL integer literal, {@code
      * false} otherwise.
      */
-    static boolean isLongLiteral(String str)
-    {
-        if (str == null || str.isEmpty()) return false;
+    static boolean isLongLiteral(String str) {
+        if (str == null || str.isEmpty())
+            return false;
         char[] chars = str.toCharArray();
-        for (int i = 0; i < chars.length; i++)
-        {
+        for (int i = 0; i < chars.length; i++) {
             char c = chars[i];
-            if ((c < '0' && (i != 0 || c != '-')) || c > '9') return false;
+            if ((c < '0' && (i != 0 || c != '-')) || c > '9')
+                return false;
         }
         return true;
     }
@@ -244,8 +198,7 @@ public abstract class ParseUtils
      * @return {@code true} if the given string is surrounded by single quotes, and {@code false}
      * otherwise.
      */
-    static boolean isQuoted(String value)
-    {
+    static boolean isQuoted(String value) {
         return isQuoted(value, '\'');
     }
 
@@ -256,8 +209,7 @@ public abstract class ParseUtils
      * @param value The value to quote.
      * @return The quoted string.
      */
-    public static String quote(String value)
-    {
+    public static String quote(String value) {
         return quote(value, '\'');
     }
 
@@ -268,8 +220,7 @@ public abstract class ParseUtils
      * @param value The string to unquote.
      * @return The unquoted string.
      */
-    static String unquote(String value)
-    {
+    static String unquote(String value) {
         return unquote(value, '\'');
     }
 
@@ -280,8 +231,7 @@ public abstract class ParseUtils
      * @param value The value to double quote.
      * @return The double quoted string.
      */
-    static String doubleQuote(String value)
-    {
+    static String doubleQuote(String value) {
         return quote(value, '"');
     }
 
@@ -292,8 +242,7 @@ public abstract class ParseUtils
      * @param value The string to un-double quote.
      * @return The un-double quoted string.
      */
-    static String unDoubleQuote(String value)
-    {
+    static String unDoubleQuote(String value) {
         return unquote(value, '"');
     }
 
@@ -307,8 +256,7 @@ public abstract class ParseUtils
      * @see <a href="https://cassandra.apache.org/doc/cql3/CQL-2.2.html#usingtimestamps">'Working with
      * timestamps' section of CQL specification</a>
      */
-    static Date parseDate(String str) throws ParseException
-    {
+    static Date parseDate(String str) throws ParseException {
         SimpleDateFormat parser = new SimpleDateFormat();
         parser.setLenient(false);
         // set a default timezone for patterns that do not provide one
@@ -322,13 +270,11 @@ public abstract class ParseUtils
         str = str.replaceAll("(\\+|\\-)(\\d\\d):(\\d\\d)$", "$1$2$3");
         str = str.replaceAll("Z$", "+0000");
         ParsePosition pos = new ParsePosition(0);
-        for (String parsePattern : iso8601Patterns)
-        {
+        for (String parsePattern : iso8601Patterns) {
             parser.applyPattern(parsePattern);
             pos.setIndex(0);
             Date date = parser.parse(str, pos);
-            if (date != null && pos.getIndex() == str.length())
-            {
+            if (date != null && pos.getIndex() == str.length()) {
                 return date;
             }
         }
@@ -345,8 +291,7 @@ public abstract class ParseUtils
      * @see <a href="https://cassandra.apache.org/doc/cql3/CQL-2.2.html#usingtimestamps">'Working with
      * timestamps' section of CQL specification</a>
      */
-    static Date parseDate(String str, String pattern) throws ParseException
-    {
+    static Date parseDate(String str, String pattern) throws ParseException {
         SimpleDateFormat parser = new SimpleDateFormat();
         parser.setLenient(false);
         // set a default timezone for patterns that do not provide one
@@ -363,8 +308,7 @@ public abstract class ParseUtils
         parser.applyPattern(pattern);
         pos.setIndex(0);
         Date date = parser.parse(str, pos);
-        if (date != null && pos.getIndex() == str.length())
-        {
+        if (date != null && pos.getIndex() == str.length()) {
             return date;
         }
         throw new ParseException("Unable to parse the date: " + str, -1);
@@ -382,55 +326,49 @@ public abstract class ParseUtils
      * @see <a href="https://cassandra.apache.org/doc/cql3/CQL-2.2.html#usingtime">'Working with time'
      * section of CQL specification</a>
      */
-    static long parseTime(String str) throws ParseException
-    {
+    static long parseTime(String str) throws ParseException {
         String nanos_s;
-
         long hour;
         long minute;
         long second;
         long a_nanos = 0;
-
         String formatError = "Timestamp format must be hh:mm:ss[.fffffffff]";
         String zeros = "000000000";
-
-        if (str == null) throw new IllegalArgumentException(formatError);
+        if (str == null)
+            throw new IllegalArgumentException(formatError);
         str = str.trim();
-
         // Parse the time
         int firstColon = str.indexOf(':');
         int secondColon = str.indexOf(':', firstColon + 1);
-
         // Convert the time; default missing nanos
-        if (firstColon > 0 && secondColon > 0 && secondColon < str.length() - 1)
-        {
+        if (firstColon > 0 && secondColon > 0 && secondColon < str.length() - 1) {
             int period = str.indexOf('.', secondColon + 1);
             hour = Integer.parseInt(str.substring(0, firstColon));
-            if (hour < 0 || hour >= 24) throw new IllegalArgumentException("Hour out of bounds.");
-
+            if (hour < 0 || hour >= 24)
+                throw new IllegalArgumentException("Hour out of bounds.");
             minute = Integer.parseInt(str.substring(firstColon + 1, secondColon));
-            if (minute < 0 || minute >= 60) throw new IllegalArgumentException("Minute out of bounds.");
-
-            if (period > 0 && period < str.length() - 1)
-            {
+            if (minute < 0 || minute >= 60)
+                throw new IllegalArgumentException("Minute out of bounds.");
+            if (period > 0 && period < str.length() - 1) {
                 second = Integer.parseInt(str.substring(secondColon + 1, period));
-                if (second < 0 || second >= 60) throw new IllegalArgumentException("Second out of bounds.");
-
+                if (second < 0 || second >= 60)
+                    throw new IllegalArgumentException("Second out of bounds.");
                 nanos_s = str.substring(period + 1);
-                if (nanos_s.length() > 9) throw new IllegalArgumentException(formatError);
-                if (!Character.isDigit(nanos_s.charAt(0))) throw new IllegalArgumentException(formatError);
+                if (nanos_s.length() > 9)
+                    throw new IllegalArgumentException(formatError);
+                if (!Character.isDigit(nanos_s.charAt(0)))
+                    throw new IllegalArgumentException(formatError);
                 nanos_s = nanos_s + zeros.substring(0, 9 - nanos_s.length());
                 a_nanos = Integer.parseInt(nanos_s);
-            }
-            else if (period > 0) throw new ParseException(formatError, -1);
-            else
-            {
+            } else if (period > 0)
+                throw new ParseException(formatError, -1);
+            else {
                 second = Integer.parseInt(str.substring(secondColon + 1));
-                if (second < 0 || second >= 60) throw new ParseException("Second out of bounds.", -1);
+                if (second < 0 || second >= 60)
+                    throw new ParseException("Second out of bounds.", -1);
             }
-        }
-        else throw new ParseException(formatError, -1);
-
+        } else
+            throw new ParseException(formatError, -1);
         long rawTime = 0;
         rawTime += TimeUnit.HOURS.toNanos(hour);
         rawTime += TimeUnit.MINUTES.toNanos(minute);
@@ -448,8 +386,7 @@ public abstract class ParseUtils
      * @see <a href="https://cassandra.apache.org/doc/cql3/CQL-2.2.html#usingtime">'Working with time'
      * section of CQL specification</a>
      */
-    static String formatTime(long value)
-    {
+    static String formatTime(long value) {
         int nano = (int) (value % 1000000000);
         value -= nano;
         value /= 1000000000;
@@ -482,25 +419,22 @@ public abstract class ParseUtils
      * @return {@code true} if the given string is surrounded by the quote character, and {@code
      * false} otherwise.
      */
-    private static boolean isQuoted(String value, char quoteChar)
-    {
-        return value != null
-               && value.length() > 1
-               && value.charAt(0) == quoteChar
-               && value.charAt(value.length() - 1) == quoteChar;
+    private static boolean isQuoted(String value, char quoteChar) {
+        return value != null && value.length() > 1 && value.charAt(0) == quoteChar && value.charAt(value.length() - 1) == quoteChar;
     }
 
     /**
      * @param quoteChar " or '
      * @return A quoted empty string.
      */
-    private static String emptyQuoted(char quoteChar)
-    {
+    private static String emptyQuoted(char quoteChar) {
         // don't handle non quote characters, this is done so that these are interned and don't create
         // repeated empty quoted strings.
         assert quoteChar == '"' || quoteChar == '\'';
-        if (quoteChar == '"') return "\"\"";
-        else return "''";
+        if (quoteChar == '"')
+            return "\"\"";
+        else
+            return "''";
     }
 
     /**
@@ -512,21 +446,19 @@ public abstract class ParseUtils
      * @return The text with surrounded in quotes with all existing quotes escaped with (i.e. '
      * becomes '')
      */
-    private static String quote(String text, char quoteChar)
-    {
-        if (text == null || text.isEmpty()) return emptyQuoted(quoteChar);
-
+    private static String quote(String text, char quoteChar) {
+        if (text == null || text.isEmpty())
+            return emptyQuoted(quoteChar);
         int nbMatch = 0;
         int start = -1;
-        do
-        {
+        do {
             start = text.indexOf(quoteChar, start + 1);
-            if (start != -1) ++nbMatch;
+            if (start != -1)
+                ++nbMatch;
         } while (start != -1);
-
         // no quotes found that need to be escaped, simply surround in quotes and return.
-        if (nbMatch == 0) return quoteChar + text + quoteChar;
-
+        if (nbMatch == 0)
+            return quoteChar + text + quoteChar;
         // 2 for beginning and end quotes.
         // length for original text
         // nbMatch for escape characters to add to quotes to be escaped.
@@ -535,17 +467,13 @@ public abstract class ParseUtils
         result[0] = quoteChar;
         result[newLength - 1] = quoteChar;
         int newIdx = 1;
-        for (int i = 0; i < text.length(); i++)
-        {
+        for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
-            if (c == quoteChar)
-            {
+            if (c == quoteChar) {
                 // escape quote with another occurrence.
                 result[newIdx++] = c;
                 result[newIdx++] = c;
-            }
-            else
-            {
+            } else {
                 result[newIdx++] = c;
             }
         }
@@ -561,51 +489,42 @@ public abstract class ParseUtils
      * @return The text with surrounding quotes removed and non surrounding quotes unescaped (i.e. ''
      * becomes ')
      */
-    private static String unquote(String text, char quoteChar)
-    {
-        if (!isQuoted(text, quoteChar)) return text;
-
-        if (text.length() == 2) return "";
-
+    private static String unquote(String text, char quoteChar) {
+        if (!isQuoted(text, quoteChar))
+            return text;
+        if (text.length() == 2)
+            return "";
         String search = emptyQuoted(quoteChar);
         int nbMatch = 0;
         int start = -1;
-        do
-        {
+        do {
             start = text.indexOf(search, start + 2);
             // ignore the second to last character occurrence, as the last character is a quote.
-            if (start != -1 && start != text.length() - 2) ++nbMatch;
+            if (start != -1 && start != text.length() - 2)
+                ++nbMatch;
         } while (start != -1);
-
         // no escaped quotes found, simply remove surrounding quotes and return.
-        if (nbMatch == 0) return text.substring(1, text.length() - 1);
-
+        if (nbMatch == 0)
+            return text.substring(1, text.length() - 1);
         // length of the new string will be its current length - the number of occurrences.
         int newLength = text.length() - nbMatch - 2;
         char[] result = new char[newLength];
         int newIdx = 0;
         // track whenever a quoteChar is encountered and the previous character is not a quoteChar.
         boolean firstFound = false;
-        for (int i = 1; i < text.length() - 1; i++)
-        {
+        for (int i = 1; i < text.length() - 1; i++) {
             char c = text.charAt(i);
-            if (c == quoteChar)
-            {
-                if (firstFound)
-                {
+            if (c == quoteChar) {
+                if (firstFound) {
                     // The previous character was a quoteChar, don't add this to result, this action in
                     // effect removes consecutive quotes.
                     firstFound = false;
-                }
-                else
-                {
+                } else {
                     // found a quoteChar and the previous character was not a quoteChar, include in result.
                     firstFound = true;
                     result[newIdx++] = c;
                 }
-            }
-            else
-            {
+            } else {
                 // non quoteChar encountered, include in result.
                 result[newIdx++] = c;
                 firstFound = false;
@@ -614,12 +533,10 @@ public abstract class ParseUtils
         return new String(result);
     }
 
-    private static void leftPadZeros(int value, int digits, StringBuilder sb)
-    {
+    private static void leftPadZeros(int value, int digits, StringBuilder sb) {
         sb.append(String.format("%0" + digits + 'd', value));
     }
 
-    private ParseUtils()
-    {
+    private ParseUtils() {
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.filter;
 
 import java.io.IOException;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.*;
@@ -26,69 +25,57 @@ import org.apache.cassandra.db.marshal.ReversedType;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 
-public abstract class AbstractClusteringIndexFilter implements ClusteringIndexFilter
-{
-    static final Serializer serializer = new FilterSerializer();
+public abstract class AbstractClusteringIndexFilter implements ClusteringIndexFilter {
 
-    protected final boolean reversed;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractClusteringIndexFilter.class);
 
-    protected AbstractClusteringIndexFilter(boolean reversed)
-    {
+    static final transient Serializer serializer = new FilterSerializer();
+
+    protected final transient boolean reversed;
+
+    protected AbstractClusteringIndexFilter(boolean reversed) {
         this.reversed = reversed;
     }
 
-    public boolean isReversed()
-    {
+    public boolean isReversed() {
         return reversed;
     }
 
-    public boolean isEmpty(ClusteringComparator comparator)
-    {
+    public boolean isEmpty(ClusteringComparator comparator) {
         return false;
     }
 
     protected abstract void serializeInternal(DataOutputPlus out, int version) throws IOException;
+
     protected abstract long serializedSizeInternal(int version);
 
-    protected void appendOrderByToCQLString(TableMetadata metadata, StringBuilder sb)
-    {
-        if (reversed)
-        {
+    protected void appendOrderByToCQLString(TableMetadata metadata, StringBuilder sb) {
+        if (reversed) {
             sb.append(" ORDER BY (");
             int i = 0;
-            for (ColumnMetadata column : metadata.clusteringColumns())
-                sb.append(i++ == 0 ? "" : ", ").append(column.name).append(column.type instanceof ReversedType ? " ASC" : " DESC");
+            for (ColumnMetadata column : metadata.clusteringColumns()) sb.append(i++ == 0 ? "" : ", ").append(column.name).append(column.type instanceof ReversedType ? " ASC" : " DESC");
             sb.append(')');
         }
     }
 
-    private static class FilterSerializer implements Serializer
-    {
-        public void serialize(ClusteringIndexFilter pfilter, DataOutputPlus out, int version) throws IOException
-        {
-            AbstractClusteringIndexFilter filter = (AbstractClusteringIndexFilter)pfilter;
+    private static class FilterSerializer implements Serializer {
 
+        public void serialize(ClusteringIndexFilter pfilter, DataOutputPlus out, int version) throws IOException {
+            AbstractClusteringIndexFilter filter = (AbstractClusteringIndexFilter) pfilter;
             out.writeByte(filter.kind().ordinal());
             out.writeBoolean(filter.isReversed());
-
             filter.serializeInternal(out, version);
         }
 
-        public ClusteringIndexFilter deserialize(DataInputPlus in, int version, TableMetadata metadata) throws IOException
-        {
+        public ClusteringIndexFilter deserialize(DataInputPlus in, int version, TableMetadata metadata) throws IOException {
             Kind kind = Kind.values()[in.readUnsignedByte()];
             boolean reversed = in.readBoolean();
-
             return kind.deserializer.deserialize(in, version, metadata, reversed);
         }
 
-        public long serializedSize(ClusteringIndexFilter pfilter, int version)
-        {
-            AbstractClusteringIndexFilter filter = (AbstractClusteringIndexFilter)pfilter;
-
-            return 1
-                 + TypeSizes.sizeof(filter.isReversed())
-                 + filter.serializedSizeInternal(version);
+        public long serializedSize(ClusteringIndexFilter pfilter, int version) {
+            AbstractClusteringIndexFilter filter = (AbstractClusteringIndexFilter) pfilter;
+            return 1 + TypeSizes.sizeof(filter.isReversed()) + filter.serializedSizeInternal(version);
         }
     }
 }

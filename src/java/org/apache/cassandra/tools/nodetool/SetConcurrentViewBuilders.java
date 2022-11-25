@@ -15,24 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool;
-
 import static com.google.common.base.Preconditions.checkArgument;
 
 @Command(name = "setconcurrentviewbuilders", description = "Set the number of concurrent view builders in the system")
-public class SetConcurrentViewBuilders extends NodeTool.NodeToolCmd
-{
-    @Arguments(title = "concurrent_view_builders", usage = "<value>", description = "Number of concurrent view builders, greater than 0.", required = true)
-    private Integer concurrentViewBuilders = null;
+public class SetConcurrentViewBuilders extends NodeTool.NodeToolCmd {
 
-    protected void execute(NodeProbe probe)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetConcurrentViewBuilders.class);
+
+    @Arguments(title = "concurrent_view_builders", usage = "<value>", description = "Number of concurrent view builders, greater than 0.", required = true)
+    private transient Integer concurrentViewBuilders = null;
+
+    protected void execute(NodeProbe probe) {
         checkArgument(concurrentViewBuilders > 0, "concurrent_view_builders should be great than 0.");
         probe.setConcurrentViewBuilders(concurrentViewBuilders);
     }

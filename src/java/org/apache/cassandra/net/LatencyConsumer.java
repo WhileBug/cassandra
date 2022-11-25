@@ -19,7 +19,9 @@ package org.apache.cassandra.net;
 
 import java.util.concurrent.TimeUnit;
 
-public interface LatencyConsumer
-{
+public interface LatencyConsumer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LatencyConsumer.class);
+
     void accept(long timeElapsed, TimeUnit unit);
 }

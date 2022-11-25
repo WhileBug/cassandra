@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.statements;
 
 import java.util.*;
-
 import org.apache.cassandra.audit.AuditLogContext;
 import org.apache.cassandra.audit.AuditLogEntryType;
 import org.apache.cassandra.auth.*;
@@ -34,15 +33,18 @@ import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class ListPermissionsStatement extends AuthorizationStatement
-{
-    private static final String KS = SchemaConstants.AUTH_KEYSPACE_NAME;
-    private static final String CF = "permissions"; // virtual cf to use for now.
+public class ListPermissionsStatement extends AuthorizationStatement {
 
-    private static final List<ColumnSpecification> metadata;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ListPermissionsStatement.class);
 
-    static
-    {
+    private static final transient String KS = SchemaConstants.AUTH_KEYSPACE_NAME;
+
+    // virtual cf to use for now.
+    private static final transient String CF = "permissions";
+
+    private static final transient List<ColumnSpecification> metadata;
+
+    static {
         List<ColumnSpecification> columns = new ArrayList<ColumnSpecification>(4);
         columns.add(new ColumnSpecification(KS, CF, new ColumnIdentifier("role", true), UTF8Type.instance));
         columns.add(new ColumnSpecification(KS, CF, new ColumnIdentifier("username", true), UTF8Type.instance));
@@ -51,81 +53,63 @@ public class ListPermissionsStatement extends AuthorizationStatement
         metadata = Collections.unmodifiableList(columns);
     }
 
-    protected final Set<Permission> permissions;
-    protected IResource resource;
-    protected final boolean recursive;
-    private final RoleResource grantee;
+    protected final transient Set<Permission> permissions;
 
-    public ListPermissionsStatement(Set<Permission> permissions, IResource resource, RoleName grantee, boolean recursive)
-    {
+    protected transient IResource resource;
+
+    protected final transient boolean recursive;
+
+    private final transient RoleResource grantee;
+
+    public ListPermissionsStatement(Set<Permission> permissions, IResource resource, RoleName grantee, boolean recursive) {
         this.permissions = permissions;
         this.resource = resource;
         this.recursive = recursive;
-        this.grantee = grantee.hasName()? RoleResource.role(grantee.getName()) : null;
+        this.grantee = grantee.hasName() ? RoleResource.role(grantee.getName()) : null;
     }
 
-    public void validate(ClientState state) throws RequestValidationException
-    {
+    public void validate(ClientState state) throws RequestValidationException {
         // a check to ensure the existence of the user isn't being leaked by user existence check.
         state.ensureNotAnonymous();
-
-        if (resource != null)
-        {
+        if (resource != null) {
             resource = maybeCorrectResource(resource, state);
             if (!resource.exists())
                 throw new InvalidRequestException(String.format("%s doesn't exist", resource));
         }
-
         if ((grantee != null) && !DatabaseDescriptor.getRoleManager().isExistingRole(grantee))
             throw new InvalidRequestException(String.format("%s doesn't exist", grantee));
-   }
+    }
 
-    public void authorize(ClientState state)
-    {
+    public void authorize(ClientState state) {
         // checked in validate
     }
 
     // TODO: Create a new ResultMessage type (?). Rows will do for now.
-    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException
-    {
+    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException {
         List<PermissionDetails> details = new ArrayList<PermissionDetails>();
-
-        if (resource != null && recursive)
-        {
-            for (IResource r : Resources.chain(resource))
-                details.addAll(list(state, r));
-        }
-        else
-        {
+        if (resource != null && recursive) {
+            for (IResource r : Resources.chain(resource)) details.addAll(list(state, r));
+        } else {
             details.addAll(list(state, resource));
         }
-
         Collections.sort(details);
         return resultMessage(details);
     }
 
-    private Set<PermissionDetails> list(ClientState state, IResource resource)
-    throws RequestValidationException, RequestExecutionException
-    {
-        try
-        {
+    private Set<PermissionDetails> list(ClientState state, IResource resource) throws RequestValidationException, RequestExecutionException {
+        try {
             return DatabaseDescriptor.getAuthorizer().list(state.getUser(), permissions, resource, grantee);
-        }
-        catch (UnsupportedOperationException e)
-        {
+        } catch (UnsupportedOperationException e) {
             throw new InvalidRequestException(e.getMessage());
         }
     }
 
-    private ResultMessage resultMessage(List<PermissionDetails> details)
-    {
+    private ResultMessage resultMessage(List<PermissionDetails> details) {
         if (details.isEmpty())
             return new ResultMessage.Void();
-
         ResultSet.ResultMetadata resultMetadata = new ResultSet.ResultMetadata(metadata);
         ResultSet result = new ResultSet(resultMetadata);
-        for (PermissionDetails pd : details)
-        {
+        for (PermissionDetails pd : details) {
             result.addColumnValue(UTF8Type.instance.decompose(pd.grantee));
             result.addColumnValue(UTF8Type.instance.decompose(pd.grantee));
             result.addColumnValue(UTF8Type.instance.decompose(pd.resource.toString()));
@@ -133,16 +117,14 @@ public class ListPermissionsStatement extends AuthorizationStatement
         }
         return new ResultMessage.Rows(result);
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.LIST_PERMISSIONS);
     }
 }

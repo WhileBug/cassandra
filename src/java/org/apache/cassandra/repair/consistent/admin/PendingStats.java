@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.consistent.admin;
 
 import java.util.HashMap;
@@ -26,80 +25,66 @@ import javax.management.openmbean.CompositeType;
 import javax.management.openmbean.OpenDataException;
 import javax.management.openmbean.OpenType;
 import javax.management.openmbean.SimpleType;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 
-public class PendingStats
-{
+public class PendingStats {
 
-    private static final String[] COMPOSITE_NAMES = new String[] { "keyspace", "table", "total", "pending", "finalized", "failed" };
-    private static final OpenType<?>[] COMPOSITE_TYPES;
-    private static final CompositeType COMPOSITE_TYPE;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PendingStats.class);
 
-    static
-    {
-        try
-        {
-            COMPOSITE_TYPES = new OpenType[] { SimpleType.STRING,
-                                               SimpleType.STRING,
-                                               PendingStat.COMPOSITE_TYPE,
-                                               PendingStat.COMPOSITE_TYPE,
-                                               PendingStat.COMPOSITE_TYPE,
-                                               PendingStat.COMPOSITE_TYPE};
+    private static final transient String[] COMPOSITE_NAMES = new String[] { "keyspace", "table", "total", "pending", "finalized", "failed" };
+
+    private static final transient OpenType<?>[] COMPOSITE_TYPES;
+
+    private static final transient CompositeType COMPOSITE_TYPE;
+
+    static {
+        try {
+            COMPOSITE_TYPES = new OpenType[] { SimpleType.STRING, SimpleType.STRING, PendingStat.COMPOSITE_TYPE, PendingStat.COMPOSITE_TYPE, PendingStat.COMPOSITE_TYPE, PendingStat.COMPOSITE_TYPE };
             COMPOSITE_TYPE = new CompositeType(RepairStats.Section.class.getName(), "PendingStats", COMPOSITE_NAMES, COMPOSITE_NAMES, COMPOSITE_TYPES);
-        }
-        catch (OpenDataException e)
-        {
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public final String keyspace;
-    public final String table;
-    public final PendingStat total;
-    public final PendingStat pending;
-    public final PendingStat finalized;
-    public final PendingStat failed;
+    public final transient String keyspace;
 
-    public PendingStats(String keyspace, String table, PendingStat pending, PendingStat finalized, PendingStat failed)
-    {
+    public final transient String table;
+
+    public final transient PendingStat total;
+
+    public final transient PendingStat pending;
+
+    public final transient PendingStat finalized;
+
+    public final transient PendingStat failed;
+
+    public PendingStats(String keyspace, String table, PendingStat pending, PendingStat finalized, PendingStat failed) {
         this.keyspace = keyspace;
         this.table = table;
-
         this.total = new PendingStat.Builder().addStat(pending).addStat(finalized).addStat(failed).build();
         this.pending = pending;
         this.finalized = finalized;
         this.failed = failed;
     }
 
-    public CompositeData toComposite()
-    {
+    public CompositeData toComposite() {
         Map<String, Object> values = new HashMap<>();
         values.put(COMPOSITE_NAMES[0], keyspace);
         values.put(COMPOSITE_NAMES[1], table);
         values.put(COMPOSITE_NAMES[2], pending.toComposite());
         values.put(COMPOSITE_NAMES[3], finalized.toComposite());
         values.put(COMPOSITE_NAMES[4], failed.toComposite());
-        try
-        {
+        try {
             return new CompositeDataSupport(COMPOSITE_TYPE, values);
-        }
-        catch (OpenDataException e)
-        {
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public static PendingStats fromComposite(CompositeData cd)
-    {
+    public static PendingStats fromComposite(CompositeData cd) {
         Preconditions.checkArgument(cd.getCompositeType().equals(COMPOSITE_TYPE));
         Object[] values = cd.getAll(COMPOSITE_NAMES);
-        return new PendingStats((String) values[0],
-                                (String) values[1],
-                                PendingStat.fromComposite((CompositeData) values[2]),
-                                PendingStat.fromComposite((CompositeData) values[3]),
-                                PendingStat.fromComposite((CompositeData) values[3]));
-
+        return new PendingStats((String) values[0], (String) values[1], PendingStat.fromComposite((CompositeData) values[2]), PendingStat.fromComposite((CompositeData) values[3]), PendingStat.fromComposite((CompositeData) values[3]));
     }
 }

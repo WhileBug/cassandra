@@ -23,20 +23,19 @@ import org.apache.cassandra.exceptions.TransportException;
 /**
  * Exceptions thrown when a client didn't respect the protocol.
  */
-public class ServerError extends RuntimeException implements TransportException
-{
-    public ServerError(Throwable e)
-    {
+public class ServerError extends RuntimeException implements TransportException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ServerError.class);
+
+    public ServerError(Throwable e) {
         super(e.toString());
     }
 
-    public ServerError(String msg)
-    {
+    public ServerError(String msg) {
         super(msg);
     }
 
-    public ExceptionCode code()
-    {
+    public ExceptionCode code() {
         return ExceptionCode.SERVER_ERROR;
     }
 }

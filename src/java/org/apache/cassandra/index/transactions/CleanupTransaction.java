@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.index.transactions;
 
 import org.apache.cassandra.db.DeletionTime;
@@ -36,17 +35,26 @@ import org.apache.cassandra.db.rows.Row;
  * Instances are currently scoped to a single row within a partition, but this could be improved to batch process
  * multiple rows within a single partition.
  */
-public interface CleanupTransaction extends IndexTransaction
-{
+public interface CleanupTransaction extends IndexTransaction {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CleanupTransaction.class);
 
     void onPartitionDeletion(DeletionTime deletionTime);
+
     void onRowDelete(Row row);
 
-    CleanupTransaction NO_OP = new CleanupTransaction()
-    {
-        public void start(){}
-        public void onPartitionDeletion(DeletionTime deletionTime){}
-        public void onRowDelete(Row row){}
-        public void commit(){}
+    transient CleanupTransaction NO_OP = new CleanupTransaction() {
+
+        public void start() {
+        }
+
+        public void onPartitionDeletion(DeletionTime deletionTime) {
+        }
+
+        public void onRowDelete(Row row) {
+        }
+
+        public void commit() {
+        }
     };
 }

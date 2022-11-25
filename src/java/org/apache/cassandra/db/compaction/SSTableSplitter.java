@@ -20,72 +20,61 @@ package org.apache.cassandra.db.compaction;
 import java.util.*;
 import java.util.function.LongPredicate;
 import java.util.function.Predicate;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.compaction.writers.CompactionAwareWriter;
 import org.apache.cassandra.db.compaction.writers.MaxSSTableSizeWriter;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.db.lifecycle.LifecycleTransaction;
 
-public class SSTableSplitter 
-{
-    private final SplittingCompactionTask task;
+public class SSTableSplitter {
 
-    public SSTableSplitter(ColumnFamilyStore cfs, LifecycleTransaction transaction, int sstableSizeInMB)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableSplitter.class);
+
+    private final transient SplittingCompactionTask task;
+
+    public SSTableSplitter(ColumnFamilyStore cfs, LifecycleTransaction transaction, int sstableSizeInMB) {
         this.task = new SplittingCompactionTask(cfs, transaction, sstableSizeInMB);
     }
 
-    public void split()
-    {
+    public void split() {
         task.execute(ActiveCompactionsTracker.NOOP);
     }
 
-    public static class SplittingCompactionTask extends CompactionTask
-    {
-        private final int sstableSizeInMB;
+    public static class SplittingCompactionTask extends CompactionTask {
 
-        public SplittingCompactionTask(ColumnFamilyStore cfs, LifecycleTransaction transaction, int sstableSizeInMB)
-        {
+        private final transient int sstableSizeInMB;
+
+        public SplittingCompactionTask(ColumnFamilyStore cfs, LifecycleTransaction transaction, int sstableSizeInMB) {
             super(cfs, transaction, CompactionManager.NO_GC, false);
             this.sstableSizeInMB = sstableSizeInMB;
-
             if (sstableSizeInMB <= 0)
                 throw new IllegalArgumentException("Invalid target size for SSTables, must be > 0 (got: " + sstableSizeInMB + ")");
         }
 
         @Override
-        protected CompactionController getCompactionController(Set<SSTableReader> toCompact)
-        {
+        protected CompactionController getCompactionController(Set<SSTableReader> toCompact) {
             return new SplitController(cfs);
         }
 
         @Override
-        public CompactionAwareWriter getCompactionAwareWriter(ColumnFamilyStore cfs,
-                                                              Directories directories,
-                                                              LifecycleTransaction txn,
-                                                              Set<SSTableReader> nonExpiredSSTables)
-        {
+        public CompactionAwareWriter getCompactionAwareWriter(ColumnFamilyStore cfs, Directories directories, LifecycleTransaction txn, Set<SSTableReader> nonExpiredSSTables) {
             return new MaxSSTableSizeWriter(cfs, directories, txn, nonExpiredSSTables, sstableSizeInMB * 1024L * 1024L, 0, false);
         }
 
         @Override
-        protected boolean partialCompactionsAcceptable()
-        {
+        protected boolean partialCompactionsAcceptable() {
             return true;
         }
     }
 
-    public static class SplitController extends CompactionController
-    {
-        public SplitController(ColumnFamilyStore cfs)
-        {
+    public static class SplitController extends CompactionController {
+
+        public SplitController(ColumnFamilyStore cfs) {
             super(cfs, CompactionManager.NO_GC);
         }
 
         @Override
-        public LongPredicate getPurgeEvaluator(DecoratedKey key)
-        {
+        public LongPredicate getPurgeEvaluator(DecoratedKey key) {
             return time -> false;
         }
     }

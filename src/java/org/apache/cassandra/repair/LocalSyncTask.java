@@ -22,12 +22,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -47,58 +45,48 @@ import org.apache.cassandra.utils.FBUtilities;
 /**
  * LocalSyncTask performs streaming between local(coordinator) node and remote replica.
  */
-public class LocalSyncTask extends SyncTask implements StreamEventHandler
-{
+public class LocalSyncTask extends SyncTask implements StreamEventHandler {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LocalSyncTask.class);
+
     private final TraceState state = Tracing.instance.get();
 
-    private static final Logger logger = LoggerFactory.getLogger(LocalSyncTask.class);
+    private static final transient Logger logger = LoggerFactory.getLogger(LocalSyncTask.class);
 
-    private final UUID pendingRepair;
+    private final transient UUID pendingRepair;
 
     @VisibleForTesting
-    public final boolean requestRanges;
+    public final transient boolean requestRanges;
+
     @VisibleForTesting
-    public final boolean transferRanges;
+    public final transient boolean transferRanges;
 
-    private final AtomicBoolean active = new AtomicBoolean(true);
-    private final CompletableFuture<StreamPlan> planFuture = new CompletableFuture<>();
+    private final transient AtomicBoolean active = new AtomicBoolean(true);
 
-    public LocalSyncTask(RepairJobDesc desc, InetAddressAndPort local, InetAddressAndPort remote,
-                         List<Range<Token>> diff, UUID pendingRepair,
-                         boolean requestRanges, boolean transferRanges, PreviewKind previewKind)
-    {
+    private final transient CompletableFuture<StreamPlan> planFuture = new CompletableFuture<>();
+
+    public LocalSyncTask(RepairJobDesc desc, InetAddressAndPort local, InetAddressAndPort remote, List<Range<Token>> diff, UUID pendingRepair, boolean requestRanges, boolean transferRanges, PreviewKind previewKind) {
         super(desc, local, remote, diff, previewKind);
         Preconditions.checkArgument(requestRanges || transferRanges, "Nothing to do in a sync job");
         Preconditions.checkArgument(local.equals(FBUtilities.getBroadcastAddressAndPort()));
-
         this.pendingRepair = pendingRepair;
         this.requestRanges = requestRanges;
         this.transferRanges = transferRanges;
     }
 
     @VisibleForTesting
-    StreamPlan createStreamPlan()
-    {
-        InetAddressAndPort remote =  nodePair.peer;
-
-        StreamPlan plan = new StreamPlan(StreamOperation.REPAIR, 1, false, pendingRepair, previewKind)
-                          .listeners(this)
-                          .flushBeforeTransfer(pendingRepair == null);
-
-        if (requestRanges)
-        {
+    StreamPlan createStreamPlan() {
+        InetAddressAndPort remote = nodePair.peer;
+        StreamPlan plan = new StreamPlan(StreamOperation.REPAIR, 1, false, pendingRepair, previewKind).listeners(this).flushBeforeTransfer(pendingRepair == null);
+        if (requestRanges) {
             // see comment on RangesAtEndpoint.toDummyList for why we synthesize replicas here
-            plan.requestRanges(remote, desc.keyspace, RangesAtEndpoint.toDummyList(rangesToSync),
-                               RangesAtEndpoint.toDummyList(Collections.emptyList()), desc.columnFamily);
+            plan.requestRanges(remote, desc.keyspace, RangesAtEndpoint.toDummyList(rangesToSync), RangesAtEndpoint.toDummyList(Collections.emptyList()), desc.columnFamily);
         }
-
-        if (transferRanges)
-        {
+        if (transferRanges) {
             // send ranges to the remote node if we are not performing a pull repair
             // see comment on RangesAtEndpoint.toDummyList for why we synthesize replicas here
             plan.transferRanges(remote, desc.keyspace, RangesAtEndpoint.toDummyList(rangesToSync), desc.columnFamily);
         }
-
         return plan;
     }
 
@@ -107,16 +95,12 @@ public class LocalSyncTask extends SyncTask implements StreamEventHandler
      * that will be called out of band once the streams complete.
      */
     @Override
-    protected void startSync()
-    {
-        if (active.get())
-        {
+    protected void startSync() {
+        if (active.get()) {
             InetAddressAndPort remote = nodePair.peer;
-
             String message = String.format("Performing streaming repair of %d ranges with %s", rangesToSync.size(), remote);
             logger.info("{} {}", previewKind.logPrefix(desc.sessionId), message);
             Tracing.traceRepair(message);
-
             StreamPlan plan = createStreamPlan();
             plan.execute();
             planFuture.complete(plan);
@@ -124,17 +108,16 @@ public class LocalSyncTask extends SyncTask implements StreamEventHandler
     }
 
     @Override
-    public boolean isLocal()
-    {
+    public boolean isLocal() {
         return true;
     }
 
-    public void handleStreamEvent(StreamEvent event)
-    {
-        if (state == null)
+    public void handleStreamEvent(StreamEvent event) {
+        if (state == null) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.repair.LocalSyncTask.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
             return;
-        switch (event.eventType)
-        {
+        }
+        switch(event.eventType) {
             case STREAM_PREPARED:
                 StreamEvent.SessionPreparedEvent spe = (StreamEvent.SessionPreparedEvent) event;
                 state.trace("Streaming session with {} prepared", spe.session.peer);
@@ -145,24 +128,15 @@ public class LocalSyncTask extends SyncTask implements StreamEventHandler
                 break;
             case FILE_PROGRESS:
                 ProgressInfo pi = ((StreamEvent.ProgressEvent) event).progress;
-                state.trace("{}/{} ({}%) {} idx:{}{}",
-                            new Object[] { FBUtilities.prettyPrintMemory(pi.currentBytes),
-                                           FBUtilities.prettyPrintMemory(pi.totalBytes),
-                                           pi.currentBytes * 100 / pi.totalBytes,
-                                           pi.direction == ProgressInfo.Direction.OUT ? "sent to" : "received from",
-                                           pi.sessionIndex,
-                                           pi.peer });
+                state.trace("{}/{} ({}%) {} idx:{}{}", new Object[] { FBUtilities.prettyPrintMemory(pi.currentBytes), FBUtilities.prettyPrintMemory(pi.totalBytes), pi.currentBytes * 100 / pi.totalBytes, pi.direction == ProgressInfo.Direction.OUT ? "sent to" : "received from", pi.sessionIndex, pi.peer });
         }
     }
 
     @Override
-    public void onSuccess(StreamState result)
-    {
-        if (active.compareAndSet(true, false))
-        {
+    public void onSuccess(StreamState result) {
+        if (active.compareAndSet(true, false)) {
             String status = result.hasAbortedSession() ? "aborted" : "complete";
-            String message = String.format("Sync %s using session %s between %s and %s on %s",
-                                           status, desc.sessionId, nodePair.coordinator, nodePair.peer, desc.columnFamily);
+            String message = String.format("Sync %s using session %s between %s and %s on %s", status, desc.sessionId, nodePair.coordinator, nodePair.peer, desc.columnFamily);
             logger.info("{} {}", previewKind.logPrefix(desc.sessionId), message);
             Tracing.traceRepair(message);
             set(result.hasAbortedSession() ? stat : stat.withSummaries(result.createSummaries()));
@@ -171,31 +145,21 @@ public class LocalSyncTask extends SyncTask implements StreamEventHandler
     }
 
     @Override
-    public void onFailure(Throwable t)
-    {
-        if (active.compareAndSet(true, false))
-        {
+    public void onFailure(Throwable t) {
+        if (active.compareAndSet(true, false)) {
             setException(t);
             finished();
         }
     }
 
     @Override
-    public String toString()
-    {
-        return "LocalSyncTask{" +
-               "requestRanges=" + requestRanges +
-               ", transferRanges=" + transferRanges +
-               ", rangesToSync=" + rangesToSync +
-               ", nodePair=" + nodePair +
-               '}';
+    public String toString() {
+        return "LocalSyncTask{" + "requestRanges=" + requestRanges + ", transferRanges=" + transferRanges + ", rangesToSync=" + rangesToSync + ", nodePair=" + nodePair + '}';
     }
 
     @Override
-    public void abort()
-    {
-        planFuture.whenComplete((plan, cause) ->
-        {
+    public void abort() {
+        planFuture.whenComplete((plan, cause) -> {
             assert plan != null : "StreamPlan future should never be completed exceptionally";
             plan.getCoordinator().getAllStreamSessions().forEach(StreamSession::abort);
         });

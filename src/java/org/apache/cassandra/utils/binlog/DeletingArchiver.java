@@ -15,33 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils.binlog;
 
 import java.io.File;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DeletingArchiver implements BinLogArchiver
-{
-    private static final Logger logger = LoggerFactory.getLogger(DeletingArchiver.class);
+public class DeletingArchiver implements BinLogArchiver {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DeletingArchiver.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(DeletingArchiver.class);
+
     /**
      * The files in the chronicle queue that have already rolled
      */
-    private final Queue<File> chronicleStoreFiles = new ConcurrentLinkedQueue<>();
-    private final long maxLogSize;
+    private final transient Queue<File> chronicleStoreFiles = new ConcurrentLinkedQueue<>();
+
+    private final transient long maxLogSize;
+
     /**
      * The number of bytes in store files that have already rolled
      */
-    private long bytesInStoreFiles;
+    private transient long bytesInStoreFiles;
 
-    public DeletingArchiver(long maxLogSize)
-    {
+    public DeletingArchiver(long maxLogSize) {
         Preconditions.checkArgument(maxLogSize > 0, "maxLogSize must be > 0");
         this.maxLogSize = maxLogSize;
     }
@@ -51,38 +53,28 @@ public class DeletingArchiver implements BinLogArchiver
      * @param cycle
      * @param file
      */
-    public synchronized void onReleased(int cycle, File file)
-    {
+    public synchronized void onReleased(int cycle, File file) {
         chronicleStoreFiles.offer(file);
-        //This isn't accurate because the files are sparse, but it's at least pessimistic
+        // This isn't accurate because the files are sparse, but it's at least pessimistic
         bytesInStoreFiles += file.length();
         logger.debug("Chronicle store file {} rolled file size {}", file.getPath(), file.length());
-        while (bytesInStoreFiles > maxLogSize & !chronicleStoreFiles.isEmpty())
-        {
+        while (bytesInStoreFiles > maxLogSize & !chronicleStoreFiles.isEmpty()) {
             File toDelete = chronicleStoreFiles.poll();
             long toDeleteLength = toDelete.length();
-            if (!toDelete.delete())
-            {
-                logger.error("Failed to delete chronicle store file: {} store file size: {} bytes in store files: {}. " +
-                             "You will need to clean this up manually or reset full query logging.",
-                             toDelete.getPath(), toDeleteLength, bytesInStoreFiles);
-            }
-            else
-            {
+            if (!toDelete.delete()) {
+                logger.error("Failed to delete chronicle store file: {} store file size: {} bytes in store files: {}. " + "You will need to clean this up manually or reset full query logging.", toDelete.getPath(), toDeleteLength, bytesInStoreFiles);
+            } else {
                 bytesInStoreFiles -= toDeleteLength;
-                logger.info("Deleted chronicle store file: {} store file size: {} bytes in store files: {} max log size: {}.",
-                            file.getPath(), toDeleteLength, bytesInStoreFiles, maxLogSize);
+                logger.info("Deleted chronicle store file: {} store file size: {} bytes in store files: {} max log size: {}.", file.getPath(), toDeleteLength, bytesInStoreFiles, maxLogSize);
             }
         }
     }
 
     @VisibleForTesting
-    long getBytesInStoreFiles()
-    {
+    long getBytesInStoreFiles() {
         return bytesInStoreFiles;
     }
 
-    public void stop()
-    {
+    public void stop() {
     }
 }

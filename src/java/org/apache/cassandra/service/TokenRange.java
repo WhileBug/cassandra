@@ -18,7 +18,6 @@
 package org.apache.cassandra.service;
 
 import java.util.*;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
@@ -35,77 +34,68 @@ import org.apache.cassandra.locator.InetAddressAndPort;
  * {@link StorageService#describeRingJMX}). This class probably have no other
  * good uses than providing backward compatibility.
  */
-public class TokenRange
-{
-    private final Token.TokenFactory tokenFactory;
+public class TokenRange {
 
-    public final Range<Token> range;
-    public final List<EndpointDetails> endpoints;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenRange.class);
 
-    private TokenRange(Token.TokenFactory tokenFactory, Range<Token> range, List<EndpointDetails> endpoints)
-    {
+    private final transient Token.TokenFactory tokenFactory;
+
+    public final transient Range<Token> range;
+
+    public final transient List<EndpointDetails> endpoints;
+
+    private TokenRange(Token.TokenFactory tokenFactory, Range<Token> range, List<EndpointDetails> endpoints) {
         this.tokenFactory = tokenFactory;
         this.range = range;
         this.endpoints = endpoints;
     }
 
-    private String toStr(Token tk)
-    {
+    private String toStr(Token tk) {
         return tokenFactory.toString(tk);
     }
 
-    public static TokenRange create(Token.TokenFactory tokenFactory, Range<Token> range, List<InetAddressAndPort> endpoints, boolean withPorts)
-    {
+    public static TokenRange create(Token.TokenFactory tokenFactory, Range<Token> range, List<InetAddressAndPort> endpoints, boolean withPorts) {
         List<EndpointDetails> details = new ArrayList<>(endpoints.size());
         IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
-        for (InetAddressAndPort ep : endpoints)
-            details.add(new EndpointDetails(ep,
-                                            StorageService.instance.getNativeaddress(ep, withPorts),
-                                            snitch.getDatacenter(ep),
-                                            snitch.getRack(ep)));
+        for (InetAddressAndPort ep : endpoints) details.add(new EndpointDetails(ep, StorageService.instance.getNativeaddress(ep, withPorts), snitch.getDatacenter(ep), snitch.getRack(ep)));
         return new TokenRange(tokenFactory, range, details);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toString(false);
     }
 
-    public String toString(boolean withPorts)
-    {
+    public String toString(boolean withPorts) {
         StringBuilder sb = new StringBuilder("TokenRange(");
-
         sb.append("start_token:").append(toStr(range.left));
         sb.append(", end_token:").append(toStr(range.right));
-
         List<String> hosts = new ArrayList<>(endpoints.size());
         List<String> rpcs = new ArrayList<>(endpoints.size());
         List<String> endpointDetails = new ArrayList<>(endpoints.size());
-        for (EndpointDetails ep : endpoints)
-        {
+        for (EndpointDetails ep : endpoints) {
             hosts.add(ep.host.getHostAddress(withPorts));
             rpcs.add(ep.nativeAddress);
             endpointDetails.add(ep.toString(withPorts));
         }
-
         sb.append(", endpoints:").append(hosts);
         sb.append(", rpc_endpoints:").append(rpcs);
         sb.append(", endpoint_details:").append(endpointDetails);
-
         sb.append(")");
         return sb.toString();
     }
 
-    public static class EndpointDetails
-    {
-        public final InetAddressAndPort host;
-        public final String nativeAddress;
-        public final String datacenter;
-        public final String rack;
+    public static class EndpointDetails {
 
-        private EndpointDetails(InetAddressAndPort host, String nativeAddress, String datacenter, String rack)
-        {
+        public final transient InetAddressAndPort host;
+
+        public final transient String nativeAddress;
+
+        public final transient String datacenter;
+
+        public final transient String rack;
+
+        private EndpointDetails(InetAddressAndPort host, String nativeAddress, String datacenter, String rack) {
             // dc and rack can be null, but host shouldn't
             assert host != null;
             this.host = host;
@@ -115,13 +105,11 @@ public class TokenRange
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return toString(false);
         }
 
-        public String toString(boolean withPorts)
-        {
+        public String toString(boolean withPorts) {
             // Format matters for backward compatibility with describeRing()
             String dcStr = datacenter == null ? "" : String.format(", datacenter:%s", datacenter);
             String rackStr = rack == null ? "" : String.format(", rack:%s", rack);

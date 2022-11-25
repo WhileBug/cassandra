@@ -15,23 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import com.google.common.base.Preconditions;
 
-public abstract class ArrayClusteringBoundOrBoundary extends AbstractArrayClusteringPrefix implements ClusteringBoundOrBoundary<byte[]>
-{
-    public ArrayClusteringBoundOrBoundary(Kind kind, byte[][] values)
-    {
+public abstract class ArrayClusteringBoundOrBoundary extends AbstractArrayClusteringPrefix implements ClusteringBoundOrBoundary<byte[]> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ArrayClusteringBoundOrBoundary.class);
+
+    public ArrayClusteringBoundOrBoundary(Kind kind, byte[][] values) {
         super(kind, values);
-        Preconditions.checkArgument(values.length > 0 || !kind.isBoundary(),
-                                    "Cannot create bounds/boundary objects without clustering values");
+        Preconditions.checkArgument(values.length > 0 || !kind.isBoundary(), "Cannot create bounds/boundary objects without clustering values");
     }
-    public static ClusteringBoundOrBoundary<byte[]> create(Kind kind, byte[][] values)
-    {
-        return kind.isBoundary()
-               ? new ArrayClusteringBoundary(kind, values)
-               : new ArrayClusteringBound(kind, values);
+
+    public static ClusteringBoundOrBoundary<byte[]> create(Kind kind, byte[][] values) {
+        return kind.isBoundary() ? new ArrayClusteringBoundary(kind, values) : new ArrayClusteringBound(kind, values);
     }
 }

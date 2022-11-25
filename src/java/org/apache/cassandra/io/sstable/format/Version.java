@@ -19,7 +19,6 @@ package org.apache.cassandra.io.sstable.format;
 
 import java.util.regex.Pattern;
 
-
 /**
  * A set of feature flags associated with a SSTable format
  *
@@ -29,23 +28,26 @@ import java.util.regex.Pattern;
  *
  * Minor versions were introduced with version "hb" for Cassandra 1.0.3; prior to that,
  * we always incremented the major version.
- *
  */
-public abstract class Version
-{
-    private static final Pattern VALIDATION = Pattern.compile("[a-z]+");
+public abstract class Version {
 
-    protected final String version;
-    protected final SSTableFormat format;
-    protected Version(SSTableFormat format, String version)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Version.class);
+
+    private static final transient Pattern VALIDATION = Pattern.compile("[a-z]+");
+
+    protected final transient String version;
+
+    protected final transient SSTableFormat format;
+
+    protected Version(SSTableFormat format, String version) {
         this.format = format;
         this.version = version;
     }
 
     public abstract boolean isLatestVersion();
 
-    public abstract int correspondingMessagingVersion(); // Only use by storage that 'storeRows' so far
+    // Only use by storage that 'storeRows' so far
+    public abstract int correspondingMessagingVersion();
 
     public abstract boolean hasCommitLogLowerBound();
 
@@ -68,13 +70,11 @@ public abstract class Version
 
     public abstract boolean hasAccurateMinMax();
 
-    public String getVersion()
-    {
+    public String getVersion() {
         return version;
     }
 
-    public SSTableFormat getSSTableFormat()
-    {
+    public SSTableFormat getSSTableFormat() {
         return format;
     }
 
@@ -83,36 +83,33 @@ public abstract class Version
      * @return True if the given version string matches the format.
      * @see #version
      */
-    public static boolean validate(String ver)
-    {
+    public static boolean validate(String ver) {
         return ver != null && VALIDATION.matcher(ver).matches();
     }
 
     abstract public boolean isCompatible();
+
     abstract public boolean isCompatibleForStreaming();
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return version;
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         Version version1 = (Version) o;
-
-        if (version != null ? !version.equals(version1.version) : version1.version != null) return false;
-
+        if (version != null ? !version.equals(version1.version) : version1.version != null)
+            return false;
         return true;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return version != null ? version.hashCode() : 0;
     }
 

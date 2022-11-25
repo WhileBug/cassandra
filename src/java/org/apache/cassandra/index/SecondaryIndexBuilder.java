@@ -22,12 +22,13 @@ import org.apache.cassandra.db.compaction.CompactionInfo;
 /**
  * Manages building an entire index from column family data. Runs on to compaction manager.
  */
-public abstract class SecondaryIndexBuilder extends CompactionInfo.Holder
-{
+public abstract class SecondaryIndexBuilder extends CompactionInfo.Holder {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SecondaryIndexBuilder.class);
+
     public abstract void build();
 
-    public boolean isGlobal()
-    {
+    public boolean isGlobal() {
         return false;
     }
 }

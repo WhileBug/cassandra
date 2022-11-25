@@ -18,7 +18,6 @@
 package org.apache.cassandra.cache;
 
 import java.io.IOException;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.db.partitions.CachedPartition;
@@ -26,38 +25,36 @@ import org.apache.cassandra.io.ISerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 
-public class SerializingCacheProvider implements CacheProvider<RowCacheKey, IRowCacheEntry>
-{
-    public ICache<RowCacheKey, IRowCacheEntry> create()
-    {
+public class SerializingCacheProvider implements CacheProvider<RowCacheKey, IRowCacheEntry> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SerializingCacheProvider.class);
+
+    public ICache<RowCacheKey, IRowCacheEntry> create() {
         return SerializingCache.create(DatabaseDescriptor.getRowCacheSizeInMB() * 1024 * 1024, new RowCacheSerializer());
     }
 
     // Package Public: used by external Row Cache plugins
-    public static class RowCacheSerializer implements ISerializer<IRowCacheEntry>
-    {
-        public void serialize(IRowCacheEntry entry, DataOutputPlus out) throws IOException
-        {
-            assert entry != null; // unlike CFS we don't support nulls, since there is no need for that in the cache
+    public static class RowCacheSerializer implements ISerializer<IRowCacheEntry> {
+
+        public void serialize(IRowCacheEntry entry, DataOutputPlus out) throws IOException {
+            // unlike CFS we don't support nulls, since there is no need for that in the cache
+            assert entry != null;
             boolean isSentinel = entry instanceof RowCacheSentinel;
             out.writeBoolean(isSentinel);
             if (isSentinel)
                 out.writeLong(((RowCacheSentinel) entry).sentinelId);
             else
-                CachedPartition.cacheSerializer.serialize((CachedPartition)entry, out);
+                CachedPartition.cacheSerializer.serialize((CachedPartition) entry, out);
         }
 
-        public IRowCacheEntry deserialize(DataInputPlus in) throws IOException
-        {
+        public IRowCacheEntry deserialize(DataInputPlus in) throws IOException {
             boolean isSentinel = in.readBoolean();
             if (isSentinel)
                 return new RowCacheSentinel(in.readLong());
-
             return CachedPartition.cacheSerializer.deserialize(in);
         }
 
-        public long serializedSize(IRowCacheEntry entry)
-        {
+        public long serializedSize(IRowCacheEntry entry) {
             int size = TypeSizes.sizeof(true);
             if (entry instanceof RowCacheSentinel)
                 size += TypeSizes.sizeof(((RowCacheSentinel) entry).sentinelId);

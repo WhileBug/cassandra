@@ -18,10 +18,8 @@
 package org.apache.cassandra.net;
 
 import java.io.EOFException;
-
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
-
 import org.apache.cassandra.io.util.RebufferingInputStream;
 
 /**
@@ -32,12 +30,13 @@ import org.apache.cassandra.io.util.RebufferingInputStream;
  *
  * {@link #close()} <em>MUST</em> be invoked in the end.
  */
-class ChunkedInputPlus extends RebufferingInputStream
-{
-    private final PeekingIterator<ShareableBytes> iter;
+class ChunkedInputPlus extends RebufferingInputStream {
 
-    private ChunkedInputPlus(PeekingIterator<ShareableBytes> iter)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ChunkedInputPlus.class);
+
+    private final transient PeekingIterator<ShareableBytes> iter;
+
+    private ChunkedInputPlus(PeekingIterator<ShareableBytes> iter) {
         super(iter.peek().get());
         this.iter = iter;
     }
@@ -47,8 +46,7 @@ class ChunkedInputPlus extends RebufferingInputStream
      *
      * The provided iterable <em>must</em> contain at least one buffer.
      */
-    static ChunkedInputPlus of(Iterable<ShareableBytes> buffers)
-    {
+    static ChunkedInputPlus of(Iterable<ShareableBytes> buffers) {
         PeekingIterator<ShareableBytes> iter = Iterators.peekingIterator(buffers.iterator());
         if (!iter.hasNext())
             throw new IllegalArgumentException();
@@ -56,21 +54,17 @@ class ChunkedInputPlus extends RebufferingInputStream
     }
 
     @Override
-    protected void reBuffer() throws EOFException
-    {
+    protected void reBuffer() throws EOFException {
         buffer = null;
         iter.peek().release();
         iter.next();
-
         if (!iter.hasNext())
             throw new EOFException();
-
         buffer = iter.peek().get();
     }
 
     @Override
-    public void close()
-    {
+    public void close() {
         buffer = null;
         iter.forEachRemaining(ShareableBytes::release);
     }
@@ -80,13 +74,10 @@ class ChunkedInputPlus extends RebufferingInputStream
      *
      * Should only be used for sanity checking, once the input is no longer needed, as it will implicitly close the input.
      */
-    int remainder()
-    {
+    int remainder() {
         buffer = null;
-
         int bytes = 0;
-        while (iter.hasNext())
-        {
+        while (iter.hasNext()) {
             ShareableBytes chunk = iter.peek();
             bytes += chunk.remaining();
             chunk.release();

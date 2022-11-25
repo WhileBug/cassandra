@@ -26,32 +26,30 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 import org.apache.cassandra.index.sasi.analyzer.filter.*;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.AsciiType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.io.util.DataInputBuffer;
 import org.apache.cassandra.utils.ByteBufferUtil;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import com.carrotsearch.hppc.IntObjectMap;
 import com.carrotsearch.hppc.IntObjectHashMap;
 
-public class StandardAnalyzer extends AbstractAnalyzer
-{
+public class StandardAnalyzer extends AbstractAnalyzer {
 
-    private static final Set<AbstractType<?>> VALID_ANALYZABLE_TYPES = new HashSet<AbstractType<?>>()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StandardAnalyzer.class);
+
+    private static final transient Set<AbstractType<?>> VALID_ANALYZABLE_TYPES = new HashSet<AbstractType<?>>() {
+
         {
             add(UTF8Type.instance);
             add(AsciiType.instance);
         }
     };
 
-    public enum TokenType
-    {
+    public enum TokenType {
+
         EOF(-1),
         ALPHANUM(0),
         NUM(6),
@@ -63,79 +61,65 @@ public class StandardAnalyzer extends AbstractAnalyzer
 
         private static final IntObjectMap<TokenType> TOKENS = new IntObjectHashMap<>();
 
-        static
-        {
-            for (TokenType type : TokenType.values())
-                TOKENS.put(type.value, type);
+        static {
+            for (TokenType type : TokenType.values()) TOKENS.put(type.value, type);
         }
 
         public final int value;
 
-        TokenType(int value)
-        {
+        TokenType(int value) {
             this.value = value;
         }
 
-        public int getValue()
-        {
+        public int getValue() {
             return value;
         }
 
-        public static TokenType fromValue(int val)
-        {
+        public static TokenType fromValue(int val) {
             return TOKENS.get(val);
         }
     }
 
-    private AbstractType<?> validator;
+    private transient AbstractType<?> validator;
 
-    private StandardTokenizerInterface scanner;
-    private StandardTokenizerOptions options;
-    private FilterPipelineTask filterPipeline;
+    private transient StandardTokenizerInterface scanner;
 
-    protected Reader inputReader = null;
+    private transient StandardTokenizerOptions options;
 
-    public String getToken()
-    {
+    private transient FilterPipelineTask filterPipeline;
+
+    protected transient Reader inputReader = null;
+
+    public String getToken() {
         return scanner.getText();
     }
 
-    public final boolean incrementToken() throws IOException
-    {
-        while(true)
-        {
+    public final boolean incrementToken() throws IOException {
+        while (true) {
             TokenType currentTokenType = TokenType.fromValue(scanner.getNextToken());
             if (currentTokenType == TokenType.EOF)
                 return false;
-            if (scanner.yylength() <= options.getMaxTokenLength()
-                    && scanner.yylength() >= options.getMinTokenLength())
+            if (scanner.yylength() <= options.getMaxTokenLength() && scanner.yylength() >= options.getMinTokenLength())
                 return true;
         }
     }
 
-    protected String getFilteredCurrentToken() throws IOException
-    {
+    protected String getFilteredCurrentToken() throws IOException {
         String token = getToken();
         Object pipelineRes;
-
-        while (true)
-        {
+        while (true) {
             pipelineRes = FilterPipelineExecutor.execute(filterPipeline, token);
             if (pipelineRes != null)
                 break;
-
             boolean reachedEOF = incrementToken();
             if (!reachedEOF)
                 break;
-
             token = getToken();
         }
-
         return (String) pipelineRes;
     }
 
-    private FilterPipelineTask getFilterPipeline()
-    {
+    private FilterPipelineTask getFilterPipeline() {
         FilterPipelineBuilder builder = new FilterPipelineBuilder(new BasicResultFilters.NoOperation());
         if (!options.isCaseSensitive() && options.shouldLowerCaseTerms())
             builder = builder.add("to_lower", new BasicResultFilters.LowerCase());
@@ -148,49 +132,38 @@ public class StandardAnalyzer extends AbstractAnalyzer
         return builder.build();
     }
 
-    public void init(Map<String, String> options, AbstractType<?> validator)
-    {
+    public void init(Map<String, String> options, AbstractType<?> validator) {
         init(StandardTokenizerOptions.buildFromMap(options), validator);
     }
 
     @VisibleForTesting
-    protected void init(StandardTokenizerOptions options)
-    {
+    protected void init(StandardTokenizerOptions options) {
         init(options, UTF8Type.instance);
     }
 
-    public void init(StandardTokenizerOptions tokenizerOptions, AbstractType<?> validator)
-    {
+    public void init(StandardTokenizerOptions tokenizerOptions, AbstractType<?> validator) {
         this.validator = validator;
         this.options = tokenizerOptions;
         this.filterPipeline = getFilterPipeline();
-
         Reader reader = new InputStreamReader(new DataInputBuffer(ByteBufferUtil.EMPTY_BYTE_BUFFER, false), StandardCharsets.UTF_8);
         this.scanner = new StandardTokenizerImpl(reader);
         this.inputReader = reader;
     }
 
-    public boolean hasNext()
-    {
-        try
-        {
-            if (incrementToken())
-            {
-                if (getFilteredCurrentToken() != null)
-                {
+    public boolean hasNext() {
+        try {
+            if (incrementToken()) {
+                if (getFilteredCurrentToken() != null) {
                     this.next = validator.fromString(normalize(getFilteredCurrentToken()));
                     return true;
                 }
             }
+        } catch (IOException e) {
         }
-        catch (IOException e)
-        {}
-
         return false;
     }
 
-    public void reset(ByteBuffer input)
-    {
+    public void reset(ByteBuffer input) {
         this.next = null;
         Reader reader = new InputStreamReader(new DataInputBuffer(input, false), StandardCharsets.UTF_8);
         scanner.yyreset(reader);
@@ -198,8 +171,7 @@ public class StandardAnalyzer extends AbstractAnalyzer
     }
 
     @VisibleForTesting
-    public void reset(InputStream input)
-    {
+    public void reset(InputStream input) {
         this.next = null;
         Reader reader = new InputStreamReader(input, StandardCharsets.UTF_8);
         scanner.yyreset(reader);
@@ -207,14 +179,12 @@ public class StandardAnalyzer extends AbstractAnalyzer
     }
 
     @Override
-    public boolean isTokenizing()
-    {
+    public boolean isTokenizing() {
         return true;
     }
 
     @Override
-    public boolean isCompatibleWith(AbstractType<?> validator)
-    {
+    public boolean isCompatibleWith(AbstractType<?> validator) {
         return VALID_ANALYZABLE_TYPES.contains(validator);
     }
 }

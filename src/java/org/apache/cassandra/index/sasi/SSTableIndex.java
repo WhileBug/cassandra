@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.index.sasi.conf.ColumnIndex;
@@ -35,88 +34,75 @@ import org.apache.cassandra.io.FSReadError;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.utils.concurrent.Ref;
-
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-
 import com.google.common.base.Function;
 
-public class SSTableIndex
-{
-    private final ColumnIndex columnIndex;
-    private final Ref<SSTableReader> sstableRef;
-    private final SSTableReader sstable;
-    private final OnDiskIndex index;
-    private final AtomicInteger references = new AtomicInteger(1);
-    private final AtomicBoolean obsolete = new AtomicBoolean(false);
+public class SSTableIndex {
 
-    public SSTableIndex(ColumnIndex index, File indexFile, SSTableReader referent)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableIndex.class);
+
+    private final transient ColumnIndex columnIndex;
+
+    private final transient Ref<SSTableReader> sstableRef;
+
+    private final transient SSTableReader sstable;
+
+    private final transient OnDiskIndex index;
+
+    private final transient AtomicInteger references = new AtomicInteger(1);
+
+    private final transient AtomicBoolean obsolete = new AtomicBoolean(false);
+
+    public SSTableIndex(ColumnIndex index, File indexFile, SSTableReader referent) {
         this.columnIndex = index;
         this.sstableRef = referent.tryRef();
         this.sstable = sstableRef.get();
-
         if (sstable == null)
             throw new IllegalStateException("Couldn't acquire reference to the sstable: " + referent);
-
         AbstractType<?> validator = columnIndex.getValidator();
-
         assert validator != null;
-        assert indexFile.exists() : String.format("SSTable %s should have index %s.",
-                sstable.getFilename(),
-                columnIndex.getIndexName());
-
+        assert indexFile.exists() : String.format("SSTable %s should have index %s.", sstable.getFilename(), columnIndex.getIndexName());
         this.index = new OnDiskIndex(indexFile, validator, new DecoratedKeyFetcher(sstable));
     }
 
-    public OnDiskIndexBuilder.Mode mode()
-    {
+    public OnDiskIndexBuilder.Mode mode() {
         return index.mode();
     }
 
-    public boolean hasMarkedPartials()
-    {
+    public boolean hasMarkedPartials() {
         return index.hasMarkedPartials();
     }
 
-    public ByteBuffer minTerm()
-    {
+    public ByteBuffer minTerm() {
         return index.minTerm();
     }
 
-    public ByteBuffer maxTerm()
-    {
+    public ByteBuffer maxTerm() {
         return index.maxTerm();
     }
 
-    public ByteBuffer minKey()
-    {
+    public ByteBuffer minKey() {
         return index.minKey();
     }
 
-    public ByteBuffer maxKey()
-    {
+    public ByteBuffer maxKey() {
         return index.maxKey();
     }
 
-    public RangeIterator<Long, Token> search(Expression expression)
-    {
+    public RangeIterator<Long, Token> search(Expression expression) {
         return index.search(expression);
     }
 
-    public SSTableReader getSSTable()
-    {
+    public SSTableReader getSSTable() {
         return sstable;
     }
 
-    public String getPath()
-    {
+    public String getPath() {
         return index.getIndexPath();
     }
 
-    public boolean reference()
-    {
-        while (true)
-        {
+    public boolean reference() {
+        while (true) {
             int n = references.get();
             if (n <= 0)
                 return false;
@@ -125,11 +111,9 @@ public class SSTableIndex
         }
     }
 
-    public void release()
-    {
+    public void release() {
         int n = references.decrementAndGet();
-        if (n == 0)
-        {
+        if (n == 0) {
             FileUtils.closeQuietly(index);
             sstableRef.release();
             if (obsolete.get() || sstableRef.globalCount() == 0)
@@ -137,62 +121,49 @@ public class SSTableIndex
         }
     }
 
-    public void markObsolete()
-    {
+    public void markObsolete() {
         obsolete.getAndSet(true);
         release();
     }
 
-    public boolean isObsolete()
-    {
+    public boolean isObsolete() {
         return obsolete.get();
     }
 
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         return o instanceof SSTableIndex && index.getIndexPath().equals(((SSTableIndex) o).index.getIndexPath());
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         return new HashCodeBuilder().append(index.getIndexPath()).build();
     }
 
-    public String toString()
-    {
+    public String toString() {
         return String.format("SSTableIndex(column: %s, SSTable: %s)", columnIndex.getColumnName(), sstable.descriptor);
     }
 
-    private static class DecoratedKeyFetcher implements Function<Long, DecoratedKey>
-    {
-        private final SSTableReader sstable;
+    private static class DecoratedKeyFetcher implements Function<Long, DecoratedKey> {
 
-        DecoratedKeyFetcher(SSTableReader reader)
-        {
+        private final transient SSTableReader sstable;
+
+        DecoratedKeyFetcher(SSTableReader reader) {
             sstable = reader;
         }
 
-        public DecoratedKey apply(Long offset)
-        {
-            try
-            {
+        public DecoratedKey apply(Long offset) {
+            try {
                 return sstable.keyAt(offset);
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 throw new FSReadError(new IOException("Failed to read key from " + sstable.descriptor, e), sstable.getFilename());
             }
         }
 
-        public int hashCode()
-        {
+        public int hashCode() {
             return sstable.descriptor.hashCode();
         }
 
-        public boolean equals(Object other)
-        {
-            return other instanceof DecoratedKeyFetcher
-                    && sstable.descriptor.equals(((DecoratedKeyFetcher) other).sstable.descriptor);
+        public boolean equals(Object other) {
+            return other instanceof DecoratedKeyFetcher && sstable.descriptor.equals(((DecoratedKeyFetcher) other).sstable.descriptor);
         }
     }
 }

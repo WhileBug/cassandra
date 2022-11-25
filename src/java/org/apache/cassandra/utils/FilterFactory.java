@@ -19,27 +19,27 @@ package org.apache.cassandra.utils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.utils.obs.IBitSet;
 import org.apache.cassandra.utils.obs.OffHeapBitSet;
 
-public class FilterFactory
-{
-    public static final IFilter AlwaysPresent = new AlwaysPresentFilter();
+public class FilterFactory {
 
-    private static final Logger logger = LoggerFactory.getLogger(FilterFactory.class);
-    private static final long BITSET_EXCESS = 20;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FilterFactory.class);
+
+    public static final transient IFilter AlwaysPresent = new AlwaysPresentFilter();
+
+    private static final transient Logger logger = LoggerFactory.getLogger(FilterFactory.class);
+
+    private static final transient long BITSET_EXCESS = 20;
 
     /**
      * @return A BloomFilter with the lowest practical false positive
      *         probability for the given number of elements.
      */
-    public static IFilter getFilter(long numElements, int targetBucketsPerElem)
-    {
+    public static IFilter getFilter(long numElements, int targetBucketsPerElem) {
         int maxBucketsPerElement = Math.max(1, BloomCalculations.maxBucketsPerElement(numElements));
         int bucketsPerElement = Math.min(targetBucketsPerElem, maxBucketsPerElement);
-        if (bucketsPerElement < targetBucketsPerElem)
-        {
+        if (bucketsPerElement < targetBucketsPerElem) {
             logger.warn("Cannot provide an optimal BloomFilter for {} elements ({}/{} buckets per element).", numElements, bucketsPerElement, targetBucketsPerElem);
         }
         BloomCalculations.BloomSpecification spec = BloomCalculations.computeBloomSpec(bucketsPerElement);
@@ -53,8 +53,7 @@ public class FilterFactory
      *         Asserts that the given probability can be satisfied using this
      *         filter.
      */
-    public static IFilter getFilter(long numElements, double maxFalsePosProbability)
-    {
+    public static IFilter getFilter(long numElements, double maxFalsePosProbability) {
         assert maxFalsePosProbability <= 1.0 : "Invalid probability";
         if (maxFalsePosProbability == 1.0)
             return new AlwaysPresentFilter();
@@ -64,8 +63,7 @@ public class FilterFactory
     }
 
     @SuppressWarnings("resource")
-    private static IFilter createFilter(int hash, long numElements, int bucketsPer)
-    {
+    private static IFilter createFilter(int hash, long numElements, int bucketsPer) {
         long numBits = (numElements * bucketsPer) + BITSET_EXCESS;
         IBitSet bitset = new OffHeapBitSet(numBits);
         return new BloomFilter(hash, bitset);

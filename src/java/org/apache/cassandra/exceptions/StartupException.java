@@ -21,23 +21,26 @@ package org.apache.cassandra.exceptions;
  * An exception thrown during system startup, indicating the environment or system
  * is not in a valid state to startup.
  */
-public class StartupException extends Exception
-{
-    public final static int ERR_WRONG_MACHINE_STATE = 1;
-    public final static int ERR_WRONG_DISK_STATE = 3;
-    public final static int ERR_WRONG_CONFIG = 100;
-    public final static int ERR_OUTDATED_SCHEMA = 101;
+public class StartupException extends Exception {
 
-    public final int returnCode;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StartupException.class);
 
-    public StartupException(int returnCode, String message)
-    {
+    public final static transient int ERR_WRONG_MACHINE_STATE = 1;
+
+    public final static transient int ERR_WRONG_DISK_STATE = 3;
+
+    public final static transient int ERR_WRONG_CONFIG = 100;
+
+    public final static transient int ERR_OUTDATED_SCHEMA = 101;
+
+    public final transient int returnCode;
+
+    public StartupException(int returnCode, String message) {
         super(message);
         this.returnCode = returnCode;
     }
 
-    public StartupException(int returnCode, String message, Throwable cause)
-    {
+    public StartupException(int returnCode, String message, Throwable cause) {
         super(message, cause);
         this.returnCode = returnCode;
     }

@@ -18,17 +18,17 @@
 package org.apache.cassandra.db.partitions;
 
 import java.util.Iterator;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.DeletionInfo;
 import org.apache.cassandra.db.RegularAndStaticColumns;
 import org.apache.cassandra.db.rows.*;
 
-public class FilteredPartition extends ImmutableBTreePartition
-{
-    public FilteredPartition(RowIterator rows)
-    {
+public class FilteredPartition extends ImmutableBTreePartition {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FilteredPartition.class);
+
+    public FilteredPartition(RowIterator rows) {
         super(rows.metadata(), rows.partitionKey(), build(rows, DeletionInfo.LIVE, false));
     }
 
@@ -38,55 +38,46 @@ public class FilteredPartition extends ImmutableBTreePartition
      * Warning: Note that this method does not close the provided iterator and it is
      * up to the caller to do so.
      */
-    public static FilteredPartition create(RowIterator iterator)
-    {
+    public static FilteredPartition create(RowIterator iterator) {
         return new FilteredPartition(iterator);
     }
 
-    public RowIterator rowIterator()
-    {
+    public RowIterator rowIterator() {
         final Iterator<Row> iter = iterator();
-        return new RowIterator()
-        {
-            public TableMetadata metadata()
-            {
+        return new RowIterator() {
+
+            public TableMetadata metadata() {
                 return FilteredPartition.this.metadata();
             }
 
-            public boolean isReverseOrder()
-            {
+            public boolean isReverseOrder() {
                 return false;
             }
 
-            public RegularAndStaticColumns columns()
-            {
+            public RegularAndStaticColumns columns() {
                 return FilteredPartition.this.columns();
             }
 
-            public DecoratedKey partitionKey()
-            {
+            public DecoratedKey partitionKey() {
                 return FilteredPartition.this.partitionKey();
             }
 
-            public Row staticRow()
-            {
+            public Row staticRow() {
                 return FilteredPartition.this.staticRow();
             }
 
-            public void close() {}
+            public void close() {
+            }
 
-            public boolean hasNext()
-            {
+            public boolean hasNext() {
                 return iter.hasNext();
             }
 
-            public Row next()
-            {
+            public Row next() {
                 return iter.next();
             }
 
-            public boolean isEmpty()
-            {
+            public boolean isEmpty() {
                 return staticRow().isEmpty() && !hasRows();
             }
         };

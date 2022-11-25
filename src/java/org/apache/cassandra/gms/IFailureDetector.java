@@ -25,9 +25,10 @@ import org.apache.cassandra.locator.InetAddressAndPort;
  * also exposes methods which help an application register callbacks
  * for notifications of liveness information of nodes.
  */
+public interface IFailureDetector {
 
-public interface IFailureDetector
-{
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IFailureDetector.class);
+
     /**
      * Failure Detector's knowledge of whether a node is up or
      * down.

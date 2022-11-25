@@ -19,12 +19,9 @@ package org.apache.cassandra.schema;
 
 import java.util.*;
 import java.util.stream.Stream;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-
 import static java.lang.String.format;
-
 import static com.google.common.collect.Iterables.filter;
 
 /**
@@ -36,54 +33,48 @@ import static com.google.common.collect.Iterables.filter;
  * support is added for multiple target columns per-index and for indexes with
  * TargetType.ROW
  */
-public final class Indexes implements Iterable<IndexMetadata>
-{
-    private final ImmutableMap<String, IndexMetadata> indexesByName;
-    private final ImmutableMap<UUID, IndexMetadata> indexesById;
+public final class Indexes implements Iterable<IndexMetadata> {
 
-    private Indexes(Builder builder)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Indexes.class);
+
+    private final transient ImmutableMap<String, IndexMetadata> indexesByName;
+
+    private final transient ImmutableMap<UUID, IndexMetadata> indexesById;
+
+    private Indexes(Builder builder) {
         indexesByName = builder.indexesByName.build();
         indexesById = builder.indexesById.build();
     }
 
-    public static Builder builder()
-    {
+    public static Builder builder() {
         return new Builder();
     }
 
-    public static Indexes none()
-    {
+    public static Indexes none() {
         return builder().build();
     }
 
-    public static Indexes of(IndexMetadata... indexes)
-    {
+    public static Indexes of(IndexMetadata... indexes) {
         return builder().add(indexes).build();
     }
 
-    public static Indexes of(Iterable<IndexMetadata> indexes)
-    {
+    public static Indexes of(Iterable<IndexMetadata> indexes) {
         return builder().add(indexes).build();
     }
 
-    public Iterator<IndexMetadata> iterator()
-    {
+    public Iterator<IndexMetadata> iterator() {
         return indexesByName.values().iterator();
     }
 
-    public Stream<IndexMetadata> stream()
-    {
+    public Stream<IndexMetadata> stream() {
         return indexesById.values().stream();
     }
 
-    public int size()
-    {
+    public int size() {
         return indexesByName.size();
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return indexesByName.isEmpty();
     }
 
@@ -93,8 +84,7 @@ public final class Indexes implements Iterable<IndexMetadata>
      * @param name a non-qualified index name
      * @return an empty {@link Optional} if the named index is not found; a non-empty optional of {@link IndexMetadata} otherwise
      */
-    public Optional<IndexMetadata> get(String name)
-    {
+    public Optional<IndexMetadata> get(String name) {
         return Optional.ofNullable(indexesByName.get(name));
     }
 
@@ -103,8 +93,7 @@ public final class Indexes implements Iterable<IndexMetadata>
      * @param name a non-qualified index name.
      * @return true if the named index is found; false otherwise
      */
-    public boolean has(String name)
-    {
+    public boolean has(String name) {
         return indexesByName.containsKey(name);
     }
 
@@ -115,9 +104,7 @@ public final class Indexes implements Iterable<IndexMetadata>
      * @return an empty {@link Optional} if no index with the specified id is found; a non-empty optional of
      *         {@link IndexMetadata} otherwise
      */
-
-    public Optional<IndexMetadata> get(UUID id)
-    {
+    public Optional<IndexMetadata> get(UUID id) {
         return Optional.ofNullable(indexesById.get(id));
     }
 
@@ -126,27 +113,23 @@ public final class Indexes implements Iterable<IndexMetadata>
      * @param id a UUID which identifies an index.
      * @return true if an index with the specified id is found; false otherwise
      */
-    public boolean has(UUID id)
-    {
+    public boolean has(UUID id) {
         return indexesById.containsKey(id);
     }
 
     /**
      * Create a SecondaryIndexes instance with the provided index added
      */
-    public Indexes with(IndexMetadata index)
-    {
+    public Indexes with(IndexMetadata index) {
         if (get(index.name).isPresent())
             throw new IllegalStateException(format("Index %s already exists", index.name));
-
         return builder().add(this).add(index).build();
     }
 
     /**
      * Creates a SecondaryIndexes instance with the index with the provided name removed
      */
-    public Indexes without(String name)
-    {
+    public Indexes without(String name) {
         IndexMetadata index = get(name).orElseThrow(() -> new IllegalStateException(format("Index %s doesn't exist", name)));
         return builder().add(filter(this, v -> v != index)).build();
     }
@@ -154,64 +137,54 @@ public final class Indexes implements Iterable<IndexMetadata>
     /**
      * Creates a SecondaryIndexes instance which contains an updated index definition
      */
-    public Indexes replace(IndexMetadata index)
-    {
+    public Indexes replace(IndexMetadata index) {
         return without(index.name).with(index);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         return this == o || (o instanceof Indexes && indexesByName.equals(((Indexes) o).indexesByName));
     }
 
-    public void validate(TableMetadata table)
-    {
+    public void validate(TableMetadata table) {
         indexesByName.values().forEach(i -> i.validate(table));
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return indexesByName.hashCode();
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return indexesByName.values().toString();
     }
 
-    public static final class Builder
-    {
-        final ImmutableMap.Builder<String, IndexMetadata> indexesByName = new ImmutableMap.Builder<>();
-        final ImmutableMap.Builder<UUID, IndexMetadata> indexesById = new ImmutableMap.Builder<>();
+    public static final class Builder {
 
-        private Builder()
-        {
+        final transient ImmutableMap.Builder<String, IndexMetadata> indexesByName = new ImmutableMap.Builder<>();
+
+        final transient ImmutableMap.Builder<UUID, IndexMetadata> indexesById = new ImmutableMap.Builder<>();
+
+        private Builder() {
         }
 
-        public Indexes build()
-        {
+        public Indexes build() {
             return new Indexes(this);
         }
 
-        public Builder add(IndexMetadata index)
-        {
+        public Builder add(IndexMetadata index) {
             indexesByName.put(index.name, index);
             indexesById.put(index.id, index);
             return this;
         }
 
-        public Builder add(IndexMetadata... indexes)
-        {
-            for (IndexMetadata index : indexes)
-                add(index);
+        public Builder add(IndexMetadata... indexes) {
+            for (IndexMetadata index : indexes) add(index);
             return this;
         }
 
-        public Builder add(Iterable<IndexMetadata> indexes)
-        {
+        public Builder add(Iterable<IndexMetadata> indexes) {
             indexes.forEach(this::add);
             return this;
         }

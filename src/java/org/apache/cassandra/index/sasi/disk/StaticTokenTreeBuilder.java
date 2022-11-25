@@ -21,13 +21,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
-
 import org.apache.cassandra.index.sasi.utils.CombinedTerm;
 import org.apache.cassandra.index.sasi.utils.RangeIterator;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.utils.AbstractIterator;
 import org.apache.cassandra.utils.Pair;
-
 import com.carrotsearch.hppc.LongSet;
 import com.google.common.collect.Iterators;
 
@@ -54,125 +52,104 @@ import com.google.common.collect.Iterators;
  * See https://issues.apache.org/jira/browse/CASSANDRA-11383 for more details.
  */
 @SuppressWarnings("resource")
-public class StaticTokenTreeBuilder extends AbstractTokenTreeBuilder
-{
-    private final CombinedTerm combinedTerm;
+public class StaticTokenTreeBuilder extends AbstractTokenTreeBuilder {
 
-    public StaticTokenTreeBuilder(CombinedTerm term)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StaticTokenTreeBuilder.class);
+
+    private final transient CombinedTerm combinedTerm;
+
+    public StaticTokenTreeBuilder(CombinedTerm term) {
         combinedTerm = term;
     }
 
-    public void add(Long token, long keyPosition)
-    {
+    public void add(Long token, long keyPosition) {
         throw new UnsupportedOperationException();
     }
 
-    public void add(SortedMap<Long, LongSet> data)
-    {
+    public void add(SortedMap<Long, LongSet> data) {
         throw new UnsupportedOperationException();
     }
 
-    public void add(Iterator<Pair<Long, LongSet>> data)
-    {
+    public void add(Iterator<Pair<Long, LongSet>> data) {
         throw new UnsupportedOperationException();
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return tokenCount == 0;
     }
 
-    public Iterator<Pair<Long, LongSet>> iterator()
-    {
+    public Iterator<Pair<Long, LongSet>> iterator() {
         Iterator<Token> iterator = combinedTerm.getTokenIterator();
-        return new AbstractIterator<Pair<Long, LongSet>>()
-        {
-            protected Pair<Long, LongSet> computeNext()
-            {
+        return new AbstractIterator<Pair<Long, LongSet>>() {
+
+            protected Pair<Long, LongSet> computeNext() {
                 if (!iterator.hasNext())
                     return endOfData();
-
                 Token token = iterator.next();
                 return Pair.create(token.get(), token.getOffsets());
             }
         };
     }
 
-    public long getTokenCount()
-    {
+    public long getTokenCount() {
         return tokenCount;
     }
 
     @Override
-    public void write(DataOutputPlus out) throws IOException
-    {
+    public void write(DataOutputPlus out) throws IOException {
         // if the root is not a leaf then none of the leaves have been written (all are PartialLeaf)
         // so write out the last layer of the tree by converting PartialLeaf to StaticLeaf and
         // iterating the data once more
         super.write(out);
         if (root.isLeaf())
             return;
-
         RangeIterator<Long, Token> tokens = combinedTerm.getTokenIterator();
         ByteBuffer blockBuffer = ByteBuffer.allocate(BLOCK_BYTES);
         Iterator<Node> leafIterator = leftmostLeaf.levelIterator();
-        while (leafIterator.hasNext())
-        {
+        while (leafIterator.hasNext()) {
             Leaf leaf = (Leaf) leafIterator.next();
             Leaf writeableLeaf = new StaticLeaf(Iterators.limit(tokens, leaf.tokenCount()), leaf);
             writeableLeaf.serialize(-1, blockBuffer);
             flushBuffer(blockBuffer, out, true);
         }
-
     }
 
-    protected void constructTree()
-    {
+    protected void constructTree() {
         RangeIterator<Long, Token> tokens = combinedTerm.getTokenIterator();
-
         tokenCount = 0;
         treeMinToken = tokens.getMinimum();
         treeMaxToken = tokens.getMaximum();
         numBlocks = 1;
-
         root = new InteriorNode();
         rightmostParent = (InteriorNode) root;
         Leaf lastLeaf = null;
         Long lastToken, firstToken = null;
         int leafSize = 0;
-        while (tokens.hasNext())
-        {
+        while (tokens.hasNext()) {
             Long token = tokens.next().get();
             if (firstToken == null)
                 firstToken = token;
-
             tokenCount++;
             leafSize++;
-
             // skip until the last token in the leaf
             if (tokenCount % TOKENS_PER_BLOCK != 0 && token != treeMaxToken)
                 continue;
-
             lastToken = token;
             Leaf leaf = new PartialLeaf(firstToken, lastToken, leafSize);
-            if (lastLeaf == null) // first leaf created
+            if (// first leaf created
+            lastLeaf == null)
                 leftmostLeaf = leaf;
             else
                 lastLeaf.next = leaf;
-
-
             rightmostParent.add(leaf);
             lastLeaf = rightmostLeaf = leaf;
             firstToken = null;
             numBlocks++;
             leafSize = 0;
         }
-
         // if the tree is really a single leaf the empty root interior
         // node must be discarded
-        if (root.tokenCount() == 0)
-        {
+        if (root.tokenCount() == 0) {
             numBlocks = 1;
             root = new StaticLeaf(combinedTerm.getTokenIterator(), treeMinToken, treeMaxToken, tokenCount, true);
         }
@@ -180,73 +157,65 @@ public class StaticTokenTreeBuilder extends AbstractTokenTreeBuilder
 
     // This denotes the leaf which only has min/max and token counts
     // but doesn't have any associated data yet, so it can't be serialized.
-    private class PartialLeaf extends Leaf
-    {
-        private final int size;
-        public PartialLeaf(Long min, Long max, int count)
-        {
+    private class PartialLeaf extends Leaf {
+
+        private final transient int size;
+
+        public PartialLeaf(Long min, Long max, int count) {
             super(min, max);
             size = count;
         }
 
-        public int tokenCount()
-        {
+        public int tokenCount() {
             return size;
         }
 
-        public void serializeData(ByteBuffer buf)
-        {
+        public void serializeData(ByteBuffer buf) {
             throw new UnsupportedOperationException();
         }
 
-        public boolean isSerializable()
-        {
+        public boolean isSerializable() {
             return false;
         }
     }
 
     // This denotes the leaf which has been filled with data and is ready to be serialized
-    private class StaticLeaf extends Leaf
-    {
-        private final Iterator<Token> tokens;
-        private final int count;
-        private final boolean isLast;
+    private class StaticLeaf extends Leaf {
 
-        public StaticLeaf(Iterator<Token> tokens, Leaf leaf)
-        {
+        private final transient Iterator<Token> tokens;
+
+        private final transient int count;
+
+        private final transient boolean isLast;
+
+        public StaticLeaf(Iterator<Token> tokens, Leaf leaf) {
             this(tokens, leaf.smallestToken(), leaf.largestToken(), leaf.tokenCount(), leaf.isLastLeaf());
         }
 
-        public StaticLeaf(Iterator<Token> tokens, Long min, Long max, long count, boolean isLastLeaf)
-        {
+        public StaticLeaf(Iterator<Token> tokens, Long min, Long max, long count, boolean isLastLeaf) {
             super(min, max);
-
-            this.count = (int) count; // downcast is safe since leaf size is always < Integer.MAX_VALUE
+            // downcast is safe since leaf size is always < Integer.MAX_VALUE
+            this.count = (int) count;
             this.tokens = tokens;
             this.isLast = isLastLeaf;
         }
 
-        public boolean isLastLeaf()
-        {
+        public boolean isLastLeaf() {
             return isLast;
         }
 
-        public int tokenCount()
-        {
+        public int tokenCount() {
             return count;
         }
 
-        public void serializeData(ByteBuffer buf)
-        {
-            while (tokens.hasNext())
-            {
+        public void serializeData(ByteBuffer buf) {
+            while (tokens.hasNext()) {
                 Token entry = tokens.next();
                 createEntry(entry.get(), entry.getOffsets()).serialize(buf);
             }
         }
 
-        public boolean isSerializable()
-        {
+        public boolean isSerializable() {
             return true;
         }
     }

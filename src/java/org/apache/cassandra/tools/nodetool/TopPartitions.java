@@ -21,6 +21,7 @@ import io.airlift.airline.Command;
 
 @Command(name = "toppartitions", description = "Sample and print the most active partitions")
 @Deprecated
-public class TopPartitions extends ProfileLoad
-{
+public class TopPartitions extends ProfileLoad {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TopPartitions.class);
 }

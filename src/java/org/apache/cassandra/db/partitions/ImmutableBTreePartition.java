@@ -24,29 +24,21 @@ import org.apache.cassandra.db.DeletionInfo;
 import org.apache.cassandra.db.RegularAndStaticColumns;
 import org.apache.cassandra.db.rows.*;
 
-public class ImmutableBTreePartition extends AbstractBTreePartition
-{
+public class ImmutableBTreePartition extends AbstractBTreePartition {
 
-    protected final Holder holder;
-    protected final TableMetadata metadata;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ImmutableBTreePartition.class);
 
-    public ImmutableBTreePartition(TableMetadata metadata,
-                                   DecoratedKey partitionKey,
-                                   RegularAndStaticColumns columns,
-                                   Row staticRow,
-                                   Object[] tree,
-                                   DeletionInfo deletionInfo,
-                                   EncodingStats stats)
-    {
+    protected final transient Holder holder;
+
+    protected final transient TableMetadata metadata;
+
+    public ImmutableBTreePartition(TableMetadata metadata, DecoratedKey partitionKey, RegularAndStaticColumns columns, Row staticRow, Object[] tree, DeletionInfo deletionInfo, EncodingStats stats) {
         super(partitionKey);
         this.metadata = metadata;
         this.holder = new Holder(columns, tree, deletionInfo, staticRow, stats);
     }
 
-    protected ImmutableBTreePartition(TableMetadata metadata,
-                                      DecoratedKey partitionKey,
-                                      Holder holder)
-    {
+    protected ImmutableBTreePartition(TableMetadata metadata, DecoratedKey partitionKey, Holder holder) {
         super(partitionKey);
         this.metadata = metadata;
         this.holder = holder;
@@ -61,8 +53,7 @@ public class ImmutableBTreePartition extends AbstractBTreePartition
      * @param iterator the iterator to gather in memory.
      * @return the created partition.
      */
-    public static ImmutableBTreePartition create(UnfilteredRowIterator iterator)
-    {
+    public static ImmutableBTreePartition create(UnfilteredRowIterator iterator) {
         return create(iterator, 16);
     }
 
@@ -76,8 +67,7 @@ public class ImmutableBTreePartition extends AbstractBTreePartition
      * @param ordered {@code true} if the iterator will return the rows in order, {@code false} otherwise.
      * @return the created partition.
      */
-    public static ImmutableBTreePartition create(UnfilteredRowIterator iterator, boolean ordered)
-    {
+    public static ImmutableBTreePartition create(UnfilteredRowIterator iterator, boolean ordered) {
         return create(iterator, 16, ordered);
     }
 
@@ -92,8 +82,7 @@ public class ImmutableBTreePartition extends AbstractBTreePartition
      * correspond or be a good estimation of the number or rows in {@code iterator}.
      * @return the created partition.
      */
-    public static ImmutableBTreePartition create(UnfilteredRowIterator iterator, int initialRowCapacity)
-    {
+    public static ImmutableBTreePartition create(UnfilteredRowIterator iterator, int initialRowCapacity) {
         return create(iterator, initialRowCapacity, true);
     }
 
@@ -109,23 +98,19 @@ public class ImmutableBTreePartition extends AbstractBTreePartition
      * @param ordered {@code true} if the iterator will return the rows in order, {@code false} otherwise.
      * @return the created partition.
      */
-    public static ImmutableBTreePartition create(UnfilteredRowIterator iterator, int initialRowCapacity, boolean ordered)
-    {
+    public static ImmutableBTreePartition create(UnfilteredRowIterator iterator, int initialRowCapacity, boolean ordered) {
         return new ImmutableBTreePartition(iterator.metadata(), iterator.partitionKey(), build(iterator, initialRowCapacity, ordered));
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return metadata;
     }
 
-    protected Holder holder()
-    {
+    protected Holder holder() {
         return holder;
     }
 
-    protected boolean canHaveShadowedData()
-    {
+    protected boolean canHaveShadowedData() {
         return false;
     }
 }

@@ -19,11 +19,13 @@ package org.apache.cassandra.cql3;
 
 import java.util.Collection;
 
-public interface AssignmentTestable
-{
+public interface AssignmentTestable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AssignmentTestable.class);
+
     /**
      * @return whether this object can be assigned to the provided receiver. We distinguish
-     * between 3 values: 
+     * between 3 values:
      *   - EXACT_MATCH if this object is exactly of the type expected by the receiver
      *   - WEAKLY_ASSIGNABLE if this object is not exactly the expected type but is assignable nonetheless
      *   - NOT_ASSIGNABLE if it's not assignable
@@ -32,37 +34,30 @@ public interface AssignmentTestable
      */
     public TestResult testAssignment(String keyspace, ColumnSpecification receiver);
 
-    public enum TestResult
-    {
+    public enum TestResult {
+
         EXACT_MATCH, WEAKLY_ASSIGNABLE, NOT_ASSIGNABLE;
 
-        public boolean isAssignable()
-        {
+        public boolean isAssignable() {
             return this != NOT_ASSIGNABLE;
         }
 
-        public boolean isExactMatch()
-        {
+        public boolean isExactMatch() {
             return this == EXACT_MATCH;
         }
 
         // Test all elements of toTest for assignment. If all are exact match, return exact match. If any is not assignable,
         // return not assignable. Otherwise, return weakly assignable.
-        public static TestResult testAll(String keyspace, ColumnSpecification receiver, Collection<? extends AssignmentTestable> toTest)
-        {
+        public static TestResult testAll(String keyspace, ColumnSpecification receiver, Collection<? extends AssignmentTestable> toTest) {
             TestResult res = EXACT_MATCH;
-            for (AssignmentTestable rt : toTest)
-            {
-                if (rt == null)
-                {
+            for (AssignmentTestable rt : toTest) {
+                if (rt == null) {
                     res = WEAKLY_ASSIGNABLE;
                     continue;
                 }
-
                 TestResult t = rt.testAssignment(keyspace, receiver);
                 if (t == NOT_ASSIGNABLE)
                     return NOT_ASSIGNABLE;
-
                 if (t == WEAKLY_ASSIGNABLE)
                     res = WEAKLY_ASSIGNABLE;
             }

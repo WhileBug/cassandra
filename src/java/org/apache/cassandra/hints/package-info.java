@@ -42,3 +42,4 @@
  * for hints.
  */
 package org.apache.cassandra.hints;
+

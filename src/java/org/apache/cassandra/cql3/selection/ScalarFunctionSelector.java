@@ -19,31 +19,27 @@ package org.apache.cassandra.cql3.selection;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.cql3.functions.ScalarFunction;
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.transport.ProtocolVersion;
 
-final class ScalarFunctionSelector extends AbstractFunctionSelector<ScalarFunction>
-{
-    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException
-    {
-        for (int i = 0, m = argSelectors.size(); i < m; i++)
-        {
+final class ScalarFunctionSelector extends AbstractFunctionSelector<ScalarFunction> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ScalarFunctionSelector.class);
+
+    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException {
+        for (int i = 0, m = argSelectors.size(); i < m; i++) {
             Selector s = argSelectors.get(i);
             s.addInput(protocolVersion, rs);
         }
     }
 
-    public void reset()
-    {
+    public void reset() {
     }
 
-    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException
-    {
-        for (int i = 0, m = argSelectors.size(); i < m; i++)
-        {
+    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException {
+        for (int i = 0, m = argSelectors.size(); i < m; i++) {
             Selector s = argSelectors.get(i);
             setArg(i, s.getOutput(protocolVersion));
             s.reset();
@@ -51,8 +47,7 @@ final class ScalarFunctionSelector extends AbstractFunctionSelector<ScalarFuncti
         return fun.execute(protocolVersion, args());
     }
 
-    ScalarFunctionSelector(Function fun, List<Selector> argSelectors)
-    {
+    ScalarFunctionSelector(Function fun, List<Selector> argSelectors) {
         super((ScalarFunction) fun, argSelectors);
     }
 }

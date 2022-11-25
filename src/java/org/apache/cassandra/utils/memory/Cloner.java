@@ -24,10 +24,11 @@ import org.apache.cassandra.db.rows.Cell;
 
 /**
  * Allow cloning of partition elements
- *
  */
-public interface Cloner
-{
+public interface Cloner {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Cloner.class);
+
     /**
      * Clones the specified key.
      *

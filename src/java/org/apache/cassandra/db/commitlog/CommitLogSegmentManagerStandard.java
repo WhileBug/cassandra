@@ -15,23 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.commitlog;
 
 import java.io.File;
-
 import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.io.util.FileUtils;
 
-public class CommitLogSegmentManagerStandard extends AbstractCommitLogSegmentManager
-{
-    public CommitLogSegmentManagerStandard(final CommitLog commitLog, String storageDirectory)
-    {
+public class CommitLogSegmentManagerStandard extends AbstractCommitLogSegmentManager {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CommitLogSegmentManagerStandard.class);
+
+    public CommitLogSegmentManagerStandard(final CommitLog commitLog, String storageDirectory) {
         super(commitLog, storageDirectory);
     }
 
-    public void discard(CommitLogSegment segment, boolean delete)
-    {
+    public void discard(CommitLogSegment segment, boolean delete) {
         segment.close();
         if (delete)
             FileUtils.deleteWithConfirm(segment.logFile);
@@ -46,24 +44,19 @@ public class CommitLogSegmentManagerStandard extends AbstractCommitLogSegmentMan
      * @param size total size of mutation (overhead + serialized size)
      * @return the provided Allocation object
      */
-    public CommitLogSegment.Allocation allocate(Mutation mutation, int size)
-    {
+    public CommitLogSegment.Allocation allocate(Mutation mutation, int size) {
         CommitLogSegment segment = allocatingFrom();
-
         CommitLogSegment.Allocation alloc;
-        while ( null == (alloc = segment.allocate(mutation, size)) )
-        {
+        while (null == (alloc = segment.allocate(mutation, size))) {
             // failed to allocate, so move to a new segment with enough room
             advanceAllocatingFrom(segment);
             segment = allocatingFrom();
         }
-
         return alloc;
     }
 
     @Override
-    public CommitLogSegment createSegment()
-    {
+    public CommitLogSegment createSegment() {
         return CommitLogSegment.createSegment(commitLog, this);
     }
 }

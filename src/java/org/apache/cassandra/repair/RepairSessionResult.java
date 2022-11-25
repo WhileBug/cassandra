@@ -19,23 +19,27 @@ package org.apache.cassandra.repair;
 
 import java.util.Collection;
 import java.util.UUID;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 
 /**
  * Repair session result
  */
-public class RepairSessionResult
-{
-    public final UUID sessionId;
-    public final String keyspace;
-    public final Collection<Range<Token>> ranges;
-    public final Collection<RepairResult> repairJobResults;
-    public final boolean skippedReplicas;
+public class RepairSessionResult {
 
-    public RepairSessionResult(UUID sessionId, String keyspace, Collection<Range<Token>> ranges, Collection<RepairResult> repairJobResults, boolean skippedReplicas)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairSessionResult.class);
+
+    public final transient UUID sessionId;
+
+    public final transient String keyspace;
+
+    public final transient Collection<Range<Token>> ranges;
+
+    public final transient Collection<RepairResult> repairJobResults;
+
+    public final transient boolean skippedReplicas;
+
+    public RepairSessionResult(UUID sessionId, String keyspace, Collection<Range<Token>> ranges, Collection<RepairResult> repairJobResults, boolean skippedReplicas) {
         this.sessionId = sessionId;
         this.keyspace = keyspace;
         this.ranges = ranges;
@@ -43,14 +47,7 @@ public class RepairSessionResult
         this.skippedReplicas = skippedReplicas;
     }
 
-    public String toString()
-    {
-        return "RepairSessionResult{" +
-               "sessionId=" + sessionId +
-               ", keyspace='" + keyspace + '\'' +
-               ", ranges=" + ranges +
-               ", repairJobResults=" + repairJobResults +
-               ", skippedReplicas=" + skippedReplicas +
-               '}';
+    public String toString() {
+        return "RepairSessionResult{" + "sessionId=" + sessionId + ", keyspace='" + keyspace + '\'' + ", ranges=" + ranges + ", repairJobResults=" + repairJobResults + ", skippedReplicas=" + skippedReplicas + '}';
     }
 }

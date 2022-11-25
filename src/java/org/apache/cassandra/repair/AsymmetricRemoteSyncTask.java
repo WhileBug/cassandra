@@ -15,12 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair;
 
 import java.util.List;
-
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.exceptions.RepairException;
@@ -37,15 +34,15 @@ import org.apache.cassandra.utils.FBUtilities;
  *
  * When AsymmetricRemoteSyncTask receives SyncComplete from the target, task completes.
  */
-public class AsymmetricRemoteSyncTask extends SyncTask implements CompletableRemoteSyncTask
-{
-    public AsymmetricRemoteSyncTask(RepairJobDesc desc, InetAddressAndPort to, InetAddressAndPort from, List<Range<Token>> differences, PreviewKind previewKind)
-    {
+public class AsymmetricRemoteSyncTask extends SyncTask implements CompletableRemoteSyncTask {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AsymmetricRemoteSyncTask.class);
+
+    public AsymmetricRemoteSyncTask(RepairJobDesc desc, InetAddressAndPort to, InetAddressAndPort from, List<Range<Token>> differences, PreviewKind previewKind) {
         super(desc, to, from, differences, previewKind);
     }
 
-    public void startSync()
-    {
+    public void startSync() {
         InetAddressAndPort local = FBUtilities.getBroadcastAddressAndPort();
         SyncRequest request = new SyncRequest(desc, local, nodePair.coordinator, nodePair.peer, rangesToSync, previewKind, true);
         String message = String.format("Forwarding streaming repair of %d ranges to %s (to be streamed with %s)", request.ranges.size(), request.src, request.dst);
@@ -53,24 +50,16 @@ public class AsymmetricRemoteSyncTask extends SyncTask implements CompletableRem
         sendRequest(request, request.src);
     }
 
-    public void syncComplete(boolean success, List<SessionSummary> summaries)
-    {
-        if (success)
-        {
+    public void syncComplete(boolean success, List<SessionSummary> summaries) {
+        if (success) {
             set(stat.withSummaries(summaries));
-        }
-        else
-        {
+        } else {
             setException(new RepairException(desc, previewKind, String.format("Sync failed between %s and %s", nodePair.coordinator, nodePair.peer)));
         }
     }
 
     @Override
-    public String toString()
-    {
-        return "AsymmetricRemoteSyncTask{" +
-               "rangesToSync=" + rangesToSync +
-               ", nodePair=" + nodePair +
-               '}';
+    public String toString() {
+        return "AsymmetricRemoteSyncTask{" + "rangesToSync=" + rangesToSync + ", nodePair=" + nodePair + '}';
     }
 }

@@ -28,10 +28,8 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
@@ -39,7 +37,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.cassandra.auth.AllowAllNetworkAuthorizer;
@@ -66,42 +63,48 @@ import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.io.util.DataOutputBufferFixed;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.locator.InetAddressAndPort;
-
 import static org.apache.cassandra.config.CassandraRelevantProperties.LINE_SEPARATOR;
 import static org.apache.cassandra.config.CassandraRelevantProperties.USER_HOME;
 
+public class FBUtilities {
 
-public class FBUtilities
-{
-    static
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FBUtilities.class);
+
+    static {
         preventIllegalAccessWarnings();
     }
 
-    private static final Logger logger = LoggerFactory.getLogger(FBUtilities.class);
+    private static final transient Logger logger = LoggerFactory.getLogger(FBUtilities.class);
 
-    private static final ObjectMapper jsonMapper = new ObjectMapper(new JsonFactory());
+    private static final transient ObjectMapper jsonMapper = new ObjectMapper(new JsonFactory());
 
-    public static final String UNKNOWN_RELEASE_VERSION = "Unknown";
+    public static final transient String UNKNOWN_RELEASE_VERSION = "Unknown";
 
-    public static final BigInteger TWO = new BigInteger("2");
-    private static final String DEFAULT_TRIGGER_DIR = "triggers";
+    public static final transient BigInteger TWO = new BigInteger("2");
 
-    private static final String OPERATING_SYSTEM = System.getProperty("os.name").toLowerCase();
-    public static final boolean isWindows = OPERATING_SYSTEM.contains("windows");
-    public static final boolean isLinux = OPERATING_SYSTEM.contains("linux");
+    private static final transient String DEFAULT_TRIGGER_DIR = "triggers";
 
-    private static volatile InetAddress localInetAddress;
-    private static volatile InetAddress broadcastInetAddress;
-    private static volatile InetAddress broadcastNativeAddress;
-    private static volatile InetAddressAndPort broadcastNativeAddressAndPort;
-    private static volatile InetAddressAndPort broadcastInetAddressAndPort;
-    private static volatile InetAddressAndPort localInetAddressAndPort;
+    private static final transient String OPERATING_SYSTEM = System.getProperty("os.name").toLowerCase();
 
-    private static volatile String previousReleaseVersionString;
+    public static final transient boolean isWindows = OPERATING_SYSTEM.contains("windows");
 
-    public static int getAvailableProcessors()
-    {
+    public static final transient boolean isLinux = OPERATING_SYSTEM.contains("linux");
+
+    private static volatile transient InetAddress localInetAddress;
+
+    private static volatile transient InetAddress broadcastInetAddress;
+
+    private static volatile transient InetAddress broadcastNativeAddress;
+
+    private static volatile transient InetAddressAndPort broadcastNativeAddressAndPort;
+
+    private static volatile transient InetAddressAndPort broadcastInetAddressAndPort;
+
+    private static volatile transient InetAddressAndPort localInetAddressAndPort;
+
+    private static volatile transient String previousReleaseVersionString;
+
+    public static int getAvailableProcessors() {
         String availableProcessors = System.getProperty("cassandra.available_processors");
         if (!Strings.isNullOrEmpty(availableProcessors))
             return Integer.parseInt(availableProcessors);
@@ -109,16 +112,12 @@ public class FBUtilities
             return Runtime.getRuntime().availableProcessors();
     }
 
-    public static final int MAX_UNSIGNED_SHORT = 0xFFFF;
+    public static final transient int MAX_UNSIGNED_SHORT = 0xFFFF;
 
-    public static MessageDigest newMessageDigest(String algorithm)
-    {
-        try
-        {
+    public static MessageDigest newMessageDigest(String algorithm) {
+        try {
             return MessageDigest.getInstance(algorithm);
-        }
-        catch (NoSuchAlgorithmException nsae)
-        {
+        } catch (NoSuchAlgorithmException nsae) {
             throw new RuntimeException("the requested digest algorithm (" + algorithm + ") is not available", nsae);
         }
     }
@@ -127,30 +126,18 @@ public class FBUtilities
      * Please use getJustBroadcastAddress instead. You need this only when you have to listen/connect. It's also missing
      * the port you should be using. 99% of code doesn't want this.
      */
-    public static InetAddress getJustLocalAddress()
-    {
-        if (localInetAddress == null)
-        {
-            if (DatabaseDescriptor.getListenAddress() == null)
-            {
-                try
-                {
+    public static InetAddress getJustLocalAddress() {
+        if (localInetAddress == null) {
+            if (DatabaseDescriptor.getListenAddress() == null) {
+                try {
                     localInetAddress = InetAddress.getLocalHost();
-                    logger.info("InetAddress.getLocalHost() was used to resolve listen_address to {}, double check this is "
-                                + "correct. Please check your node's config and set the listen_address in cassandra.yaml accordingly if applicable.",
-                                localInetAddress);
-                }
-                catch(UnknownHostException e)
-                {
-                    logger.info("InetAddress.getLocalHost() could not resolve the address for the hostname ({}), please "
-                                + "check your node's config and set the listen_address in cassandra.yaml. Falling back to {}",
-                                e,
-                                InetAddress.getLoopbackAddress());
+                    logger.info("InetAddress.getLocalHost() was used to resolve listen_address to {}, double check this is " + "correct. Please check your node's config and set the listen_address in cassandra.yaml accordingly if applicable.", localInetAddress);
+                } catch (UnknownHostException e) {
+                    logger.info("InetAddress.getLocalHost() could not resolve the address for the hostname ({}), please " + "check your node's config and set the listen_address in cassandra.yaml. Falling back to {}", e, InetAddress.getLoopbackAddress());
                     // CASSANDRA-15901 fallback for misconfigured nodes
                     localInetAddress = InetAddress.getLoopbackAddress();
                 }
-            }
-            else
+            } else
                 localInetAddress = DatabaseDescriptor.getListenAddress();
         }
         return localInetAddress;
@@ -160,18 +147,12 @@ public class FBUtilities
      * The address and port to listen on for intra-cluster storage traffic (not client). Use this to get the correct
      * stuff to listen on for intra-cluster communication.
      */
-    public static InetAddressAndPort getLocalAddressAndPort()
-    {
-        if (localInetAddressAndPort == null)
-        {
-            if(DatabaseDescriptor.getRawConfig() == null)
-            {
+    public static InetAddressAndPort getLocalAddressAndPort() {
+        if (localInetAddressAndPort == null) {
+            if (DatabaseDescriptor.getRawConfig() == null) {
                 localInetAddressAndPort = InetAddressAndPort.getByAddress(getJustLocalAddress());
-            }
-            else
-            {
-                localInetAddressAndPort = InetAddressAndPort.getByAddressOverrideDefaults(getJustLocalAddress(),
-                                                                                          DatabaseDescriptor.getStoragePort());
+            } else {
+                localInetAddressAndPort = InetAddressAndPort.getByAddressOverrideDefaults(getJustLocalAddress(), DatabaseDescriptor.getStoragePort());
             }
         }
         return localInetAddressAndPort;
@@ -181,12 +162,9 @@ public class FBUtilities
      * Retrieve just the broadcast address but not the port. This is almost always the wrong thing to be using because
      * it's ambiguous since you need the address and port to identify a node. You want getBroadcastAddressAndPort
      */
-    public static InetAddress getJustBroadcastAddress()
-    {
+    public static InetAddress getJustBroadcastAddress() {
         if (broadcastInetAddress == null)
-            broadcastInetAddress = DatabaseDescriptor.getBroadcastAddress() == null
-                                 ? getJustLocalAddress()
-                                 : DatabaseDescriptor.getBroadcastAddress();
+            broadcastInetAddress = DatabaseDescriptor.getBroadcastAddress() == null ? getJustLocalAddress() : DatabaseDescriptor.getBroadcastAddress();
         return broadcastInetAddress;
     }
 
@@ -195,18 +173,12 @@ public class FBUtilities
      * identifies the node and is reachable from everywhere. This is the one you want unless you are trying to connect
      * to the local address specifically.
      */
-    public static InetAddressAndPort getBroadcastAddressAndPort()
-    {
-        if (broadcastInetAddressAndPort == null)
-        {
-            if(DatabaseDescriptor.getRawConfig() == null)
-            {
+    public static InetAddressAndPort getBroadcastAddressAndPort() {
+        if (broadcastInetAddressAndPort == null) {
+            if (DatabaseDescriptor.getRawConfig() == null) {
                 broadcastInetAddressAndPort = InetAddressAndPort.getByAddress(getJustBroadcastAddress());
-            }
-            else
-            {
-                broadcastInetAddressAndPort = InetAddressAndPort.getByAddressOverrideDefaults(getJustBroadcastAddress(),
-                                                                                              DatabaseDescriptor.getStoragePort());
+            } else {
+                broadcastInetAddressAndPort = InetAddressAndPort.getByAddressOverrideDefaults(getJustBroadcastAddress(), DatabaseDescriptor.getStoragePort());
             }
         }
         return broadcastInetAddressAndPort;
@@ -215,8 +187,7 @@ public class FBUtilities
     /**
      * <b>THIS IS FOR TESTING ONLY!!</b>
      */
-    public static void setBroadcastInetAddress(InetAddress addr)
-    {
+    public static void setBroadcastInetAddress(InetAddress addr) {
         broadcastInetAddress = addr;
         broadcastInetAddressAndPort = InetAddressAndPort.getByAddress(broadcastInetAddress);
     }
@@ -224,8 +195,7 @@ public class FBUtilities
     /**
      * <b>THIS IS FOR TESTING ONLY!!</b>
      */
-    public static void setBroadcastInetAddressAndPort(InetAddressAndPort addr)
-    {
+    public static void setBroadcastInetAddressAndPort(InetAddressAndPort addr) {
         broadcastInetAddress = addr.address;
         broadcastInetAddressAndPort = addr;
     }
@@ -234,12 +204,9 @@ public class FBUtilities
      * This returns the address that is bound to for the native protocol for communicating with clients. This is ambiguous
      * because it doesn't include the port and it's almost always the wrong thing to be using you want getBroadcastNativeAddressAndPort
      */
-    public static InetAddress getJustBroadcastNativeAddress()
-    {
+    public static InetAddress getJustBroadcastNativeAddress() {
         if (broadcastNativeAddress == null)
-            broadcastNativeAddress = DatabaseDescriptor.getBroadcastRpcAddress() == null
-                                   ? DatabaseDescriptor.getRpcAddress()
-                                   : DatabaseDescriptor.getBroadcastRpcAddress();
+            broadcastNativeAddress = DatabaseDescriptor.getBroadcastRpcAddress() == null ? DatabaseDescriptor.getRpcAddress() : DatabaseDescriptor.getBroadcastRpcAddress();
         return broadcastNativeAddress;
     }
 
@@ -247,38 +214,28 @@ public class FBUtilities
      * This returns the address that is bound to for the native protocol for communicating with clients. This is almost
      * always what you need to identify a node and how to connect to it as a client.
      */
-    public static InetAddressAndPort getBroadcastNativeAddressAndPort()
-    {
+    public static InetAddressAndPort getBroadcastNativeAddressAndPort() {
         if (broadcastNativeAddressAndPort == null)
-            if(DatabaseDescriptor.getRawConfig() == null)
-            {
+            if (DatabaseDescriptor.getRawConfig() == null) {
                 broadcastNativeAddressAndPort = InetAddressAndPort.getByAddress(getJustBroadcastNativeAddress());
-            }
-            else
-            {
-                broadcastNativeAddressAndPort = InetAddressAndPort.getByAddressOverrideDefaults(getJustBroadcastNativeAddress(),
-                                                                                                DatabaseDescriptor.getNativeTransportPort());
+            } else {
+                broadcastNativeAddressAndPort = InetAddressAndPort.getByAddressOverrideDefaults(getJustBroadcastNativeAddress(), DatabaseDescriptor.getNativeTransportPort());
             }
         return broadcastNativeAddressAndPort;
     }
 
-    public static String getNetworkInterface(InetAddress localAddress)
-    {
-        try
-        {
-            for(NetworkInterface ifc : Collections.list(NetworkInterface.getNetworkInterfaces()))
-            {
-                if(ifc.isUp())
-                {
-                    for(InetAddress addr : Collections.list(ifc.getInetAddresses()))
-                    {
+    public static String getNetworkInterface(InetAddress localAddress) {
+        try {
+            for (NetworkInterface ifc : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (ifc.isUp()) {
+                    for (InetAddress addr : Collections.list(ifc.getInetAddresses())) {
                         if (addr.equals(localAddress))
                             return ifc.getDisplayName();
                     }
                 }
             }
+        } catch (SocketException e) {
         }
-        catch (SocketException e) {}
         return null;
     }
 
@@ -292,18 +249,14 @@ public class FBUtilities
      * @return A midpoint that will compare bitwise halfway between the params, and
      * a boolean representing whether a non-zero lsbit remainder was generated.
      */
-    public static Pair<BigInteger,Boolean> midpoint(BigInteger left, BigInteger right, int sigbits)
-    {
+    public static Pair<BigInteger, Boolean> midpoint(BigInteger left, BigInteger right, int sigbits) {
         BigInteger midpoint;
         boolean remainder;
-        if (left.compareTo(right) < 0)
-        {
+        if (left.compareTo(right) < 0) {
             BigInteger sum = left.add(right);
             remainder = sum.testBit(0);
             midpoint = sum.shiftRight(1);
-        }
-        else
-        {
+        } else {
             BigInteger max = TWO.pow(sigbits);
             // wrapping case
             BigInteger distance = max.add(right).subtract(left);
@@ -313,29 +266,22 @@ public class FBUtilities
         return Pair.create(midpoint, remainder);
     }
 
-    public static int compareUnsigned(byte[] bytes1, byte[] bytes2, int offset1, int offset2, int len1, int len2)
-    {
+    public static int compareUnsigned(byte[] bytes1, byte[] bytes2, int offset1, int offset2, int len1, int len2) {
         return FastByteOperations.compareUnsigned(bytes1, offset1, len1, bytes2, offset2, len2);
     }
 
-    public static int compareUnsigned(byte[] bytes1, byte[] bytes2)
-    {
+    public static int compareUnsigned(byte[] bytes1, byte[] bytes2) {
         return compareUnsigned(bytes1, bytes2, 0, 0, bytes1.length, bytes2.length);
     }
 
-    public static void sortSampledKeys(List<DecoratedKey> keys, Range<Token> range)
-    {
-        if (range.left.compareTo(range.right) >= 0)
-        {
+    public static void sortSampledKeys(List<DecoratedKey> keys, Range<Token> range) {
+        if (range.left.compareTo(range.right) >= 0) {
             // range wraps.  have to be careful that we sort in the same order as the range to find the right midpoint.
             final Token right = range.right;
-            Comparator<DecoratedKey> comparator = new Comparator<DecoratedKey>()
-            {
-                public int compare(DecoratedKey o1, DecoratedKey o2)
-                {
-                    if ((right.compareTo(o1.getToken()) < 0 && right.compareTo(o2.getToken()) < 0)
-                        || (right.compareTo(o1.getToken()) > 0 && right.compareTo(o2.getToken()) > 0))
-                    {
+            Comparator<DecoratedKey> comparator = new Comparator<DecoratedKey>() {
+
+                public int compare(DecoratedKey o1, DecoratedKey o2) {
+                    if ((right.compareTo(o1.getToken()) < 0 && right.compareTo(o2.getToken()) < 0) || (right.compareTo(o1.getToken()) > 0 && right.compareTo(o2.getToken()) > 0)) {
                         // both tokens are on the same side of the wrap point
                         return o1.compareTo(o2);
                     }
@@ -343,99 +289,78 @@ public class FBUtilities
                 }
             };
             Collections.sort(keys, comparator);
-        }
-        else
-        {
+        } else {
             // unwrapped range (left < right).  standard sort is all we need.
             Collections.sort(keys);
         }
     }
 
-    public static String resourceToFile(String filename) throws ConfigurationException
-    {
+    public static String resourceToFile(String filename) throws ConfigurationException {
         ClassLoader loader = FBUtilities.class.getClassLoader();
         URL scpurl = loader.getResource(filename);
         if (scpurl == null)
             throw new ConfigurationException("unable to locate " + filename);
-
         return new File(scpurl.getFile()).getAbsolutePath();
     }
 
-    public static File cassandraTriggerDir()
-    {
+    public static File cassandraTriggerDir() {
         File triggerDir = null;
-        if (System.getProperty("cassandra.triggers_dir") != null)
-        {
+        if (System.getProperty("cassandra.triggers_dir") != null) {
             triggerDir = new File(System.getProperty("cassandra.triggers_dir"));
-        }
-        else
-        {
+        } else {
             URL confDir = FBUtilities.class.getClassLoader().getResource(DEFAULT_TRIGGER_DIR);
             if (confDir != null)
                 triggerDir = new File(confDir.getFile());
         }
-        if (triggerDir == null || !triggerDir.exists())
-        {
+        if (triggerDir == null || !triggerDir.exists()) {
             logger.warn("Trigger directory doesn't exist, please create it and try again.");
             return null;
         }
         return triggerDir;
     }
 
-    public static void setPreviousReleaseVersionString(String previousReleaseVersionString)
-    {
+    public static void setPreviousReleaseVersionString(String previousReleaseVersionString) {
         FBUtilities.previousReleaseVersionString = previousReleaseVersionString;
     }
 
-    public static String getPreviousReleaseVersionString()
-    {
+    public static String getPreviousReleaseVersionString() {
         return previousReleaseVersionString;
     }
 
-    public static String getReleaseVersionString()
-    {
-        try (InputStream in = FBUtilities.class.getClassLoader().getResourceAsStream("org/apache/cassandra/config/version.properties"))
-        {
-            if (in == null)
-            {
+    public static String getReleaseVersionString() {
+        try (InputStream in = FBUtilities.class.getClassLoader().getResourceAsStream("org/apache/cassandra/config/version.properties")) {
+            if (in == null) {
                 return System.getProperty("cassandra.releaseVersion", UNKNOWN_RELEASE_VERSION);
             }
             Properties props = new Properties();
             props.load(in);
             return props.getProperty("CassandraVersion");
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             JVMStabilityInspector.inspectThrowable(e);
             logger.warn("Unable to load version.properties", e);
             return "debug version";
         }
     }
 
-    public static String getReleaseVersionMajor()
-    {
+    public static String getReleaseVersionMajor() {
         String releaseVersion = FBUtilities.getReleaseVersionString();
-        if (FBUtilities.UNKNOWN_RELEASE_VERSION.equals(releaseVersion))
-        {
+        if (FBUtilities.UNKNOWN_RELEASE_VERSION.equals(releaseVersion)) {
             throw new AssertionError("Release version is unknown");
         }
         return releaseVersion.substring(0, releaseVersion.indexOf('.'));
     }
 
-    public static long timestampMicros()
-    {
+    public static long timestampMicros() {
         // we use microsecond resolution for compatibility with other client libraries, even though
         // we can't actually get microsecond precision.
         return System.currentTimeMillis() * 1000;
     }
 
-    public static int nowInSeconds()
-    {
+    public static int nowInSeconds() {
         return (int) (System.currentTimeMillis() / 1000);
     }
 
-    public static <T> List<T> waitOnFutures(Iterable<? extends Future<? extends T>> futures)
-    {
+    public static <T> List<T> waitOnFutures(Iterable<? extends Future<? extends T>> futures) {
         return waitOnFutures(futures, -1, null);
     }
 
@@ -447,29 +372,21 @@ public class FBUtilities
      *           no tiemout value will be passed to {@link Future#get()}.
      * @param units The units of timeout.
      */
-    public static <T> List<T> waitOnFutures(Iterable<? extends Future<? extends T>> futures, long timeout, TimeUnit units)
-    {
+    public static <T> List<T> waitOnFutures(Iterable<? extends Future<? extends T>> futures, long timeout, TimeUnit units) {
         long endNanos = 0;
         if (timeout > 0)
             endNanos = System.nanoTime() + units.toNanos(timeout);
         List<T> results = new ArrayList<>();
         Throwable fail = null;
-        for (Future<? extends T> f : futures)
-        {
-            try
-            {
-                if (endNanos == 0)
-                {
+        for (Future<? extends T> f : futures) {
+            try {
+                if (endNanos == 0) {
                     results.add(f.get());
-                }
-                else
-                {
+                } else {
                     long waitFor = Math.max(1, endNanos - System.nanoTime());
                     results.add(f.get(waitFor, TimeUnit.NANOSECONDS));
                 }
-            }
-            catch (Throwable t)
-            {
+            } catch (Throwable t) {
                 fail = Throwables.merge(fail, t);
             }
         }
@@ -477,49 +394,34 @@ public class FBUtilities
         return results;
     }
 
-    public static <T> T waitOnFuture(Future<T> future)
-    {
-        try
-        {
+    public static <T> T waitOnFuture(Future<T> future) {
+        try {
             return future.get();
-        }
-        catch (ExecutionException ee)
-        {
+        } catch (ExecutionException ee) {
             throw new RuntimeException(ee);
-        }
-        catch (InterruptedException ie)
-        {
+        } catch (InterruptedException ie) {
             throw new AssertionError(ie);
         }
     }
 
-    public static <T> Future<? extends T> waitOnFirstFuture(Iterable<? extends Future<? extends T>> futures)
-    {
+    public static <T> Future<? extends T> waitOnFirstFuture(Iterable<? extends Future<? extends T>> futures) {
         return waitOnFirstFuture(futures, 100);
     }
+
     /**
      * Only wait for the first future to finish from a list of futures. Will block until at least 1 future finishes.
      * @param futures The futures to wait on
      * @return future that completed.
      */
-    public static <T> Future<? extends T> waitOnFirstFuture(Iterable<? extends Future<? extends T>> futures, long delay)
-    {
-        while (true)
-        {
-            for (Future<? extends T> f : futures)
-            {
-                if (f.isDone())
-                {
-                    try
-                    {
+    public static <T> Future<? extends T> waitOnFirstFuture(Iterable<? extends Future<? extends T>> futures, long delay) {
+        while (true) {
+            for (Future<? extends T> f : futures) {
+                if (f.isDone()) {
+                    try {
                         f.get();
-                    }
-                    catch (InterruptedException e)
-                    {
+                    } catch (InterruptedException e) {
                         throw new AssertionError(e);
-                    }
-                    catch (ExecutionException e)
-                    {
+                    } catch (ExecutionException e) {
                         throw new RuntimeException(e);
                     }
                     return f;
@@ -532,20 +434,16 @@ public class FBUtilities
     /**
      * Returns a new {@link Future} wrapping the given list of futures and returning a list of their results.
      */
-    public static Future<List> allOf(Collection<Future<?>> futures)
-    {
+    public static Future<List> allOf(Collection<Future<?>> futures) {
         if (futures.isEmpty())
             return CompletableFuture.completedFuture(null);
+        return new Future<List>() {
 
-        return new Future<List>()
-        {
             @Override
             @SuppressWarnings("unchecked")
-            public List get() throws InterruptedException, ExecutionException
-            {
+            public List get() throws InterruptedException, ExecutionException {
                 List result = new ArrayList<>(futures.size());
-                for (Future current : futures)
-                {
+                for (Future current : futures) {
                     result.add(current.get());
                 }
                 return result;
@@ -553,26 +451,21 @@ public class FBUtilities
 
             @Override
             @SuppressWarnings("unchecked")
-            public List get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
-            {
+            public List get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
                 List result = new ArrayList<>(futures.size());
                 long deadline = System.nanoTime() + TimeUnit.NANOSECONDS.convert(timeout, unit);
-                for (Future current : futures)
-                {
+                for (Future current : futures) {
                     long remaining = deadline - System.nanoTime();
                     if (remaining <= 0)
                         throw new TimeoutException();
-
                     result.add(current.get(remaining, TimeUnit.NANOSECONDS));
                 }
                 return result;
             }
 
             @Override
-            public boolean cancel(boolean mayInterruptIfRunning)
-            {
-                for (Future current : futures)
-                {
+            public boolean cancel(boolean mayInterruptIfRunning) {
+                for (Future current : futures) {
                     if (!current.cancel(mayInterruptIfRunning))
                         return false;
                 }
@@ -580,10 +473,8 @@ public class FBUtilities
             }
 
             @Override
-            public boolean isCancelled()
-            {
-                for (Future current : futures)
-                {
+            public boolean isCancelled() {
+                for (Future current : futures) {
                     if (!current.isCancelled())
                         return false;
                 }
@@ -591,10 +482,8 @@ public class FBUtilities
             }
 
             @Override
-            public boolean isDone()
-            {
-                for (Future current : futures)
-                {
+            public boolean isDone() {
+                for (Future current : futures) {
                     if (!current.isDone())
                         return false;
                 }
@@ -609,8 +498,7 @@ public class FBUtilities
      * @return a new IPartitioner instance
      * @throws IOException
      */
-    public static IPartitioner newPartitioner(Descriptor desc) throws IOException
-    {
+    public static IPartitioner newPartitioner(Descriptor desc) throws IOException {
         EnumSet<MetadataType> types = EnumSet.of(MetadataType.VALIDATION, MetadataType.HEADER);
         Map<MetadataType, MetadataComponent> sstableMetadata = desc.getMetadataSerializer().deserialize(desc, types);
         ValidationMetadata validationMetadata = (ValidationMetadata) sstableMetadata.get(MetadataType.VALIDATION);
@@ -618,86 +506,66 @@ public class FBUtilities
         return newPartitioner(validationMetadata.partitioner, Optional.of(header.getKeyType()));
     }
 
-    public static IPartitioner newPartitioner(String partitionerClassName) throws ConfigurationException
-    {
+    public static IPartitioner newPartitioner(String partitionerClassName) throws ConfigurationException {
         return newPartitioner(partitionerClassName, Optional.empty());
     }
 
     @VisibleForTesting
-    static IPartitioner newPartitioner(String partitionerClassName, Optional<AbstractType<?>> comparator) throws ConfigurationException
-    {
+    static IPartitioner newPartitioner(String partitionerClassName, Optional<AbstractType<?>> comparator) throws ConfigurationException {
         if (!partitionerClassName.contains("."))
             partitionerClassName = "org.apache.cassandra.dht." + partitionerClassName;
-
-        if (partitionerClassName.equals("org.apache.cassandra.dht.LocalPartitioner"))
-        {
+        if (partitionerClassName.equals("org.apache.cassandra.dht.LocalPartitioner")) {
             assert comparator.isPresent() : "Expected a comparator for local partitioner";
             return new LocalPartitioner(comparator.get());
         }
         return FBUtilities.instanceOrConstruct(partitionerClassName, "partitioner");
     }
 
-    public static IAuthorizer newAuthorizer(String className) throws ConfigurationException
-    {
+    public static IAuthorizer newAuthorizer(String className) throws ConfigurationException {
         if (!className.contains("."))
             className = "org.apache.cassandra.auth." + className;
         return FBUtilities.construct(className, "authorizer");
     }
 
-    public static IAuthenticator newAuthenticator(String className) throws ConfigurationException
-    {
+    public static IAuthenticator newAuthenticator(String className) throws ConfigurationException {
         if (!className.contains("."))
             className = "org.apache.cassandra.auth." + className;
         return FBUtilities.construct(className, "authenticator");
     }
 
-    public static IRoleManager newRoleManager(String className) throws ConfigurationException
-    {
+    public static IRoleManager newRoleManager(String className) throws ConfigurationException {
         if (!className.contains("."))
             className = "org.apache.cassandra.auth." + className;
         return FBUtilities.construct(className, "role manager");
     }
 
-    public static INetworkAuthorizer newNetworkAuthorizer(String className)
-    {
-        if (className == null)
-        {
+    public static INetworkAuthorizer newNetworkAuthorizer(String className) {
+        if (className == null) {
             return new AllowAllNetworkAuthorizer();
         }
-        if (!className.contains("."))
-        {
+        if (!className.contains(".")) {
             className = "org.apache.cassandra.auth." + className;
         }
         return FBUtilities.construct(className, "network authorizer");
     }
-    
-    public static IAuditLogger newAuditLogger(String className, Map<String, String> parameters) throws ConfigurationException
-    {
+
+    public static IAuditLogger newAuditLogger(String className, Map<String, String> parameters) throws ConfigurationException {
         if (!className.contains("."))
             className = "org.apache.cassandra.audit." + className;
-
-        try
-        {
+        try {
             Class<?> auditLoggerClass = Class.forName(className);
             return (IAuditLogger) auditLoggerClass.getConstructor(Map.class).newInstance(parameters);
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             throw new ConfigurationException("Unable to create instance of IAuditLogger.", ex);
         }
     }
 
-    public static boolean isAuditLoggerClassExists(String className)
-    {
+    public static boolean isAuditLoggerClassExists(String className) {
         if (!className.contains("."))
             className = "org.apache.cassandra.audit." + className;
-
-        try
-        {
+        try {
             FBUtilities.classForName(className, "Audit logger");
-        }
-        catch (ConfigurationException e)
-        {
+        } catch (ConfigurationException e) {
             return false;
         }
         return true;
@@ -709,14 +577,10 @@ public class FBUtilities
      * @param readable Descriptive noun for the role the class plays.
      * @throws ConfigurationException If the class cannot be found.
      */
-    public static <T> Class<T> classForName(String classname, String readable) throws ConfigurationException
-    {
-        try
-        {
-            return (Class<T>)Class.forName(classname);
-        }
-        catch (ClassNotFoundException | NoClassDefFoundError e)
-        {
+    public static <T> Class<T> classForName(String classname, String readable) throws ConfigurationException {
+        try {
+            return (Class<T>) Class.forName(classname);
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
             throw new ConfigurationException(String.format("Unable to find %s class '%s'", readable, classname), e);
         }
     }
@@ -727,16 +591,12 @@ public class FBUtilities
      * @param readable Descriptive noun for the role the class plays.
      * @throws ConfigurationException If the class cannot be found.
      */
-    public static <T> T instanceOrConstruct(String classname, String readable) throws ConfigurationException
-    {
+    public static <T> T instanceOrConstruct(String classname, String readable) throws ConfigurationException {
         Class<T> cls = FBUtilities.classForName(classname, readable);
-        try
-        {
+        try {
             Field instance = cls.getField("instance");
             return cls.cast(instance.get(null));
-        }
-        catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e)
-        {
+        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
             // Could not get instance field. Try instantiating.
             return construct(cls, classname, readable);
         }
@@ -748,44 +608,33 @@ public class FBUtilities
      * @param readable Descriptive noun for the role the class plays.
      * @throws ConfigurationException If the class cannot be found.
      */
-    public static <T> T construct(String classname, String readable) throws ConfigurationException
-    {
+    public static <T> T construct(String classname, String readable) throws ConfigurationException {
         Class<T> cls = FBUtilities.classForName(classname, readable);
         return construct(cls, classname, readable);
     }
 
-    private static <T> T construct(Class<T> cls, String classname, String readable) throws ConfigurationException
-    {
-        try
-        {
+    private static <T> T construct(Class<T> cls, String classname, String readable) throws ConfigurationException {
+        try {
             return cls.newInstance();
-        }
-        catch (IllegalAccessException e)
-        {
+        } catch (IllegalAccessException e) {
             throw new ConfigurationException(String.format("Default constructor for %s class '%s' is inaccessible.", readable, classname));
-        }
-        catch (InstantiationException e)
-        {
+        } catch (InstantiationException e) {
             throw new ConfigurationException(String.format("Cannot use abstract class '%s' as %s.", classname, readable));
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             // Catch-all because Class.newInstance() "propagates any exception thrown by the nullary constructor, including a checked exception".
             if (e.getCause() instanceof ConfigurationException)
-                throw (ConfigurationException)e.getCause();
+                throw (ConfigurationException) e.getCause();
             throw new ConfigurationException(String.format("Error instantiating %s class '%s'.", readable, classname), e);
         }
     }
 
-    public static <T> NavigableSet<T> singleton(T column, Comparator<? super T> comparator)
-    {
+    public static <T> NavigableSet<T> singleton(T column, Comparator<? super T> comparator) {
         NavigableSet<T> s = new TreeSet<T>(comparator);
         s.add(column);
         return s;
     }
 
-    public static <T> NavigableSet<T> emptySortedSet(Comparator<? super T> comparator)
-    {
+    public static <T> NavigableSet<T> emptySortedSet(Comparator<? super T> comparator) {
         return new TreeSet<T>(comparator);
     }
 
@@ -797,8 +646,7 @@ public class FBUtilities
      *         where key and value pair is concatenated with ':'.
      */
     @Nonnull
-    public static String toString(@Nullable Map<?, ?> map)
-    {
+    public static String toString(@Nullable Map<?, ?> map) {
         if (map == null)
             return "";
         Joiner.MapJoiner joiner = Joiner.on(", ").withKeyValueSeparator(":");
@@ -811,68 +659,49 @@ public class FBUtilities
      * @param fieldName - name of the field
      * @return Field or null on error
      */
-    public static Field getProtectedField(Class klass, String fieldName)
-    {
-        try
-        {
+    public static Field getProtectedField(Class klass, String fieldName) {
+        try {
             Field field = klass.getDeclaredField(fieldName);
             field.setAccessible(true);
             return field;
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new AssertionError(e);
         }
     }
 
-    public static <T> CloseableIterator<T> closeableIterator(Iterator<T> iterator)
-    {
+    public static <T> CloseableIterator<T> closeableIterator(Iterator<T> iterator) {
         return new WrappedCloseableIterator<T>(iterator);
     }
 
-    public static Map<String, String> fromJsonMap(String json)
-    {
-        try
-        {
+    public static Map<String, String> fromJsonMap(String json) {
+        try {
             return jsonMapper.readValue(json, Map.class);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static List<String> fromJsonList(String json)
-    {
-        try
-        {
+    public static List<String> fromJsonList(String json) {
+        try {
             return jsonMapper.readValue(json, List.class);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static String json(Object object)
-    {
-        try
-        {
+    public static String json(Object object) {
+        try {
             return jsonMapper.writeValueAsString(object);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static String prettyPrintMemory(long size)
-    {
+    public static String prettyPrintMemory(long size) {
         return prettyPrintMemory(size, false);
     }
 
-    public static String prettyPrintMemory(long size, boolean includeSpace)
-    {
+    public static String prettyPrintMemory(long size, boolean includeSpace) {
         if (size >= 1 << 30)
             return String.format("%.3f%sGiB", size / (double) (1 << 30), includeSpace ? " " : "");
         if (size >= 1 << 20)
@@ -880,8 +709,7 @@ public class FBUtilities
         return String.format("%.3f%sKiB", size / (double) (1 << 10), includeSpace ? " " : "");
     }
 
-    public static String prettyPrintMemoryPerSecond(long rate)
-    {
+    public static String prettyPrintMemoryPerSecond(long rate) {
         if (rate >= 1 << 30)
             return String.format("%.3fGiB/s", rate / (double) (1 << 30));
         if (rate >= 1 << 20)
@@ -889,14 +717,11 @@ public class FBUtilities
         return String.format("%.3fKiB/s", rate / (double) (1 << 10));
     }
 
-    public static String prettyPrintMemoryPerSecond(long bytes, long timeInNano)
-    {
+    public static String prettyPrintMemoryPerSecond(long bytes, long timeInNano) {
         // We can't sanely calculate a rate over 0 nanoseconds
         if (timeInNano == 0)
             return "NaN  KiB/s";
-
         long rate = (long) (((double) bytes / timeInNano) * 1000 * 1000 * 1000);
-
         return prettyPrintMemoryPerSecond(rate);
     }
 
@@ -904,38 +729,27 @@ public class FBUtilities
      * Starts and waits for the given @param pb to finish.
      * @throws java.io.IOException on non-zero exit code
      */
-    public static void exec(ProcessBuilder pb) throws IOException
-    {
+    public static void exec(ProcessBuilder pb) throws IOException {
         Process p = pb.start();
-        try
-        {
+        try {
             int errCode = p.waitFor();
-            if (errCode != 0)
-            {
+            if (errCode != 0) {
                 try (BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
-                     BufferedReader err = new BufferedReader(new InputStreamReader(p.getErrorStream())))
-                {
+                    BufferedReader err = new BufferedReader(new InputStreamReader(p.getErrorStream()))) {
                     String lineSep = LINE_SEPARATOR.getString();
                     StringBuilder sb = new StringBuilder();
                     String str;
-                    while ((str = in.readLine()) != null)
-                        sb.append(str).append(lineSep);
-                    while ((str = err.readLine()) != null)
-                        sb.append(str).append(lineSep);
-                    throw new IOException("Exception while executing the command: "+ StringUtils.join(pb.command(), " ") +
-                                          ", command error Code: " + errCode +
-                                          ", command output: "+ sb.toString());
+                    while ((str = in.readLine()) != null) sb.append(str).append(lineSep);
+                    while ((str = err.readLine()) != null) sb.append(str).append(lineSep);
+                    throw new IOException("Exception while executing the command: " + StringUtils.join(pb.command(), " ") + ", command error Code: " + errCode + ", command output: " + sb.toString());
                 }
             }
-        }
-        catch (InterruptedException e)
-        {
+        } catch (InterruptedException e) {
             throw new AssertionError(e);
         }
     }
 
-    public static void updateChecksumInt(Checksum checksum, int v)
-    {
+    public static void updateChecksumInt(Checksum checksum, int v) {
         checksum.update((v >>> 24) & 0xFF);
         checksum.update((v >>> 16) & 0xFF);
         checksum.update((v >>> 8) & 0xFF);
@@ -943,18 +757,15 @@ public class FBUtilities
     }
 
     /**
-      * Updates checksum with the provided ByteBuffer at the given offset + length.
-      * Resets position and limit back to their original values on return.
-      * This method is *NOT* thread-safe.
-      */
-    public static void updateChecksum(CRC32 checksum, ByteBuffer buffer, int offset, int length)
-    {
+     * Updates checksum with the provided ByteBuffer at the given offset + length.
+     * Resets position and limit back to their original values on return.
+     * This method is *NOT* thread-safe.
+     */
+    public static void updateChecksum(CRC32 checksum, ByteBuffer buffer, int offset, int length) {
         int position = buffer.position();
         int limit = buffer.limit();
-
         buffer.position(offset).limit(offset + length);
         checksum.update(buffer);
-
         buffer.position(position).limit(limit);
     }
 
@@ -963,64 +774,53 @@ public class FBUtilities
      * Resets position back to its original values on return.
      * This method is *NOT* thread-safe.
      */
-    public static void updateChecksum(CRC32 checksum, ByteBuffer buffer)
-    {
+    public static void updateChecksum(CRC32 checksum, ByteBuffer buffer) {
         int position = buffer.position();
         checksum.update(buffer);
         buffer.position(position);
     }
 
-    public static long abs(long index)
-    {
+    public static long abs(long index) {
         long negbit = index >> 63;
         return (index ^ negbit) - negbit;
     }
 
-    private static final class WrappedCloseableIterator<T>
-        extends AbstractIterator<T> implements CloseableIterator<T>
-    {
-        private final Iterator<T> source;
-        public WrappedCloseableIterator(Iterator<T> source)
-        {
+    private static final class WrappedCloseableIterator<T> extends AbstractIterator<T> implements CloseableIterator<T> {
+
+        private final transient Iterator<T> source;
+
+        public WrappedCloseableIterator(Iterator<T> source) {
             this.source = source;
         }
 
-        protected T computeNext()
-        {
+        protected T computeNext() {
             if (!source.hasNext())
                 return endOfData();
             return source.next();
         }
 
-        public void close() {}
+        public void close() {
+        }
     }
 
-    public static <T> byte[] serialize(T object, IVersionedSerializer<T> serializer, int version)
-    {
+    public static <T> byte[] serialize(T object, IVersionedSerializer<T> serializer, int version) {
         int size = (int) serializer.serializedSize(object, version);
-
-        try (DataOutputBuffer buffer = new DataOutputBufferFixed(size))
-        {
+        try (DataOutputBuffer buffer = new DataOutputBufferFixed(size)) {
             serializer.serialize(object, buffer, version);
-            assert buffer.getLength() == size && buffer.getData().length == size
-                : String.format("Final buffer length %s to accommodate data size of %s (predicted %s) for %s",
-                        buffer.getData().length, buffer.getLength(), size, object);
+            assert buffer.getLength() == size && buffer.getData().length == size : String.format("Final buffer length %s to accommodate data size of %s (predicted %s) for %s", buffer.getData().length, buffer.getLength(), size, object);
             return buffer.getData();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             // We're doing in-memory serialization...
             throw new AssertionError(e);
         }
     }
 
-    public static long copy(InputStream from, OutputStream to, long limit) throws IOException
-    {
-        byte[] buffer = new byte[64]; // 64 byte buffer
+    public static long copy(InputStream from, OutputStream to, long limit) throws IOException {
+        // 64 byte buffer
+        byte[] buffer = new byte[64];
         long copied = 0;
         int toCopy = buffer.length;
-        while (true)
-        {
+        while (true) {
             if (limit < buffer.length + copied)
                 toCopy = (int) (limit - copied);
             int sofar = from.read(buffer, 0, toCopy);
@@ -1034,24 +834,18 @@ public class FBUtilities
         return copied;
     }
 
-    public static File getToolsOutputDirectory()
-    {
+    public static File getToolsOutputDirectory() {
         File historyDir = new File(USER_HOME.getString(), ".cassandra");
         FileUtils.createDirectory(historyDir);
         return historyDir;
     }
 
-    public static void closeAll(Collection<? extends AutoCloseable> l) throws Exception
-    {
+    public static void closeAll(Collection<? extends AutoCloseable> l) throws Exception {
         Exception toThrow = null;
-        for (AutoCloseable c : l)
-        {
-            try
-            {
+        for (AutoCloseable c : l) {
+            try {
                 c.close();
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 if (toThrow == null)
                     toThrow = e;
                 else
@@ -1062,42 +856,32 @@ public class FBUtilities
             throw toThrow;
     }
 
-    public static byte[] toWriteUTFBytes(String s)
-    {
-        try
-        {
+    public static byte[] toWriteUTFBytes(String s) {
+        try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             DataOutputStream dos = new DataOutputStream(baos);
             dos.writeUTF(s);
             dos.flush();
             return baos.toByteArray();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-	public static void sleepQuietly(long millis)
-    {
-        try
-        {
+    public static void sleepQuietly(long millis) {
+        try {
             Thread.sleep(millis);
-        }
-        catch (InterruptedException e)
-        {
+        } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static long align(long val, int boundary)
-    {
+    public static long align(long val, int boundary) {
         return (val + boundary) & ~(boundary - 1);
     }
 
     @VisibleForTesting
-    public static void reset()
-    {
+    public static void reset() {
         localInetAddress = null;
         localInetAddressAndPort = null;
         broadcastInetAddress = null;
@@ -1108,23 +892,19 @@ public class FBUtilities
     /**
      * Hack to prevent the ugly "illegal access" warnings in Java 11+ like the following.
      */
-    public static void preventIllegalAccessWarnings()
-    {
+    public static void preventIllegalAccessWarnings() {
         // Example "annoying" trace:
-        //        WARNING: An illegal reflective access operation has occurred
-        //        WARNING: Illegal reflective access by io.netty.util.internal.ReflectionUtil (file:...)
-        //        WARNING: Please consider reporting this to the maintainers of io.netty.util.internal.ReflectionUtil
-        //        WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
-        //        WARNING: All illegal access operations will be denied in a future release
-        try
-        {
+        // WARNING: An illegal reflective access operation has occurred
+        // WARNING: Illegal reflective access by io.netty.util.internal.ReflectionUtil (file:...)
+        // WARNING: Please consider reporting this to the maintainers of io.netty.util.internal.ReflectionUtil
+        // WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+        // WARNING: All illegal access operations will be denied in a future release
+        try {
             Class<?> c = Class.forName("jdk.internal.module.IllegalAccessLogger");
             Field f = c.getDeclaredField("logger");
             f.setAccessible(true);
             f.set(null, null);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             // ignore
         }
     }

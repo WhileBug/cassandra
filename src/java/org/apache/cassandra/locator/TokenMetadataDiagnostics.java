@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import org.apache.cassandra.diag.DiagnosticEventService;
@@ -24,23 +23,21 @@ import org.apache.cassandra.locator.TokenMetadataEvent.TokenMetadataEventType;
 /**
  * Utility methods for events related to {@link TokenMetadata} changes.
  */
-final class TokenMetadataDiagnostics
-{
-    private static final DiagnosticEventService service = DiagnosticEventService.instance();
+final class TokenMetadataDiagnostics {
 
-    private TokenMetadataDiagnostics()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenMetadataDiagnostics.class);
+
+    private static final transient DiagnosticEventService service = DiagnosticEventService.instance();
+
+    private TokenMetadataDiagnostics() {
     }
 
-    static void pendingRangeCalculationStarted(TokenMetadata tokenMetadata, String keyspace)
-    {
+    static void pendingRangeCalculationStarted(TokenMetadata tokenMetadata, String keyspace) {
         if (isEnabled(TokenMetadataEventType.PENDING_RANGE_CALCULATION_STARTED))
             service.publish(new TokenMetadataEvent(TokenMetadataEventType.PENDING_RANGE_CALCULATION_STARTED, tokenMetadata, keyspace));
     }
 
-    private static boolean isEnabled(TokenMetadataEventType type)
-    {
+    private static boolean isEnabled(TokenMetadataEventType type) {
         return service.isEnabled(TokenMetadataEvent.class, type);
     }
-
 }

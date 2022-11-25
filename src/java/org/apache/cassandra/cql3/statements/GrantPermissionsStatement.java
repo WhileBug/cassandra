@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.statements;
 
 import java.util.Set;
-
 import org.apache.cassandra.audit.AuditLogContext;
 import org.apache.cassandra.audit.AuditLogEntryType;
 import org.apache.cassandra.auth.IResource;
@@ -30,24 +29,22 @@ import org.apache.cassandra.exceptions.RequestValidationException;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.transport.messages.ResultMessage;
 
-public class GrantPermissionsStatement extends PermissionsManagementStatement
-{
-    public GrantPermissionsStatement(Set<Permission> permissions, IResource resource, RoleName grantee)
-    {
+public class GrantPermissionsStatement extends PermissionsManagementStatement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GrantPermissionsStatement.class);
+
+    public GrantPermissionsStatement(Set<Permission> permissions, IResource resource, RoleName grantee) {
         super(permissions, resource, grantee);
     }
 
-    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException
-    {
+    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException {
         DatabaseDescriptor.getAuthorizer().grant(state.getUser(), permissions, resource, grantee);
         return null;
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         String keyspace = resource.hasParent() ? resource.getParent().getName() : resource.getName();
         return new AuditLogContext(AuditLogEntryType.GRANT, keyspace, resource.getName());
     }
-
 }

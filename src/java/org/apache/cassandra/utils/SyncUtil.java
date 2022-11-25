@@ -26,10 +26,8 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.cassandra.config.Config;
 import org.apache.cassandra.service.CassandraDaemon;
-
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,172 +37,131 @@ import org.slf4j.LoggerFactory;
  * and skip syncing. Useful for unit tests in certain environments where syncs can have outliers
  * bad enough to causes tests to run 10s of seconds longer.
  */
-public class SyncUtil
-{
-    public static final boolean SKIP_SYNC;
+public class SyncUtil {
 
-    private static final Field mbbFDField;
-    private static final Field fdClosedField;
-    private static final Field fdUseCountField;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SyncUtil.class);
 
-    private static final Logger logger = LoggerFactory.getLogger(SyncUtil.class);
+    public static final transient boolean SKIP_SYNC;
 
-    static
-    {
+    private static final transient Field mbbFDField;
+
+    private static final transient Field fdClosedField;
+
+    private static final transient Field fdUseCountField;
+
+    private static final transient Logger logger = LoggerFactory.getLogger(SyncUtil.class);
+
+    static {
         Field mbbFDFieldTemp = null;
-        try
-        {
+        try {
             mbbFDFieldTemp = MappedByteBuffer.class.getDeclaredField("fd");
             mbbFDFieldTemp.setAccessible(true);
-        }
-        catch (NoSuchFieldException e)
-        {
+        } catch (NoSuchFieldException e) {
         }
         mbbFDField = mbbFDFieldTemp;
-
-        //Java 8
+        // Java 8
         Field fdClosedFieldTemp = null;
-        try
-        {
+        try {
             fdClosedFieldTemp = FileDescriptor.class.getDeclaredField("closed");
             fdClosedFieldTemp.setAccessible(true);
-        }
-        catch (NoSuchFieldException e)
-        {
+        } catch (NoSuchFieldException e) {
         }
         fdClosedField = fdClosedFieldTemp;
-
-        //Java 7
+        // Java 7
         Field fdUseCountTemp = null;
-        try
-        {
+        try {
             fdUseCountTemp = FileDescriptor.class.getDeclaredField("useCount");
             fdUseCountTemp.setAccessible(true);
-        }
-        catch (NoSuchFieldException e)
-        {
+        } catch (NoSuchFieldException e) {
         }
         fdUseCountField = fdUseCountTemp;
-
-        //If skipping syncing is requested by any means then skip them.
+        // If skipping syncing is requested by any means then skip them.
         boolean skipSyncProperty = Boolean.getBoolean(Config.PROPERTY_PREFIX + "skip_sync");
         boolean skipSyncEnv = Boolean.valueOf(System.getenv().getOrDefault("CASSANDRA_SKIP_SYNC", "false"));
         SKIP_SYNC = skipSyncProperty || skipSyncEnv;
-        if (SKIP_SYNC)
-        {
+        if (SKIP_SYNC) {
             logger.info("Skip fsync enabled due to property {} and environment {}", skipSyncProperty, skipSyncEnv);
         }
     }
 
-    public static MappedByteBuffer force(MappedByteBuffer buf)
-    {
+    public static MappedByteBuffer force(MappedByteBuffer buf) {
         Preconditions.checkNotNull(buf);
-        if (SKIP_SYNC)
-        {
+        if (SKIP_SYNC) {
             Object fd = null;
-            try
-            {
-                if (mbbFDField != null)
-                {
+            try {
+                if (mbbFDField != null) {
                     fd = mbbFDField.get(buf);
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-            //This is what MappedByteBuffer.force() throws if a you call force() on an umapped buffer
+            // This is what MappedByteBuffer.force() throws if a you call force() on an umapped buffer
             if (mbbFDField != null && fd == null)
                 throw new UnsupportedOperationException();
             return buf;
-        }
-        else
-        {
+        } else {
             return buf.force();
         }
     }
 
-    public static void sync(FileDescriptor fd) throws SyncFailedException
-    {
+    public static void sync(FileDescriptor fd) throws SyncFailedException {
         Preconditions.checkNotNull(fd);
-        if (SKIP_SYNC)
-        {
+        if (SKIP_SYNC) {
             boolean closed = false;
-            try
-            {
+            try {
                 if (fdClosedField != null)
                     closed = fdClosedField.getBoolean(fd);
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-
             int useCount = 1;
-            try
-            {
+            try {
                 if (fdUseCountField != null)
-                    useCount = ((AtomicInteger)fdUseCountField.get(fd)).get();
-            }
-            catch (Exception e)
-            {
+                    useCount = ((AtomicInteger) fdUseCountField.get(fd)).get();
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
             if (closed || !fd.valid() || useCount < 0)
                 throw new SyncFailedException("Closed " + closed + " valid " + fd.valid() + " useCount " + useCount);
-        }
-        else
-        {
+        } else {
             fd.sync();
         }
     }
 
-    public static void force(FileChannel fc, boolean metaData) throws IOException
-    {
+    public static void force(FileChannel fc, boolean metaData) throws IOException {
         Preconditions.checkNotNull(fc);
-        if (SKIP_SYNC)
-        {
+        if (SKIP_SYNC) {
             if (!fc.isOpen())
                 throw new ClosedChannelException();
-        }
-        else
-        {
+        } else {
             fc.force(metaData);
         }
     }
 
-    public static void sync(RandomAccessFile ras) throws IOException
-    {
+    public static void sync(RandomAccessFile ras) throws IOException {
         Preconditions.checkNotNull(ras);
         sync(ras.getFD());
     }
 
-    public static void sync(FileOutputStream fos) throws IOException
-    {
+    public static void sync(FileOutputStream fos) throws IOException {
         Preconditions.checkNotNull(fos);
         sync(fos.getFD());
     }
 
-    public static void trySync(int fd)
-    {
+    public static void trySync(int fd) {
         if (SKIP_SYNC)
             return;
         else
             NativeLibrary.trySync(fd);
     }
 
-    public static void trySyncDir(File dir)
-    {
+    public static void trySyncDir(File dir) {
         if (SKIP_SYNC)
             return;
-
         int directoryFD = NativeLibrary.tryOpenDirectory(dir.getPath());
-        try
-        {
+        try {
             trySync(directoryFD);
-        }
-        finally
-        {
+        } finally {
             NativeLibrary.tryCloseFD(directoryFD);
         }
     }

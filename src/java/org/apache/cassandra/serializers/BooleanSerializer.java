@@ -18,44 +18,40 @@
 package org.apache.cassandra.serializers;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class BooleanSerializer extends TypeSerializer<Boolean>
-{
-    private static final ByteBuffer TRUE = ByteBuffer.wrap(new byte[] {1});
-    private static final ByteBuffer FALSE = ByteBuffer.wrap(new byte[] {0});
+public class BooleanSerializer extends TypeSerializer<Boolean> {
 
-    public static final BooleanSerializer instance = new BooleanSerializer();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BooleanSerializer.class);
 
-    public <V> Boolean deserialize(V value, ValueAccessor<V> accessor)
-    {
+    private static final transient ByteBuffer TRUE = ByteBuffer.wrap(new byte[] { 1 });
+
+    private static final transient ByteBuffer FALSE = ByteBuffer.wrap(new byte[] { 0 });
+
+    public static final transient BooleanSerializer instance = new BooleanSerializer();
+
+    public <V> Boolean deserialize(V value, ValueAccessor<V> accessor) {
         if (value == null || accessor.isEmpty(value))
             return null;
-
         return accessor.getByte(value, 0) != 0;
     }
 
-    public ByteBuffer serialize(Boolean value)
-    {
-        return (value == null) ? ByteBufferUtil.EMPTY_BYTE_BUFFER
-                               : value ? TRUE : FALSE; // false
+    public ByteBuffer serialize(Boolean value) {
+        return (value == null) ? ByteBufferUtil.EMPTY_BYTE_BUFFER : // false
+        value ? TRUE : FALSE;
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (accessor.size(value) > 1)
             throw new MarshalException(String.format("Expected 1 or 0 byte value (%d)", accessor.size(value)));
     }
 
-    public String toString(Boolean value)
-    {
+    public String toString(Boolean value) {
         return value == null ? "" : value.toString();
     }
 
-    public Class<Boolean> getType()
-    {
+    public Class<Boolean> getType() {
         return Boolean.class;
     }
 }

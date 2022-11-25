@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
@@ -23,11 +22,11 @@ import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "getconcurrentcompactors", description = "Get the number of concurrent compactors in the system.")
-public class GetConcurrentCompactors extends NodeToolCmd
-{
-    protected void execute(NodeProbe probe)
-    {
-        probe.output().out.println("Current concurrent compactors in the system is: \n" +
-                            probe.getConcurrentCompactors());
+public class GetConcurrentCompactors extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetConcurrentCompactors.class);
+
+    protected void execute(NodeProbe probe) {
+        probe.output().out.println("Current concurrent compactors in the system is: \n" + probe.getConcurrentCompactors());
     }
 }

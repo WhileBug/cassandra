@@ -19,9 +19,7 @@ package org.apache.cassandra.service.pager;
 
 import org.apache.cassandra.transport.ProtocolVersion;
 import org.apache.cassandra.utils.AbstractIterator;
-
 import java.util.Arrays;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.*;
 import org.apache.cassandra.db.filter.DataLimits;
@@ -44,53 +42,43 @@ import org.apache.cassandra.service.ClientState;
  * cfs meanPartitionSize to decide if parallelizing some of the query might be worth it while being confident we don't
  * blow out memory.
  */
-public class MultiPartitionPager<T extends SinglePartitionReadQuery> implements QueryPager
-{
-    private final SinglePartitionPager[] pagers;
-    private final DataLimits limit;
+public class MultiPartitionPager<T extends SinglePartitionReadQuery> implements QueryPager {
 
-    private final int nowInSec;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MultiPartitionPager.class);
 
-    private int remaining;
-    private int current;
+    private final transient SinglePartitionPager[] pagers;
 
-    public MultiPartitionPager(SinglePartitionReadQuery.Group<T> group, PagingState state, ProtocolVersion protocolVersion)
-    {
+    private final transient DataLimits limit;
+
+    private final transient int nowInSec;
+
+    private transient int remaining;
+
+    private transient int current;
+
+    public MultiPartitionPager(SinglePartitionReadQuery.Group<T> group, PagingState state, ProtocolVersion protocolVersion) {
         this.limit = group.limits();
         this.nowInSec = group.nowInSec();
-
         int i = 0;
         // If it's not the beginning (state != null), we need to find where we were and skip previous queries
         // since they are done.
         if (state != null)
-            for (; i < group.queries.size(); i++)
-                if (group.queries.get(i).partitionKey().getKey().equals(state.partitionKey))
-                    break;
-
-        if (i >= group.queries.size())
-        {
+            for (; i < group.queries.size(); i++) if (group.queries.get(i).partitionKey().getKey().equals(state.partitionKey))
+                break;
+        if (i >= group.queries.size()) {
             pagers = null;
             return;
         }
-
         pagers = new SinglePartitionPager[group.queries.size() - i];
         // 'i' is on the first non exhausted pager for the previous page (or the first one)
         T query = group.queries.get(i);
         pagers[0] = query.getPager(state, protocolVersion);
-
         // Following ones haven't been started yet
-        for (int j = i + 1; j < group.queries.size(); j++)
-            pagers[j - i] = group.queries.get(j).getPager(null, protocolVersion);
-
+        for (int j = i + 1; j < group.queries.size(); j++) pagers[j - i] = group.queries.get(j).getPager(null, protocolVersion);
         remaining = state == null ? limit.count() : state.remaining;
     }
 
-    private MultiPartitionPager(SinglePartitionPager[] pagers,
-                                DataLimits limit,
-                                int nowInSec,
-                                int remaining,
-                                int current)
-    {
+    private MultiPartitionPager(SinglePartitionPager[] pagers, DataLimits limit, int nowInSec, int remaining, int current) {
         this.pagers = pagers;
         this.limit = limit;
         this.nowInSec = nowInSec;
@@ -98,88 +86,78 @@ public class MultiPartitionPager<T extends SinglePartitionReadQuery> implements 
         this.current = current;
     }
 
-    public QueryPager withUpdatedLimit(DataLimits newLimits)
-    {
+    public QueryPager withUpdatedLimit(DataLimits newLimits) {
         SinglePartitionPager[] newPagers = Arrays.copyOf(pagers, pagers.length);
         newPagers[current] = newPagers[current].withUpdatedLimit(newLimits);
-
-        return new MultiPartitionPager<T>(newPagers,
-                                          newLimits,
-                                          nowInSec,
-                                          remaining,
-                                          current);
+        return new MultiPartitionPager<T>(newPagers, newLimits, nowInSec, remaining, current);
     }
 
-    public PagingState state()
-    {
+    public PagingState state() {
         // Sets current to the first non-exhausted pager
         if (isExhausted())
             return null;
-
         PagingState state = pagers[current].state();
         return new PagingState(pagers[current].key(), state == null ? null : state.rowMark, remaining, pagers[current].remainingInPartition());
     }
 
-    public boolean isExhausted()
-    {
+    public boolean isExhausted() {
         if (remaining <= 0 || pagers == null)
             return true;
-
-        while (current < pagers.length)
-        {
+        while (current < pagers.length) {
             if (!pagers[current].isExhausted())
                 return false;
-
             current++;
         }
         return true;
     }
 
-    public ReadExecutionController executionController()
-    {
+    public ReadExecutionController executionController() {
         // Note that for all pagers, the only difference is the partition key to which it applies, so in practice we
         // can use any of the sub-pager ReadOrderGroup group to protect the whole pager
-        for (int i = current; i < pagers.length; i++)
-        {
+        for (int i = current; i < pagers.length; i++) {
             if (pagers[i] != null)
                 return pagers[i].executionController();
         }
         throw new AssertionError("Shouldn't be called on an exhausted pager");
     }
 
-    @SuppressWarnings("resource") // iter closed via countingIter
-    public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState, long queryStartNanoTime) throws RequestValidationException, RequestExecutionException
-    {
+    // iter closed via countingIter
+    @SuppressWarnings("resource")
+    public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState, long queryStartNanoTime) throws RequestValidationException, RequestExecutionException {
         int toQuery = Math.min(remaining, pageSize);
         return new PagersIterator(toQuery, consistency, clientState, null, queryStartNanoTime);
     }
 
-    @SuppressWarnings("resource") // iter closed via countingIter
-    public PartitionIterator fetchPageInternal(int pageSize, ReadExecutionController executionController) throws RequestValidationException, RequestExecutionException
-    {
+    // iter closed via countingIter
+    @SuppressWarnings("resource")
+    public PartitionIterator fetchPageInternal(int pageSize, ReadExecutionController executionController) throws RequestValidationException, RequestExecutionException {
         int toQuery = Math.min(remaining, pageSize);
         return new PagersIterator(toQuery, null, null, executionController, System.nanoTime());
     }
 
-    private class PagersIterator extends AbstractIterator<RowIterator> implements PartitionIterator
-    {
-        private final int pageSize;
-        private PartitionIterator result;
-        private boolean closed;
-        private final long queryStartNanoTime;
+    private class PagersIterator extends AbstractIterator<RowIterator> implements PartitionIterator {
+
+        private final transient int pageSize;
+
+        private transient PartitionIterator result;
+
+        private transient boolean closed;
+
+        private final transient long queryStartNanoTime;
 
         // For "normal" queries
-        private final ConsistencyLevel consistency;
+        private final transient ConsistencyLevel consistency;
+
         private final ClientState clientState;
 
         // For internal queries
-        private final ReadExecutionController executionController;
+        private final transient ReadExecutionController executionController;
 
-        private int pagerMaxRemaining;
-        private int counted;
+        private transient int pagerMaxRemaining;
 
-        public PagersIterator(int pageSize, ConsistencyLevel consistency, ClientState clientState, ReadExecutionController executionController, long queryStartNanoTime)
-        {
+        private transient int counted;
+
+        public PagersIterator(int pageSize, ConsistencyLevel consistency, ClientState clientState, ReadExecutionController executionController, long queryStartNanoTime) {
             this.pageSize = pageSize;
             this.consistency = consistency;
             this.clientState = clientState;
@@ -187,47 +165,37 @@ public class MultiPartitionPager<T extends SinglePartitionReadQuery> implements 
             this.queryStartNanoTime = queryStartNanoTime;
         }
 
-        protected RowIterator computeNext()
-        {
-            while (result == null || !result.hasNext())
-            {
-                if (result != null)
-                {
+        protected RowIterator computeNext() {
+            while (result == null || !result.hasNext()) {
+                if (result != null) {
                     result.close();
                     counted += pagerMaxRemaining - pagers[current].maxRemaining();
                 }
-
                 // We are done if we have reached the page size or in the case of GROUP BY if the current pager
                 // is not exhausted.
-                boolean isDone = counted >= pageSize
-                        || (result != null && limit.isGroupByLimit() && !pagers[current].isExhausted());
-
+                boolean isDone = counted >= pageSize || (result != null && limit.isGroupByLimit() && !pagers[current].isExhausted());
                 // isExhausted() will sets us on the first non-exhausted pager
-                if (isDone || isExhausted())
-                {
+                if (isDone || isExhausted()) {
                     closed = true;
+                    logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.pager.MultiPartitionPager.PagersIterator.clientState]=" + org.json.simple.JSONValue.toJSONString(clientState).replace("\n", "").replace("\r", ""));
                     return endOfData();
                 }
-
                 pagerMaxRemaining = pagers[current].maxRemaining();
                 int toQuery = pageSize - counted;
-                result = consistency == null
-                       ? pagers[current].fetchPageInternal(toQuery, executionController)
-                       : pagers[current].fetchPage(toQuery, consistency, clientState, queryStartNanoTime);
+                result = consistency == null ? pagers[current].fetchPageInternal(toQuery, executionController) : pagers[current].fetchPage(toQuery, consistency, clientState, queryStartNanoTime);
             }
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.pager.MultiPartitionPager.PagersIterator.clientState]=" + org.json.simple.JSONValue.toJSONString(clientState).replace("\n", "").replace("\r", ""));
             return result.next();
         }
 
-        public void close()
-        {
+        public void close() {
             remaining -= counted;
             if (result != null && !closed)
                 result.close();
         }
     }
 
-    public int maxRemaining()
-    {
+    public int maxRemaining() {
         return remaining;
     }
 }

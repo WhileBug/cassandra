@@ -19,12 +19,13 @@ package org.apache.cassandra.notifications;
 
 import org.apache.cassandra.db.Memtable;
 
-public class MemtableSwitchedNotification implements INotification
-{
-    public final Memtable memtable;
+public class MemtableSwitchedNotification implements INotification {
 
-    public MemtableSwitchedNotification(Memtable switched)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemtableSwitchedNotification.class);
+
+    public final transient Memtable memtable;
+
+    public MemtableSwitchedNotification(Memtable switched) {
         this.memtable = switched;
     }
 }

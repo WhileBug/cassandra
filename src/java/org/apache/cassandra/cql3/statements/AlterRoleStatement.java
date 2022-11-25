@@ -30,98 +30,81 @@ import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class AlterRoleStatement extends AuthenticationStatement
-{
-    private final RoleResource role;
-    private final RoleOptions opts;
-    final DCPermissions dcPermissions;
+public class AlterRoleStatement extends AuthenticationStatement {
 
-    public AlterRoleStatement(RoleName name, RoleOptions opts)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AlterRoleStatement.class);
+
+    private final transient RoleResource role;
+
+    private final transient RoleOptions opts;
+
+    final transient DCPermissions dcPermissions;
+
+    public AlterRoleStatement(RoleName name, RoleOptions opts) {
         this(name, opts, null);
     }
 
-    public AlterRoleStatement(RoleName name, RoleOptions opts, DCPermissions dcPermissions)
-    {
+    public AlterRoleStatement(RoleName name, RoleOptions opts, DCPermissions dcPermissions) {
         this.role = RoleResource.role(name.getName());
         this.opts = opts;
         this.dcPermissions = dcPermissions;
     }
 
-    public void validate(ClientState state) throws RequestValidationException
-    {
+    public void validate(ClientState state) throws RequestValidationException {
         opts.validate();
-
-        if (dcPermissions != null)
-        {
+        if (dcPermissions != null) {
             dcPermissions.validate();
         }
-
         if (opts.isEmpty() && dcPermissions == null)
             throw new InvalidRequestException("ALTER [ROLE|USER] can't be empty");
-
         // validate login here before authorize to avoid leaking user existence to anonymous users.
         state.ensureNotAnonymous();
         if (!DatabaseDescriptor.getRoleManager().isExistingRole(role))
             throw new InvalidRequestException(String.format("%s doesn't exist", role.getRoleName()));
     }
 
-    public void authorize(ClientState state) throws UnauthorizedException
-    {
+    public void authorize(ClientState state) throws UnauthorizedException {
         AuthenticatedUser user = state.getUser();
         boolean isSuper = user.isSuper();
-
         if (opts.getSuperuser().isPresent() && user.getRoles().contains(role))
-            throw new UnauthorizedException("You aren't allowed to alter your own superuser " +
-                                            "status or that of a role granted to you");
-
+            throw new UnauthorizedException("You aren't allowed to alter your own superuser " + "status or that of a role granted to you");
         if (opts.getSuperuser().isPresent() && !isSuper)
             throw new UnauthorizedException("Only superusers are allowed to alter superuser status");
-
         // superusers can do whatever else they like
         if (isSuper)
             return;
-
         // a role may only modify the subset of its own attributes as determined by IRoleManager#alterableOptions
-        if (user.getName().equals(role.getRoleName()))
-        {
-            for (Option option : opts.getOptions().keySet())
-            {
+        if (user.getName().equals(role.getRoleName())) {
+            for (Option option : opts.getOptions().keySet()) {
                 if (!DatabaseDescriptor.getRoleManager().alterableOptions().contains(option))
                     throw new UnauthorizedException(String.format("You aren't allowed to alter %s", option));
             }
-        }
-        else
-        {
+        } else {
             // if not attempting to alter another role, ensure we have ALTER permissions on it
             super.checkPermission(state, Permission.ALTER, role);
         }
     }
 
-    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException
-    {
+    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException {
         if (!opts.isEmpty())
             DatabaseDescriptor.getRoleManager().alterRole(state.getUser(), role, opts);
         if (dcPermissions != null)
             DatabaseDescriptor.getNetworkAuthorizer().setRoleDatacenters(role, dcPermissions);
         return null;
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.ALTER_ROLE);
     }
 
     @Override
-    public String obfuscatePassword(String query)
-    {
+    public String obfuscatePassword(String query) {
         return PasswordObfuscator.obfuscate(query, opts);
     }
 }

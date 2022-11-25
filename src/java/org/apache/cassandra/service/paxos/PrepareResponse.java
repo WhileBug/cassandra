@@ -1,4 +1,5 @@
 package org.apache.cassandra.service.paxos;
+
 /*
  *
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,67 +20,59 @@ package org.apache.cassandra.service.paxos;
  * under the License.
  *
  */
-
-
 import java.io.IOException;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 
-public class PrepareResponse
-{
-    public static final PrepareResponseSerializer serializer = new PrepareResponseSerializer();
+public class PrepareResponse {
 
-    public final boolean promised;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareResponse.class);
+
+    public static final transient PrepareResponseSerializer serializer = new PrepareResponseSerializer();
+
+    public final transient boolean promised;
 
     /*
      * To maintain backward compatibility (see #6023), the meaning of inProgressCommit is a bit tricky.
      * If promised is true, then that's the last accepted commit. If promise is false, that's just
      * the previously promised ballot that made us refuse this one.
      */
-    public final Commit inProgressCommit;
-    public final Commit mostRecentCommit;
+    public final transient Commit inProgressCommit;
 
-    public PrepareResponse(boolean promised, Commit inProgressCommit, Commit mostRecentCommit)
-    {
+    public final transient Commit mostRecentCommit;
+
+    public PrepareResponse(boolean promised, Commit inProgressCommit, Commit mostRecentCommit) {
         assert inProgressCommit.update.partitionKey().equals(mostRecentCommit.update.partitionKey());
         assert inProgressCommit.update.metadata().id.equals(mostRecentCommit.update.metadata().id);
-
         this.promised = promised;
         this.mostRecentCommit = mostRecentCommit;
         this.inProgressCommit = inProgressCommit;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("PrepareResponse(%s, %s, %s)", promised, mostRecentCommit, inProgressCommit);
     }
 
-    public static class PrepareResponseSerializer implements IVersionedSerializer<PrepareResponse>
-    {
-        public void serialize(PrepareResponse response, DataOutputPlus out, int version) throws IOException
-        {
+    public static class PrepareResponseSerializer implements IVersionedSerializer<PrepareResponse> {
+
+        public void serialize(PrepareResponse response, DataOutputPlus out, int version) throws IOException {
             out.writeBoolean(response.promised);
             Commit.serializer.serialize(response.inProgressCommit, out, version);
             Commit.serializer.serialize(response.mostRecentCommit, out, version);
         }
 
-        public PrepareResponse deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public PrepareResponse deserialize(DataInputPlus in, int version) throws IOException {
             boolean success = in.readBoolean();
             Commit inProgress = Commit.serializer.deserialize(in, version);
             Commit mostRecent = Commit.serializer.deserialize(in, version);
             return new PrepareResponse(success, inProgress, mostRecent);
         }
 
-        public long serializedSize(PrepareResponse response, int version)
-        {
-            return TypeSizes.sizeof(response.promised)
-                 + Commit.serializer.serializedSize(response.inProgressCommit, version)
-                 + Commit.serializer.serializedSize(response.mostRecentCommit, version);
+        public long serializedSize(PrepareResponse response, int version) {
+            return TypeSizes.sizeof(response.promised) + Commit.serializer.serializedSize(response.inProgressCommit, version) + Commit.serializer.serializedSize(response.mostRecentCommit, version);
         }
     }
 }

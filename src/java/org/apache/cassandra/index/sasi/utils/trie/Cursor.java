@@ -13,7 +13,6 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-
 package org.apache.cassandra.index.sasi.utils.trie;
 
 import java.util.Map;
@@ -26,14 +25,14 @@ import java.util.Map.Entry;
  * on rkapsi/patricia-trie project) only supports String keys)
  * but unfortunately is not deployed to the maven central as a downloadable artifact.
  */
-
 /**
  * A {@link Cursor} can be used to traverse a {@link Trie}, visit each node
  * step by step and make {@link Decision}s on each step how to continue with
  * traversing the {@link Trie}.
  */
-public interface Cursor<K, V>
-{
+public interface Cursor<K, V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Cursor.class);
 
     /**
      * The {@link Decision} tells the {@link Cursor} what to do on each step
@@ -42,25 +41,21 @@ public interface Cursor<K, V>
      * NOTE: Not all operations that work with a {@link Cursor} support all
      * {@link Decision} types
      */
-    enum Decision
-    {
+    enum Decision {
 
         /**
          * Exit the traverse operation
          */
         EXIT,
-
         /**
          * Continue with the traverse operation
          */
         CONTINUE,
-
         /**
          * Remove the previously returned element
          * from the {@link Trie} and continue
          */
         REMOVE,
-
         /**
          * Remove the previously returned element
          * from the {@link Trie} and exit from the

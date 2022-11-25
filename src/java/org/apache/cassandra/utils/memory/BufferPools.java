@@ -15,65 +15,56 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils.memory;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
-
 import static org.apache.cassandra.utils.FBUtilities.prettyPrintMemory;
 
-public class BufferPools
-{
-    private static final Logger logger = LoggerFactory.getLogger(BufferPools.class);
+public class BufferPools {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BufferPools.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(BufferPools.class);
 
     /**
      * Used by chunk cache to store decompressed data and buffers may be held by chunk cache for arbitrary period.
      */
-    private static final long FILE_MEMORY_USAGE_THRESHOLD = DatabaseDescriptor.getFileCacheSizeInMB() * 1024L * 1024L;
-    private static final BufferPool CHUNK_CACHE_POOL = new BufferPool("chunk-cache", FILE_MEMORY_USAGE_THRESHOLD, true);
+    private static final transient long FILE_MEMORY_USAGE_THRESHOLD = DatabaseDescriptor.getFileCacheSizeInMB() * 1024L * 1024L;
+
+    private static final transient BufferPool CHUNK_CACHE_POOL = new BufferPool("chunk-cache", FILE_MEMORY_USAGE_THRESHOLD, true);
 
     /**
      * Used by client-server or inter-node requests, buffers should be released immediately after use.
      */
-    private static final long NETWORKING_MEMORY_USAGE_THRESHOLD = DatabaseDescriptor.getNetworkingCacheSizeInMB() * 1024L * 1024L;
-    private static final BufferPool NETWORKING_POOL = new BufferPool("networking", NETWORKING_MEMORY_USAGE_THRESHOLD, false);
+    private static final transient long NETWORKING_MEMORY_USAGE_THRESHOLD = DatabaseDescriptor.getNetworkingCacheSizeInMB() * 1024L * 1024L;
 
-    static
-    {
-        logger.info("Global buffer pool limit is {} for {} and {} for {}",
-                    prettyPrintMemory(FILE_MEMORY_USAGE_THRESHOLD),
-                    CHUNK_CACHE_POOL.name,
-                    prettyPrintMemory(NETWORKING_MEMORY_USAGE_THRESHOLD),
-                    NETWORKING_POOL.name);
+    private static final transient BufferPool NETWORKING_POOL = new BufferPool("networking", NETWORKING_MEMORY_USAGE_THRESHOLD, false);
 
+    static {
+        logger.info("Global buffer pool limit is {} for {} and {} for {}", prettyPrintMemory(FILE_MEMORY_USAGE_THRESHOLD), CHUNK_CACHE_POOL.name, prettyPrintMemory(NETWORKING_MEMORY_USAGE_THRESHOLD), NETWORKING_POOL.name);
         CHUNK_CACHE_POOL.metrics().register3xAlias();
     }
+
     /**
      * Long-lived buffers used for chunk cache and other disk access
      */
-    public static BufferPool forChunkCache()
-    {
+    public static BufferPool forChunkCache() {
         return CHUNK_CACHE_POOL;
     }
 
     /**
      * Short-lived buffers used for internode messaging or client-server connections.
      */
-    public static BufferPool forNetworking()
-    {
+    public static BufferPool forNetworking() {
         return NETWORKING_POOL;
     }
 
-    public static void shutdownLocalCleaner(long timeout, TimeUnit unit) throws TimeoutException, InterruptedException
-    {
+    public static void shutdownLocalCleaner(long timeout, TimeUnit unit) throws TimeoutException, InterruptedException {
         CHUNK_CACHE_POOL.shutdownLocalCleaner(timeout, unit);
         NETWORKING_POOL.shutdownLocalCleaner(timeout, unit);
     }
-
 }

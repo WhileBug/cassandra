@@ -15,44 +15,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
-
 import com.google.common.base.Preconditions;
-
 import org.apache.cassandra.utils.ObjectSizes;
 import org.apache.cassandra.utils.memory.ByteBufferCloner;
 
-public class ArrayClusteringBound extends ArrayClusteringBoundOrBoundary implements ClusteringBound<byte[]>
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new ArrayClusteringBound(ClusteringPrefix.Kind.INCL_START_BOUND, EMPTY_VALUES_ARRAY));
+public class ArrayClusteringBound extends ArrayClusteringBoundOrBoundary implements ClusteringBound<byte[]> {
 
-    public ArrayClusteringBound(Kind kind, byte[][] values)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ArrayClusteringBound.class);
+
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new ArrayClusteringBound(ClusteringPrefix.Kind.INCL_START_BOUND, EMPTY_VALUES_ARRAY));
+
+    public ArrayClusteringBound(Kind kind, byte[][] values) {
         super(kind, values);
     }
 
-    public long unsharedHeapSize()
-    {
+    public long unsharedHeapSize() {
         return EMPTY_SIZE + ObjectSizes.sizeOfArray(values) + values.length;
     }
 
     @Override
-    public ClusteringBound<byte[]> invert()
-    {
+    public ClusteringBound<byte[]> invert() {
         return create(kind().invert(), values);
     }
 
     @Override
-    public ClusteringBound<ByteBuffer> clone(ByteBufferCloner cloner)
-    {
+    public ClusteringBound<ByteBuffer> clone(ByteBufferCloner cloner) {
         return (ClusteringBound<ByteBuffer>) super.clone(cloner);
     }
 
-    public static ArrayClusteringBound create(ClusteringPrefix.Kind kind, byte[][] values)
-    {
+    public static ArrayClusteringBound create(ClusteringPrefix.Kind kind, byte[][] values) {
         Preconditions.checkArgument(!kind.isBoundary(), "Expected bound clustering kind, got %s", kind);
         return new ArrayClusteringBound(kind, values);
     }

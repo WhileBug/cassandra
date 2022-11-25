@@ -18,9 +18,7 @@
 package org.apache.cassandra.net;
 
 import java.io.IOException;
-
 import com.google.common.base.Preconditions;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
@@ -33,31 +31,29 @@ import org.apache.cassandra.io.util.DataOutputPlus;
  * Once 3.0/3.11 compatibility is phased out, this class should be removed.
  */
 @Deprecated
-final class LegacyFlag
-{
-    static final LegacyFlag instance = new LegacyFlag();
+final class LegacyFlag {
 
-    private LegacyFlag()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LegacyFlag.class);
+
+    static final transient LegacyFlag instance = new LegacyFlag();
+
+    private LegacyFlag() {
     }
 
-    static IVersionedSerializer<LegacyFlag> serializer = new IVersionedSerializer<LegacyFlag>()
-    {
-        public void serialize(LegacyFlag param, DataOutputPlus out, int version) throws IOException
-        {
+    static transient IVersionedSerializer<LegacyFlag> serializer = new IVersionedSerializer<LegacyFlag>() {
+
+        public void serialize(LegacyFlag param, DataOutputPlus out, int version) throws IOException {
             Preconditions.checkArgument(param == instance);
             out.write(0);
         }
 
-        public LegacyFlag deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public LegacyFlag deserialize(DataInputPlus in, int version) throws IOException {
             byte b = in.readByte();
             assert b == 0;
             return instance;
         }
 
-        public long serializedSize(LegacyFlag param, int version)
-        {
+        public long serializedSize(LegacyFlag param, int version) {
             Preconditions.checkArgument(param == instance);
             return 1;
         }

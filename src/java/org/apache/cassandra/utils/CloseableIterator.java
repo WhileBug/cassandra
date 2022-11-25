@@ -20,7 +20,9 @@ package org.apache.cassandra.utils;
 import java.util.Iterator;
 
 // so we can instantiate anonymous classes implementing both interfaces
-public interface CloseableIterator<T> extends Iterator<T>, AutoCloseable
-{
+public interface CloseableIterator<T> extends Iterator<T>, AutoCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CloseableIterator.class);
+
     public void close();
 }

@@ -25,20 +25,24 @@ import org.github.jamm.Unmetered;
  * Used in classes that need up-to-date metadata to avoid the cost of looking up {@link Schema} hashmaps.
  */
 @Unmetered
-public final class TableMetadataRef
-{
-    public final TableId id;
-    public final String keyspace;
-    public final String name;
+public final class TableMetadataRef {
 
-    private volatile TableMetadata metadata;
-    private volatile TableMetadata localTableMetadata;
-    private volatile CompressionParams localCompressionParams;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableMetadataRef.class);
 
-    TableMetadataRef(TableMetadata metadata)
-    {
+    public final transient TableId id;
+
+    public final transient String keyspace;
+
+    public final transient String name;
+
+    private volatile transient TableMetadata metadata;
+
+    private volatile transient TableMetadata localTableMetadata;
+
+    private volatile transient CompressionParams localCompressionParams;
+
+    TableMetadataRef(TableMetadata metadata) {
         this.metadata = metadata;
-
         id = metadata.id;
         keyspace = metadata.keyspace;
         name = metadata.name;
@@ -50,24 +54,20 @@ public final class TableMetadataRef
      * @param metadata {@link TableMetadata} to reference
      * @return a new TableMetadataRef instance linking to the passed {@link TableMetadata}
      */
-    public static TableMetadataRef forOfflineTools(TableMetadata metadata)
-    {
+    public static TableMetadataRef forOfflineTools(TableMetadata metadata) {
         return new TableMetadataRef(metadata);
     }
 
-    public TableMetadata get()
-    {
+    public TableMetadata get() {
         return metadata;
     }
 
     /**
      * Returns node-local table metadata
      */
-    public TableMetadata getLocal()
-    {
+    public TableMetadata getLocal() {
         if (this.localTableMetadata != null)
             return localTableMetadata;
-
         return metadata;
     }
 
@@ -77,23 +77,19 @@ public final class TableMetadataRef
      * Must only be used by methods in {@link Schema}, *DO NOT* make public
      * even for testing purposes, it isn't safe.
      */
-    void set(TableMetadata metadata)
-    {
+    void set(TableMetadata metadata) {
         metadata.validateCompatibility(get());
         this.metadata = metadata;
         this.localTableMetadata = null;
     }
 
-
-    public void setLocalOverrides(TableMetadata metadata)
-    {
+    public void setLocalOverrides(TableMetadata metadata) {
         metadata.validateCompatibility(get());
         this.localTableMetadata = metadata;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return get().toString();
     }
 }

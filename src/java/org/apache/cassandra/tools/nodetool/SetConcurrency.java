@@ -19,40 +19,30 @@ package org.apache.cassandra.tools.nodetool;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
-
 import static com.google.common.base.Preconditions.checkArgument;
 
 @Command(name = "setconcurrency", description = "Set maximum concurrency for processing stage")
-public class SetConcurrency extends NodeToolCmd
-{
-    @Arguments(title = "<pool-name> <maximum-concurrency> | <stage-name> <core-pool> <maximum-concurrency>",
-    usage = "<stage-name> <maximum-concurrency> | <stage-name> <core-pool> <maximum-concurrency>",
-    description = "Set concurrency for processing stage",
-    required = true)
-    private List<String> args = new ArrayList<>();
+public class SetConcurrency extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetConcurrency.class);
+
+    @Arguments(title = "<pool-name> <maximum-concurrency> | <stage-name> <core-pool> <maximum-concurrency>", usage = "<stage-name> <maximum-concurrency> | <stage-name> <core-pool> <maximum-concurrency>", description = "Set concurrency for processing stage", required = true)
+    private transient List<String> args = new ArrayList<>();
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         checkArgument(args.size() >= 2 && args.size() <= 3, "setconcurrency requires stage name, optional core pool size and maximum concurrency");
-
         int corePoolSize = args.size() == 2 ? -1 : Integer.valueOf(args.get(1));
         int maximumPoolSize = args.size() == 2 ? Integer.valueOf(args.get(1)) : Integer.valueOf(args.get(2));
-
         checkArgument(args.size() == 2 || corePoolSize >= 0, "Core pool size must be non-negative");
         checkArgument(maximumPoolSize >= 0, "Maximum pool size must be non-negative");
-
-        try
-        {
+        try {
             probe.setConcurrency(args.get(0), corePoolSize, maximumPoolSize);
-        }
-        catch (IllegalArgumentException e)
-        {
+        } catch (IllegalArgumentException e) {
             String message = e.getMessage() != null ? e.getMessage() : "invalid pool size";
             probe.output().out.println("Unable to set concurrency: " + message);
             System.exit(1);

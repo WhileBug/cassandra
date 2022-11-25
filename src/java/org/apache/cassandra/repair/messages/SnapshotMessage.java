@@ -19,22 +19,21 @@ package org.apache.cassandra.repair.messages;
 
 import java.io.IOException;
 import java.util.Objects;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.repair.RepairJobDesc;
 
-public class SnapshotMessage extends RepairMessage
-{
-    public SnapshotMessage(RepairJobDesc desc)
-    {
+public class SnapshotMessage extends RepairMessage {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SnapshotMessage.class);
+
+    public SnapshotMessage(RepairJobDesc desc) {
         super(desc);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (!(o instanceof SnapshotMessage))
             return false;
         SnapshotMessage other = (SnapshotMessage) o;
@@ -42,26 +41,22 @@ public class SnapshotMessage extends RepairMessage
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(desc);
     }
 
-    public static final IVersionedSerializer<SnapshotMessage> serializer = new IVersionedSerializer<SnapshotMessage>()
-    {
-        public void serialize(SnapshotMessage message, DataOutputPlus out, int version) throws IOException
-        {
+    public static final transient IVersionedSerializer<SnapshotMessage> serializer = new IVersionedSerializer<SnapshotMessage>() {
+
+        public void serialize(SnapshotMessage message, DataOutputPlus out, int version) throws IOException {
             RepairJobDesc.serializer.serialize(message.desc, out, version);
         }
 
-        public SnapshotMessage deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public SnapshotMessage deserialize(DataInputPlus in, int version) throws IOException {
             RepairJobDesc desc = RepairJobDesc.serializer.deserialize(in, version);
             return new SnapshotMessage(desc);
         }
 
-        public long serializedSize(SnapshotMessage message, int version)
-        {
+        public long serializedSize(SnapshotMessage message, int version) {
             return RepairJobDesc.serializer.serializedSize(message.desc, version);
         }
     };

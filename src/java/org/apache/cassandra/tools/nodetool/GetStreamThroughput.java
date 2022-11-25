@@ -18,16 +18,16 @@
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "getstreamthroughput", description = "Print the Mb/s throughput cap for streaming in the system")
-public class GetStreamThroughput extends NodeToolCmd
-{
+public class GetStreamThroughput extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetStreamThroughput.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.output().out.println("Current stream throughput: " + probe.getStreamThroughput() + " Mb/s");
     }
 }

@@ -21,65 +21,59 @@ import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 
-public class IndexTarget
-{
-    public static final String TARGET_OPTION_NAME = "target";
-    public static final String CUSTOM_INDEX_OPTION_NAME = "class_name";
+public class IndexTarget {
 
-    public final ColumnIdentifier column;
-    public final Type type;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexTarget.class);
 
-    public IndexTarget(ColumnIdentifier column, Type type)
-    {
+    public static final transient String TARGET_OPTION_NAME = "target";
+
+    public static final transient String CUSTOM_INDEX_OPTION_NAME = "class_name";
+
+    public final transient ColumnIdentifier column;
+
+    public final transient Type type;
+
+    public IndexTarget(ColumnIdentifier column, Type type) {
         this.column = column;
         this.type = type;
     }
 
-    public String asCqlString()
-    {
-        return type == Type.SIMPLE
-             ? column.toCQLString()
-             : String.format("%s(%s)", type.toString(), column.toCQLString());
+    public String asCqlString() {
+        return type == Type.SIMPLE ? column.toCQLString() : String.format("%s(%s)", type.toString(), column.toCQLString());
     }
 
-    public static class Raw
-    {
-        private final ColumnIdentifier column;
-        private final Type type;
+    public static class Raw {
 
-        private Raw(ColumnIdentifier column, Type type)
-        {
+        private final transient ColumnIdentifier column;
+
+        private final transient Type type;
+
+        private Raw(ColumnIdentifier column, Type type) {
             this.column = column;
             this.type = type;
         }
 
-        public static Raw simpleIndexOn(ColumnIdentifier c)
-        {
+        public static Raw simpleIndexOn(ColumnIdentifier c) {
             return new Raw(c, Type.SIMPLE);
         }
 
-        public static Raw valuesOf(ColumnIdentifier c)
-        {
+        public static Raw valuesOf(ColumnIdentifier c) {
             return new Raw(c, Type.VALUES);
         }
 
-        public static Raw keysOf(ColumnIdentifier c)
-        {
+        public static Raw keysOf(ColumnIdentifier c) {
             return new Raw(c, Type.KEYS);
         }
 
-        public static Raw keysAndValuesOf(ColumnIdentifier c)
-        {
+        public static Raw keysAndValuesOf(ColumnIdentifier c) {
             return new Raw(c, Type.KEYS_AND_VALUES);
         }
 
-        public static Raw fullCollection(ColumnIdentifier c)
-        {
+        public static Raw fullCollection(ColumnIdentifier c) {
             return new Raw(c, Type.FULL);
         }
 
-        public IndexTarget prepare(TableMetadata table)
-        {
+        public IndexTarget prepare(TableMetadata table) {
             // Until we've prepared the target column, we can't be certain about the target type
             // because (for backwards compatibility) an index on a collection's values uses the
             // same syntax as an index on a regular column (i.e. the 'values' in
@@ -91,25 +85,28 @@ public class IndexTarget
         }
     }
 
-    public enum Type
-    {
+    public enum Type {
+
         VALUES, KEYS, KEYS_AND_VALUES, FULL, SIMPLE;
 
-        public String toString()
-        {
-            switch (this)
-            {
-                case KEYS: return "keys";
-                case KEYS_AND_VALUES: return "entries";
-                case FULL: return "full";
-                case VALUES: return "values";
-                case SIMPLE: return "";
-                default: return "";
+        public String toString() {
+            switch(this) {
+                case KEYS:
+                    return "keys";
+                case KEYS_AND_VALUES:
+                    return "entries";
+                case FULL:
+                    return "full";
+                case VALUES:
+                    return "values";
+                case SIMPLE:
+                    return "";
+                default:
+                    return "";
             }
         }
 
-        public static Type fromString(String s)
-        {
+        public static Type fromString(String s) {
             if ("".equals(s))
                 return SIMPLE;
             else if ("values".equals(s))
@@ -120,14 +117,12 @@ public class IndexTarget
                 return KEYS_AND_VALUES;
             else if ("full".equals(s))
                 return FULL;
-
             throw new AssertionError("Unrecognized index target type " + s);
         }
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return asCqlString();
     }
 }

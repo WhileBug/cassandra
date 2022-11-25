@@ -20,10 +20,8 @@
 package org.apache.cassandra.utils;
 
 import java.util.concurrent.atomic.AtomicReference;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.RateLimiter;
-
 import org.jboss.byteman.rule.Rule;
 import org.jboss.byteman.rule.helper.Helper;
 
@@ -32,12 +30,13 @@ import org.jboss.byteman.rule.helper.Helper;
  * for an example script, see test/resources/byteman/mutation_limiter.btm.
  */
 @VisibleForTesting
-public class TestRateLimiter extends Helper
-{
-    private static final AtomicReference<RateLimiter> ref = new AtomicReference<>();
+public class TestRateLimiter extends Helper {
 
-    protected TestRateLimiter(Rule rule)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TestRateLimiter.class);
+
+    private static final transient AtomicReference<RateLimiter> ref = new AtomicReference<>();
+
+    protected TestRateLimiter(Rule rule) {
         super(rule);
     }
 
@@ -45,11 +44,9 @@ public class TestRateLimiter extends Helper
      * Acquires a single unit at the given rate. If the rate changes between calls, a new rate limiter is created
      * and the old one is discarded.
      */
-    public void acquire(double rate)
-    {
+    public void acquire(double rate) {
         RateLimiter limiter = ref.get();
-        if (limiter == null || limiter.getRate() != rate)
-        {
+        if (limiter == null || limiter.getRate() != rate) {
             ref.compareAndSet(limiter, RateLimiter.create(rate));
             limiter = ref.get();
         }

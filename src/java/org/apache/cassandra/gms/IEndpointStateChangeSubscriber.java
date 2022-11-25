@@ -27,8 +27,10 @@ import org.apache.cassandra.locator.InetAddressAndPort;
  * instance to decide what he does with this change. Not all modules maybe interested
  * in all state changes.
  */
-public interface IEndpointStateChangeSubscriber
-{
+public interface IEndpointStateChangeSubscriber {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IEndpointStateChangeSubscriber.class);
+
     /**
      * Use to inform interested parties about the change in the state
      * for specified endpoint
@@ -36,17 +38,23 @@ public interface IEndpointStateChangeSubscriber
      * @param endpoint endpoint for which the state change occurred.
      * @param epState  state that actually changed for the above endpoint.
      */
-    default void onJoin(InetAddressAndPort endpoint, EndpointState epState) {}
-    
-    default void beforeChange(InetAddressAndPort endpoint, EndpointState currentState, ApplicationState newStateKey, VersionedValue newValue) {}
+    default void onJoin(InetAddressAndPort endpoint, EndpointState epState) {
+    }
 
-    default void onChange(InetAddressAndPort endpoint, ApplicationState state, VersionedValue value) {}
+    default void beforeChange(InetAddressAndPort endpoint, EndpointState currentState, ApplicationState newStateKey, VersionedValue newValue) {
+    }
 
-    default void onAlive(InetAddressAndPort endpoint, EndpointState state) {}
+    default void onChange(InetAddressAndPort endpoint, ApplicationState state, VersionedValue value) {
+    }
 
-    default void onDead(InetAddressAndPort endpoint, EndpointState state) {}
+    default void onAlive(InetAddressAndPort endpoint, EndpointState state) {
+    }
 
-    default void onRemove(InetAddressAndPort endpoint) {}
+    default void onDead(InetAddressAndPort endpoint, EndpointState state) {
+    }
+
+    default void onRemove(InetAddressAndPort endpoint) {
+    }
 
     /**
      * Called whenever a node is restarted.
@@ -54,5 +62,6 @@ public interface IEndpointStateChangeSubscriber
      * previously marked down. It will have only if {@code state.isAlive() == false}
      * as {@code state} is from before the restarted node is marked up.
      */
-    default void onRestart(InetAddressAndPort endpoint, EndpointState state) {}
+    default void onRestart(InetAddressAndPort endpoint, EndpointState state) {
+    }
 }

@@ -22,58 +22,31 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import javax.management.openmbean.*;
-
 import com.google.common.base.Throwables;
-
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.streaming.ProgressInfo;
 
-public class ProgressInfoCompositeData
-{
-    private static final String[] ITEM_NAMES = new String[]{"planId",
-                                                            "peer",
-                                                            "peer storage port",
-                                                            "sessionIndex",
-                                                            "fileName",
-                                                            "direction",
-                                                            "currentBytes",
-                                                            "totalBytes"};
-    private static final String[] ITEM_DESCS = new String[]{"String representation of Plan ID",
-                                                            "Session peer",
-                                                            "Session peer storage port",
-                                                            "Index of session",
-                                                            "Name of the stream",
-                                                            "Direction('IN' or 'OUT')",
-                                                            "Current bytes transferred",
-                                                            "Total bytes to transfer"};
-    private static final OpenType<?>[] ITEM_TYPES = new OpenType[]{SimpleType.STRING,
-                                                                   SimpleType.STRING,
-                                                                   SimpleType.INTEGER,
-                                                                   SimpleType.INTEGER,
-                                                                   SimpleType.STRING,
-                                                                   SimpleType.STRING,
-                                                                   SimpleType.LONG,
-                                                                   SimpleType.LONG};
+public class ProgressInfoCompositeData {
 
-    public static final CompositeType COMPOSITE_TYPE;
-    static
-    {
-        try
-        {
-            COMPOSITE_TYPE = new CompositeType(ProgressInfo.class.getName(),
-                                               "ProgressInfo",
-                                               ITEM_NAMES,
-                                               ITEM_DESCS,
-                                               ITEM_TYPES);
-        }
-        catch (OpenDataException e)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProgressInfoCompositeData.class);
+
+    private static final transient String[] ITEM_NAMES = new String[] { "planId", "peer", "peer storage port", "sessionIndex", "fileName", "direction", "currentBytes", "totalBytes" };
+
+    private static final transient String[] ITEM_DESCS = new String[] { "String representation of Plan ID", "Session peer", "Session peer storage port", "Index of session", "Name of the stream", "Direction('IN' or 'OUT')", "Current bytes transferred", "Total bytes to transfer" };
+
+    private static final transient OpenType<?>[] ITEM_TYPES = new OpenType[] { SimpleType.STRING, SimpleType.STRING, SimpleType.INTEGER, SimpleType.INTEGER, SimpleType.STRING, SimpleType.STRING, SimpleType.LONG, SimpleType.LONG };
+
+    public static final transient CompositeType COMPOSITE_TYPE;
+
+    static {
+        try {
+            COMPOSITE_TYPE = new CompositeType(ProgressInfo.class.getName(), "ProgressInfo", ITEM_NAMES, ITEM_DESCS, ITEM_TYPES);
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public static CompositeData toCompositeData(UUID planId, ProgressInfo progressInfo)
-    {
+    public static CompositeData toCompositeData(UUID planId, ProgressInfo progressInfo) {
         Map<String, Object> valueMap = new HashMap<>();
         valueMap.put(ITEM_NAMES[0], planId.toString());
         valueMap.put(ITEM_NAMES[1], progressInfo.peer.address.getHostAddress());
@@ -83,30 +56,18 @@ public class ProgressInfoCompositeData
         valueMap.put(ITEM_NAMES[5], progressInfo.direction.name());
         valueMap.put(ITEM_NAMES[6], progressInfo.currentBytes);
         valueMap.put(ITEM_NAMES[7], progressInfo.totalBytes);
-        try
-        {
+        try {
             return new CompositeDataSupport(COMPOSITE_TYPE, valueMap);
-        }
-        catch (OpenDataException e)
-        {
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public static ProgressInfo fromCompositeData(CompositeData cd)
-    {
+    public static ProgressInfo fromCompositeData(CompositeData cd) {
         Object[] values = cd.getAll(ITEM_NAMES);
-        try
-        {
-            return new ProgressInfo(InetAddressAndPort.getByNameOverrideDefaults((String) values[1], (Integer)values[2]),
-                                    (int) values[3],
-                                    (String) values[4],
-                                    ProgressInfo.Direction.valueOf((String)values[5]),
-                                    (long) values[6],
-                                    (long) values[7]);
-        }
-        catch (UnknownHostException e)
-        {
+        try {
+            return new ProgressInfo(InetAddressAndPort.getByNameOverrideDefaults((String) values[1], (Integer) values[2]), (int) values[3], (String) values[4], ProgressInfo.Direction.valueOf((String) values[5]), (long) values[6], (long) values[7]);
+        } catch (UnknownHostException e) {
             throw Throwables.propagate(e);
         }
     }

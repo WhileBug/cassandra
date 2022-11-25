@@ -24,7 +24,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.cassandra.db.SystemKeyspace;
@@ -39,67 +38,64 @@ import org.apache.cassandra.utils.FBUtilities;
  * A snitch that assumes an GCE region is a DC and an GCE availability_zone
  *  is a rack. This information is available in the config for the node.
  */
-public class GoogleCloudSnitch extends AbstractNetworkTopologySnitch
-{
-    protected static final Logger logger = LoggerFactory.getLogger(GoogleCloudSnitch.class);
-    protected static final String ZONE_NAME_QUERY_URL = "http://metadata.google.internal/computeMetadata/v1/instance/zone";
-    private static final String DEFAULT_DC = "UNKNOWN-DC";
-    private static final String DEFAULT_RACK = "UNKNOWN-RACK";
-    private Map<InetAddressAndPort, Map<String, String>> savedEndpoints;
-    protected String gceZone;
-    protected String gceRegion;
+public class GoogleCloudSnitch extends AbstractNetworkTopologySnitch {
 
-    public GoogleCloudSnitch() throws IOException, ConfigurationException
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GoogleCloudSnitch.class);
+
+    protected static final transient Logger logger = LoggerFactory.getLogger(GoogleCloudSnitch.class);
+
+    protected static final transient String ZONE_NAME_QUERY_URL = "http://metadata.google.internal/computeMetadata/v1/instance/zone";
+
+    private static final transient String DEFAULT_DC = "UNKNOWN-DC";
+
+    private static final transient String DEFAULT_RACK = "UNKNOWN-RACK";
+
+    private transient Map<InetAddressAndPort, Map<String, String>> savedEndpoints;
+
+    protected transient String gceZone;
+
+    protected transient String gceRegion;
+
+    public GoogleCloudSnitch() throws IOException, ConfigurationException {
         String response = gceApiCall(ZONE_NAME_QUERY_URL);
         String[] splits = response.split("/");
         String az = splits[splits.length - 1];
-
         // Split "us-central1-a" or "asia-east1-a" into "us-central1"/"a" and "asia-east1"/"a".
         splits = az.split("-");
         gceZone = splits[splits.length - 1];
-
         int lastRegionIndex = az.lastIndexOf("-");
         gceRegion = az.substring(0, lastRegionIndex);
-
         String datacenterSuffix = (new SnitchProperties()).get("dc_suffix", "");
         gceRegion = gceRegion.concat(datacenterSuffix);
         logger.info("GCESnitch using region: {}, zone: {}.", gceRegion, gceZone);
     }
 
-    String gceApiCall(String url) throws IOException, ConfigurationException
-    {
+    String gceApiCall(String url) throws IOException, ConfigurationException {
         // Populate the region and zone by introspection, fail if 404 on metadata
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         DataInputStream d = null;
-        try
-        {
+        try {
             conn.setRequestMethod("GET");
-	    conn.setRequestProperty("Metadata-Flavor", "Google");
+            conn.setRequestProperty("Metadata-Flavor", "Google");
             if (conn.getResponseCode() != 200)
                 throw new ConfigurationException("GoogleCloudSnitch was unable to execute the API call. Not a gce node?");
-
             // Read the information.
             int cl = conn.getContentLength();
             byte[] b = new byte[cl];
             d = new DataInputStream((FilterInputStream) conn.getContent());
             d.readFully(b);
             return new String(b, StandardCharsets.UTF_8);
-        }
-        finally
-        {
+        } finally {
             FileUtils.close(d);
             conn.disconnect();
         }
     }
 
-    public String getRack(InetAddressAndPort endpoint)
-    {
+    public String getRack(InetAddressAndPort endpoint) {
         if (endpoint.equals(FBUtilities.getBroadcastAddressAndPort()))
             return gceZone;
         EndpointState state = Gossiper.instance.getEndpointStateForEndpoint(endpoint);
-        if (state == null || state.getApplicationState(ApplicationState.RACK) == null)
-        {
+        if (state == null || state.getApplicationState(ApplicationState.RACK) == null) {
             if (savedEndpoints == null)
                 savedEndpoints = SystemKeyspace.loadDcRackInfo();
             if (savedEndpoints.containsKey(endpoint))
@@ -109,13 +105,11 @@ public class GoogleCloudSnitch extends AbstractNetworkTopologySnitch
         return state.getApplicationState(ApplicationState.RACK).value;
     }
 
-    public String getDatacenter(InetAddressAndPort endpoint)
-    {
+    public String getDatacenter(InetAddressAndPort endpoint) {
         if (endpoint.equals(FBUtilities.getBroadcastAddressAndPort()))
             return gceRegion;
         EndpointState state = Gossiper.instance.getEndpointStateForEndpoint(endpoint);
-        if (state == null || state.getApplicationState(ApplicationState.DC) == null)
-        {
+        if (state == null || state.getApplicationState(ApplicationState.DC) == null) {
             if (savedEndpoints == null)
                 savedEndpoints = SystemKeyspace.loadDcRackInfo();
             if (savedEndpoints.containsKey(endpoint))

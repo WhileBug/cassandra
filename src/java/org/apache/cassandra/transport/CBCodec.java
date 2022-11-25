@@ -19,9 +19,13 @@ package org.apache.cassandra.transport;
 
 import io.netty.buffer.ByteBuf;
 
-public interface CBCodec<T>
-{
+public interface CBCodec<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CBCodec.class);
+
     public T decode(ByteBuf body, ProtocolVersion version);
+
     public void encode(T t, ByteBuf dest, ProtocolVersion version);
+
     public int encodedSize(T t, ProtocolVersion version);
 }

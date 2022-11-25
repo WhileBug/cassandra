@@ -18,28 +18,26 @@
 package org.apache.cassandra.net;
 
 import com.google.common.annotations.VisibleForTesting;
-
 import io.netty.util.concurrent.ImmediateEventExecutor;
 
 /**
  * A callback specialized for returning a value from a single target; that is, this is for messages
  * that we only send to one recipient.
  */
-public class AsyncOneResponse<T> extends AsyncPromise<T> implements RequestCallback<T>
-{
-    public AsyncOneResponse()
-    {
+public class AsyncOneResponse<T> extends AsyncPromise<T> implements RequestCallback<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AsyncOneResponse.class);
+
+    public AsyncOneResponse() {
         super(ImmediateEventExecutor.INSTANCE);
     }
 
-    public void onResponse(Message<T> response)
-    {
+    public void onResponse(Message<T> response) {
         setSuccess(response.payload);
     }
 
     @VisibleForTesting
-    public static <T> AsyncOneResponse<T> immediate(T value)
-    {
+    public static <T> AsyncOneResponse<T> immediate(T value) {
         AsyncOneResponse<T> response = new AsyncOneResponse<>();
         response.setSuccess(value);
         return response;

@@ -24,24 +24,24 @@ import net.nicoulaj.compilecommand.annotations.DontInline;
 import org.apache.cassandra.db.rows.BaseRowIterator;
 
 // A Transformation that can stop an iterator earlier than its natural exhaustion
-public abstract class StoppingTransformation<I extends BaseRowIterator<?>> extends Transformation<I>
-{
-    private BaseIterator rows;
-    private BaseIterator partitions;
+public abstract class StoppingTransformation<I extends BaseRowIterator<?>> extends Transformation<I> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StoppingTransformation.class);
+
+    private transient BaseIterator rows;
+
+    private transient BaseIterator partitions;
 
     /**
      * If invoked by a subclass, any partitions iterator this transformation has been applied to will terminate
      * after any currently-processing item is returned, as will any row/unfiltered iterator
      */
     @DontInline
-    protected void stop()
-    {
-        if (partitions != null)
-        {
+    protected void stop() {
+        if (partitions != null) {
             partitions.stop.isSignalled = true;
             partitions.stopChild.isSignalled = true;
         }
-
         stopInPartition();
     }
 
@@ -50,38 +50,32 @@ public abstract class StoppingTransformation<I extends BaseRowIterator<?>> exten
      * after any currently-processing item is returned
      */
     @DontInline
-    protected void stopInPartition()
-    {
-        if (rows != null)
-        {
+    protected void stopInPartition() {
+        if (rows != null) {
             rows.stop.isSignalled = true;
             rows.stopChild.isSignalled = true;
         }
     }
 
     @Override
-    protected void attachTo(BasePartitions partitions)
-    {
+    protected void attachTo(BasePartitions partitions) {
         assert this.partitions == null;
         this.partitions = partitions;
     }
 
     @Override
-    protected void attachTo(BaseRows rows)
-    {
+    protected void attachTo(BaseRows rows) {
         assert this.rows == null;
         this.rows = rows;
     }
 
     @Override
-    protected void onClose()
-    {
+    protected void onClose() {
         partitions = null;
     }
 
     @Override
-    protected void onPartitionClose()
-    {
+    protected void onPartitionClose() {
         rows = null;
     }
 }

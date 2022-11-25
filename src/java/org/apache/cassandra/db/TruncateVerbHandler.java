@@ -19,27 +19,25 @@ package org.apache.cassandra.db;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.tracing.Tracing;
 
-public class TruncateVerbHandler implements IVerbHandler<TruncateRequest>
-{
-    public static final TruncateVerbHandler instance = new TruncateVerbHandler();
+public class TruncateVerbHandler implements IVerbHandler<TruncateRequest> {
 
-    private static final Logger logger = LoggerFactory.getLogger(TruncateVerbHandler.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncateVerbHandler.class);
 
-    public void doVerb(Message<TruncateRequest> message)
-    {
+    public static final transient TruncateVerbHandler instance = new TruncateVerbHandler();
+
+    private static final transient Logger logger = LoggerFactory.getLogger(TruncateVerbHandler.class);
+
+    public void doVerb(Message<TruncateRequest> message) {
         TruncateRequest truncation = message.payload;
         Tracing.trace("Applying truncation of {}.{}", truncation.keyspace, truncation.table);
-
         ColumnFamilyStore cfs = Keyspace.open(truncation.keyspace).getColumnFamilyStore(truncation.table);
         cfs.truncateBlocking();
         Tracing.trace("Enqueuing response to truncate operation to {}", message.from());
-
         TruncateResponse response = new TruncateResponse(truncation.keyspace, truncation.table, true);
         logger.trace("{} applied.  Enqueuing response to {}@{} ", truncation, message.id(), message.from());
         MessagingService.instance().send(message.responseWith(response), message.from());

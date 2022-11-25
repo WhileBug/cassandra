@@ -19,7 +19,6 @@ package org.apache.cassandra.db.marshal;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
-
 import org.apache.cassandra.cql3.Constants;
 import org.apache.cassandra.cql3.Term;
 import org.apache.cassandra.serializers.TypeSerializer;
@@ -27,65 +26,53 @@ import org.apache.cassandra.serializers.MarshalException;
 import org.apache.cassandra.serializers.UUIDSerializer;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class LexicalUUIDType extends AbstractType<UUID>
-{
-    public static final LexicalUUIDType instance = new LexicalUUIDType();
+public class LexicalUUIDType extends AbstractType<UUID> {
 
-    LexicalUUIDType()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LexicalUUIDType.class);
+
+    public static final transient LexicalUUIDType instance = new LexicalUUIDType();
+
+    LexicalUUIDType() {
         super(ComparisonType.CUSTOM);
-    } // singleton
+    }
 
-    public boolean isEmptyValueMeaningless()
-    {
+    // singleton
+    public boolean isEmptyValueMeaningless() {
         return true;
     }
 
-    public <VL, VR> int compareCustom(VL left, ValueAccessor<VL> accessorL, VR right, ValueAccessor<VR> accessorR)
-    {
+    public <VL, VR> int compareCustom(VL left, ValueAccessor<VL> accessorL, VR right, ValueAccessor<VR> accessorR) {
         if (accessorL.isEmpty(left) || accessorR.isEmpty(right))
             return Boolean.compare(accessorR.isEmpty(right), accessorL.isEmpty(left));
         return accessorL.toUUID(left).compareTo(accessorR.toUUID(right));
     }
 
-    public ByteBuffer fromString(String source) throws MarshalException
-    {
+    public ByteBuffer fromString(String source) throws MarshalException {
         // Return an empty ByteBuffer for an empty string.
         if (source.isEmpty())
             return ByteBufferUtil.EMPTY_BYTE_BUFFER;
-
-        try
-        {
+        try {
             return decompose(UUID.fromString(source));
-        }
-        catch (IllegalArgumentException e)
-        {
+        } catch (IllegalArgumentException e) {
             throw new MarshalException(String.format("unable to make UUID from '%s'", source), e);
         }
     }
 
     @Override
-    public Term fromJSONObject(Object parsed) throws MarshalException
-    {
-        try
-        {
+    public Term fromJSONObject(Object parsed) throws MarshalException {
+        try {
             return new Constants.Value(fromString((String) parsed));
-        }
-        catch (ClassCastException exc)
-        {
-            throw new MarshalException(String.format(
-                    "Expected a string representation of a uuid, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
+        } catch (ClassCastException exc) {
+            throw new MarshalException(String.format("Expected a string representation of a uuid, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
         }
     }
 
-    public TypeSerializer<UUID> getSerializer()
-    {
+    public TypeSerializer<UUID> getSerializer() {
         return UUIDSerializer.instance;
     }
 
     @Override
-    public int valueLengthIfFixed()
-    {
+    public int valueLengthIfFixed() {
         return 16;
     }
 }

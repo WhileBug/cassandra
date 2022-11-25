@@ -15,28 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.compaction;
 
 import java.util.Set;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.lifecycle.LifecycleTransaction;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 
-public class TimeWindowCompactionTask extends CompactionTask
-{
-    private final boolean ignoreOverlaps;
+public class TimeWindowCompactionTask extends CompactionTask {
 
-    public TimeWindowCompactionTask(ColumnFamilyStore cfs, LifecycleTransaction txn, int gcBefore, boolean ignoreOverlaps)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TimeWindowCompactionTask.class);
+
+    private final transient boolean ignoreOverlaps;
+
+    public TimeWindowCompactionTask(ColumnFamilyStore cfs, LifecycleTransaction txn, int gcBefore, boolean ignoreOverlaps) {
         super(cfs, txn, gcBefore);
         this.ignoreOverlaps = ignoreOverlaps;
     }
 
     @Override
-    public CompactionController getCompactionController(Set<SSTableReader> toCompact)
-    {
+    public CompactionController getCompactionController(Set<SSTableReader> toCompact) {
         return new TimeWindowCompactionController(cfs, toCompact, gcBefore, ignoreOverlaps);
     }
 }

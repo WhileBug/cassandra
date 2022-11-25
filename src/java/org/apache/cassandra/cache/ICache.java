@@ -24,8 +24,10 @@ import java.util.Iterator;
  * and does not require put or remove to return values, which lets SerializingCache
  * be more efficient by avoiding deserialize except on get.
  */
-public interface ICache<K, V> extends CacheSize
-{
+public interface ICache<K, V> extends CacheSize {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ICache.class);
+
     public void put(K key, V value);
 
     public boolean putIfAbsent(K key, V value);

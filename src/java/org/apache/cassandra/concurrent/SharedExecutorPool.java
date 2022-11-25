@@ -26,7 +26,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.LockSupport;
-
 import static org.apache.cassandra.concurrent.SEPWorker.Work;
 
 /**
@@ -54,53 +53,53 @@ import static org.apache.cassandra.concurrent.SEPWorker.Work;
  * themselves when it is detected that there are too many for the current rate of operation arrival. This is decided as a function
  * of the total time spent spinning by all workers in an interval; as more workers spin, workers are descheduled more rapidly.
  */
-public class SharedExecutorPool
-{
+public class SharedExecutorPool {
 
-    public static final SharedExecutorPool SHARED = new SharedExecutorPool("SharedPool");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SharedExecutorPool.class);
+
+    public static final transient SharedExecutorPool SHARED = new SharedExecutorPool("SharedPool");
 
     // the name assigned to workers in the pool, and the id suffix
-    final String poolName;
-    final AtomicLong workerId = new AtomicLong();
+    final transient String poolName;
+
+    final transient AtomicLong workerId = new AtomicLong();
 
     // the collection of executors serviced by this pool; periodically ordered by traffic volume
-    public final List<SEPExecutor> executors = new CopyOnWriteArrayList<>();
+    public final transient List<SEPExecutor> executors = new CopyOnWriteArrayList<>();
 
     // the number of workers currently in a spinning state
-    final AtomicInteger spinningCount = new AtomicInteger();
+    final transient AtomicInteger spinningCount = new AtomicInteger();
+
     // see SEPWorker.maybeStop() - used to self coordinate stopping of threads
-    final AtomicLong stopCheck = new AtomicLong();
+    final transient AtomicLong stopCheck = new AtomicLong();
+
     // the collection of threads that are (most likely) in a spinning state - new workers are scheduled from here first
     // TODO: consider using a queue partially-ordered by scheduled wake-up time
     // (a full-fledged correctly ordered SkipList is overkill)
-    final ConcurrentSkipListMap<Long, SEPWorker> spinning = new ConcurrentSkipListMap<>();
+    final transient ConcurrentSkipListMap<Long, SEPWorker> spinning = new ConcurrentSkipListMap<>();
+
     // the collection of threads that have been asked to stop/deschedule - new workers are scheduled from here last
-    final ConcurrentSkipListMap<Long, SEPWorker> descheduled = new ConcurrentSkipListMap<>();
+    final transient ConcurrentSkipListMap<Long, SEPWorker> descheduled = new ConcurrentSkipListMap<>();
 
-    volatile boolean shuttingDown = false;
+    volatile transient boolean shuttingDown = false;
 
-    public SharedExecutorPool(String poolName)
-    {
+    public SharedExecutorPool(String poolName) {
         this.poolName = poolName;
     }
 
-    void schedule(Work work)
-    {
+    void schedule(Work work) {
         // we try to hand-off our work to the spinning queue before the descheduled queue, even though we expect it to be empty
         // all we're doing here is hoping to find a worker without work to do, but it doesn't matter too much what we find;
         // we atomically set the task so even if this were a collection of all workers it would be safe, and if they are both
         // empty we schedule a new thread
         Map.Entry<Long, SEPWorker> e;
-        while (null != (e = spinning.pollFirstEntry()) || null != (e = descheduled.pollFirstEntry()))
-            if (e.getValue().assign(work, false))
-                return;
-
+        while (null != (e = spinning.pollFirstEntry()) || null != (e = descheduled.pollFirstEntry())) if (e.getValue().assign(work, false))
+            return;
         if (!work.isStop())
             new SEPWorker(workerId.incrementAndGet(), work, this);
     }
 
-    void maybeStartSpinningWorker()
-    {
+    void maybeStartSpinningWorker() {
         // in general the workers manage spinningCount directly; however if it is zero, we increment it atomically
         // ourselves to avoid starting a worker unless we have to
         int current = spinningCount.get();
@@ -108,47 +107,36 @@ public class SharedExecutorPool
             schedule(Work.SPINNING);
     }
 
-    public synchronized LocalAwareExecutorService newExecutor(int maxConcurrency, String jmxPath, String name)
-    {
-        return newExecutor(maxConcurrency, i -> {}, jmxPath, name);
+    public synchronized LocalAwareExecutorService newExecutor(int maxConcurrency, String jmxPath, String name) {
+        return newExecutor(maxConcurrency, i -> {
+        }, jmxPath, name);
     }
 
-    public LocalAwareExecutorService newExecutor(int maxConcurrency, LocalAwareExecutorService.MaximumPoolSizeListener maximumPoolSizeListener, String jmxPath, String name)
-    {
+    public LocalAwareExecutorService newExecutor(int maxConcurrency, LocalAwareExecutorService.MaximumPoolSizeListener maximumPoolSizeListener, String jmxPath, String name) {
         SEPExecutor executor = new SEPExecutor(this, maxConcurrency, maximumPoolSizeListener, jmxPath, name);
         executors.add(executor);
         return executor;
     }
 
-    public synchronized void shutdownAndWait(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException
-    {
+    public synchronized void shutdownAndWait(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException {
         shuttingDown = true;
-        for (SEPExecutor executor : executors)
-            executor.shutdownNow();
-
+        for (SEPExecutor executor : executors) executor.shutdownNow();
         terminateWorkers();
-
         long until = System.nanoTime() + unit.toNanos(timeout);
-        for (SEPExecutor executor : executors)
-        {
+        for (SEPExecutor executor : executors) {
             executor.shutdown.await(until - System.nanoTime(), TimeUnit.NANOSECONDS);
             if (!executor.isTerminated())
                 throw new TimeoutException(executor.name + " not terminated");
         }
     }
 
-    void terminateWorkers()
-    {
+    void terminateWorkers() {
         assert shuttingDown;
-
         // To terminate our workers, we only need to unpark thread to make it runnable again,
         // so that the pool.shuttingDown boolean is checked. If work was already in the process
         // of being scheduled, worker will terminate upon running the task.
         Map.Entry<Long, SEPWorker> e;
-        while (null != (e = descheduled.pollFirstEntry()))
-            e.getValue().assign(Work.SPINNING, false);
-
-        while (null != (e = spinning.pollFirstEntry()))
-            LockSupport.unpark(e.getValue().thread);
+        while (null != (e = descheduled.pollFirstEntry())) e.getValue().assign(Work.SPINNING, false);
+        while (null != (e = spinning.pollFirstEntry())) LockSupport.unpark(e.getValue().thread);
     }
 }

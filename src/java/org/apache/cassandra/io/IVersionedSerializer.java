@@ -17,6 +17,7 @@
  */
 package org.apache.cassandra.io;
 
-public interface IVersionedSerializer<T> extends IVersionedAsymmetricSerializer<T, T>
-{
+public interface IVersionedSerializer<T> extends IVersionedAsymmetricSerializer<T, T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IVersionedSerializer.class);
 }

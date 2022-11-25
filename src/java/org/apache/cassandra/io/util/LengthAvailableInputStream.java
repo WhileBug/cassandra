@@ -25,74 +25,66 @@ import java.io.InputStream;
  * a FilterInputStream that returns the remaining bytes to read from available()
  * regardless of whether the device is ready to provide them.
  */
-public class LengthAvailableInputStream extends FilterInputStream
-{
-    private long remainingBytes;
+public class LengthAvailableInputStream extends FilterInputStream {
 
-    public LengthAvailableInputStream(InputStream in, long totalLength)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LengthAvailableInputStream.class);
+
+    private transient long remainingBytes;
+
+    public LengthAvailableInputStream(InputStream in, long totalLength) {
         super(in);
         remainingBytes = totalLength;
     }
 
     @Override
-    public int read() throws IOException
-    {
+    public int read() throws IOException {
         int b = in.read();
         --remainingBytes;
         return b;
     }
 
     @Override
-    public int read(byte[] b) throws IOException
-    {
+    public int read(byte[] b) throws IOException {
         int length = in.read(b);
         remainingBytes -= length;
         return length;
     }
 
     @Override
-    public int read(byte[] b, int off, int len) throws IOException
-    {
+    public int read(byte[] b, int off, int len) throws IOException {
         int length = in.read(b, off, len);
         remainingBytes -= length;
         return length;
     }
 
     @Override
-    public long skip(long n) throws IOException
-    {
+    public long skip(long n) throws IOException {
         long length = in.skip(n);
         remainingBytes -= length;
         return length;
     }
 
     @Override
-    public int available() throws IOException
-    {
-        return (remainingBytes <= 0) ? 0 : ((remainingBytes > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int)remainingBytes);
+    public int available() throws IOException {
+        return (remainingBytes <= 0) ? 0 : ((remainingBytes > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) remainingBytes);
     }
 
     @Override
-    public void close() throws IOException
-    {
+    public void close() throws IOException {
         in.close();
     }
 
     @Override
-    public synchronized void mark(int readlimit)
-    {
+    public synchronized void mark(int readlimit) {
     }
 
     @Override
-    public synchronized void reset() throws IOException
-    {
+    public synchronized void reset() throws IOException {
         throw new IOException("Mark/Reset not supported");
     }
 
     @Override
-    public boolean markSupported()
-    {
+    public boolean markSupported() {
         return false;
     }
 }

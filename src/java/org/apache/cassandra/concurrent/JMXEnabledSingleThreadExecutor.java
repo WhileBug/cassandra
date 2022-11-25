@@ -15,64 +15,57 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.concurrent;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-public class JMXEnabledSingleThreadExecutor extends JMXEnabledThreadPoolExecutor
-{
-    public JMXEnabledSingleThreadExecutor(String threadPoolName, String jmxPath)
-    {
+public class JMXEnabledSingleThreadExecutor extends JMXEnabledThreadPoolExecutor {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(JMXEnabledSingleThreadExecutor.class);
+
+    public JMXEnabledSingleThreadExecutor(String threadPoolName, String jmxPath) {
         super(1, Integer.MAX_VALUE, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), new SingleThreadFactory(threadPoolName), jmxPath);
     }
 
     @Override
-    public void setCoreThreads(int number)
-    {
+    public void setCoreThreads(int number) {
         throw new UnsupportedOperationException("Cannot change core pool size for single threaded executor.");
     }
 
     @Override
-    public void setMaximumThreads(int number)
-    {
+    public void setMaximumThreads(int number) {
         throw new UnsupportedOperationException("Cannot change max threads for single threaded executor.");
     }
 
     @Override
-    public void setMaximumPoolSize(int newMaximumPoolSize)
-    {
+    public void setMaximumPoolSize(int newMaximumPoolSize) {
         setMaximumThreads(newMaximumPoolSize);
     }
 
-    public boolean isExecutedBy(Thread test)
-    {
+    public boolean isExecutedBy(Thread test) {
         return getThreadFactory().thread == test;
     }
 
-    public SingleThreadFactory getThreadFactory()
-    {
+    public SingleThreadFactory getThreadFactory() {
         return (SingleThreadFactory) super.getThreadFactory();
     }
 
-    public void setThreadFactory(ThreadFactory threadFactory)
-    {
+    public void setThreadFactory(ThreadFactory threadFactory) {
         throw new UnsupportedOperationException();
     }
 
-    private static class SingleThreadFactory extends NamedThreadFactory
-    {
-        private volatile Thread thread;
-        SingleThreadFactory(String id)
-        {
+    private static class SingleThreadFactory extends NamedThreadFactory {
+
+        private volatile transient Thread thread;
+
+        SingleThreadFactory(String id) {
             super(id);
         }
 
         @Override
-        public Thread newThread(Runnable r)
-        {
+        public Thread newThread(Runnable r) {
             Thread thread = super.newThread(r);
             this.thread = thread;
             return thread;

@@ -19,15 +19,11 @@ package org.apache.cassandra.db.filter;
 
 import java.io.IOException;
 import java.util.*;
-
 import javax.annotation.Nullable;
-
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.TreeMultimap;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.CellPath;
@@ -67,19 +63,21 @@ import org.apache.cassandra.utils.CassandraVersion;
  * queried and the other ones are considered fetched (and if a column has some sub-selection, it must be a queried
  * column, which is actually enforced by the Builder below).
  */
-public abstract class ColumnFilter
-{
-    private final static Logger logger = LoggerFactory.getLogger(ColumnFilter.class);
+public abstract class ColumnFilter {
 
-    public static final ColumnFilter NONE = selection(RegularAndStaticColumns.NONE);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnFilter.class);
 
-    public static final Serializer serializer = new Serializer();
+    private final static transient Logger logger = LoggerFactory.getLogger(ColumnFilter.class);
+
+    public static final transient ColumnFilter NONE = selection(RegularAndStaticColumns.NONE);
+
+    public static final transient Serializer serializer = new Serializer();
 
     /**
      * The fetching strategy for the different queries.
      */
-    private enum FetchingStrategy
-    {
+    private enum FetchingStrategy {
+
         /**
          * This strategy will fetch all the regular and static columns.
          *
@@ -92,67 +90,61 @@ public abstract class ColumnFilter
          * where some nodes have a version lower than 4.0. To ensure backward compatibility with those version that interpret the
          * _fetchAll_ serialization flag as a true fetch all request.</p>
          */
-        ALL_COLUMNS
-        {
+        ALL_COLUMNS {
+
             @Override
-            boolean fetchesAllColumns(boolean isStatic)
-            {
+            boolean fetchesAllColumns(boolean isStatic) {
                 return true;
             }
 
             @Override
-            RegularAndStaticColumns getFetchedColumns(TableMetadata metadata, RegularAndStaticColumns queried)
-            {
+            RegularAndStaticColumns getFetchedColumns(TableMetadata metadata, RegularAndStaticColumns queried) {
                 return metadata.regularAndStaticColumns();
             }
-        },
-
+        }
+        ,
         /**
          * This strategy will fetch all the regular and selected static columns.
          *
          * <p>According to the CQL semantic a row exists if at least one of its columns is not null.
          * To ensure that we need to fetch all regular columns.</p>
          */
-        ALL_REGULARS_AND_QUERIED_STATICS_COLUMNS
-        {
+        ALL_REGULARS_AND_QUERIED_STATICS_COLUMNS {
+
             @Override
-            boolean fetchesAllColumns(boolean isStatic)
-            {
+            boolean fetchesAllColumns(boolean isStatic) {
                 return !isStatic;
             }
 
             @Override
-            RegularAndStaticColumns getFetchedColumns(TableMetadata metadata, RegularAndStaticColumns queried)
-            {
+            RegularAndStaticColumns getFetchedColumns(TableMetadata metadata, RegularAndStaticColumns queried) {
                 return new RegularAndStaticColumns(queried.statics, metadata.regularColumns());
             }
-        },
-
+        }
+        ,
         /**
          * Fetch only the columns that have been selected.
          *
          * <p>With this strategy _queried_ == _fetched_. This strategy is only used for internal queries.</p>
          */
-        ONLY_QUERIED_COLUMNS
-        {
+        ONLY_QUERIED_COLUMNS {
+
             @Override
-            boolean fetchesAllColumns(boolean isStatic)
-            {
+            boolean fetchesAllColumns(boolean isStatic) {
                 return false;
             }
 
             @Override
-            boolean areAllFetchedColumnsQueried()
-            {
+            boolean areAllFetchedColumnsQueried() {
                 return true;
             }
 
             @Override
-            RegularAndStaticColumns getFetchedColumns(TableMetadata metadata, RegularAndStaticColumns queried)
-            {
+            RegularAndStaticColumns getFetchedColumns(TableMetadata metadata, RegularAndStaticColumns queried) {
                 return queried;
             }
-        };
+        }
+        ;
 
         /**
          * Checks if the strategy fetch all the specified columns
@@ -167,8 +159,7 @@ public abstract class ColumnFilter
          *
          * @return {@code true} if all the fetched columns are guaranteed to be queried, {@code false} otherwise.
          */
-        boolean areAllFetchedColumnsQueried()
-        {
+        boolean areAllFetchedColumnsQueried() {
             return false;
         }
 
@@ -189,10 +180,8 @@ public abstract class ColumnFilter
      * the static columns was enough. That was not the case for queries that needed to return rows for empty partitions.
      * See CASSANDRA-16686 for more details.</p>
      */
-    private static boolean isUpgradingFromVersionLowerThan40RC2()
-    {
-        if (Gossiper.instance.isUpgradingFromVersionLowerThan(CassandraVersion.CASSANDRA_4_0_RC2))
-        {
+    private static boolean isUpgradingFromVersionLowerThan40RC2() {
+        if (Gossiper.instance.isUpgradingFromVersionLowerThan(CassandraVersion.CASSANDRA_4_0_RC2)) {
             logger.trace("ColumnFilter conversion has been applied so that static columns will not be fetched because there are pre 4.0-rc2 nodes in the cluster");
             return true;
         }
@@ -207,10 +196,8 @@ public abstract class ColumnFilter
      * Pre-4.0 the fetchAll flag meant that all the columns regular AND STATIC should be fetched whereas for 4.0
      * nodes it meant that only the regular columns and the queried static columns should be fetched.</p>
      */
-    private static boolean isUpgradingFromVersionLowerThan40()
-    {
-        if (Gossiper.instance.isUpgradingFromVersionLowerThan(CassandraVersion.CASSANDRA_4_0))
-        {
+    private static boolean isUpgradingFromVersionLowerThan40() {
+        if (Gossiper.instance.isUpgradingFromVersionLowerThan(CassandraVersion.CASSANDRA_4_0)) {
             logger.trace("ColumnFilter conversion has been applied so that all static columns will be fetched because there are pre 4.0 nodes in the cluster");
             return true;
         }
@@ -233,10 +220,8 @@ public abstract class ColumnFilter
      *
      * see CASSANDRA-10657, CASSANDRA-15833, CASSANDRA-16415
      */
-    private static boolean isUpgradingFromVersionLowerThan34()
-    {
-        if (Gossiper.instance.isUpgradingFromVersionLowerThan(CassandraVersion.CASSANDRA_3_4))
-        {
+    private static boolean isUpgradingFromVersionLowerThan34() {
+        if (Gossiper.instance.isUpgradingFromVersionLowerThan(CassandraVersion.CASSANDRA_3_4)) {
             logger.trace("ColumnFilter conversion has been applied so that all columns will be queried because there are pre 3.4 nodes in the cluster");
             return true;
         }
@@ -246,8 +231,7 @@ public abstract class ColumnFilter
     /**
      * A filter that includes all columns for the provided table.
      */
-    public static ColumnFilter all(TableMetadata metadata)
-    {
+    public static ColumnFilter all(TableMetadata metadata) {
         return new WildCardColumnFilter(metadata.regularAndStaticColumns());
     }
 
@@ -258,8 +242,7 @@ public abstract class ColumnFilter
      * preserve CQL semantic (see class javadoc). This is ok for some internal queries however (and
      * for #6588 if/when we implement it).
      */
-    public static ColumnFilter selection(RegularAndStaticColumns columns)
-    {
+    public static ColumnFilter selection(RegularAndStaticColumns columns) {
         return SelectionColumnFilter.newInstance(FetchingStrategy.ONLY_QUERIED_COLUMNS, null, columns, null);
     }
 
@@ -267,30 +250,21 @@ public abstract class ColumnFilter
      * A filter that fetches all columns for the provided table, but returns
      * only the queried ones.
      */
-    public static ColumnFilter selection(TableMetadata metadata,
-                                         RegularAndStaticColumns queried,
-                                         boolean returnStaticContentOnPartitionWithNoRows)
-    {
+    public static ColumnFilter selection(TableMetadata metadata, RegularAndStaticColumns queried, boolean returnStaticContentOnPartitionWithNoRows) {
         // pre CASSANDRA-10657 (3.4-), when fetchAll is enabled, queried columns are not considered at all, and it
         // is assumed that all columns are queried.
-        if (isUpgradingFromVersionLowerThan34())
-        {
+        if (isUpgradingFromVersionLowerThan34()) {
             return new WildCardColumnFilter(metadata.regularAndStaticColumns());
         }
-
         // pre CASSANDRA-12768 (4.0-) all static columns should be fetched along with all regular columns.
-        if (isUpgradingFromVersionLowerThan40())
-        {
+        if (isUpgradingFromVersionLowerThan40()) {
             return SelectionColumnFilter.newInstance(FetchingStrategy.ALL_COLUMNS, metadata, queried, null);
         }
-
         // pre CASSANDRA-16686 (4.0-RC2-) static columns were not fetched unless queried which led to some wrong
         // results for some queries
-        if (!returnStaticContentOnPartitionWithNoRows || isUpgradingFromVersionLowerThan40RC2())
-        {
+        if (!returnStaticContentOnPartitionWithNoRows || isUpgradingFromVersionLowerThan40RC2()) {
             return SelectionColumnFilter.newInstance(FetchingStrategy.ALL_REGULARS_AND_QUERIED_STATICS_COLUMNS, metadata, queried, null);
         }
-
         return SelectionColumnFilter.newInstance(FetchingStrategy.ALL_COLUMNS, metadata, queried, null);
     }
 
@@ -370,8 +344,7 @@ public abstract class ColumnFilter
      *
      * @return {@code true} if this {@code ColumnFilter} is for a wildcard query, {@code false} otherwise.
      */
-    public boolean isWildcard()
-    {
+    public boolean isWildcard() {
         return false;
     }
 
@@ -397,57 +370,52 @@ public abstract class ColumnFilter
      * @param returnStaticContentOnPartitionWithNoRows {@code true} if the query must return static contents if the partition has no row,
      * {@code false} otherwise.
      */
-    public static Builder allRegularColumnsBuilder(TableMetadata metadata, boolean returnStaticContentOnPartitionWithNoRows)
-    {
+    public static Builder allRegularColumnsBuilder(TableMetadata metadata, boolean returnStaticContentOnPartitionWithNoRows) {
         return new Builder(metadata, returnStaticContentOnPartitionWithNoRows);
     }
 
     /**
      * Returns a {@code ColumnFilter} builder that only fetches the columns/cells added to the builder.
      */
-    public static Builder selectionBuilder()
-    {
+    public static Builder selectionBuilder() {
         return new Builder(null, false);
     }
 
-    public static class Tester
-    {
-        private final boolean isFetched;
-        private ColumnSubselection current;
-        private final Iterator<ColumnSubselection> iterator;
+    public static class Tester {
 
-        private Tester(boolean isFetched, Iterator<ColumnSubselection> iterator)
-        {
+        private final transient boolean isFetched;
+
+        private transient ColumnSubselection current;
+
+        private final transient Iterator<ColumnSubselection> iterator;
+
+        private Tester(boolean isFetched, Iterator<ColumnSubselection> iterator) {
             this.isFetched = isFetched;
             this.iterator = iterator;
         }
 
-        public boolean fetches(CellPath path)
-        {
+        public boolean fetches(CellPath path) {
             return isFetched || hasSubselection(path);
         }
 
         /**
          * Must only be called if {@code fetches(path) == true}.
          */
-        public boolean fetchedCellIsQueried(CellPath path)
-        {
+        public boolean fetchedCellIsQueried(CellPath path) {
             return !isFetched || hasSubselection(path);
         }
 
-        private boolean hasSubselection(CellPath path)
-        {
-            while (current != null || iterator.hasNext())
-            {
+        private boolean hasSubselection(CellPath path) {
+            while (current != null || iterator.hasNext()) {
                 if (current == null)
                     current = iterator.next();
-
                 int cmp = current.compareInclusionOf(path);
-                if (cmp == 0) // The path is included
+                if (// The path is included
+                cmp == 0)
                     return true;
-                else if (cmp < 0) // The path is before this sub-selection, it's not included by any
+                else if (// The path is before this sub-selection, it's not included by any
+                cmp < 0)
                     return false;
-
                 // the path is after this sub-selection, we need to check the next one.
                 current = null;
             }
@@ -473,31 +441,29 @@ public abstract class ColumnFilter
      * queried and the sub-selection(s) will be ignored. This is done for correctness of CQL where
      * if you do "SELECT m, m[2..5]", you are really querying the whole collection.
      */
-    public static class Builder
-    {
-        private final TableMetadata metadata; // null if we don't fetch all columns
+    public static class Builder {
+
+        // null if we don't fetch all columns
+        private final transient TableMetadata metadata;
 
         /**
          * {@code true} if the query must return static contents if the partition has no row, {@code false} otherwise.
          */
-        private final boolean returnStaticContentOnPartitionWithNoRows;
+        private final transient boolean returnStaticContentOnPartitionWithNoRows;
 
-        private RegularAndStaticColumns.Builder queriedBuilder;
+        private transient RegularAndStaticColumns.Builder queriedBuilder;
 
-        private List<ColumnSubselection> subSelections;
+        private transient List<ColumnSubselection> subSelections;
 
-        private Set<ColumnMetadata> fullySelectedComplexColumns;
+        private transient Set<ColumnMetadata> fullySelectedComplexColumns;
 
-        private Builder(TableMetadata metadata, boolean returnStaticContentOnPartitionWithNoRows)
-        {
+        private Builder(TableMetadata metadata, boolean returnStaticContentOnPartitionWithNoRows) {
             this.metadata = metadata;
             this.returnStaticContentOnPartitionWithNoRows = returnStaticContentOnPartitionWithNoRows;
         }
 
-        public Builder add(ColumnMetadata c)
-        {
-            if (c.isComplex() && c.type.isMultiCell())
-            {
+        public Builder add(ColumnMetadata c) {
+            if (c.isComplex() && c.type.isMultiCell()) {
                 if (fullySelectedComplexColumns == null)
                     fullySelectedComplexColumns = new HashSet<>();
                 fullySelectedComplexColumns.add(c);
@@ -505,26 +471,21 @@ public abstract class ColumnFilter
             return addInternal(c);
         }
 
-        public Builder addAll(Iterable<ColumnMetadata> columns)
-        {
-            for (ColumnMetadata column : columns)
-                add(column);
+        public Builder addAll(Iterable<ColumnMetadata> columns) {
+            for (ColumnMetadata column : columns) add(column);
             return this;
         }
 
-        private Builder addInternal(ColumnMetadata c)
-        {
+        private Builder addInternal(ColumnMetadata c) {
             if (c.isPrimaryKeyColumn())
                 return this;
-
             if (queriedBuilder == null)
                 queriedBuilder = RegularAndStaticColumns.builder();
             queriedBuilder.add(c);
             return this;
         }
 
-        private Builder addSubSelection(ColumnSubselection subSelection)
-        {
+        private Builder addSubSelection(ColumnSubselection subSelection) {
             ColumnMetadata column = subSelection.column();
             assert column.isComplex() && column.type.isMultiCell();
             addInternal(column);
@@ -534,79 +495,60 @@ public abstract class ColumnFilter
             return this;
         }
 
-        public Builder slice(ColumnMetadata c, CellPath from, CellPath to)
-        {
+        public Builder slice(ColumnMetadata c, CellPath from, CellPath to) {
             return addSubSelection(ColumnSubselection.slice(c, from, to));
         }
 
-        public Builder select(ColumnMetadata c, CellPath elt)
-        {
+        public Builder select(ColumnMetadata c, CellPath elt) {
             return addSubSelection(ColumnSubselection.element(c, elt));
         }
 
-        public ColumnFilter build()
-        {
+        public ColumnFilter build() {
             boolean isFetchAll = metadata != null;
-
             RegularAndStaticColumns queried = queriedBuilder == null ? null : queriedBuilder.build();
-
             // It's only ok to have queried == null in ColumnFilter if isFetchAll. So deal with the case of a selectionBuilder
             // with nothing selected (we can at least happen on some backward compatible queries - CASSANDRA-10471).
             if (!isFetchAll && queried == null)
                 queried = RegularAndStaticColumns.NONE;
-
             SortedSetMultimap<ColumnIdentifier, ColumnSubselection> s = buildSubSelections();
-
-            if (isFetchAll)
-            {
+            if (isFetchAll) {
                 // When fetchAll is enabled on pre CASSANDRA-10657 (3.4-), queried columns are not considered at all, and it
                 // is assumed that all columns are queried. CASSANDRA-10657 (3.4+) brings back skipping values of columns
                 // which are not in queried set when fetchAll is enabled. That makes exactly the same filter being
                 // interpreted in a different way on 3.4- and 3.4+.
-                //
+                // 
                 // Moreover, there is no way to convert the filter with fetchAll and queried != null so that it is
                 // interpreted the same way on 3.4- because that Cassandra version does not support such filtering.
-                //
+                // 
                 // In order to avoid inconsitencies in data read by 3.4- and 3.4+ we need to avoid creation of incompatible
                 // filters when the cluster contains 3.4- nodes. We do that by forcibly setting queried to null.
-                //
+                // 
                 // see CASSANDRA-10657, CASSANDRA-15833, CASSANDRA-16415
-                if (queried == null || isUpgradingFromVersionLowerThan34())
-                {
+                if (queried == null || isUpgradingFromVersionLowerThan34()) {
                     return new WildCardColumnFilter(metadata.regularAndStaticColumns());
                 }
-
                 // pre CASSANDRA-12768 (4.0-) all static columns should be fetched along with all regular columns.
-                if (isUpgradingFromVersionLowerThan40())
-                {
+                if (isUpgradingFromVersionLowerThan40()) {
                     return SelectionColumnFilter.newInstance(FetchingStrategy.ALL_COLUMNS, metadata, queried, s);
                 }
-
                 // pre CASSANDRA-16686 (4.0-RC2-) static columns where not fetched unless queried witch lead to some wrong results
                 // for some queries
-                if (!returnStaticContentOnPartitionWithNoRows || isUpgradingFromVersionLowerThan40RC2())
-                {
+                if (!returnStaticContentOnPartitionWithNoRows || isUpgradingFromVersionLowerThan40RC2()) {
                     return SelectionColumnFilter.newInstance(FetchingStrategy.ALL_REGULARS_AND_QUERIED_STATICS_COLUMNS, metadata, queried, s);
                 }
-
                 return SelectionColumnFilter.newInstance(FetchingStrategy.ALL_COLUMNS, metadata, queried, s);
             }
-
             return SelectionColumnFilter.newInstance(FetchingStrategy.ONLY_QUERIED_COLUMNS, (TableMetadata) null, queried, s);
         }
 
-        private SortedSetMultimap<ColumnIdentifier, ColumnSubselection> buildSubSelections()
-        {
+        private SortedSetMultimap<ColumnIdentifier, ColumnSubselection> buildSubSelections() {
             if (subSelections == null)
                 return null;
-
             SortedSetMultimap<ColumnIdentifier, ColumnSubselection> s = TreeMultimap.create(Comparator.naturalOrder(), Comparator.naturalOrder());
-            for (ColumnSubselection subSelection : subSelections)
-            {
+            for (ColumnSubselection subSelection : subSelections) {
                 if (fullySelectedComplexColumns == null || !fullySelectedComplexColumns.contains(subSelection.column()))
                     s.put(subSelection.column().name, subSelection);
             }
-
             return s;
         }
     }
@@ -617,12 +559,12 @@ public abstract class ColumnFilter
      * <p>The class does not rely on TableMetadata and expects a fix set of columns to prevent issues
      * with Schema race propagation. See CASSANDRA-15899.</p>
      */
-    public static class WildCardColumnFilter extends ColumnFilter
-    {
+    public static class WildCardColumnFilter extends ColumnFilter {
+
         /**
          * The queried and fetched columns.
          */
-        private final RegularAndStaticColumns fetchedAndQueried;
+        private final transient RegularAndStaticColumns fetchedAndQueried;
 
         /**
          * Creates a {@code ColumnFilter} for wildcard queries.
@@ -632,99 +574,81 @@ public abstract class ColumnFilter
          *
          * @param fetchedAndQueried the fetched and queried columns
          */
-        private WildCardColumnFilter(RegularAndStaticColumns fetchedAndQueried)
-        {
+        private WildCardColumnFilter(RegularAndStaticColumns fetchedAndQueried) {
             this.fetchedAndQueried = fetchedAndQueried;
         }
 
         @Override
-        public RegularAndStaticColumns fetchedColumns()
-        {
+        public RegularAndStaticColumns fetchedColumns() {
             return fetchedAndQueried;
         }
 
         @Override
-        public RegularAndStaticColumns queriedColumns()
-        {
+        public RegularAndStaticColumns queriedColumns() {
             return fetchedAndQueried;
         }
 
         @Override
-        public boolean fetchesAllColumns(boolean isStatic)
-        {
+        public boolean fetchesAllColumns(boolean isStatic) {
             return true;
         }
 
         @Override
-        public boolean allFetchedColumnsAreQueried()
-        {
+        public boolean allFetchedColumnsAreQueried() {
             return true;
         }
 
         @Override
-        public boolean fetches(ColumnMetadata column)
-        {
+        public boolean fetches(ColumnMetadata column) {
             return true;
         }
 
         @Override
-        public boolean fetchedColumnIsQueried(ColumnMetadata column)
-        {
+        public boolean fetchedColumnIsQueried(ColumnMetadata column) {
             return true;
         }
 
         @Override
-        public boolean fetchedCellIsQueried(ColumnMetadata column, CellPath path)
-        {
+        public boolean fetchedCellIsQueried(ColumnMetadata column, CellPath path) {
             return true;
         }
 
         @Override
-        public Tester newTester(ColumnMetadata column)
-        {
+        public Tester newTester(ColumnMetadata column) {
             return null;
         }
 
         @Override
-        public boolean equals(Object other)
-        {
+        public boolean equals(Object other) {
             if (other == this)
                 return true;
-
             if (!(other instanceof WildCardColumnFilter))
                 return false;
-
             WildCardColumnFilter w = (WildCardColumnFilter) other;
-
             return fetchedAndQueried.equals(w.fetchedAndQueried);
         }
 
         @Override
-        public int hashCode()
-        {
+        public int hashCode() {
             return Objects.hash(fetchedAndQueried);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "*/*";
         }
 
-        public String toCQLString()
-        {
+        public String toCQLString() {
             return "*";
         }
 
         @Override
-        public boolean isWildcard()
-        {
+        public boolean isWildcard() {
             return true;
         }
 
         @Override
-        protected SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections()
-        {
+        protected SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections() {
             return null;
         }
     }
@@ -735,34 +659,27 @@ public abstract class ColumnFilter
      * <p>The class  does not rely on TableMetadata and expect a fix set of fetched columns to prevent issues
      * with Schema race propagation. See CASSANDRA-15899.</p>
      */
-    public static class SelectionColumnFilter extends ColumnFilter
-    {
-        public final FetchingStrategy fetchingStrategy;
+    public static class SelectionColumnFilter extends ColumnFilter {
+
+        public final transient FetchingStrategy fetchingStrategy;
 
         /**
          * The selected columns
          */
-        private final RegularAndStaticColumns queried;
+        private final transient RegularAndStaticColumns queried;
 
         /**
          * The columns that need to be fetched to be able
          */
-        private final RegularAndStaticColumns fetched;
+        private final transient RegularAndStaticColumns fetched;
 
-        private final SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections; // can be null
+        // can be null
+        private final transient SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections;
 
-        public static SelectionColumnFilter newInstance(FetchingStrategy fetchingStrategy,
-                                                        TableMetadata metadata,
-                                                        RegularAndStaticColumns queried,
-                                                        SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections)
-        {
+        public static SelectionColumnFilter newInstance(FetchingStrategy fetchingStrategy, TableMetadata metadata, RegularAndStaticColumns queried, SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections) {
             assert fetchingStrategy != FetchingStrategy.ONLY_QUERIED_COLUMNS || metadata == null;
             assert queried != null;
-
-            return new SelectionColumnFilter(fetchingStrategy,
-                                             queried,
-                                             fetchingStrategy.getFetchedColumns(metadata, queried),
-                                             subSelections);
+            return new SelectionColumnFilter(fetchingStrategy, queried, fetchingStrategy.getFetchedColumns(metadata, queried), subSelections);
         }
 
         /**
@@ -776,14 +693,9 @@ public abstract class ColumnFilter
          * @param queried the queried columns
          * @param subSelections the columns sub-selections
          */
-        public SelectionColumnFilter(FetchingStrategy fetchingStrategy,
-                                     RegularAndStaticColumns queried,
-                                     RegularAndStaticColumns fetched,
-                                     SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections)
-        {
+        public SelectionColumnFilter(FetchingStrategy fetchingStrategy, RegularAndStaticColumns queried, RegularAndStaticColumns fetched, SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections) {
             assert queried != null;
             assert fetched.includes(queried);
-
             this.fetchingStrategy = fetchingStrategy;
             this.queried = queried;
             this.fetched = fetched;
@@ -791,32 +703,27 @@ public abstract class ColumnFilter
         }
 
         @Override
-        public RegularAndStaticColumns fetchedColumns()
-        {
+        public RegularAndStaticColumns fetchedColumns() {
             return fetched;
         }
 
         @Override
-        public RegularAndStaticColumns queriedColumns()
-        {
+        public RegularAndStaticColumns queriedColumns() {
             return queried;
         }
 
         @Override
-        public boolean fetchesAllColumns(boolean isStatic)
-        {
+        public boolean fetchesAllColumns(boolean isStatic) {
             return fetchingStrategy.fetchesAllColumns(isStatic);
         }
 
         @Override
-        public boolean allFetchedColumnsAreQueried()
-        {
+        public boolean allFetchedColumnsAreQueried() {
             return fetchingStrategy.areAllFetchedColumnsQueried();
         }
 
         @Override
-        public boolean fetches(ColumnMetadata column)
-        {
+        public boolean fetches(ColumnMetadata column) {
             return fetchingStrategy.fetchesAllColumns(column.isStatic()) || fetched.contains(column);
         }
 
@@ -829,114 +736,79 @@ public abstract class ColumnFilter
          * to use the {@link #fetches} method.
          */
         @Override
-        public boolean fetchedColumnIsQueried(ColumnMetadata column)
-        {
+        public boolean fetchedColumnIsQueried(ColumnMetadata column) {
             return fetchingStrategy.areAllFetchedColumnsQueried() || queried.contains(column);
         }
 
         @Override
-        public boolean fetchedCellIsQueried(ColumnMetadata column, CellPath path)
-        {
+        public boolean fetchedCellIsQueried(ColumnMetadata column, CellPath path) {
             assert path != null;
-
             // first verify that the column to which the cell belongs is queried
             if (!fetchedColumnIsQueried(column))
                 return false;
-
             if (subSelections == null)
                 return true;
-
             SortedSet<ColumnSubselection> s = subSelections.get(column.name);
             // No subsection for this column means everything is queried
             if (s.isEmpty())
                 return true;
-
-            for (ColumnSubselection subSel : s)
-                if (subSel.compareInclusionOf(path) == 0)
-                    return true;
-
+            for (ColumnSubselection subSel : s) if (subSel.compareInclusionOf(path) == 0)
+                return true;
             return false;
         }
 
         @Override
-        public Tester newTester(ColumnMetadata column)
-        {
+        public Tester newTester(ColumnMetadata column) {
             if (subSelections == null || !column.isComplex())
                 return null;
-
             SortedSet<ColumnSubselection> s = subSelections.get(column.name);
             if (s.isEmpty())
                 return null;
-
             return new Tester(fetchingStrategy.fetchesAllColumns(column.isStatic()), s.iterator());
         }
 
         @Override
-        protected SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections()
-        {
+        protected SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections() {
             return subSelections;
         }
 
         @Override
-        public boolean equals(Object other)
-        {
+        public boolean equals(Object other) {
             if (other == this)
                 return true;
-
             if (!(other instanceof SelectionColumnFilter))
                 return false;
-
             SelectionColumnFilter otherCf = (SelectionColumnFilter) other;
-
-            return otherCf.fetchingStrategy == this.fetchingStrategy &&
-                   Objects.equals(otherCf.queried, this.queried) &&
-                   Objects.equals(otherCf.fetched, this.fetched) &&
-                   Objects.equals(otherCf.subSelections, this.subSelections);
+            return otherCf.fetchingStrategy == this.fetchingStrategy && Objects.equals(otherCf.queried, this.queried) && Objects.equals(otherCf.fetched, this.fetched) && Objects.equals(otherCf.subSelections, this.subSelections);
         }
 
         @Override
-        public int hashCode()
-        {
+        public int hashCode() {
             return Objects.hash(fetchingStrategy, queried, fetched, subSelections);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             String prefix = "";
-
             if (fetchingStrategy.fetchesAllColumns(true))
                 prefix = "*/";
-
-            if (fetchingStrategy == FetchingStrategy.ALL_REGULARS_AND_QUERIED_STATICS_COLUMNS)
-            {
-                prefix = queried.statics.isEmpty()
-                       ? "<all regulars>/"
-                       : String.format("<all regulars>+%s/", toString(queried.statics.selectOrderIterator(), false));
+            if (fetchingStrategy == FetchingStrategy.ALL_REGULARS_AND_QUERIED_STATICS_COLUMNS) {
+                prefix = queried.statics.isEmpty() ? "<all regulars>/" : String.format("<all regulars>+%s/", toString(queried.statics.selectOrderIterator(), false));
             }
-
             return prefix + toString(queried.selectOrderIterator(), false);
         }
 
         @Override
-        public String toCQLString()
-        {
+        public String toCQLString() {
             return queried.isEmpty() ? "*" : toString(queried.selectOrderIterator(), true);
         }
 
-        private String toString(Iterator<ColumnMetadata> columns, boolean cql)
-        {
+        private String toString(Iterator<ColumnMetadata> columns, boolean cql) {
             StringJoiner joiner = cql ? new StringJoiner(", ") : new StringJoiner(", ", "[", "]");
-
-            while (columns.hasNext())
-            {
+            while (columns.hasNext()) {
                 ColumnMetadata column = columns.next();
                 String columnName = cql ? column.name.toCQLString() : String.valueOf(column.name);
-
-                SortedSet<ColumnSubselection> s = subSelections != null
-                                                ? subSelections.get(column.name)
-                                                : Collections.emptySortedSet();
-
+                SortedSet<ColumnSubselection> s = subSelections != null ? subSelections.get(column.name) : Collections.emptySortedSet();
                 if (s.isEmpty())
                     joiner.add(columnName);
                 else
@@ -946,63 +818,48 @@ public abstract class ColumnFilter
         }
     }
 
-    public static class Serializer
-    {
+    public static class Serializer {
+
         // Prior to 4.0 the FETCH_ALL flag meant fetch all regular and static columns. From 4.0 onward it meant
         // fetch all regular columns and queried static columns
-        private static final int FETCH_ALL_MASK = 0x01;
-        private static final int HAS_QUERIED_MASK = 0x02;
-        private static final int HAS_SUB_SELECTIONS_MASK = 0x04;
+        private static final transient int FETCH_ALL_MASK = 0x01;
+
+        private static final transient int HAS_QUERIED_MASK = 0x02;
+
+        private static final transient int HAS_SUB_SELECTIONS_MASK = 0x04;
+
         // The FETCH_ALL_STATICS flag was added in CASSANDRA-16686 to allow 4.0 to handle queries that required
         // to return static data for empty partitions
-        private static final int FETCH_ALL_STATICS_MASK = 0x08;
+        private static final transient int FETCH_ALL_STATICS_MASK = 0x08;
 
-        private static int makeHeaderByte(ColumnFilter selection)
-        {
-            return (selection.fetchesAllColumns(false) ? FETCH_ALL_MASK : 0)
-                   | (!selection.isWildcard() ? HAS_QUERIED_MASK : 0)
-                   | (selection.subSelections() != null ? HAS_SUB_SELECTIONS_MASK : 0)
-                   | (selection.fetchesAllColumns(true) ? FETCH_ALL_STATICS_MASK : 0);
+        private static int makeHeaderByte(ColumnFilter selection) {
+            return (selection.fetchesAllColumns(false) ? FETCH_ALL_MASK : 0) | (!selection.isWildcard() ? HAS_QUERIED_MASK : 0) | (selection.subSelections() != null ? HAS_SUB_SELECTIONS_MASK : 0) | (selection.fetchesAllColumns(true) ? FETCH_ALL_STATICS_MASK : 0);
         }
 
-        public void serialize(ColumnFilter selection, DataOutputPlus out, int version) throws IOException
-        {
+        public void serialize(ColumnFilter selection, DataOutputPlus out, int version) throws IOException {
             out.writeByte(makeHeaderByte(selection));
-
-            if (version >= MessagingService.VERSION_3014 && selection.fetchesAllColumns(false))
-            {
+            if (version >= MessagingService.VERSION_3014 && selection.fetchesAllColumns(false)) {
                 serializeRegularAndStaticColumns(selection.fetchedColumns(), out);
             }
-
-            if (!selection.isWildcard())
-            {
+            if (!selection.isWildcard()) {
                 serializeRegularAndStaticColumns(selection.queriedColumns(), out);
             }
-
             serializeSubSelections(selection.subSelections(), out, version);
         }
 
-        private void serializeSubSelections(SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections,
-                                            DataOutputPlus out,
-                                            int version) throws IOException
-        {
-            if (subSelections != null)
-            {
+        private void serializeSubSelections(SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections, DataOutputPlus out, int version) throws IOException {
+            if (subSelections != null) {
                 out.writeUnsignedVInt(subSelections.size());
-                for (ColumnSubselection subSel : subSelections.values())
-                    ColumnSubselection.serializer.serialize(subSel, out, version);
+                for (ColumnSubselection subSel : subSelections.values()) ColumnSubselection.serializer.serialize(subSel, out, version);
             }
         }
 
-        private void serializeRegularAndStaticColumns(RegularAndStaticColumns regularAndStaticColumns,
-                                                      DataOutputPlus out) throws IOException
-        {
+        private void serializeRegularAndStaticColumns(RegularAndStaticColumns regularAndStaticColumns, DataOutputPlus out) throws IOException {
             Columns.serializer.serialize(regularAndStaticColumns.statics, out);
             Columns.serializer.serialize(regularAndStaticColumns.regulars, out);
         }
 
-        public ColumnFilter deserialize(DataInputPlus in, int version, TableMetadata metadata) throws IOException
-        {
+        public ColumnFilter deserialize(DataInputPlus in, int version, TableMetadata metadata) throws IOException {
             int header = in.readUnsignedByte();
             // The meaning of isFetchAll is actually different for pre-4.0 versions and for 4.0+ versions
             // In 4.0+ it meant is fetch all regulars
@@ -1010,118 +867,80 @@ public abstract class ColumnFilter
             boolean hasQueried = (header & HAS_QUERIED_MASK) != 0;
             boolean hasSubSelections = (header & HAS_SUB_SELECTIONS_MASK) != 0;
             boolean isFetchAllStatics = (header & FETCH_ALL_STATICS_MASK) != 0;
-
             RegularAndStaticColumns fetched = null;
             RegularAndStaticColumns queried = null;
-
-            if (isFetchAll)
-            {
-                if (version >= MessagingService.VERSION_3014)
-                {
+            if (isFetchAll) {
+                if (version >= MessagingService.VERSION_3014) {
                     fetched = deserializeRegularAndStaticColumns(in, metadata);
-                }
-                else
-                {
+                } else {
                     fetched = metadata.regularAndStaticColumns();
                 }
             }
-
-            if (hasQueried)
-            {
+            if (hasQueried) {
                 queried = deserializeRegularAndStaticColumns(in, metadata);
             }
-
             SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections = null;
-            if (hasSubSelections)
-            {
+            if (hasSubSelections) {
                 subSelections = deserializeSubSelection(in, version, metadata);
             }
-
-            if (isFetchAll)
-            {
+            if (isFetchAll) {
                 // pre CASSANDRA-10657 (3.4-), when fetchAll is enabled, queried columns are not considered at all, and it
                 // is assumed that all columns are queried.
-                if (!hasQueried || isUpgradingFromVersionLowerThan34())
-                {
+                if (!hasQueried || isUpgradingFromVersionLowerThan34()) {
                     return new WildCardColumnFilter(fetched);
                 }
-
                 // pre CASSANDRA-12768 (4.0-) all static columns should be fetched along with all regular columns.
-                if (isUpgradingFromVersionLowerThan40())
-                {
+                if (isUpgradingFromVersionLowerThan40()) {
                     return new SelectionColumnFilter(FetchingStrategy.ALL_COLUMNS, queried, fetched, subSelections);
                 }
-
                 // pre CASSANDRA-16686 (4.0-RC2-) static columns where not fetched unless queried witch lead to some wrong results
                 // for some queries
-                if (!isFetchAllStatics || isUpgradingFromVersionLowerThan40RC2())
-                {
+                if (!isFetchAllStatics || isUpgradingFromVersionLowerThan40RC2()) {
                     return new SelectionColumnFilter(FetchingStrategy.ALL_REGULARS_AND_QUERIED_STATICS_COLUMNS, queried, fetched, subSelections);
                 }
-
                 return new SelectionColumnFilter(FetchingStrategy.ALL_COLUMNS, queried, fetched, subSelections);
             }
-
             return new SelectionColumnFilter(FetchingStrategy.ONLY_QUERIED_COLUMNS, queried, queried, subSelections);
         }
 
-        private RegularAndStaticColumns deserializeRegularAndStaticColumns(DataInputPlus in,
-                                                                           TableMetadata metadata) throws IOException
-        {
+        private RegularAndStaticColumns deserializeRegularAndStaticColumns(DataInputPlus in, TableMetadata metadata) throws IOException {
             Columns statics = Columns.serializer.deserialize(in, metadata);
             Columns regulars = Columns.serializer.deserialize(in, metadata);
             return new RegularAndStaticColumns(statics, regulars);
         }
 
-        private SortedSetMultimap<ColumnIdentifier, ColumnSubselection> deserializeSubSelection(DataInputPlus in,
-                                                                                                int version,
-                                                                                                TableMetadata metadata) throws IOException
-        {
+        private SortedSetMultimap<ColumnIdentifier, ColumnSubselection> deserializeSubSelection(DataInputPlus in, int version, TableMetadata metadata) throws IOException {
             SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections = TreeMultimap.create(Comparator.naturalOrder(), Comparator.naturalOrder());
             int size = (int) in.readUnsignedVInt();
-            for (int i = 0; i < size; i++)
-            {
+            for (int i = 0; i < size; i++) {
                 ColumnSubselection subSel = ColumnSubselection.serializer.deserialize(in, version, metadata);
                 subSelections.put(subSel.column().name, subSel);
             }
             return subSelections;
         }
 
-        public long serializedSize(ColumnFilter selection, int version)
-        {
-            long size = 1; // header byte
-
-            if (version >= MessagingService.VERSION_3014 && selection.fetchesAllColumns(false))
-            {
+        public long serializedSize(ColumnFilter selection, int version) {
+            // header byte
+            long size = 1;
+            if (version >= MessagingService.VERSION_3014 && selection.fetchesAllColumns(false)) {
                 size += regularAndStaticColumnsSerializedSize(selection.fetchedColumns());
             }
-
-            if (!selection.isWildcard())
-            {
+            if (!selection.isWildcard()) {
                 size += regularAndStaticColumnsSerializedSize(selection.queriedColumns());
             }
-
             size += subSelectionsSerializedSize(selection.subSelections(), version);
-
             return size;
         }
 
-        private long regularAndStaticColumnsSerializedSize(RegularAndStaticColumns columns)
-        {
-            return Columns.serializer.serializedSize(columns.statics)
-                    + Columns.serializer.serializedSize(columns.regulars);
+        private long regularAndStaticColumnsSerializedSize(RegularAndStaticColumns columns) {
+            return Columns.serializer.serializedSize(columns.statics) + Columns.serializer.serializedSize(columns.regulars);
         }
 
-        private long subSelectionsSerializedSize(SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections,
-                                                 int version)
-        {
+        private long subSelectionsSerializedSize(SortedSetMultimap<ColumnIdentifier, ColumnSubselection> subSelections, int version) {
             if (subSelections == null)
                 return 0;
-
             int size = TypeSizes.sizeofUnsignedVInt(subSelections.size());
-            for (ColumnSubselection subSel : subSelections.values())
-                size += ColumnSubselection.serializer.serializedSize(subSel, version);
-
+            for (ColumnSubselection subSel : subSelections.values()) size += ColumnSubselection.serializer.serializedSize(subSel, version);
             return size;
         }
     }

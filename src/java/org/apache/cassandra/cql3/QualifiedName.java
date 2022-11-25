@@ -23,20 +23,21 @@ import java.util.Objects;
 /**
  * Class for the names of the keyspace-prefixed elements (e.g. table, index, view names)
  */
-public class QualifiedName
-{
+public class QualifiedName {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QualifiedName.class);
+
     /**
      * The keyspace name as stored internally.
      */
-    private String keyspace;
-    private String name;
+    private transient String keyspace;
 
-    public QualifiedName()
-    {
+    private transient String name;
+
+    public QualifiedName() {
     }
 
-    public QualifiedName(String keyspace, String name)
-    {
+    public QualifiedName(String keyspace, String name) {
         this.keyspace = keyspace;
         this.name = name;
     }
@@ -47,8 +48,7 @@ public class QualifiedName
      * @param ks the keyspace name
      * @param keepCase <code>true</code> if the case must be kept, <code>false</code> otherwise.
      */
-    public final void setKeyspace(String ks, boolean keepCase)
-    {
+    public final void setKeyspace(String ks, boolean keepCase) {
         keyspace = toInternalName(ks, keepCase);
     }
 
@@ -56,60 +56,46 @@ public class QualifiedName
      * Checks if the keyspace is specified.
      * @return <code>true</code> if the keyspace is specified, <code>false</code> otherwise.
      */
-    public final boolean hasKeyspace()
-    {
+    public final boolean hasKeyspace() {
         return keyspace != null;
     }
 
-    public final String getKeyspace()
-    {
+    public final String getKeyspace() {
         return keyspace;
     }
 
-    public void setName(String cf, boolean keepCase)
-    {
+    public void setName(String cf, boolean keepCase) {
         name = toInternalName(cf, keepCase);
     }
 
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
     @Override
-    public String toString()
-    {
-        return hasKeyspace()
-             ? String.format("%s.%s", keyspace, name)
-             : name;
+    public String toString() {
+        return hasKeyspace() ? String.format("%s.%s", keyspace, name) : name;
     }
 
     /**
      * Returns a string representation of the qualified name that is safe to use directly in CQL queries.
      * If necessary, the string will be double-quoted, and any quotes inside the string will be escaped.
      */
-    public String toCQLString()
-    {
+    public String toCQLString() {
         String nameQuotedIfNeeded = ColumnIdentifier.maybeQuote(name);
-        return hasKeyspace()
-             ? String.format("%s.%s", ColumnIdentifier.maybeQuote(keyspace), nameQuotedIfNeeded)
-             : nameQuotedIfNeeded;
+        return hasKeyspace() ? String.format("%s.%s", ColumnIdentifier.maybeQuote(keyspace), nameQuotedIfNeeded) : nameQuotedIfNeeded;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(keyspace, name);
     }
 
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof QualifiedName))
             return false;
-
         QualifiedName qn = (QualifiedName) o;
         return Objects.equals(keyspace, qn.keyspace) && name.equals(qn.name);
     }
@@ -121,8 +107,7 @@ public class QualifiedName
      * @param keepCase <code>true</code> if the case must be kept, <code>false</code> otherwise.
      * @return the name used internally.
      */
-    private static String toInternalName(String name, boolean keepCase)
-    {
+    private static String toInternalName(String name, boolean keepCase) {
         return keepCase ? name : name.toLowerCase(Locale.US);
     }
 }

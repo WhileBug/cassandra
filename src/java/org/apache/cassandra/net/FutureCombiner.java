@@ -20,7 +20,6 @@ package org.apache.cassandra.net;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.GlobalEventExecutor;
@@ -38,48 +37,40 @@ import io.netty.util.concurrent.Promise;
  * We extend FutureDelegate, and simply provide it an uncancellable Promise that will be completed by the listeners
  * registered to the input futures.
  */
-class FutureCombiner extends FutureDelegate<Void>
-{
-    private volatile boolean failed;
+class FutureCombiner extends FutureDelegate<Void> {
 
-    private volatile Throwable firstCause;
-    private static final AtomicReferenceFieldUpdater<FutureCombiner, Throwable> firstCauseUpdater =
-        AtomicReferenceFieldUpdater.newUpdater(FutureCombiner.class, Throwable.class, "firstCause");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FutureCombiner.class);
 
-    private volatile int waitingOn;
-    private static final AtomicIntegerFieldUpdater<FutureCombiner> waitingOnUpdater =
-        AtomicIntegerFieldUpdater.newUpdater(FutureCombiner.class, "waitingOn");
+    private volatile transient boolean failed;
 
-    FutureCombiner(Collection<? extends Future<?>> combine)
-    {
+    private volatile transient Throwable firstCause;
+
+    private static final transient AtomicReferenceFieldUpdater<FutureCombiner, Throwable> firstCauseUpdater = AtomicReferenceFieldUpdater.newUpdater(FutureCombiner.class, Throwable.class, "firstCause");
+
+    private volatile transient int waitingOn;
+
+    private static final transient AtomicIntegerFieldUpdater<FutureCombiner> waitingOnUpdater = AtomicIntegerFieldUpdater.newUpdater(FutureCombiner.class, "waitingOn");
+
+    FutureCombiner(Collection<? extends Future<?>> combine) {
         this(AsyncPromise.uncancellable(GlobalEventExecutor.INSTANCE), combine);
     }
 
-    private FutureCombiner(Promise<Void> combined, Collection<? extends Future<?>> combine)
-    {
+    private FutureCombiner(Promise<Void> combined, Collection<? extends Future<?>> combine) {
         super(combined);
-
         if (0 == (waitingOn = combine.size()))
             combined.trySuccess(null);
-
-        GenericFutureListener<? extends Future<Object>> listener = result ->
-        {
-            if (!result.isSuccess())
-            {
+        GenericFutureListener<? extends Future<Object>> listener = result -> {
+            if (!result.isSuccess()) {
                 firstCauseUpdater.compareAndSet(this, null, result.cause());
                 failed = true;
             }
-
-            if (0 == waitingOnUpdater.decrementAndGet(this))
-            {
+            if (0 == waitingOnUpdater.decrementAndGet(this)) {
                 if (failed)
                     combined.tryFailure(firstCause);
                 else
                     combined.trySuccess(null);
             }
         };
-
-        for (Future<?> future : combine)
-            future.addListener(listener);
+        for (Future<?> future : combine) future.addListener(listener);
     }
 }

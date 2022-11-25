@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.dht.tokenallocator;
 
 import java.util.Collection;
@@ -23,11 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Queue;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
-
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.dht.tokenallocator.TokenAllocatorBase.TokenInfo;
 import org.apache.cassandra.dht.tokenallocator.TokenAllocatorBase.UnitInfo;
@@ -38,159 +35,66 @@ import org.apache.cassandra.diag.DiagnosticEventService;
 /**
  * Utility methods for DiagnosticEvent around {@link TokenAllocator} activities.
  */
-final class TokenAllocatorDiagnostics
-{
-    private static final DiagnosticEventService service = DiagnosticEventService.instance();
+final class TokenAllocatorDiagnostics {
 
-    private TokenAllocatorDiagnostics()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenAllocatorDiagnostics.class);
+
+    private static final transient DiagnosticEventService service = DiagnosticEventService.instance();
+
+    private TokenAllocatorDiagnostics() {
     }
 
-    static <Unit> void noReplicationTokenAllocatorInstanciated(NoReplicationTokenAllocator<Unit> allocator)
-    {
+    static <Unit> void noReplicationTokenAllocatorInstanciated(NoReplicationTokenAllocator<Unit> allocator) {
         if (isEnabled(TokenAllocatorEventType.NO_REPLICATION_AWARE_TOKEN_ALLOCATOR_INSTANCIATED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.NO_REPLICATION_AWARE_TOKEN_ALLOCATOR_INSTANCIATED,
-                                                      allocator, null, null, null, null, null, null, null));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.NO_REPLICATION_AWARE_TOKEN_ALLOCATOR_INSTANCIATED, allocator, null, null, null, null, null, null, null));
     }
 
-    static <Unit> void replicationTokenAllocatorInstanciated(ReplicationAwareTokenAllocator<Unit> allocator)
-    {
+    static <Unit> void replicationTokenAllocatorInstanciated(ReplicationAwareTokenAllocator<Unit> allocator) {
         if (isEnabled(TokenAllocatorEventType.REPLICATION_AWARE_TOKEN_ALLOCATOR_INSTANCIATED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.REPLICATION_AWARE_TOKEN_ALLOCATOR_INSTANCIATED,
-                                                      allocator, null, null, null,null, null, null, null));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.REPLICATION_AWARE_TOKEN_ALLOCATOR_INSTANCIATED, allocator, null, null, null, null, null, null, null));
     }
 
-    static <Unit> void unitedAdded(TokenAllocatorBase<Unit> allocator, int numTokens,
-                                   Queue<Weighted<UnitInfo>> sortedUnits, NavigableMap<Token, Unit> sortedTokens,
-                                   List<Token> tokens, Unit unit)
-    {
+    static <Unit> void unitedAdded(TokenAllocatorBase<Unit> allocator, int numTokens, Queue<Weighted<UnitInfo>> sortedUnits, NavigableMap<Token, Unit> sortedTokens, List<Token> tokens, Unit unit) {
         if (isEnabled(TokenAllocatorEventType.UNIT_ADDED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.UNIT_ADDED,
-                                                      allocator,
-                                                      numTokens,
-                                                      ImmutableList.copyOf(sortedUnits),
-                                                      null,
-                                                      ImmutableMap.copyOf(sortedTokens),
-                                                      ImmutableList.copyOf(tokens),
-                                                      unit,
-                                                      null));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.UNIT_ADDED, allocator, numTokens, ImmutableList.copyOf(sortedUnits), null, ImmutableMap.copyOf(sortedTokens), ImmutableList.copyOf(tokens), unit, null));
     }
 
-    static <Unit> void unitedAdded(TokenAllocatorBase<Unit> allocator, int numTokens,
-                                   Multimap<Unit, Token> unitToTokens, NavigableMap<Token, Unit> sortedTokens,
-                                   List<Token> tokens, Unit unit)
-    {
+    static <Unit> void unitedAdded(TokenAllocatorBase<Unit> allocator, int numTokens, Multimap<Unit, Token> unitToTokens, NavigableMap<Token, Unit> sortedTokens, List<Token> tokens, Unit unit) {
         if (isEnabled(TokenAllocatorEventType.UNIT_ADDED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.UNIT_ADDED,
-                                                      allocator,
-                                                      numTokens,
-                                                      null,
-                                                      ImmutableMap.copyOf(unitToTokens.asMap()),
-                                                      ImmutableMap.copyOf(sortedTokens),
-                                                      ImmutableList.copyOf(tokens),
-                                                      unit,
-                                                      null));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.UNIT_ADDED, allocator, numTokens, null, ImmutableMap.copyOf(unitToTokens.asMap()), ImmutableMap.copyOf(sortedTokens), ImmutableList.copyOf(tokens), unit, null));
     }
 
-
-    static <Unit> void unitRemoved(TokenAllocatorBase<Unit> allocator, Unit unit,
-                                   Queue<Weighted<UnitInfo>> sortedUnits, Map<Token, Unit> sortedTokens)
-    {
+    static <Unit> void unitRemoved(TokenAllocatorBase<Unit> allocator, Unit unit, Queue<Weighted<UnitInfo>> sortedUnits, Map<Token, Unit> sortedTokens) {
         if (isEnabled(TokenAllocatorEventType.UNIT_REMOVED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.UNIT_REMOVED,
-                                                      allocator,
-                                                      null,
-                                                      ImmutableList.copyOf(sortedUnits),
-                                                      null,
-                                                      ImmutableMap.copyOf(sortedTokens),
-                                                      null,
-                                                      unit,
-                                                      null));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.UNIT_REMOVED, allocator, null, ImmutableList.copyOf(sortedUnits), null, ImmutableMap.copyOf(sortedTokens), null, unit, null));
     }
 
-    static <Unit> void unitRemoved(TokenAllocatorBase<Unit> allocator, Unit unit,
-                                   Multimap<Unit, Token> unitToTokens, Map<Token, Unit> sortedTokens)
-    {
+    static <Unit> void unitRemoved(TokenAllocatorBase<Unit> allocator, Unit unit, Multimap<Unit, Token> unitToTokens, Map<Token, Unit> sortedTokens) {
         if (isEnabled(TokenAllocatorEventType.UNIT_REMOVED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.UNIT_REMOVED,
-                                                      allocator,
-                                                      null,
-                                                      null,
-                                                      ImmutableMap.copyOf(unitToTokens.asMap()),
-                                                      ImmutableMap.copyOf(sortedTokens),
-                                                      null,
-                                                      unit,
-                                                      null));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.UNIT_REMOVED, allocator, null, null, ImmutableMap.copyOf(unitToTokens.asMap()), ImmutableMap.copyOf(sortedTokens), null, unit, null));
     }
 
-    static <Unit> void tokenInfosCreated(TokenAllocatorBase<Unit> allocator, Queue<Weighted<UnitInfo>> sortedUnits,
-                                         Map<Token, Unit> sortedTokens, TokenInfo<Unit> tokenInfo)
-    {
+    static <Unit> void tokenInfosCreated(TokenAllocatorBase<Unit> allocator, Queue<Weighted<UnitInfo>> sortedUnits, Map<Token, Unit> sortedTokens, TokenInfo<Unit> tokenInfo) {
         if (isEnabled(TokenAllocatorEventType.TOKEN_INFOS_CREATED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.TOKEN_INFOS_CREATED,
-                                                      allocator,
-                                                      null,
-                                                      ImmutableList.copyOf(sortedUnits),
-                                                      null,
-                                                      ImmutableMap.copyOf(sortedTokens),
-                                                      null,
-                                                      null,
-                                                      tokenInfo));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.TOKEN_INFOS_CREATED, allocator, null, ImmutableList.copyOf(sortedUnits), null, ImmutableMap.copyOf(sortedTokens), null, null, tokenInfo));
     }
 
-    static <Unit> void tokenInfosCreated(TokenAllocatorBase<Unit> allocator, Multimap<Unit, Token> unitToTokens,
-                                         TokenInfo<Unit> tokenInfo)
-    {
+    static <Unit> void tokenInfosCreated(TokenAllocatorBase<Unit> allocator, Multimap<Unit, Token> unitToTokens, TokenInfo<Unit> tokenInfo) {
         if (isEnabled(TokenAllocatorEventType.TOKEN_INFOS_CREATED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.TOKEN_INFOS_CREATED,
-                                                      allocator,
-                                                      null,
-                                                      null,
-                                                      ImmutableMap.copyOf(unitToTokens.asMap()),
-                                                      null,
-                                                      null,
-                                                      null,
-                                                      tokenInfo));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.TOKEN_INFOS_CREATED, allocator, null, null, ImmutableMap.copyOf(unitToTokens.asMap()), null, null, null, tokenInfo));
     }
 
-    static <Unit> void splitsGenerated(TokenAllocatorBase<Unit> allocator,
-                                       int numTokens, Queue<Weighted<UnitInfo>> sortedUnits,
-                                       NavigableMap<Token, Unit> sortedTokens,
-                                       Unit newUnit,
-                                       Collection<Token> tokens)
-    {
+    static <Unit> void splitsGenerated(TokenAllocatorBase<Unit> allocator, int numTokens, Queue<Weighted<UnitInfo>> sortedUnits, NavigableMap<Token, Unit> sortedTokens, Unit newUnit, Collection<Token> tokens) {
         if (isEnabled(TokenAllocatorEventType.RANDOM_TOKENS_GENERATED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.RANDOM_TOKENS_GENERATED,
-                                                      allocator,
-                                                      numTokens,
-                                                      ImmutableList.copyOf(sortedUnits),
-                                                      null,
-                                                      ImmutableMap.copyOf(sortedTokens),
-                                                      ImmutableList.copyOf(tokens),
-                                                      newUnit,
-                                                      null));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.RANDOM_TOKENS_GENERATED, allocator, numTokens, ImmutableList.copyOf(sortedUnits), null, ImmutableMap.copyOf(sortedTokens), ImmutableList.copyOf(tokens), newUnit, null));
     }
 
-    static <Unit> void splitsGenerated(TokenAllocatorBase<Unit> allocator,
-                                       int numTokens, Multimap<Unit, Token> unitToTokens,
-                                       NavigableMap<Token, Unit> sortedTokens, Unit newUnit,
-                                       Collection<Token> tokens)
-    {
+    static <Unit> void splitsGenerated(TokenAllocatorBase<Unit> allocator, int numTokens, Multimap<Unit, Token> unitToTokens, NavigableMap<Token, Unit> sortedTokens, Unit newUnit, Collection<Token> tokens) {
         if (isEnabled(TokenAllocatorEventType.RANDOM_TOKENS_GENERATED))
-            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.RANDOM_TOKENS_GENERATED,
-                                                      allocator,
-                                                      numTokens,
-                                                      null,
-                                                      ImmutableMap.copyOf(unitToTokens.asMap()),
-                                                      ImmutableMap.copyOf(sortedTokens),
-                                                      ImmutableList.copyOf(tokens),
-                                                      newUnit,
-                                                      null));
+            service.publish(new TokenAllocatorEvent<>(TokenAllocatorEventType.RANDOM_TOKENS_GENERATED, allocator, numTokens, null, ImmutableMap.copyOf(unitToTokens.asMap()), ImmutableMap.copyOf(sortedTokens), ImmutableList.copyOf(tokens), newUnit, null));
     }
 
-    private static boolean isEnabled(TokenAllocatorEventType type)
-    {
+    private static boolean isEnabled(TokenAllocatorEventType type) {
         return service.isEnabled(TokenAllocatorEvent.class, type);
     }
-
 }

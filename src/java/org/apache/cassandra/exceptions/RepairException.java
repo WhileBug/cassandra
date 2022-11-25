@@ -23,26 +23,26 @@ import org.apache.cassandra.streaming.PreviewKind;
 /**
  * Exception thrown during repair
  */
-public class RepairException extends Exception
-{
-    public final RepairJobDesc desc;
-    public final PreviewKind previewKind;
+public class RepairException extends Exception {
 
-    public RepairException(RepairJobDesc desc, String message)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairException.class);
+
+    public final transient RepairJobDesc desc;
+
+    public final transient PreviewKind previewKind;
+
+    public RepairException(RepairJobDesc desc, String message) {
         this(desc, null, message);
     }
 
-    public RepairException(RepairJobDesc desc, PreviewKind previewKind, String message)
-    {
+    public RepairException(RepairJobDesc desc, PreviewKind previewKind, String message) {
         super(message);
         this.desc = desc;
         this.previewKind = previewKind != null ? previewKind : PreviewKind.NONE;
     }
 
     @Override
-    public String getMessage()
-    {
+    public String getMessage() {
         return desc.toString(previewKind) + ' ' + super.getMessage();
     }
 }

@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.compaction;
 
 import java.io.IOException;
@@ -32,11 +31,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
 import com.google.common.collect.MapMaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -45,23 +42,23 @@ import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.utils.NoSpamLogger;
 
-public class CompactionLogger
-{
-    public interface Strategy
-    {
+public class CompactionLogger {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionLogger.class);
+
+    public interface Strategy {
+
         JsonNode sstable(SSTableReader sstable);
 
         JsonNode options();
 
-        static Strategy none = new Strategy()
-        {
-            public JsonNode sstable(SSTableReader sstable)
-            {
+        static transient Strategy none = new Strategy() {
+
+            public JsonNode sstable(SSTableReader sstable) {
                 return null;
             }
 
-            public JsonNode options()
-            {
+            public JsonNode options() {
                 return null;
             }
         };
@@ -70,16 +67,16 @@ public class CompactionLogger
     /**
      * This will produce the compaction strategy's starting information.
      */
-    public interface StrategySummary
-    {
+    public interface StrategySummary {
+
         JsonNode getSummary();
     }
 
     /**
      * This is an interface to allow writing to a different interface.
      */
-    public interface Writer
-    {
+    public interface Writer {
+
         /**
          * This is used when we are already trying to write out the start of a
          * @param statement This should be written out to the medium capturing the logs
@@ -96,44 +93,46 @@ public class CompactionLogger
         void write(JsonNode statement, StrategySummary summary, Object tag);
     }
 
-    private interface CompactionStrategyAndTableFunction
-    {
+    private interface CompactionStrategyAndTableFunction {
+
         JsonNode apply(AbstractCompactionStrategy strategy, SSTableReader sstable);
     }
 
-    private static final JsonNodeFactory json = JsonNodeFactory.instance;
-    private static final Logger logger = LoggerFactory.getLogger(CompactionLogger.class);
-    private static final Writer serializer = new CompactionLogSerializer();
-    private final WeakReference<ColumnFamilyStore> cfsRef;
-    private final WeakReference<CompactionStrategyManager> csmRef;
-    private final AtomicInteger identifier = new AtomicInteger(0);
-    private final Map<AbstractCompactionStrategy, String> compactionStrategyMapping = new MapMaker().weakKeys().makeMap();
-    private final AtomicBoolean enabled = new AtomicBoolean(false);
+    private static final transient JsonNodeFactory json = JsonNodeFactory.instance;
 
-    public CompactionLogger(ColumnFamilyStore cfs, CompactionStrategyManager csm)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(CompactionLogger.class);
+
+    private static final transient Writer serializer = new CompactionLogSerializer();
+
+    private final transient WeakReference<ColumnFamilyStore> cfsRef;
+
+    private final transient WeakReference<CompactionStrategyManager> csmRef;
+
+    private final transient AtomicInteger identifier = new AtomicInteger(0);
+
+    private final transient Map<AbstractCompactionStrategy, String> compactionStrategyMapping = new MapMaker().weakKeys().makeMap();
+
+    private final transient AtomicBoolean enabled = new AtomicBoolean(false);
+
+    public CompactionLogger(ColumnFamilyStore cfs, CompactionStrategyManager csm) {
         csmRef = new WeakReference<>(csm);
         cfsRef = new WeakReference<>(cfs);
     }
 
-    private void forEach(Consumer<AbstractCompactionStrategy> consumer)
-    {
+    private void forEach(Consumer<AbstractCompactionStrategy> consumer) {
         CompactionStrategyManager csm = csmRef.get();
         if (csm == null)
             return;
-        csm.getStrategies()
-           .forEach(l -> l.forEach(consumer));
+        csm.getStrategies().forEach(l -> l.forEach(consumer));
     }
 
-    private ArrayNode compactionStrategyMap(Function<AbstractCompactionStrategy, JsonNode> select)
-    {
+    private ArrayNode compactionStrategyMap(Function<AbstractCompactionStrategy, JsonNode> select) {
         ArrayNode node = json.arrayNode();
         forEach(acs -> node.add(select.apply(acs)));
         return node;
     }
 
-    private ArrayNode sstableMap(Collection<SSTableReader> sstables, CompactionStrategyAndTableFunction csatf)
-    {
+    private ArrayNode sstableMap(Collection<SSTableReader> sstables, CompactionStrategyAndTableFunction csatf) {
         CompactionStrategyManager csm = csmRef.get();
         ArrayNode node = json.arrayNode();
         if (csm == null)
@@ -142,28 +141,24 @@ public class CompactionLogger
         return node;
     }
 
-    private String getId(AbstractCompactionStrategy strategy)
-    {
+    private String getId(AbstractCompactionStrategy strategy) {
         return compactionStrategyMapping.computeIfAbsent(strategy, s -> String.valueOf(identifier.getAndIncrement()));
     }
 
-    private JsonNode formatSSTables(AbstractCompactionStrategy strategy)
-    {
+    private JsonNode formatSSTables(AbstractCompactionStrategy strategy) {
         ArrayNode node = json.arrayNode();
         CompactionStrategyManager csm = csmRef.get();
         ColumnFamilyStore cfs = cfsRef.get();
         if (csm == null || cfs == null)
             return node;
-        for (SSTableReader sstable : cfs.getLiveSSTables())
-        {
+        for (SSTableReader sstable : cfs.getLiveSSTables()) {
             if (csm.getCompactionStrategyFor(sstable) == strategy)
                 node.add(formatSSTable(strategy, sstable));
         }
         return node;
     }
 
-    private JsonNode formatSSTable(AbstractCompactionStrategy strategy, SSTableReader sstable)
-    {
+    private JsonNode formatSSTable(AbstractCompactionStrategy strategy, SSTableReader sstable) {
         ObjectNode node = json.objectNode();
         node.put("generation", sstable.descriptor.generation);
         node.put("version", sstable.descriptor.version.getVersion());
@@ -174,8 +169,7 @@ public class CompactionLogger
         return node;
     }
 
-    private JsonNode startStrategy(AbstractCompactionStrategy strategy)
-    {
+    private JsonNode startStrategy(AbstractCompactionStrategy strategy) {
         ObjectNode node = json.objectNode();
         CompactionStrategyManager csm = csmRef.get();
         if (csm == null)
@@ -186,35 +180,30 @@ public class CompactionLogger
         node.put("repaired", csm.isRepaired(strategy));
         List<String> folders = csm.getStrategyFolders(strategy);
         ArrayNode folderNode = json.arrayNode();
-        for (String folder : folders)
-        {
+        for (String folder : folders) {
             folderNode.add(folder);
         }
         node.set("folders", folderNode);
-
         JsonNode logResult = strategy.strategyLogger().options();
         if (logResult != null)
             node.set("options", logResult);
         return node;
     }
 
-    private JsonNode shutdownStrategy(AbstractCompactionStrategy strategy)
-    {
+    private JsonNode shutdownStrategy(AbstractCompactionStrategy strategy) {
         ObjectNode node = json.objectNode();
         node.put("strategyId", getId(strategy));
         return node;
     }
 
-    private JsonNode describeSSTable(AbstractCompactionStrategy strategy, SSTableReader sstable)
-    {
+    private JsonNode describeSSTable(AbstractCompactionStrategy strategy, SSTableReader sstable) {
         ObjectNode node = json.objectNode();
         node.put("strategyId", getId(strategy));
         node.set("table", formatSSTable(strategy, sstable));
         return node;
     }
 
-    private void describeStrategy(ObjectNode node)
-    {
+    private void describeStrategy(ObjectNode node) {
         ColumnFamilyStore cfs = cfsRef.get();
         if (cfs == null)
             return;
@@ -223,8 +212,7 @@ public class CompactionLogger
         node.put("time", System.currentTimeMillis());
     }
 
-    private JsonNode startStrategies()
-    {
+    private JsonNode startStrategies() {
         ObjectNode node = json.objectNode();
         node.put("type", "enable");
         describeStrategy(node);
@@ -232,18 +220,14 @@ public class CompactionLogger
         return node;
     }
 
-    public void enable()
-    {
-        if (enabled.compareAndSet(false, true))
-        {
+    public void enable() {
+        if (enabled.compareAndSet(false, true)) {
             serializer.writeStart(startStrategies(), this);
         }
     }
 
-    public void disable()
-    {
-        if (enabled.compareAndSet(true, false))
-        {
+    public void disable() {
+        if (enabled.compareAndSet(true, false)) {
             ObjectNode node = json.objectNode();
             node.put("type", "disable");
             describeStrategy(node);
@@ -252,10 +236,8 @@ public class CompactionLogger
         }
     }
 
-    public void flush(Collection<SSTableReader> sstables)
-    {
-        if (enabled.get())
-        {
+    public void flush(Collection<SSTableReader> sstables) {
+        if (enabled.get()) {
             ObjectNode node = json.objectNode();
             node.put("type", "flush");
             describeStrategy(node);
@@ -264,10 +246,8 @@ public class CompactionLogger
         }
     }
 
-    public void compaction(long startTime, Collection<SSTableReader> input, long endTime, Collection<SSTableReader> output)
-    {
-        if (enabled.get())
-        {
+    public void compaction(long startTime, Collection<SSTableReader> input, long endTime, Collection<SSTableReader> output) {
+        if (enabled.get()) {
             ObjectNode node = json.objectNode();
             node.put("type", "compaction");
             describeStrategy(node);
@@ -279,10 +259,8 @@ public class CompactionLogger
         }
     }
 
-    public void pending(AbstractCompactionStrategy strategy, int remaining)
-    {
-        if (remaining != 0 && enabled.get())
-        {
+    public void pending(AbstractCompactionStrategy strategy, int remaining) {
+        if (remaining != 0 && enabled.get()) {
             ObjectNode node = json.objectNode();
             node.put("type", "pending");
             describeStrategy(node);
@@ -292,51 +270,43 @@ public class CompactionLogger
         }
     }
 
-    private static class CompactionLogSerializer implements Writer
-    {
-        private static final String logDirectory = System.getProperty("cassandra.logdir", ".");
-        private final ExecutorService loggerService = Executors.newFixedThreadPool(1);
-        // This is only accessed on the logger service thread, so it does not need to be thread safe
-        private final Set<Object> rolled = new HashSet<>();
-        private OutputStreamWriter stream;
+    private static class CompactionLogSerializer implements Writer {
 
-        private static OutputStreamWriter createStream() throws IOException
-        {
+        private static final transient String logDirectory = System.getProperty("cassandra.logdir", ".");
+
+        private final transient ExecutorService loggerService = Executors.newFixedThreadPool(1);
+
+        // This is only accessed on the logger service thread, so it does not need to be thread safe
+        private final transient Set<Object> rolled = new HashSet<>();
+
+        private transient OutputStreamWriter stream;
+
+        private static OutputStreamWriter createStream() throws IOException {
             int count = 0;
             Path compactionLog = Paths.get(logDirectory, "compaction.log");
-            if (Files.exists(compactionLog))
-            {
+            if (Files.exists(compactionLog)) {
                 Path tryPath = compactionLog;
-                while (Files.exists(tryPath))
-                {
+                while (Files.exists(tryPath)) {
                     tryPath = Paths.get(logDirectory, String.format("compaction-%d.log", count++));
                 }
                 Files.move(compactionLog, tryPath);
             }
-
             return new OutputStreamWriter(Files.newOutputStream(compactionLog, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE));
         }
 
-        private void writeLocal(String toWrite)
-        {
-            try
-            {
+        private void writeLocal(String toWrite) {
+            try {
                 if (stream == null)
                     stream = createStream();
                 stream.write(toWrite);
                 stream.flush();
-            }
-            catch (IOException ioe)
-            {
+            } catch (IOException ioe) {
                 // We'll drop the change and log the error to the logger.
-                NoSpamLogger.log(logger, NoSpamLogger.Level.ERROR, 1, TimeUnit.MINUTES,
-                                 "Could not write to the log file: {}", ioe);
+                NoSpamLogger.log(logger, NoSpamLogger.Level.ERROR, 1, TimeUnit.MINUTES, "Could not write to the log file: {}", ioe);
             }
-
         }
 
-        public void writeStart(JsonNode statement, Object tag)
-        {
+        public void writeStart(JsonNode statement, Object tag) {
             final String toWrite = statement.toString() + System.lineSeparator();
             loggerService.execute(() -> {
                 rolled.add(tag);
@@ -344,12 +314,10 @@ public class CompactionLogger
             });
         }
 
-        public void write(JsonNode statement, StrategySummary summary, Object tag)
-        {
+        public void write(JsonNode statement, StrategySummary summary, Object tag) {
             final String toWrite = statement.toString() + System.lineSeparator();
             loggerService.execute(() -> {
-                if (!rolled.contains(tag))
-                {
+                if (!rolled.contains(tag)) {
                     writeLocal(summary.getSummary().toString() + System.lineSeparator());
                     rolled.add(tag);
                 }

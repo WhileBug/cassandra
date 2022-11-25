@@ -19,28 +19,26 @@
 package org.apache.cassandra.metrics;
 
 import com.codahale.metrics.Histogram;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
 /**
  * Metrics for tracking information about write requests.
- *
  */
-public class ClientWriteRequestMetrics extends ClientRequestMetrics
-{
+public class ClientWriteRequestMetrics extends ClientRequestMetrics {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientWriteRequestMetrics.class);
+
     /**
      * Metric for tracking the mutation sizes in bytes.
      */
-    public final Histogram mutationSize;
+    public final transient Histogram mutationSize;
 
-    public ClientWriteRequestMetrics(String scope)
-    {
+    public ClientWriteRequestMetrics(String scope) {
         super(scope);
         mutationSize = Metrics.histogram(factory.createMetricName("MutationSizeHistogram"), false);
     }
 
-    public void release()
-    {
+    public void release() {
         super.release();
         Metrics.remove(factory.createMetricName("MutationSizeHistogram"));
     }

@@ -18,31 +18,29 @@
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.dht.Token;
 
-public class CachedHashDecoratedKey extends BufferDecoratedKey
-{
-    long hash0;
-    long hash1;
-    volatile boolean hashCached;
+public class CachedHashDecoratedKey extends BufferDecoratedKey {
 
-    public CachedHashDecoratedKey(Token token, ByteBuffer key)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CachedHashDecoratedKey.class);
+
+    transient long hash0;
+
+    transient long hash1;
+
+    volatile transient boolean hashCached;
+
+    public CachedHashDecoratedKey(Token token, ByteBuffer key) {
         super(token, key);
         hashCached = false;
     }
 
     @Override
-    public void filterHash(long[] dest)
-    {
-        if (hashCached)
-        {
+    public void filterHash(long[] dest) {
+        if (hashCached) {
             dest[0] = hash0;
             dest[1] = hash1;
-        }
-        else
-        {
+        } else {
             super.filterHash(dest);
             hash0 = dest[0];
             hash1 = dest[1];

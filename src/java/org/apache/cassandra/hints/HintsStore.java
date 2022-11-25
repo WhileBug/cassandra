@@ -23,12 +23,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.gms.FailureDetector;
 import org.apache.cassandra.io.FSWriteError;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -42,124 +40,110 @@ import org.apache.cassandra.utils.SyncUtil;
  *
  * The writer MUST only be accessed by {@link HintsWriteExecutor}.
  */
-final class HintsStore
-{
-    private static final Logger logger = LoggerFactory.getLogger(HintsStore.class);
+final class HintsStore {
 
-    public final UUID hostId;
-    private final File hintsDirectory;
-    private final ImmutableMap<String, Object> writerParams;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintsStore.class);
 
-    private final Map<HintsDescriptor, InputPosition> dispatchPositions;
-    private final Deque<HintsDescriptor> dispatchDequeue;
-    private final Queue<HintsDescriptor> corruptedFiles;
+    private static final transient Logger logger = LoggerFactory.getLogger(HintsStore.class);
+
+    public final transient UUID hostId;
+
+    private final transient File hintsDirectory;
+
+    private final transient ImmutableMap<String, Object> writerParams;
+
+    private final transient Map<HintsDescriptor, InputPosition> dispatchPositions;
+
+    private final transient Deque<HintsDescriptor> dispatchDequeue;
+
+    private final transient Queue<HintsDescriptor> corruptedFiles;
 
     // last timestamp used in a descriptor; make sure to not reuse the same timestamp for new descriptors.
-    private volatile long lastUsedTimestamp;
-    private volatile HintsWriter hintsWriter;
+    private volatile transient long lastUsedTimestamp;
 
-    private HintsStore(UUID hostId, File hintsDirectory, ImmutableMap<String, Object> writerParams, List<HintsDescriptor> descriptors)
-    {
+    private volatile transient HintsWriter hintsWriter;
+
+    private HintsStore(UUID hostId, File hintsDirectory, ImmutableMap<String, Object> writerParams, List<HintsDescriptor> descriptors) {
         this.hostId = hostId;
         this.hintsDirectory = hintsDirectory;
         this.writerParams = writerParams;
-
         dispatchPositions = new ConcurrentHashMap<>();
         dispatchDequeue = new ConcurrentLinkedDeque<>(descriptors);
         corruptedFiles = new ConcurrentLinkedQueue<>();
-
-        //noinspection resource
+        // noinspection resource
         lastUsedTimestamp = descriptors.stream().mapToLong(d -> d.timestamp).max().orElse(0L);
     }
 
-    static HintsStore create(UUID hostId, File hintsDirectory, ImmutableMap<String, Object> writerParams, List<HintsDescriptor> descriptors)
-    {
+    static HintsStore create(UUID hostId, File hintsDirectory, ImmutableMap<String, Object> writerParams, List<HintsDescriptor> descriptors) {
         descriptors.sort((d1, d2) -> Long.compare(d1.timestamp, d2.timestamp));
         return new HintsStore(hostId, hintsDirectory, writerParams, descriptors);
     }
 
     @VisibleForTesting
-    int getDispatchQueueSize()
-    {
+    int getDispatchQueueSize() {
         return dispatchDequeue.size();
     }
 
-    InetAddressAndPort address()
-    {
+    InetAddressAndPort address() {
         return StorageService.instance.getEndpointForHostId(hostId);
     }
 
-    boolean isLive()
-    {
+    boolean isLive() {
         InetAddressAndPort address = address();
         return address != null && FailureDetector.instance.isAlive(address);
     }
 
-    HintsDescriptor poll()
-    {
+    HintsDescriptor poll() {
         return dispatchDequeue.poll();
     }
 
-    void offerFirst(HintsDescriptor descriptor)
-    {
+    void offerFirst(HintsDescriptor descriptor) {
         dispatchDequeue.offerFirst(descriptor);
     }
 
-    void offerLast(HintsDescriptor descriptor)
-    {
+    void offerLast(HintsDescriptor descriptor) {
         dispatchDequeue.offerLast(descriptor);
     }
 
-    void deleteAllHints()
-    {
+    void deleteAllHints() {
         HintsDescriptor descriptor;
-        while ((descriptor = poll()) != null)
-        {
+        while ((descriptor = poll()) != null) {
             cleanUp(descriptor);
             delete(descriptor);
         }
-
-        while ((descriptor = corruptedFiles.poll()) != null)
-        {
+        while ((descriptor = corruptedFiles.poll()) != null) {
             cleanUp(descriptor);
             delete(descriptor);
         }
     }
 
-    void delete(HintsDescriptor descriptor)
-    {
+    void delete(HintsDescriptor descriptor) {
         File hintsFile = new File(hintsDirectory, descriptor.fileName());
         if (hintsFile.delete())
             logger.info("Deleted hint file {}", descriptor.fileName());
         else
             logger.error("Failed to delete hint file {}", descriptor.fileName());
-
-        //noinspection ResultOfMethodCallIgnored
+        // noinspection ResultOfMethodCallIgnored
         new File(hintsDirectory, descriptor.checksumFileName()).delete();
     }
 
-    boolean hasFiles()
-    {
+    boolean hasFiles() {
         return !dispatchDequeue.isEmpty();
     }
 
-    InputPosition getDispatchOffset(HintsDescriptor descriptor)
-    {
+    InputPosition getDispatchOffset(HintsDescriptor descriptor) {
         return dispatchPositions.get(descriptor);
     }
 
-    void markDispatchOffset(HintsDescriptor descriptor, InputPosition inputPosition)
-    {
+    void markDispatchOffset(HintsDescriptor descriptor, InputPosition inputPosition) {
         dispatchPositions.put(descriptor, inputPosition);
     }
 
-    void cleanUp(HintsDescriptor descriptor)
-    {
+    void cleanUp(HintsDescriptor descriptor) {
         dispatchPositions.remove(descriptor);
     }
 
-    void markCorrupted(HintsDescriptor descriptor)
-    {
+    void markCorrupted(HintsDescriptor descriptor) {
         corruptedFiles.add(descriptor);
     }
 
@@ -168,43 +152,32 @@ final class HintsStore
      *
      * All of these, with the exception of isWriting(), are for exclusively single-threaded use by HintsWriteExecutor.
      */
-
-    boolean isWriting()
-    {
+    boolean isWriting() {
         return hintsWriter != null;
     }
 
-    HintsWriter getOrOpenWriter()
-    {
+    HintsWriter getOrOpenWriter() {
         if (hintsWriter == null)
             hintsWriter = openWriter();
         return hintsWriter;
     }
 
-    HintsWriter getWriter()
-    {
+    HintsWriter getWriter() {
         return hintsWriter;
     }
 
-    private HintsWriter openWriter()
-    {
+    private HintsWriter openWriter() {
         lastUsedTimestamp = Math.max(System.currentTimeMillis(), lastUsedTimestamp + 1);
         HintsDescriptor descriptor = new HintsDescriptor(hostId, lastUsedTimestamp, writerParams);
-
-        try
-        {
+        try {
             return HintsWriter.create(hintsDirectory, descriptor);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new FSWriteError(e, descriptor.fileName());
         }
     }
 
-    void closeWriter()
-    {
-        if (hintsWriter != null)
-        {
+    void closeWriter() {
+        if (hintsWriter != null) {
             hintsWriter.close();
             offerLast(hintsWriter.descriptor());
             hintsWriter = null;
@@ -212,8 +185,7 @@ final class HintsStore
         }
     }
 
-    void fsyncWriter()
-    {
+    void fsyncWriter() {
         if (hintsWriter != null)
             hintsWriter.fsync();
     }

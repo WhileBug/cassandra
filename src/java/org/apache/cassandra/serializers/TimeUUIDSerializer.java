@@ -15,22 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import org.apache.cassandra.db.marshal.ValueAccessor;
 
-public class TimeUUIDSerializer extends UUIDSerializer
-{
-    public static final TimeUUIDSerializer instance = new TimeUUIDSerializer();
+public class TimeUUIDSerializer extends UUIDSerializer {
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TimeUUIDSerializer.class);
+
+    public static final transient TimeUUIDSerializer instance = new TimeUUIDSerializer();
+
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         super.validate(value, accessor);
         // Super class only validates the Time UUID
         // version is bits 4-7 of byte 6.
-        if (!accessor.isEmpty(value))
-        {
+        if (!accessor.isEmpty(value)) {
             if ((accessor.getByte(value, 6) & 0xf0) != 0x10)
                 throw new MarshalException("Invalid version for TimeUUID type.");
         }

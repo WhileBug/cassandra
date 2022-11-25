@@ -21,57 +21,47 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-
 import com.google.common.collect.MinMaxPriorityQueue;
-
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public abstract class MaxSampler<T> extends Sampler<T>
-{
-    private int capacity;
-    private MinMaxPriorityQueue<Sample<T>> queue;
-    private long endTimeNanos = -1;
-    private final Comparator<Sample<T>> comp = Collections.reverseOrder(Comparator.comparing(p -> p.count));
+public abstract class MaxSampler<T> extends Sampler<T> {
 
-    public boolean isEnabled()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MaxSampler.class);
+
+    private transient int capacity;
+
+    private transient MinMaxPriorityQueue<Sample<T>> queue;
+
+    private transient long endTimeNanos = -1;
+
+    private final transient Comparator<Sample<T>> comp = Collections.reverseOrder(Comparator.comparing(p -> p.count));
+
+    public boolean isEnabled() {
         return endTimeNanos != -1 && clock.now() <= endTimeNanos;
     }
 
-    public synchronized void beginSampling(int capacity, int durationMillis)
-    {
-        if (endTimeNanos == -1 || clock.now() > endTimeNanos)
-        {
+    public synchronized void beginSampling(int capacity, int durationMillis) {
+        if (endTimeNanos == -1 || clock.now() > endTimeNanos) {
             endTimeNanos = clock.now() + MILLISECONDS.toNanos(durationMillis);
-            queue = MinMaxPriorityQueue
-                    .orderedBy(comp)
-                    .maximumSize(Math.max(1, capacity))
-                    .create();
+            queue = MinMaxPriorityQueue.orderedBy(comp).maximumSize(Math.max(1, capacity)).create();
             this.capacity = capacity;
-        }
-        else
+        } else
             throw new RuntimeException("Sampling already in progress");
     }
 
-    public synchronized List<Sample<T>> finishSampling(int count)
-    {
+    public synchronized List<Sample<T>> finishSampling(int count) {
         List<Sample<T>> result = new ArrayList<>(count);
-        if (endTimeNanos != -1)
-        {
+        if (endTimeNanos != -1) {
             endTimeNanos = -1;
             Sample<T> next;
-            while ((next = queue.poll()) != null && result.size() <= count)
-                result.add(next);
+            while ((next = queue.poll()) != null && result.size() <= count) result.add(next);
         }
         return result;
     }
 
     @Override
-    protected synchronized void insert(T item, long value)
-    {
-        if (value > 0 && clock.now() <= endTimeNanos
-                && (queue.isEmpty() || queue.size() < capacity || queue.peekLast().count < value))
+    protected synchronized void insert(T item, long value) {
+        if (value > 0 && clock.now() <= endTimeNanos && (queue.isEmpty() || queue.size() < capacity || queue.peekLast().count < value))
             queue.add(new Sample<T>(item, value, 0));
     }
-
 }

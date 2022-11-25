@@ -15,16 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 @SuppressWarnings("serial")
-public class CorruptFileException extends RuntimeException
-{
-    public final String filePath;
+public class CorruptFileException extends RuntimeException {
 
-    public CorruptFileException(Exception cause, String filePath)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CorruptFileException.class);
+
+    public final transient String filePath;
+
+    public CorruptFileException(Exception cause, String filePath) {
         super(cause);
         this.filePath = filePath;
     }

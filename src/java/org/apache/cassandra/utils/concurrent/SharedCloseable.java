@@ -21,16 +21,18 @@ package org.apache.cassandra.utils.concurrent;
 /**
  * A simple extension of AutoCloseable, that represents a resource that can be utilised in multiple locations,
  * each managing their own closure of the resource, so that when the last such instance is closed all are.
- *
  */
-public interface SharedCloseable extends AutoCloseable
-{
+public interface SharedCloseable extends AutoCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SharedCloseable.class);
+
     /**
      * @return a new instance of the object representing the same state and backed by the same underlying resources.
      * Coordinates with the original (and other instances) when the underlying resource should be closed.
      * Throws an exception if the shared resource has already been closed.
      */
     public SharedCloseable sharedCopy();
+
     public Throwable close(Throwable accumulate);
 
     public void addTo(Ref.IdentityCollection identities);

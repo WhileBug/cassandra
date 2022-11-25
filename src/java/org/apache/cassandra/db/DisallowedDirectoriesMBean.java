@@ -20,10 +20,12 @@ package org.apache.cassandra.db;
 import java.io.File;
 import java.util.Set;
 
-public interface DisallowedDirectoriesMBean
-{
+public interface DisallowedDirectoriesMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DisallowedDirectoriesMBean.class);
+
     public Set<File> getUnreadableDirectories();
-    
+
     public Set<File> getUnwritableDirectories();
 
     public void markUnreadable(String path);

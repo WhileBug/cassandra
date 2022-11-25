@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.schema;
 
 import java.io.Serializable;
@@ -24,9 +23,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import javax.annotation.Nullable;
-
 import org.apache.cassandra.audit.AuditLogContext;
 import org.apache.cassandra.cql3.CQLStatement;
 import org.apache.cassandra.diag.DiagnosticEvent;
@@ -35,70 +32,69 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 /**
  * Events emitted by {@link MigrationManager} around propagating schema changes to remote nodes.
  */
-final class SchemaAnnouncementEvent extends DiagnosticEvent
-{
-    private final SchemaAnnouncementEventType type;
-    @Nullable
-    private final Set<InetAddressAndPort> schemaDestinationEndpoints;
-    @Nullable
-    private final Set<InetAddressAndPort> schemaEndpointsIgnored;
-    @Nullable
-    private final CQLStatement statement;
-    @Nullable
-    private final InetAddressAndPort sender;
+final class SchemaAnnouncementEvent extends DiagnosticEvent {
 
-    enum SchemaAnnouncementEventType
-    {
-        SCHEMA_MUTATIONS_ANNOUNCED,
-        SCHEMA_TRANSFORMATION_ANNOUNCED,
-        SCHEMA_MUTATIONS_RECEIVED
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaAnnouncementEvent.class);
+
+    private final transient SchemaAnnouncementEventType type;
+
+    @Nullable
+    private final transient Set<InetAddressAndPort> schemaDestinationEndpoints;
+
+    @Nullable
+    private final transient Set<InetAddressAndPort> schemaEndpointsIgnored;
+
+    @Nullable
+    private final transient CQLStatement statement;
+
+    @Nullable
+    private final transient InetAddressAndPort sender;
+
+    enum SchemaAnnouncementEventType {
+
+        SCHEMA_MUTATIONS_ANNOUNCED, SCHEMA_TRANSFORMATION_ANNOUNCED, SCHEMA_MUTATIONS_RECEIVED
     }
 
-    SchemaAnnouncementEvent(SchemaAnnouncementEventType type,
-                            @Nullable Set<InetAddressAndPort> schemaDestinationEndpoints,
-                            @Nullable Set<InetAddressAndPort> schemaEndpointsIgnored,
-                            @Nullable SchemaTransformation transformation,
-                            @Nullable InetAddressAndPort sender)
-    {
+    SchemaAnnouncementEvent(SchemaAnnouncementEventType type, @Nullable Set<InetAddressAndPort> schemaDestinationEndpoints, @Nullable Set<InetAddressAndPort> schemaEndpointsIgnored, @Nullable SchemaTransformation transformation, @Nullable InetAddressAndPort sender) {
         this.type = type;
         this.schemaDestinationEndpoints = schemaDestinationEndpoints;
         this.schemaEndpointsIgnored = schemaEndpointsIgnored;
-        if (transformation instanceof CQLStatement) this.statement = (CQLStatement) transformation;
-        else this.statement = null;
+        if (transformation instanceof CQLStatement)
+            this.statement = (CQLStatement) transformation;
+        else
+            this.statement = null;
         this.sender = sender;
     }
 
-    public Enum<?> getType()
-    {
+    public Enum<?> getType() {
         return type;
     }
 
-    public Map<String, Serializable> toMap()
-    {
+    public Map<String, Serializable> toMap() {
         HashMap<String, Serializable> ret = new HashMap<>();
-        if (schemaDestinationEndpoints != null)
-        {
+        if (schemaDestinationEndpoints != null) {
             Set<String> eps = schemaDestinationEndpoints.stream().map(InetAddressAndPort::toString).collect(Collectors.toSet());
             ret.put("endpointDestinations", new HashSet<>(eps));
         }
-        if (schemaEndpointsIgnored != null)
-        {
+        if (schemaEndpointsIgnored != null) {
             Set<String> eps = schemaEndpointsIgnored.stream().map(InetAddressAndPort::toString).collect(Collectors.toSet());
             ret.put("endpointIgnored", new HashSet<>(eps));
         }
-        if (statement != null)
-        {
+        if (statement != null) {
             AuditLogContext logContext = statement.getAuditLogContext();
-            if (logContext != null)
-            {
+            if (logContext != null) {
                 HashMap<String, String> log = new HashMap<>();
-                if (logContext.auditLogEntryType != null) log.put("type", logContext.auditLogEntryType.name());
-                if (logContext.keyspace != null) log.put("keyspace", logContext.keyspace);
-                if (logContext.scope != null) log.put("table", logContext.scope);
+                if (logContext.auditLogEntryType != null)
+                    log.put("type", logContext.auditLogEntryType.name());
+                if (logContext.keyspace != null)
+                    log.put("keyspace", logContext.keyspace);
+                if (logContext.scope != null)
+                    log.put("table", logContext.scope);
                 ret.put("statement", log);
             }
         }
-        if (sender != null) ret.put("sender", sender.toString());
+        if (sender != null)
+            ret.put("sender", sender.toString());
         return ret;
     }
 }

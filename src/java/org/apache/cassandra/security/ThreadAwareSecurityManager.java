@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.security;
 
 import java.lang.reflect.ReflectPermission;
@@ -29,9 +28,7 @@ import java.security.Policy;
 import java.security.ProtectionDomain;
 import java.util.Collections;
 import java.util.Enumeration;
-
 import io.netty.util.concurrent.FastThreadLocal;
-
 import org.apache.cassandra.utils.logging.LoggingSupportFactory;
 import org.apache.cassandra.config.DatabaseDescriptor;
 
@@ -44,41 +41,45 @@ import org.apache.cassandra.config.DatabaseDescriptor;
  * This is better than the penalty of 1 to 3 percent using a standard {@code SecurityManager} with an <i>allow all</i> policy.
  * </p>
  */
-public final class ThreadAwareSecurityManager extends SecurityManager
-{
-    public static final PermissionCollection noPermissions = new PermissionCollection()
-    {
-        public void add(Permission permission)
-        {
+public final class ThreadAwareSecurityManager extends SecurityManager {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ThreadAwareSecurityManager.class);
+
+    public static final transient PermissionCollection noPermissions = new PermissionCollection() {
+
+        public void add(Permission permission) {
             throw new UnsupportedOperationException();
         }
 
-        public boolean implies(Permission permission)
-        {
+        public boolean implies(Permission permission) {
             return false;
         }
 
-        public Enumeration<Permission> elements()
-        {
+        public Enumeration<Permission> elements() {
             return Collections.emptyEnumeration();
         }
     };
 
-    private static final RuntimePermission CHECK_MEMBER_ACCESS_PERMISSION = new RuntimePermission("accessDeclaredMembers");
-    private static final RuntimePermission MODIFY_THREAD_PERMISSION = new RuntimePermission("modifyThread");
-    private static final RuntimePermission MODIFY_THREADGROUP_PERMISSION = new RuntimePermission("modifyThreadGroup");
-    private static final RuntimePermission SET_SECURITY_MANAGER_PERMISSION = new RuntimePermission("setSecurityManager");
+    private static final transient RuntimePermission CHECK_MEMBER_ACCESS_PERMISSION = new RuntimePermission("accessDeclaredMembers");
+
+    private static final transient RuntimePermission MODIFY_THREAD_PERMISSION = new RuntimePermission("modifyThread");
+
+    private static final transient RuntimePermission MODIFY_THREADGROUP_PERMISSION = new RuntimePermission("modifyThreadGroup");
+
+    private static final transient RuntimePermission SET_SECURITY_MANAGER_PERMISSION = new RuntimePermission("setSecurityManager");
 
     // Nashorn / Java 11
-    private static final RuntimePermission NASHORN_GLOBAL_PERMISSION = new RuntimePermission("nashorn.createGlobal");
-    private static final ReflectPermission SUPPRESS_ACCESS_CHECKS_PERMISSION = new ReflectPermission("suppressAccessChecks");
-    private static final RuntimePermission DYNALINK_LOOKUP_PERMISSION = new RuntimePermission("dynalink.getLookup");
-    private static final RuntimePermission GET_CLASSLOADER_PERMISSION = new RuntimePermission("getClassLoader");
+    private static final transient RuntimePermission NASHORN_GLOBAL_PERMISSION = new RuntimePermission("nashorn.createGlobal");
 
-    private static volatile boolean installed;
+    private static final transient ReflectPermission SUPPRESS_ACCESS_CHECKS_PERMISSION = new ReflectPermission("suppressAccessChecks");
 
-    public static void install()
-    {
+    private static final transient RuntimePermission DYNALINK_LOOKUP_PERMISSION = new RuntimePermission("dynalink.getLookup");
+
+    private static final transient RuntimePermission GET_CLASSLOADER_PERMISSION = new RuntimePermission("getClassLoader");
+
+    private static volatile transient boolean installed;
+
+    public static void install() {
         if (installed)
             return;
         System.setSecurityManager(new ThreadAwareSecurityManager());
@@ -86,86 +87,76 @@ public final class ThreadAwareSecurityManager extends SecurityManager
         installed = true;
     }
 
-    static
-    {
-        //
+    static {
+        // 
         // Use own security policy to be easier (and faster) since the C* has no fine grained permissions.
         // Either code has access to everything or code has access to nothing (UDFs).
         // This also removes the burden to maintain and configure policy files for production, unit tests etc.
-        //
+        // 
         // Note: a permission is only granted, if there is no objector. This means that
         // AccessController/AccessControlContext collect all applicable ProtectionDomains - only if none of these
         // applicable ProtectionDomains denies access, the permission is granted.
         // A ProtectionDomain can have its origin at an oridinary code-source or provided via a
         // AccessController.doPrivileded() call.
-        //
-        Policy.setPolicy(new Policy()
-        {
-            public PermissionCollection getPermissions(CodeSource codesource)
-            {
+        // 
+        Policy.setPolicy(new Policy() {
+
+            public PermissionCollection getPermissions(CodeSource codesource) {
                 // contract of getPermissions() methods is to return a _mutable_ PermissionCollection
-
                 Permissions perms = new Permissions();
-
                 if (codesource == null || codesource.getLocation() == null)
                     return perms;
-
-                switch (codesource.getLocation().getProtocol())
-                {
-                    case "jar":   // One-JAR or Uno-Jar source
+                switch(codesource.getLocation().getProtocol()) {
+                    case // One-JAR or Uno-Jar source
+                    "jar":
                         if (!codesource.getLocation().getPath().startsWith("file:")) {
                             return perms;
-                        } // else fall through and add AllPermission()
-                    case "file":  // Standard file system source
+                        }
+                    // else fall through and add AllPermission()
+                    case // Standard file system source
+                    "file":
                         // All JARs and class files reside on the file system - we can safely
                         // assume that these classes are "good".
                         perms.add(new AllPermission());
                         return perms;
                 }
-
                 return perms;
             }
 
-            public PermissionCollection getPermissions(ProtectionDomain domain)
-            {
+            public PermissionCollection getPermissions(ProtectionDomain domain) {
                 return getPermissions(domain.getCodeSource());
             }
 
-            public boolean implies(ProtectionDomain domain, Permission permission)
-            {
+            public boolean implies(ProtectionDomain domain, Permission permission) {
                 CodeSource codesource = domain.getCodeSource();
                 if (codesource == null || codesource.getLocation() == null)
                     return false;
-
-                switch (codesource.getLocation().getProtocol())
-                {
-                    case "jar":   // One-JAR or Uno-Jar source
+                switch(codesource.getLocation().getProtocol()) {
+                    case // One-JAR or Uno-Jar source
+                    "jar":
                         return codesource.getLocation().getPath().startsWith("file:");
-                    case "file":  // Standard file system source
+                    case // Standard file system source
+                    "file":
                         // All JARs and class files reside on the file system - we can safely
                         // assume that these classes are "good".
                         return true;
                 }
-
                 return false;
             }
         });
     }
 
-    private static final FastThreadLocal<Boolean> initializedThread = new FastThreadLocal<>();
+    private static final transient FastThreadLocal<Boolean> initializedThread = new FastThreadLocal<>();
 
-    private ThreadAwareSecurityManager()
-    {
+    private ThreadAwareSecurityManager() {
     }
 
-    public static boolean isSecuredThread()
-    {
+    public static boolean isSecuredThread() {
         ThreadGroup tg = Thread.currentThread().getThreadGroup();
         if (!(tg instanceof SecurityThreadGroup))
             return false;
         Boolean threadInitialized = initializedThread.get();
-        if (threadInitialized == null)
-        {
+        if (threadInitialized == null) {
             initializedThread.set(false);
             ((SecurityThreadGroup) tg).initializeThread();
             initializedThread.set(true);
@@ -174,39 +165,31 @@ public final class ThreadAwareSecurityManager extends SecurityManager
         return threadInitialized;
     }
 
-    public void checkAccess(Thread t)
-    {
+    public void checkAccess(Thread t) {
         // need to override since the default implementation only checks the permission if the current thread's
         // in the root-thread-group
-
         if (isSecuredThread())
             throw new AccessControlException("access denied: " + MODIFY_THREAD_PERMISSION, MODIFY_THREAD_PERMISSION);
         super.checkAccess(t);
     }
 
-    public void checkAccess(ThreadGroup g)
-    {
+    public void checkAccess(ThreadGroup g) {
         // need to override since the default implementation only checks the permission if the current thread's
         // in the root-thread-group
-
         if (isSecuredThread())
             throw new AccessControlException("access denied: " + MODIFY_THREADGROUP_PERMISSION, MODIFY_THREADGROUP_PERMISSION);
         super.checkAccess(g);
     }
 
-    public void checkPermission(Permission perm)
-    {
+    public void checkPermission(Permission perm) {
         if (!DatabaseDescriptor.enableUserDefinedFunctionsThreads() && !DatabaseDescriptor.allowExtraInsecureUDFs() && SET_SECURITY_MANAGER_PERMISSION.equals(perm))
             throw new AccessControlException("Access denied");
-
         if (!isSecuredThread())
             return;
-
         // required by JavaDriver 2.2.0-rc3 and 3.0.0-a2 or newer
         // code in com.datastax.driver.core.CodecUtils uses Guava stuff, which in turns requires this permission
         if (CHECK_MEMBER_ACCESS_PERMISSION.equals(perm))
             return;
-
         // Nashorn / Java 11
         if (NASHORN_GLOBAL_PERMISSION.equals(perm))
             return;
@@ -216,23 +199,18 @@ public final class ThreadAwareSecurityManager extends SecurityManager
             return;
         if (GET_CLASSLOADER_PERMISSION.equals(perm))
             return;
-
         super.checkPermission(perm);
     }
 
-    public void checkPermission(Permission perm, Object context)
-    {
+    public void checkPermission(Permission perm, Object context) {
         if (isSecuredThread())
             super.checkPermission(perm, context);
     }
 
-    public void checkPackageAccess(String pkg)
-    {
+    public void checkPackageAccess(String pkg) {
         if (!isSecuredThread())
             return;
-
-        if (!((SecurityThreadGroup) Thread.currentThread().getThreadGroup()).isPackageAllowed(pkg))
-        {
+        if (!((SecurityThreadGroup) Thread.currentThread().getThreadGroup()).isPackageAllowed(pkg)) {
             RuntimePermission perm = new RuntimePermission("accessClassInPackage." + pkg);
             throw new AccessControlException("access denied: " + perm, perm);
         }

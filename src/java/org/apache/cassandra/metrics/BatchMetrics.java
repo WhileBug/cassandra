@@ -18,19 +18,21 @@
 package org.apache.cassandra.metrics;
 
 import com.codahale.metrics.Histogram;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
-public class BatchMetrics
-{
-    private static final MetricNameFactory factory = new DefaultNameFactory("Batch");
+public class BatchMetrics {
 
-    public final Histogram partitionsPerLoggedBatch;
-    public final Histogram partitionsPerUnloggedBatch;
-    public final Histogram partitionsPerCounterBatch;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchMetrics.class);
 
-    public BatchMetrics()
-    {
+    private static final transient MetricNameFactory factory = new DefaultNameFactory("Batch");
+
+    public final transient Histogram partitionsPerLoggedBatch;
+
+    public final transient Histogram partitionsPerUnloggedBatch;
+
+    public final transient Histogram partitionsPerCounterBatch;
+
+    public BatchMetrics() {
         partitionsPerLoggedBatch = Metrics.histogram(factory.createMetricName("PartitionsPerLoggedBatch"), false);
         partitionsPerUnloggedBatch = Metrics.histogram(factory.createMetricName("PartitionsPerUnloggedBatch"), false);
         partitionsPerCounterBatch = Metrics.histogram(factory.createMetricName("PartitionsPerCounterBatch"), false);

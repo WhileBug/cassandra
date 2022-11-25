@@ -15,28 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools;
 
 import java.io.IOException;
 
-public interface INodeProbeFactory
-{
+public interface INodeProbeFactory {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(INodeProbeFactory.class);
+
     NodeProbe create(String host, int port) throws IOException;
 
     NodeProbe create(String host, int port, String username, String password) throws IOException;
 }
 
-class NodeProbeFactory implements INodeProbeFactory
-{
+class NodeProbeFactory implements INodeProbeFactory {
 
-    public NodeProbe create(String host, int port) throws IOException
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NodeProbeFactory.class);
+
+    public NodeProbe create(String host, int port) throws IOException {
         return new NodeProbe(host, port);
     }
 
-    public NodeProbe create(String host, int port, String username, String password) throws IOException
-    {
+    public NodeProbe create(String host, int port, String username, String password) throws IOException {
         return new NodeProbe(host, port, username, password);
     }
 }

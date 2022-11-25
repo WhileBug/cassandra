@@ -19,8 +19,10 @@ package org.apache.cassandra.schema;
 
 import java.net.UnknownHostException;
 
-public interface SchemaTransformation
-{
+public interface SchemaTransformation {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaTransformation.class);
+
     /**
      * Apply a statement transformation to a schema snapshot.
      *

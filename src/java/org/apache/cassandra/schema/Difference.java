@@ -17,8 +17,8 @@
  */
 package org.apache.cassandra.schema;
 
-public enum Difference
-{
+public enum Difference {
+
     /**
      * Two schema objects are considered to differ DEEP-ly if one or more of their nested schema objects differ.
      *
@@ -26,9 +26,7 @@ public enum Difference
      * T0 (before alter) will differ DEEP-ly from table T1 (after alter).
      */
     DEEP,
-
     /**
-     *
      * Two schema objects are considered to differ DEEP-ly if their direct structure is altered.
      *
      * For example, if a table T is altered to add a new column, a different compaction strategy, or a new description,

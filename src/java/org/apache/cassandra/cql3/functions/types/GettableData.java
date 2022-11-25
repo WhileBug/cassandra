@@ -21,6 +21,7 @@ package org.apache.cassandra.cql3.functions.types;
  * Collection of (typed) CQL values that can be retrieved either by index (starting at zero) or by
  * name.
  */
-public interface GettableData extends GettableByIndexData, GettableByNameData
-{
+public interface GettableData extends GettableByIndexData, GettableByNameData {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GettableData.class);
 }

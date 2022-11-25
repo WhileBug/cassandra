@@ -18,22 +18,21 @@
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.dht.Token;
 
-public class BufferDecoratedKey extends DecoratedKey
-{
-    private final ByteBuffer key;
+public class BufferDecoratedKey extends DecoratedKey {
 
-    public BufferDecoratedKey(Token token, ByteBuffer key)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BufferDecoratedKey.class);
+
+    private final transient ByteBuffer key;
+
+    public BufferDecoratedKey(Token token, ByteBuffer key) {
         super(token);
         assert key != null;
         this.key = key;
     }
 
-    public ByteBuffer getKey()
-    {
+    public ByteBuffer getKey() {
         return key;
     }
 }

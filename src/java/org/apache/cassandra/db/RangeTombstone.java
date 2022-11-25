@@ -18,7 +18,6 @@
 package org.apache.cassandra.db;
 
 import java.util.Objects;
-
 import org.apache.cassandra.db.rows.RangeTombstoneMarker;
 
 /**
@@ -29,13 +28,15 @@ import org.apache.cassandra.db.rows.RangeTombstoneMarker;
  * full partitions are materialized in memory in a {@code Partition} object, and more precisely through
  * the use of a {@code RangeTombstoneList} in a {@code DeletionInfo} object.
  */
-public class RangeTombstone
-{
-    private final Slice slice;
-    private final DeletionTime deletion;
+public class RangeTombstone {
 
-    public RangeTombstone(Slice slice, DeletionTime deletion)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RangeTombstone.class);
+
+    private final transient Slice slice;
+
+    private final transient DeletionTime deletion;
+
+    public RangeTombstone(Slice slice, DeletionTime deletion) {
         this.slice = slice;
         this.deletion = deletion;
     }
@@ -45,8 +46,7 @@ public class RangeTombstone
      *
      * @return the slice of rows that is deleted by this range tombstone.
      */
-    public Slice deletedSlice()
-    {
+    public Slice deletedSlice() {
         return slice;
     }
 
@@ -55,30 +55,24 @@ public class RangeTombstone
      *
      * @return the deletion time for this range tombstone.
      */
-    public DeletionTime deletionTime()
-    {
+    public DeletionTime deletionTime() {
         return deletion;
     }
 
-    public String toString(ClusteringComparator comparator)
-    {
+    public String toString(ClusteringComparator comparator) {
         return slice.toString(comparator) + '@' + deletion;
     }
 
     @Override
-    public boolean equals(Object other)
-    {
-        if(!(other instanceof RangeTombstone))
+    public boolean equals(Object other) {
+        if (!(other instanceof RangeTombstone))
             return false;
-
-        RangeTombstone that = (RangeTombstone)other;
-        return this.deletedSlice().equals(that.deletedSlice())
-            && this.deletionTime().equals(that.deletionTime());
+        RangeTombstone that = (RangeTombstone) other;
+        return this.deletedSlice().equals(that.deletedSlice()) && this.deletionTime().equals(that.deletionTime());
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(deletedSlice(), deletionTime());
     }
 }

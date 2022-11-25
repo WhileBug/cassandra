@@ -27,7 +27,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -47,28 +46,26 @@ import java.util.concurrent.CopyOnWriteArraySet;
  * <li>the collection of the remaining hosts (which is shuffled on each request)</li>
  * </ul>
  */
-class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
-{
-    private final static Logger logger = LoggerFactory.getLogger(LimitedLocalNodeFirstLocalBalancingPolicy.class);
+class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy {
 
-    private final static Set<InetAddress> localAddresses = Collections.unmodifiableSet(getLocalInetAddresses());
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LimitedLocalNodeFirstLocalBalancingPolicy.class);
 
-    private final CopyOnWriteArraySet<Host> liveReplicaHosts = new CopyOnWriteArraySet<>();
+    private final static transient Logger logger = LoggerFactory.getLogger(LimitedLocalNodeFirstLocalBalancingPolicy.class);
 
-    private final Set<InetAddress> replicaAddresses = new HashSet<>();
-    private final Set<String> allowedDCs = new CopyOnWriteArraySet<>();
+    private final static transient Set<InetAddress> localAddresses = Collections.unmodifiableSet(getLocalInetAddresses());
 
-    public LimitedLocalNodeFirstLocalBalancingPolicy(String[] replicas)
-    {
-        for (String replica : replicas)
-        {
-            try
-            {
+    private final transient CopyOnWriteArraySet<Host> liveReplicaHosts = new CopyOnWriteArraySet<>();
+
+    private final transient Set<InetAddress> replicaAddresses = new HashSet<>();
+
+    private final transient Set<String> allowedDCs = new CopyOnWriteArraySet<>();
+
+    public LimitedLocalNodeFirstLocalBalancingPolicy(String[] replicas) {
+        for (String replica : replicas) {
+            try {
                 InetAddress[] addresses = InetAddress.getAllByName(replica);
                 Collections.addAll(replicaAddresses, addresses);
-            }
-            catch (UnknownHostException e)
-            {
+            } catch (UnknownHostException e) {
                 logger.warn("Invalid replica host name: {}, skipping it", replica);
             }
         }
@@ -77,19 +74,16 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     }
 
     @Override
-    public void init(Cluster cluster, Collection<Host> hosts)
-    {
+    public void init(Cluster cluster, Collection<Host> hosts) {
         // first find which DCs the user defined
         Set<String> dcs = new HashSet<>();
-        for (Host host : hosts)
-        {
+        for (Host host : hosts) {
             if (replicaAddresses.contains(host.getAddress()))
                 dcs.add(host.getDatacenter());
         }
         // filter to all nodes within the targeted DCs
         List<Host> replicaHosts = new ArrayList<>();
-        for (Host host : hosts)
-        {
+        for (Host host : hosts) {
             if (dcs.contains(host.getDatacenter()))
                 replicaHosts.add(host);
         }
@@ -99,116 +93,84 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     }
 
     @Override
-    public void close()
-    {
-        //
+    public void close() {
+        // 
     }
 
     @Override
-    public HostDistance distance(Host host)
-    {
-        if (isLocalHost(host))
-        {
+    public HostDistance distance(Host host) {
+        if (isLocalHost(host)) {
             return HostDistance.LOCAL;
-        }
-        else
-        {
+        } else {
             return HostDistance.REMOTE;
         }
     }
 
     @Override
-    public Iterator<Host> newQueryPlan(String keyspace, Statement statement)
-    {
+    public Iterator<Host> newQueryPlan(String keyspace, Statement statement) {
         List<Host> local = new ArrayList<>(1);
         List<Host> remote = new ArrayList<>(liveReplicaHosts.size());
-        for (Host liveReplicaHost : liveReplicaHosts)
-        {
-            if (isLocalHost(liveReplicaHost))
-            {
+        for (Host liveReplicaHost : liveReplicaHosts) {
+            if (isLocalHost(liveReplicaHost)) {
                 local.add(liveReplicaHost);
-            }
-            else
-            {
+            } else {
                 remote.add(liveReplicaHost);
             }
         }
-
         Collections.shuffle(remote);
-
         logger.trace("Using the following hosts order for the new query plan: {} | {}", local, remote);
-
         return Iterators.concat(local.iterator(), remote.iterator());
     }
 
     @Override
-    public void onAdd(Host host)
-    {
-        if (liveReplicaHosts.contains(host))
-        {
+    public void onAdd(Host host) {
+        if (liveReplicaHosts.contains(host)) {
             liveReplicaHosts.add(host);
             logger.trace("Added a new host {}", host);
         }
     }
 
     @Override
-    public void onUp(Host host)
-    {
-        if (liveReplicaHosts.contains(host))
-        {
+    public void onUp(Host host) {
+        if (liveReplicaHosts.contains(host)) {
             liveReplicaHosts.add(host);
             logger.trace("The host {} is now up", host);
         }
     }
 
     @Override
-    public void onDown(Host host)
-    {
-        if (liveReplicaHosts.remove(host))
-        {
+    public void onDown(Host host) {
+        if (liveReplicaHosts.remove(host)) {
             logger.trace("The host {} is now down", host);
         }
     }
 
-
     @Override
-    public void onRemove(Host host)
-    {
-        if (liveReplicaHosts.remove(host))
-        {
+    public void onRemove(Host host) {
+        if (liveReplicaHosts.remove(host)) {
             logger.trace("Removed the host {}", host);
         }
     }
 
-    public void onSuspected(Host host)
-    {
+    public void onSuspected(Host host) {
         // not supported by this load balancing policy
     }
 
-    private static boolean isLocalHost(Host host)
-    {
+    private static boolean isLocalHost(Host host) {
         InetAddress hostAddress = host.getAddress();
         return hostAddress.isLoopbackAddress() || localAddresses.contains(hostAddress);
     }
 
-    private static Set<InetAddress> getLocalInetAddresses()
-    {
-        try
-        {
-            return Sets.newHashSet(Iterators.concat(
-                    Iterators.transform(
-                            Iterators.forEnumeration(NetworkInterface.getNetworkInterfaces()),
-                            new Function<NetworkInterface, Iterator<InetAddress>>()
-                            {
-                                @Override
-                                public Iterator<InetAddress> apply(NetworkInterface netIface)
-                                {
-                                    return Iterators.forEnumeration(netIface.getInetAddresses());
-                                }
-                            })));
-        }
-        catch (SocketException e)
-        {
+    private static Set<InetAddress> getLocalInetAddresses() {
+        try {
+            return Sets.newHashSet(Iterators.concat(Iterators.transform(Iterators.forEnumeration(NetworkInterface.getNetworkInterfaces()), new Function<NetworkInterface, Iterator<InetAddress>>() {
+
+                @Override
+                public Iterator<InetAddress> apply(NetworkInterface netIface) {
+                    return Iterators.forEnumeration(netIface.getInetAddresses());
+                }
+            })));
+        } catch (SocketException e) {
             logger.warn("Could not retrieve local network interfaces.", e);
             return Collections.emptySet();
         }

@@ -15,26 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.config;
 
-public enum CassandraRelevantEnv
-{
+public enum CassandraRelevantEnv {
+
     /**
      * Searching in the JAVA_HOME is safer than searching into System.getProperty("java.home") as the Oracle
      * JVM might use the JRE which do not contains jmap.
      */
-    JAVA_HOME ("JAVA_HOME");
+    JAVA_HOME("JAVA_HOME");
 
-    CassandraRelevantEnv(String key)
-    {
+    CassandraRelevantEnv(String key) {
         this.key = key;
     }
 
     private final String key;
 
-    public String getString()
-    {
+    public String getString() {
         return System.getenv(key);
     }
 

@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -33,208 +32,170 @@ import org.apache.cassandra.metrics.MessagingMetrics;
 import org.apache.cassandra.security.SSLFactory;
 import org.apache.cassandra.utils.MBeanWrapper;
 
-public class MessagingServiceMBeanImpl implements MessagingServiceMBean
-{
-    public static final String MBEAN_NAME = "org.apache.cassandra.net:type=MessagingService";
+public class MessagingServiceMBeanImpl implements MessagingServiceMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MessagingServiceMBeanImpl.class);
+
+    public static final transient String MBEAN_NAME = "org.apache.cassandra.net:type=MessagingService";
 
     // we use CHM deliberately instead of NBHM, as both are non-blocking for readers (which this map mostly is used for)
     // and CHM permits prompter GC
-    public final ConcurrentMap<InetAddressAndPort, OutboundConnections> channelManagers = new ConcurrentHashMap<>();
-    public final ConcurrentMap<InetAddressAndPort, InboundMessageHandlers> messageHandlers = new ConcurrentHashMap<>();
+    public final transient ConcurrentMap<InetAddressAndPort, OutboundConnections> channelManagers = new ConcurrentHashMap<>();
 
-    public final EndpointMessagingVersions versions = new EndpointMessagingVersions();
-    public final MessagingMetrics metrics = new MessagingMetrics();
+    public final transient ConcurrentMap<InetAddressAndPort, InboundMessageHandlers> messageHandlers = new ConcurrentHashMap<>();
 
-    MessagingServiceMBeanImpl(boolean testOnly)
-    {
-        if (!testOnly)
-        {
+    public final transient EndpointMessagingVersions versions = new EndpointMessagingVersions();
+
+    public final transient MessagingMetrics metrics = new MessagingMetrics();
+
+    MessagingServiceMBeanImpl(boolean testOnly) {
+        if (!testOnly) {
             MBeanWrapper.instance.registerMBean(this, MBEAN_NAME);
             metrics.scheduleLogging();
         }
     }
 
     @Override
-    public Map<String, Integer> getLargeMessagePendingTasks()
-    {
+    public Map<String, Integer> getLargeMessagePendingTasks() {
         Map<String, Integer> pendingTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            pendingTasks.put(entry.getKey().toString(false), entry.getValue().large.pendingCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) pendingTasks.put(entry.getKey().toString(false), entry.getValue().large.pendingCount());
         return pendingTasks;
     }
 
     @Override
-    public Map<String, Long> getLargeMessageCompletedTasks()
-    {
+    public Map<String, Long> getLargeMessageCompletedTasks() {
         Map<String, Long> completedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            completedTasks.put(entry.getKey().toString(false), entry.getValue().large.sentCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) completedTasks.put(entry.getKey().toString(false), entry.getValue().large.sentCount());
         return completedTasks;
     }
 
     @Override
-    public Map<String, Long> getLargeMessageDroppedTasks()
-    {
+    public Map<String, Long> getLargeMessageDroppedTasks() {
         Map<String, Long> droppedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            droppedTasks.put(entry.getKey().toString(false), entry.getValue().large.dropped());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) droppedTasks.put(entry.getKey().toString(false), entry.getValue().large.dropped());
         return droppedTasks;
     }
 
     @Override
-    public Map<String, Integer> getSmallMessagePendingTasks()
-    {
+    public Map<String, Integer> getSmallMessagePendingTasks() {
         Map<String, Integer> pendingTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            pendingTasks.put(entry.getKey().toString(false), entry.getValue().small.pendingCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) pendingTasks.put(entry.getKey().toString(false), entry.getValue().small.pendingCount());
         return pendingTasks;
     }
 
     @Override
-    public Map<String, Long> getSmallMessageCompletedTasks()
-    {
+    public Map<String, Long> getSmallMessageCompletedTasks() {
         Map<String, Long> completedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            completedTasks.put(entry.getKey().toString(false), entry.getValue().small.sentCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) completedTasks.put(entry.getKey().toString(false), entry.getValue().small.sentCount());
         return completedTasks;
     }
 
     @Override
-    public Map<String, Long> getSmallMessageDroppedTasks()
-    {
+    public Map<String, Long> getSmallMessageDroppedTasks() {
         Map<String, Long> droppedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            droppedTasks.put(entry.getKey().toString(false), entry.getValue().small.dropped());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) droppedTasks.put(entry.getKey().toString(false), entry.getValue().small.dropped());
         return droppedTasks;
     }
 
     @Override
-    public Map<String, Integer> getGossipMessagePendingTasks()
-    {
+    public Map<String, Integer> getGossipMessagePendingTasks() {
         Map<String, Integer> pendingTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            pendingTasks.put(entry.getKey().toString(false), entry.getValue().urgent.pendingCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) pendingTasks.put(entry.getKey().toString(false), entry.getValue().urgent.pendingCount());
         return pendingTasks;
     }
 
     @Override
-    public Map<String, Long> getGossipMessageCompletedTasks()
-    {
+    public Map<String, Long> getGossipMessageCompletedTasks() {
         Map<String, Long> completedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            completedTasks.put(entry.getKey().toString(false), entry.getValue().urgent.sentCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) completedTasks.put(entry.getKey().toString(false), entry.getValue().urgent.sentCount());
         return completedTasks;
     }
 
     @Override
-    public Map<String, Long> getGossipMessageDroppedTasks()
-    {
+    public Map<String, Long> getGossipMessageDroppedTasks() {
         Map<String, Long> droppedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            droppedTasks.put(entry.getKey().toString(false), entry.getValue().urgent.dropped());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) droppedTasks.put(entry.getKey().toString(false), entry.getValue().urgent.dropped());
         return droppedTasks;
     }
 
     @Override
-    public Map<String, Integer> getLargeMessagePendingTasksWithPort()
-    {
+    public Map<String, Integer> getLargeMessagePendingTasksWithPort() {
         Map<String, Integer> pendingTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            pendingTasks.put(entry.getKey().toString(), entry.getValue().large.pendingCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) pendingTasks.put(entry.getKey().toString(), entry.getValue().large.pendingCount());
         return pendingTasks;
     }
 
     @Override
-    public Map<String, Long> getLargeMessageCompletedTasksWithPort()
-    {
+    public Map<String, Long> getLargeMessageCompletedTasksWithPort() {
         Map<String, Long> completedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            completedTasks.put(entry.getKey().toString(), entry.getValue().large.sentCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) completedTasks.put(entry.getKey().toString(), entry.getValue().large.sentCount());
         return completedTasks;
     }
 
     @Override
-    public Map<String, Long> getLargeMessageDroppedTasksWithPort()
-    {
+    public Map<String, Long> getLargeMessageDroppedTasksWithPort() {
         Map<String, Long> droppedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            droppedTasks.put(entry.getKey().toString(), entry.getValue().large.dropped());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) droppedTasks.put(entry.getKey().toString(), entry.getValue().large.dropped());
         return droppedTasks;
     }
 
     @Override
-    public Map<String, Integer> getSmallMessagePendingTasksWithPort()
-    {
+    public Map<String, Integer> getSmallMessagePendingTasksWithPort() {
         Map<String, Integer> pendingTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            pendingTasks.put(entry.getKey().toString(), entry.getValue().small.pendingCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) pendingTasks.put(entry.getKey().toString(), entry.getValue().small.pendingCount());
         return pendingTasks;
     }
 
     @Override
-    public Map<String, Long> getSmallMessageCompletedTasksWithPort()
-    {
+    public Map<String, Long> getSmallMessageCompletedTasksWithPort() {
         Map<String, Long> completedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            completedTasks.put(entry.getKey().toString(), entry.getValue().small.sentCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) completedTasks.put(entry.getKey().toString(), entry.getValue().small.sentCount());
         return completedTasks;
     }
 
     @Override
-    public Map<String, Long> getSmallMessageDroppedTasksWithPort()
-    {
+    public Map<String, Long> getSmallMessageDroppedTasksWithPort() {
         Map<String, Long> droppedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            droppedTasks.put(entry.getKey().toString(), entry.getValue().small.dropped());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) droppedTasks.put(entry.getKey().toString(), entry.getValue().small.dropped());
         return droppedTasks;
     }
 
     @Override
-    public Map<String, Integer> getGossipMessagePendingTasksWithPort()
-    {
+    public Map<String, Integer> getGossipMessagePendingTasksWithPort() {
         Map<String, Integer> pendingTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            pendingTasks.put(entry.getKey().toString(), entry.getValue().urgent.pendingCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) pendingTasks.put(entry.getKey().toString(), entry.getValue().urgent.pendingCount());
         return pendingTasks;
     }
 
     @Override
-    public Map<String, Long> getGossipMessageCompletedTasksWithPort()
-    {
+    public Map<String, Long> getGossipMessageCompletedTasksWithPort() {
         Map<String, Long> completedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            completedTasks.put(entry.getKey().toString(), entry.getValue().urgent.sentCount());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) completedTasks.put(entry.getKey().toString(), entry.getValue().urgent.sentCount());
         return completedTasks;
     }
 
     @Override
-    public Map<String, Long> getGossipMessageDroppedTasksWithPort()
-    {
+    public Map<String, Long> getGossipMessageDroppedTasksWithPort() {
         Map<String, Long> droppedTasks = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-            droppedTasks.put(entry.getKey().toString(), entry.getValue().urgent.dropped());
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) droppedTasks.put(entry.getKey().toString(), entry.getValue().urgent.dropped());
         return droppedTasks;
     }
 
     @Override
-    public Map<String, Integer> getDroppedMessages()
-    {
+    public Map<String, Integer> getDroppedMessages() {
         return metrics.getDroppedMessages();
     }
 
     @Override
-    public long getTotalTimeouts()
-    {
+    public long getTotalTimeouts() {
         return InternodeOutboundMetrics.totalExpiredCallbacks.getCount();
     }
 
     // these are not messages that time out on sending, but callbacks that timedout without receiving a response
     @Override
-    public Map<String, Long> getTimeoutsPerHost()
-    {
+    public Map<String, Long> getTimeoutsPerHost() {
         Map<String, Long> result = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-        {
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) {
             String ip = entry.getKey().toString(false);
             long recent = entry.getValue().expiredCallbacks();
             result.put(ip, recent);
@@ -244,11 +205,9 @@ public class MessagingServiceMBeanImpl implements MessagingServiceMBean
 
     // these are not messages that time out on sending, but callbacks that timedout without receiving a response
     @Override
-    public Map<String, Long> getTimeoutsPerHostWithPort()
-    {
+    public Map<String, Long> getTimeoutsPerHostWithPort() {
         Map<String, Long> result = new HashMap<>(channelManagers.size());
-        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet())
-        {
+        for (Map.Entry<InetAddressAndPort, OutboundConnections> entry : channelManagers.entrySet()) {
             String ip = entry.getKey().toString();
             long recent = entry.getValue().expiredCallbacks();
             result.put(ip, recent);
@@ -257,26 +216,22 @@ public class MessagingServiceMBeanImpl implements MessagingServiceMBean
     }
 
     @Override
-    public Map<String, Double> getBackPressurePerHost()
-    {
+    public Map<String, Double> getBackPressurePerHost() {
         throw new UnsupportedOperationException("This feature has been removed");
     }
 
     @Override
-    public void setBackPressureEnabled(boolean enabled)
-    {
+    public void setBackPressureEnabled(boolean enabled) {
         throw new UnsupportedOperationException("This feature has been removed");
     }
 
     @Override
-    public boolean isBackPressureEnabled()
-    {
+    public boolean isBackPressureEnabled() {
         return false;
     }
 
     @Override
-    public void reloadSslCertificates() throws IOException
-    {
+    public void reloadSslCertificates() throws IOException {
         final EncryptionOptions.ServerEncryptionOptions serverOpts = DatabaseDescriptor.getInternodeMessagingEncyptionOptions();
         final EncryptionOptions clientOpts = DatabaseDescriptor.getNativeProtocolEncryptionOptions();
         SSLFactory.validateSslCerts(serverOpts, clientOpts);
@@ -284,8 +239,7 @@ public class MessagingServiceMBeanImpl implements MessagingServiceMBean
     }
 
     @Override
-    public int getVersion(String address) throws UnknownHostException
-    {
+    public int getVersion(String address) throws UnknownHostException {
         return versions.get(address);
     }
 }

@@ -20,36 +20,31 @@ package org.apache.cassandra.tools.nodetool;
 import static com.google.common.base.Preconditions.checkArgument;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import io.airlift.airline.Option;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "getsstables", description = "Print the sstable filenames that own the key")
-public class GetSSTables extends NodeToolCmd
-{
-    @Option(title = "hex_format",
-           name = {"-hf", "--hex-format"},
-           description = "Specify the key in hexadecimal string format")
-    private boolean hexFormat = false;
+public class GetSSTables extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetSSTables.class);
+
+    @Option(title = "hex_format", name = { "-hf", "--hex-format" }, description = "Specify the key in hexadecimal string format")
+    private transient boolean hexFormat = false;
 
     @Arguments(usage = "<keyspace> <cfname> <key>", description = "The keyspace, the column family, and the key")
-    private List<String> args = new ArrayList<>();
+    private transient List<String> args = new ArrayList<>();
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         checkArgument(args.size() == 3, "getsstables requires ks, cf and key args");
         String ks = args.get(0);
         String cf = args.get(1);
         String key = args.get(2);
-
         List<String> sstables = probe.getSSTables(ks, cf, key, hexFormat);
-        for (String sstable : sstables)
-        {
+        for (String sstable : sstables) {
             probe.output().out.println(sstable);
         }
     }

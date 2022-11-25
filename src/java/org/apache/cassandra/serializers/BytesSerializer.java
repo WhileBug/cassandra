@@ -15,50 +15,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
-
 import java.nio.ByteBuffer;
 
-public class BytesSerializer extends TypeSerializer<ByteBuffer>
-{
-    public static final BytesSerializer instance = new BytesSerializer();
+public class BytesSerializer extends TypeSerializer<ByteBuffer> {
 
-    public ByteBuffer serialize(ByteBuffer bytes)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BytesSerializer.class);
+
+    public static final transient BytesSerializer instance = new BytesSerializer();
+
+    public ByteBuffer serialize(ByteBuffer bytes) {
         // We make a copy in case the user modifies the input
         return bytes.duplicate();
     }
 
-    public <V> ByteBuffer deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public <V> ByteBuffer deserialize(V value, ValueAccessor<V> accessor) {
         // This is from the DB, so it is not shared with someone else
         return accessor.toBuffer(value);
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         // all bytes are legal.
     }
 
-    public String toString(ByteBuffer value)
-    {
+    public String toString(ByteBuffer value) {
         return ByteBufferUtil.bytesToHex(value);
     }
 
-    public Class<ByteBuffer> getType()
-    {
+    public Class<ByteBuffer> getType() {
         return ByteBuffer.class;
     }
 
     @Override
-    public String toCQLLiteral(ByteBuffer buffer)
-    {
-        return buffer == null
-               ? "null"
-               : "0x" + toString(deserialize(buffer));
+    public String toCQLLiteral(ByteBuffer buffer) {
+        return buffer == null ? "null" : "0x" + toString(deserialize(buffer));
     }
 }

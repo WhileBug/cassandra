@@ -18,11 +18,9 @@
 package org.apache.cassandra.net;
 
 import java.nio.ByteBuffer;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import org.apache.cassandra.utils.memory.BufferPool;
-
 import static org.apache.cassandra.net.FrameEncoderCrc.HEADER_LENGTH;
 import static org.apache.cassandra.net.FrameEncoderCrc.writeHeader;
 
@@ -34,31 +32,27 @@ import static org.apache.cassandra.net.FrameEncoderCrc.writeHeader;
  * Please see {@link FrameDecoderUnprotected} for description of the framing produced by this encoder.
  */
 @ChannelHandler.Sharable
-class FrameEncoderUnprotected extends FrameEncoder
-{
-    static final FrameEncoderUnprotected instance = new FrameEncoderUnprotected();
-    static final PayloadAllocator allocator = (isSelfContained, capacity) ->
-        new Payload(isSelfContained, capacity, HEADER_LENGTH, 0);
+class FrameEncoderUnprotected extends FrameEncoder {
 
-    public PayloadAllocator allocator()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameEncoderUnprotected.class);
+
+    static final transient FrameEncoderUnprotected instance = new FrameEncoderUnprotected();
+
+    static final transient PayloadAllocator allocator = (isSelfContained, capacity) -> new Payload(isSelfContained, capacity, HEADER_LENGTH, 0);
+
+    public PayloadAllocator allocator() {
         return allocator;
     }
 
-    ByteBuf encode(boolean isSelfContained, ByteBuffer frame)
-    {
-        try
-        {
+    ByteBuf encode(boolean isSelfContained, ByteBuffer frame) {
+        try {
             int frameLength = frame.remaining();
             int dataLength = frameLength - HEADER_LENGTH;
             if (dataLength >= 1 << 17)
                 throw new IllegalArgumentException("Maximum uncompressed payload size is 128KiB");
-
             writeHeader(frame, isSelfContained, dataLength);
             return GlobalBufferPoolAllocator.wrap(frame);
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             bufferPool.put(frame);
             throw t;
         }

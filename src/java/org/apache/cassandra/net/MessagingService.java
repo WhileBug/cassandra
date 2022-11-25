@@ -23,12 +23,9 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import io.netty.util.concurrent.Future;
 import org.apache.cassandra.concurrent.ScheduledExecutors;
 import org.apache.cassandra.concurrent.Stage;
@@ -40,7 +37,6 @@ import org.apache.cassandra.locator.Replica;
 import org.apache.cassandra.service.AbstractWriteResponseHandler;
 import org.apache.cassandra.utils.ExecutorUtils;
 import org.apache.cassandra.utils.FBUtilities;
-
 import static java.util.Collections.synchronizedList;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.cassandra.concurrent.Stage.MUTATION;
@@ -194,70 +190,71 @@ import static org.apache.cassandra.utils.Throwables.maybeFail;
  * implemented in {@link org.apache.cassandra.db.virtual.InternodeInboundTable} and
  * {@link org.apache.cassandra.db.virtual.InternodeOutboundTable} respectively.
  */
-public final class MessagingService extends MessagingServiceMBeanImpl
-{
-    private static final Logger logger = LoggerFactory.getLogger(MessagingService.class);
+public final class MessagingService extends MessagingServiceMBeanImpl {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MessagingService.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(MessagingService.class);
 
     // 8 bits version, so don't waste versions
-    public static final int VERSION_30 = 10;
-    public static final int VERSION_3014 = 11;
-    public static final int VERSION_40 = 12;
-    public static final int minimum_version = VERSION_30;
-    public static final int current_version = VERSION_40;
-    static AcceptVersions accept_messaging = new AcceptVersions(minimum_version, current_version);
-    static AcceptVersions accept_streaming = new AcceptVersions(current_version, current_version);
+    public static final transient int VERSION_30 = 10;
 
-    public enum Version
-    {
-        VERSION_30(10),
-        VERSION_3014(11),
-        VERSION_40(12);
+    public static final transient int VERSION_3014 = 11;
+
+    public static final transient int VERSION_40 = 12;
+
+    public static final transient int minimum_version = VERSION_30;
+
+    public static final transient int current_version = VERSION_40;
+
+    static transient AcceptVersions accept_messaging = new AcceptVersions(minimum_version, current_version);
+
+    static transient AcceptVersions accept_streaming = new AcceptVersions(current_version, current_version);
+
+    public enum Version {
+
+        VERSION_30(10), VERSION_3014(11), VERSION_40(12);
 
         public final int value;
 
-        Version(int value)
-        {
+        Version(int value) {
             this.value = value;
         }
     }
 
-    private static class MSHandle
-    {
-        public static final MessagingService instance = new MessagingService(false);
+    private static class MSHandle {
+
+        public static final transient MessagingService instance = new MessagingService(false);
     }
 
-    public static MessagingService instance()
-    {
+    public static MessagingService instance() {
         return MSHandle.instance;
     }
 
-    public final SocketFactory socketFactory = new SocketFactory();
-    public final LatencySubscribers latencySubscribers = new LatencySubscribers();
-    public final RequestCallbacks callbacks = new RequestCallbacks(this);
+    public final transient SocketFactory socketFactory = new SocketFactory();
+
+    public final transient LatencySubscribers latencySubscribers = new LatencySubscribers();
+
+    public final transient RequestCallbacks callbacks = new RequestCallbacks(this);
 
     // a public hook for filtering messages intended for delivery to this node
-    public final InboundSink inboundSink = new InboundSink(this);
+    public final transient InboundSink inboundSink = new InboundSink(this);
 
     // the inbound global reserve limits and associated wait queue
-    private final InboundMessageHandlers.GlobalResourceLimits inboundGlobalReserveLimits = new InboundMessageHandlers.GlobalResourceLimits(
-        new ResourceLimits.Concurrent(DatabaseDescriptor.getInternodeApplicationReceiveQueueReserveGlobalCapacityInBytes()));
+    private final transient InboundMessageHandlers.GlobalResourceLimits inboundGlobalReserveLimits = new InboundMessageHandlers.GlobalResourceLimits(new ResourceLimits.Concurrent(DatabaseDescriptor.getInternodeApplicationReceiveQueueReserveGlobalCapacityInBytes()));
 
     // the socket bindings we accept incoming connections on
-    private final InboundSockets inboundSockets = new InboundSockets(new InboundConnectionSettings()
-                                                                     .withHandlers(this::getInbound)
-                                                                     .withSocketFactory(socketFactory));
+    private final transient InboundSockets inboundSockets = new InboundSockets(new InboundConnectionSettings().withHandlers(this::getInbound).withSocketFactory(socketFactory));
 
     // a public hook for filtering messages intended for delivery to another node
-    public final OutboundSink outboundSink = new OutboundSink(this::doSend);
+    public final transient OutboundSink outboundSink = new OutboundSink(this::doSend);
 
-    final ResourceLimits.Limit outboundGlobalReserveLimit =
-        new ResourceLimits.Concurrent(DatabaseDescriptor.getInternodeApplicationSendQueueReserveGlobalCapacityInBytes());
+    final transient ResourceLimits.Limit outboundGlobalReserveLimit = new ResourceLimits.Concurrent(DatabaseDescriptor.getInternodeApplicationSendQueueReserveGlobalCapacityInBytes());
 
-    private volatile boolean isShuttingDown;
+    private volatile transient boolean isShuttingDown;
 
     @VisibleForTesting
-    MessagingService(boolean testOnly)
-    {
+    MessagingService(boolean testOnly) {
         super(testOnly);
         OutboundConnections.scheduleUnusedConnectionMonitoring(this, ScheduledExecutors.scheduledTasks, 1L, TimeUnit.HOURS);
     }
@@ -271,13 +268,11 @@ public final class MessagingService extends MessagingServiceMBeanImpl
      * @param cb      callback interface which is used to pass the responses or
      *                suggest that a timeout occurred to the invoker of the send().
      */
-    public void sendWithCallback(Message message, InetAddressAndPort to, RequestCallback cb)
-    {
+    public void sendWithCallback(Message message, InetAddressAndPort to, RequestCallback cb) {
         sendWithCallback(message, to, cb, null);
     }
 
-    public void sendWithCallback(Message message, InetAddressAndPort to, RequestCallback cb, ConnectionType specifyConnection)
-    {
+    public void sendWithCallback(Message message, InetAddressAndPort to, RequestCallback cb, ConnectionType specifyConnection) {
         callbacks.addWithExpiration(cb, message, to);
         if (cb.invokeOnFailure() && !message.callBackOnFailure())
             message = message.withCallBackOnFailure();
@@ -295,8 +290,7 @@ public final class MessagingService extends MessagingServiceMBeanImpl
      * @param handler callback interface which is used to pass the responses or
      *                suggest that a timeout occurred to the invoker of the send().
      */
-    public void sendWriteWithCallback(Message message, Replica to, AbstractWriteResponseHandler<?> handler, boolean allowHints)
-    {
+    public void sendWriteWithCallback(Message message, Replica to, AbstractWriteResponseHandler<?> handler, boolean allowHints) {
         assert message.callBackOnFailure();
         callbacks.addWithExpiration(handler, message, to, handler.consistencyLevel(), allowHints);
         send(message, to.endpoint(), null);
@@ -309,48 +303,37 @@ public final class MessagingService extends MessagingServiceMBeanImpl
      * @param message messages to be sent.
      * @param to      endpoint to which the message needs to be sent
      */
-    public void send(Message message, InetAddressAndPort to)
-    {
+    public void send(Message message, InetAddressAndPort to) {
         send(message, to, null);
     }
 
-    public void send(Message message, InetAddressAndPort to, ConnectionType specifyConnection)
-    {
-        if (logger.isTraceEnabled())
-        {
+    public void send(Message message, InetAddressAndPort to, ConnectionType specifyConnection) {
+        if (logger.isTraceEnabled()) {
             logger.trace("{} sending {} to {}@{}", FBUtilities.getBroadcastAddressAndPort(), message.verb(), message.id(), to);
-
             if (to.equals(FBUtilities.getBroadcastAddressAndPort()))
                 logger.trace("Message-to-self {} going over MessagingService", message);
         }
-
         outboundSink.accept(message, to, specifyConnection);
     }
 
-    private void doSend(Message message, InetAddressAndPort to, ConnectionType specifyConnection)
-    {
+    private void doSend(Message message, InetAddressAndPort to, ConnectionType specifyConnection) {
         // expire the callback if the message failed to enqueue (failed to establish a connection or exceeded queue capacity)
-        while (true)
-        {
+        while (true) {
             OutboundConnections connections = getOutbound(to);
-            try
-            {
+            try {
                 connections.enqueue(message, specifyConnection);
                 return;
-            }
-            catch (ClosedChannelException e)
-            {
+            } catch (ClosedChannelException e) {
                 if (isShuttingDown)
-                    return; // just drop the message, and let others clean up
-
+                    // just drop the message, and let others clean up
+                    return;
                 // remove the connection and try again
                 channelManagers.remove(to, connections);
             }
         }
     }
 
-    void markExpiredCallback(InetAddressAndPort addr)
-    {
+    void markExpiredCallback(InetAddressAndPort addr) {
         OutboundConnections conn = channelManagers.get(addr);
         if (conn != null)
             conn.incrementExpiredCallbackCount();
@@ -361,29 +344,23 @@ public final class MessagingService extends MessagingServiceMBeanImpl
      *
      * We close the connection after a five minute delay, to give asynchronous operations a chance to terminate
      */
-    public void closeOutbound(InetAddressAndPort to)
-    {
+    public void closeOutbound(InetAddressAndPort to) {
         OutboundConnections pool = channelManagers.get(to);
         if (pool != null)
-            pool.scheduleClose(5L, MINUTES, true)
-                .addListener(future -> channelManagers.remove(to, pool));
+            pool.scheduleClose(5L, MINUTES, true).addListener(future -> channelManagers.remove(to, pool));
     }
 
     /**
      * Only to be invoked once we believe the connections will never be used again.
      */
-    void closeOutboundNow(OutboundConnections connections)
-    {
-        connections.close(true).addListener(
-            future -> channelManagers.remove(connections.template().to, connections)
-        );
+    void closeOutboundNow(OutboundConnections connections) {
+        connections.close(true).addListener(future -> channelManagers.remove(connections.template().to, connections));
     }
 
     /**
      * Only to be invoked once we believe the connections will never be used again.
      */
-    public void removeInbound(InetAddressAndPort from)
-    {
+    public void removeInbound(InetAddressAndPort from) {
         InboundMessageHandlers handlers = messageHandlers.remove(from);
         if (null != handlers)
             handlers.releaseMetrics();
@@ -393,8 +370,7 @@ public final class MessagingService extends MessagingServiceMBeanImpl
      * Closes any current open channel/connection to the endpoint, but does not cause any message loss, and we will
      * try to re-establish connections immediately
      */
-    public void interruptOutbound(InetAddressAndPort to)
-    {
+    public void interruptOutbound(InetAddressAndPort to) {
         OutboundConnections pool = channelManagers.get(to);
         if (pool != null)
             pool.interrupt();
@@ -409,128 +385,90 @@ public final class MessagingService extends MessagingServiceMBeanImpl
      * @param preferredAddress IP Address to use (and prefer) going forward for connecting to the peer
      */
     @SuppressWarnings("UnusedReturnValue")
-    public Future<Void> maybeReconnectWithNewIp(InetAddressAndPort address, InetAddressAndPort preferredAddress)
-    {
+    public Future<Void> maybeReconnectWithNewIp(InetAddressAndPort address, InetAddressAndPort preferredAddress) {
         if (!SystemKeyspace.updatePreferredIP(address, preferredAddress))
             return null;
-
         OutboundConnections messagingPool = channelManagers.get(address);
         if (messagingPool != null)
             return messagingPool.reconnectWithNewIp(preferredAddress);
-
         return null;
     }
 
     /**
      * Wait for callbacks and don't allow any more to be created (since they could require writing hints)
      */
-    public void shutdown()
-    {
+    public void shutdown() {
         shutdown(1L, MINUTES, true, true);
     }
 
-    public void shutdown(long timeout, TimeUnit units, boolean shutdownGracefully, boolean shutdownExecutors)
-    {
-        if (isShuttingDown)
-        {
+    public void shutdown(long timeout, TimeUnit units, boolean shutdownGracefully, boolean shutdownExecutors) {
+        if (isShuttingDown) {
             logger.info("Shutdown was already called");
             return;
         }
-
         isShuttingDown = true;
         logger.info("Waiting for messaging service to quiesce");
         // We may need to schedule hints on the mutation stage, so it's erroneous to shut down the mutation stage first
         assert !MUTATION.executor().isShutdown();
-
-        if (shutdownGracefully)
-        {
+        if (shutdownGracefully) {
             callbacks.shutdownGracefully();
             List<Future<Void>> closing = new ArrayList<>();
-            for (OutboundConnections pool : channelManagers.values())
-                closing.add(pool.close(true));
-
+            for (OutboundConnections pool : channelManagers.values()) closing.add(pool.close(true));
             long deadline = System.nanoTime() + units.toNanos(timeout);
-            maybeFail(() -> new FutureCombiner(closing).get(timeout, units),
-                      () -> {
-                          List<ExecutorService> inboundExecutors = new ArrayList<>();
-                          inboundSockets.close(synchronizedList(inboundExecutors)::add).get();
-                          ExecutorUtils.awaitTermination(1L, TimeUnit.MINUTES, inboundExecutors);
-                      },
-                      () -> {
-                          if (shutdownExecutors)
-                              shutdownExecutors(deadline);
-                      },
-                      () -> callbacks.awaitTerminationUntil(deadline),
-                      inboundSink::clear,
-                      outboundSink::clear);
-        }
-        else
-        {
+            maybeFail(() -> new FutureCombiner(closing).get(timeout, units), () -> {
+                List<ExecutorService> inboundExecutors = new ArrayList<>();
+                inboundSockets.close(synchronizedList(inboundExecutors)::add).get();
+                ExecutorUtils.awaitTermination(1L, TimeUnit.MINUTES, inboundExecutors);
+            }, () -> {
+                if (shutdownExecutors)
+                    shutdownExecutors(deadline);
+            }, () -> callbacks.awaitTerminationUntil(deadline), inboundSink::clear, outboundSink::clear);
+        } else {
             callbacks.shutdownNow(false);
             List<Future<Void>> closing = new ArrayList<>();
             List<ExecutorService> inboundExecutors = synchronizedList(new ArrayList<ExecutorService>());
             closing.add(inboundSockets.close(inboundExecutors::add));
-            for (OutboundConnections pool : channelManagers.values())
-                closing.add(pool.close(false));
-
+            for (OutboundConnections pool : channelManagers.values()) closing.add(pool.close(false));
             long deadline = System.nanoTime() + units.toNanos(timeout);
-            maybeFail(() -> new FutureCombiner(closing).get(timeout, units),
-                      () -> {
-                          if (shutdownExecutors)
-                              shutdownExecutors(deadline);
-                      },
-                      () -> ExecutorUtils.awaitTermination(timeout, units, inboundExecutors),
-                      () -> callbacks.awaitTerminationUntil(deadline),
-                      inboundSink::clear,
-                      outboundSink::clear);
+            maybeFail(() -> new FutureCombiner(closing).get(timeout, units), () -> {
+                if (shutdownExecutors)
+                    shutdownExecutors(deadline);
+            }, () -> ExecutorUtils.awaitTermination(timeout, units, inboundExecutors), () -> callbacks.awaitTerminationUntil(deadline), inboundSink::clear, outboundSink::clear);
         }
     }
 
-    private void shutdownExecutors(long deadlineNanos) throws TimeoutException, InterruptedException
-    {
+    private void shutdownExecutors(long deadlineNanos) throws TimeoutException, InterruptedException {
         socketFactory.shutdownNow();
         socketFactory.awaitTerminationUntil(deadlineNanos);
     }
 
-    private OutboundConnections getOutbound(InetAddressAndPort to)
-    {
+    private OutboundConnections getOutbound(InetAddressAndPort to) {
         OutboundConnections connections = channelManagers.get(to);
         if (connections == null)
             connections = OutboundConnections.tryRegister(channelManagers, to, new OutboundConnectionSettings(to).withDefaults(ConnectionCategory.MESSAGING));
         return connections;
     }
 
-    InboundMessageHandlers getInbound(InetAddressAndPort from)
-    {
+    InboundMessageHandlers getInbound(InetAddressAndPort from) {
         InboundMessageHandlers handlers = messageHandlers.get(from);
         if (null != handlers)
             return handlers;
-
-        return messageHandlers.computeIfAbsent(from, addr ->
-            new InboundMessageHandlers(FBUtilities.getLocalAddressAndPort(),
-                                       addr,
-                                       DatabaseDescriptor.getInternodeApplicationReceiveQueueCapacityInBytes(),
-                                       DatabaseDescriptor.getInternodeApplicationReceiveQueueReserveEndpointCapacityInBytes(),
-                                       inboundGlobalReserveLimits, metrics, inboundSink)
-        );
+        return messageHandlers.computeIfAbsent(from, addr -> new InboundMessageHandlers(FBUtilities.getLocalAddressAndPort(), addr, DatabaseDescriptor.getInternodeApplicationReceiveQueueCapacityInBytes(), DatabaseDescriptor.getInternodeApplicationReceiveQueueReserveEndpointCapacityInBytes(), inboundGlobalReserveLimits, metrics, inboundSink));
     }
 
     @VisibleForTesting
-    boolean isConnected(InetAddressAndPort address, Message<?> messageOut)
-    {
+    boolean isConnected(InetAddressAndPort address, Message<?> messageOut) {
         OutboundConnections pool = channelManagers.get(address);
         if (pool == null)
             return false;
         return pool.connectionFor(messageOut).isConnected();
     }
 
-    public void listen()
-    {
+    public void listen() {
         inboundSockets.open();
     }
 
-    public void waitUntilListening() throws InterruptedException
-    {
+    public void waitUntilListening() throws InterruptedException {
         inboundSockets.open().await();
     }
 }

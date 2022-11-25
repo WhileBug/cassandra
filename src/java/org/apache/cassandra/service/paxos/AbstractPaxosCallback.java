@@ -21,45 +21,42 @@
 package org.apache.cassandra.service.paxos;
 
 import java.util.concurrent.CountDownLatch;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.WriteType;
 import org.apache.cassandra.exceptions.WriteTimeoutException;
 import org.apache.cassandra.net.RequestCallback;
-
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-public abstract class AbstractPaxosCallback<T> implements RequestCallback<T>
-{
-    protected final CountDownLatch latch;
-    protected final int targets;
-    private final ConsistencyLevel consistency;
-    private final long queryStartNanoTime;
+public abstract class AbstractPaxosCallback<T> implements RequestCallback<T> {
 
-    public AbstractPaxosCallback(int targets, ConsistencyLevel consistency, long queryStartNanoTime)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractPaxosCallback.class);
+
+    protected final transient CountDownLatch latch;
+
+    protected final transient int targets;
+
+    private final transient ConsistencyLevel consistency;
+
+    private final transient long queryStartNanoTime;
+
+    public AbstractPaxosCallback(int targets, ConsistencyLevel consistency, long queryStartNanoTime) {
         this.targets = targets;
         this.consistency = consistency;
         latch = new CountDownLatch(targets);
         this.queryStartNanoTime = queryStartNanoTime;
     }
 
-    public int getResponseCount()
-    {
+    public int getResponseCount() {
         return (int) (targets - latch.getCount());
     }
 
-    public void await() throws WriteTimeoutException
-    {
-        try
-        {
+    public void await() throws WriteTimeoutException {
+        try {
             long timeout = DatabaseDescriptor.getWriteRpcTimeout(NANOSECONDS) - (System.nanoTime() - queryStartNanoTime);
             if (!latch.await(timeout, NANOSECONDS))
                 throw new WriteTimeoutException(WriteType.CAS, consistency, getResponseCount(), targets);
-        }
-        catch (InterruptedException ex)
-        {
+        } catch (InterruptedException ex) {
             throw new AssertionError("This latch shouldn't have been interrupted.");
         }
     }

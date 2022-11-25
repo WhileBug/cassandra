@@ -18,27 +18,25 @@
 package org.apache.cassandra.utils.memory;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.utils.concurrent.OpOrder;
 
-public abstract class MemtableBufferAllocator extends MemtableAllocator
-{
-    protected MemtableBufferAllocator(SubAllocator onHeap, SubAllocator offHeap)
-    {
+public abstract class MemtableBufferAllocator extends MemtableAllocator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemtableBufferAllocator.class);
+
+    protected MemtableBufferAllocator(SubAllocator onHeap, SubAllocator offHeap) {
         super(onHeap, offHeap);
     }
 
     public abstract ByteBuffer allocate(int size, OpOrder.Group opGroup);
 
-    protected Cloner allocator(OpOrder.Group opGroup)
-    {
-        return new ByteBufferCloner()
-            {
-                @Override
-                public ByteBuffer allocate(int size)
-                {
-                    return MemtableBufferAllocator.this.allocate(size, opGroup);
-                }
-            };
+    protected Cloner allocator(OpOrder.Group opGroup) {
+        return new ByteBufferCloner() {
+
+            @Override
+            public ByteBuffer allocate(int size) {
+                return MemtableBufferAllocator.this.allocate(size, opGroup);
+            }
+        };
     }
 }

@@ -15,152 +15,117 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
-
 import org.apache.cassandra.io.compress.BufferType;
 import org.apache.cassandra.io.compress.CompressionMetadata;
 import org.apache.cassandra.io.compress.CorruptBlockException;
 import org.apache.cassandra.io.sstable.CorruptSSTableException;
 import org.apache.cassandra.utils.ChecksumType;
 
-public abstract class CompressedChunkReader extends AbstractReaderFileProxy implements ChunkReader
-{
-    final CompressionMetadata metadata;
-    final int maxCompressedLength;
+public abstract class CompressedChunkReader extends AbstractReaderFileProxy implements ChunkReader {
 
-    protected CompressedChunkReader(ChannelProxy channel, CompressionMetadata metadata)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompressedChunkReader.class);
+
+    final transient CompressionMetadata metadata;
+
+    final transient int maxCompressedLength;
+
+    protected CompressedChunkReader(ChannelProxy channel, CompressionMetadata metadata) {
         super(channel, metadata.dataLength);
         this.metadata = metadata;
         this.maxCompressedLength = metadata.maxCompressedLength();
-        assert Integer.bitCount(metadata.chunkLength()) == 1; //must be a power of two
+        // must be a power of two
+        assert Integer.bitCount(metadata.chunkLength()) == 1;
     }
 
     @VisibleForTesting
-    public double getCrcCheckChance()
-    {
+    public double getCrcCheckChance() {
         return metadata.parameters.getCrcCheckChance();
     }
 
-    boolean shouldCheckCrc()
-    {
+    boolean shouldCheckCrc() {
         return metadata.parameters.shouldCheckCrc();
     }
 
     @Override
-    public String toString()
-    {
-        return String.format("CompressedChunkReader.%s(%s - %s, chunk length %d, data length %d)",
-                             getClass().getSimpleName(),
-                             channel.filePath(),
-                             metadata.compressor().getClass().getSimpleName(),
-                             metadata.chunkLength(),
-                             metadata.dataLength);
+    public String toString() {
+        return String.format("CompressedChunkReader.%s(%s - %s, chunk length %d, data length %d)", getClass().getSimpleName(), channel.filePath(), metadata.compressor().getClass().getSimpleName(), metadata.chunkLength(), metadata.dataLength);
     }
 
     @Override
-    public int chunkSize()
-    {
+    public int chunkSize() {
         return metadata.chunkLength();
     }
 
     @Override
-    public BufferType preferredBufferType()
-    {
+    public BufferType preferredBufferType() {
         return metadata.compressor().preferredBufferType();
     }
 
     @Override
-    public Rebufferer instantiateRebufferer()
-    {
+    public Rebufferer instantiateRebufferer() {
         return new BufferManagingRebufferer.Aligned(this);
     }
 
-    public static class Standard extends CompressedChunkReader
-    {
-        // we read the raw compressed bytes into this buffer, then uncompressed them into the provided one.
-        private final ThreadLocalByteBufferHolder bufferHolder;
+    public static class Standard extends CompressedChunkReader {
 
-        public Standard(ChannelProxy channel, CompressionMetadata metadata)
-        {
+        // we read the raw compressed bytes into this buffer, then uncompressed them into the provided one.
+        private final transient ThreadLocalByteBufferHolder bufferHolder;
+
+        public Standard(ChannelProxy channel, CompressionMetadata metadata) {
             super(channel, metadata);
             bufferHolder = new ThreadLocalByteBufferHolder(metadata.compressor().preferredBufferType());
         }
 
         @Override
-        public void readChunk(long position, ByteBuffer uncompressed)
-        {
-            try
-            {
+        public void readChunk(long position, ByteBuffer uncompressed) {
+            try {
                 // accesses must always be aligned
                 assert (position & -uncompressed.capacity()) == position;
                 assert position <= fileLength;
-
                 CompressionMetadata.Chunk chunk = metadata.chunkFor(position);
                 boolean shouldCheckCrc = shouldCheckCrc();
-                int length = shouldCheckCrc ? chunk.length + Integer.BYTES // compressed length + checksum length
-                                            : chunk.length;
-
-                if (chunk.length < maxCompressedLength)
-                {
+                int length = // compressed length + checksum length
+                shouldCheckCrc ? // compressed length + checksum length
+                chunk.length + Integer.BYTES : chunk.length;
+                if (chunk.length < maxCompressedLength) {
                     ByteBuffer compressed = bufferHolder.getBuffer(length);
-
                     if (channel.read(compressed, chunk.offset) != length)
                         throw new CorruptBlockException(channel.filePath(), chunk);
-
                     compressed.flip();
                     compressed.limit(chunk.length);
                     uncompressed.clear();
-
-                    if (shouldCheckCrc)
-                    {
+                    if (shouldCheckCrc) {
                         int checksum = (int) ChecksumType.CRC32.of(compressed);
-
                         compressed.limit(length);
                         if (compressed.getInt() != checksum)
                             throw new CorruptBlockException(channel.filePath(), chunk);
-
                         compressed.position(0).limit(chunk.length);
                     }
-
-                    try
-                    {
+                    try {
                         metadata.compressor().uncompress(compressed, uncompressed);
-                    }
-                    catch (IOException e)
-                    {
+                    } catch (IOException e) {
                         throw new CorruptBlockException(channel.filePath(), chunk, e);
                     }
-                }
-                else
-                {
+                } else {
                     uncompressed.position(0).limit(chunk.length);
                     if (channel.read(uncompressed, chunk.offset) != chunk.length)
                         throw new CorruptBlockException(channel.filePath(), chunk);
-
-                    if (shouldCheckCrc)
-                    {
+                    if (shouldCheckCrc) {
                         uncompressed.flip();
                         int checksum = (int) ChecksumType.CRC32.of(uncompressed);
-
                         ByteBuffer scratch = bufferHolder.getBuffer(Integer.BYTES);
-
-                        if (channel.read(scratch, chunk.offset + chunk.length) != Integer.BYTES
-                                || scratch.getInt(0) != checksum)
+                        if (channel.read(scratch, chunk.offset + chunk.length) != Integer.BYTES || scratch.getInt(0) != checksum)
                             throw new CorruptBlockException(channel.filePath(), chunk);
                     }
                 }
                 uncompressed.flip();
-            }
-            catch (CorruptBlockException e)
-            {
+            } catch (CorruptBlockException e) {
                 // Make sure reader does not see stale data.
                 uncompressed.position(0).limit(0);
                 throw new CorruptSSTableException(e, channel.filePath());
@@ -168,71 +133,52 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
         }
     }
 
-    public static class Mmap extends CompressedChunkReader
-    {
-        protected final MmappedRegions regions;
+    public static class Mmap extends CompressedChunkReader {
 
-        public Mmap(ChannelProxy channel, CompressionMetadata metadata, MmappedRegions regions)
-        {
+        protected final transient MmappedRegions regions;
+
+        public Mmap(ChannelProxy channel, CompressionMetadata metadata, MmappedRegions regions) {
             super(channel, metadata);
             this.regions = regions;
         }
 
         @Override
-        public void readChunk(long position, ByteBuffer uncompressed)
-        {
-            try
-            {
+        public void readChunk(long position, ByteBuffer uncompressed) {
+            try {
                 // accesses must always be aligned
                 assert (position & -uncompressed.capacity()) == position;
                 assert position <= fileLength;
-
                 CompressionMetadata.Chunk chunk = metadata.chunkFor(position);
-
                 MmappedRegions.Region region = regions.floor(chunk.offset);
                 long segmentOffset = region.offset();
                 int chunkOffset = Ints.checkedCast(chunk.offset - segmentOffset);
                 ByteBuffer compressedChunk = region.buffer();
-
                 compressedChunk.position(chunkOffset).limit(chunkOffset + chunk.length);
-
                 uncompressed.clear();
-
-                try
-                {
-                    if (shouldCheckCrc())
-                    {
+                try {
+                    if (shouldCheckCrc()) {
                         int checksum = (int) ChecksumType.CRC32.of(compressedChunk);
-
                         compressedChunk.limit(compressedChunk.capacity());
                         if (compressedChunk.getInt() != checksum)
                             throw new CorruptBlockException(channel.filePath(), chunk);
-
                         compressedChunk.position(chunkOffset).limit(chunkOffset + chunk.length);
                     }
-
                     if (chunk.length < maxCompressedLength)
                         metadata.compressor().uncompress(compressedChunk, uncompressed);
                     else
                         uncompressed.put(compressedChunk);
-                }
-                catch (IOException e)
-                {
+                } catch (IOException e) {
                     throw new CorruptBlockException(channel.filePath(), chunk, e);
                 }
                 uncompressed.flip();
-            }
-            catch (CorruptBlockException e)
-            {
+            } catch (CorruptBlockException e) {
                 // Make sure reader does not see stale data.
                 uncompressed.position(0).limit(0);
                 throw new CorruptSSTableException(e, channel.filePath());
             }
-
         }
 
-        public void close()
-        {
+        public void close() {
             regions.closeQuietly();
             super.close();
         }

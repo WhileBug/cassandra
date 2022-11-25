@@ -20,9 +20,7 @@ package org.apache.cassandra.cql3.selection;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
-
 import com.google.common.collect.Iterables;
-
 import org.apache.commons.lang3.text.StrBuilder;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.ColumnSpecification;
@@ -33,133 +31,108 @@ import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.exceptions.InvalidRequestException;
 
-abstract class AbstractFunctionSelector<T extends Function> extends Selector
-{
-    protected final T fun;
+abstract class AbstractFunctionSelector<T extends Function> extends Selector {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractFunctionSelector.class);
+
+    protected final transient T fun;
 
     /**
      * The list used to pass the function arguments is recycled to avoid the cost of instantiating a new list
      * with each function call.
      */
-    private final List<ByteBuffer> args;
-    protected final List<Selector> argSelectors;
+    private final transient List<ByteBuffer> args;
 
-    public static Factory newFactory(final Function fun, final SelectorFactories factories) throws InvalidRequestException
-    {
-        if (fun.isAggregate())
-        {
+    protected final transient List<Selector> argSelectors;
+
+    public static Factory newFactory(final Function fun, final SelectorFactories factories) throws InvalidRequestException {
+        if (fun.isAggregate()) {
             if (factories.doesAggregation())
                 throw new InvalidRequestException("aggregate functions cannot be used as arguments of aggregate functions");
         }
+        return new Factory() {
 
-        return new Factory()
-        {
-            protected String getColumnName()
-            {
+            protected String getColumnName() {
                 return fun.columnName(factories.getColumnNames());
             }
 
-            protected AbstractType<?> getReturnType()
-            {
+            protected AbstractType<?> getReturnType() {
                 return fun.returnType();
             }
 
-            protected void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn)
-            {
+            protected void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn) {
                 SelectionColumnMapping tmpMapping = SelectionColumnMapping.newMapping();
-                for (Factory factory : factories)
-                   factory.addColumnMapping(tmpMapping, resultsColumn);
-
+                for (Factory factory : factories) factory.addColumnMapping(tmpMapping, resultsColumn);
                 if (tmpMapping.getMappings().get(resultsColumn).isEmpty())
                     // add a null mapping for cases where there are no
                     // further selectors, such as no-arg functions and count
-                    mapping.addMapping(resultsColumn, (ColumnMetadata)null);
+                    mapping.addMapping(resultsColumn, (ColumnMetadata) null);
                 else
                     // collate the mapped columns from the child factories & add those
                     mapping.addMapping(resultsColumn, tmpMapping.getMappings().values());
             }
 
-            public void addFunctionsTo(List<Function> functions)
-            {
+            public void addFunctionsTo(List<Function> functions) {
                 fun.addFunctionsTo(functions);
                 factories.addFunctionsTo(functions);
             }
 
-            public Selector newInstance(QueryOptions options) throws InvalidRequestException
-            {
-                return fun.isAggregate() ? new AggregateFunctionSelector(fun, factories.newInstances(options))
-                                         : new ScalarFunctionSelector(fun, factories.newInstances(options));
+            public Selector newInstance(QueryOptions options) throws InvalidRequestException {
+                return fun.isAggregate() ? new AggregateFunctionSelector(fun, factories.newInstances(options)) : new ScalarFunctionSelector(fun, factories.newInstances(options));
             }
 
-            public boolean isWritetimeSelectorFactory()
-            {
+            public boolean isWritetimeSelectorFactory() {
                 return factories.containsWritetimeSelectorFactory();
             }
 
-            public boolean isTTLSelectorFactory()
-            {
+            public boolean isTTLSelectorFactory() {
                 return factories.containsTTLSelectorFactory();
             }
 
-            public boolean isAggregateSelectorFactory()
-            {
+            public boolean isAggregateSelectorFactory() {
                 return fun.isAggregate() || factories.doesAggregation();
             }
 
             @Override
-            public boolean areAllFetchedColumnsKnown()
-            {
+            public boolean areAllFetchedColumnsKnown() {
                 return Iterables.all(factories, f -> f.areAllFetchedColumnsKnown());
             }
 
             @Override
-            public void addFetchedColumns(ColumnFilter.Builder builder)
-            {
-                for (Selector.Factory factory : factories)
-                    factory.addFetchedColumns(builder);
+            public void addFetchedColumns(ColumnFilter.Builder builder) {
+                for (Selector.Factory factory : factories) factory.addFetchedColumns(builder);
             }
         };
     }
 
-    protected AbstractFunctionSelector(T fun, List<Selector> argSelectors)
-    {
+    protected AbstractFunctionSelector(T fun, List<Selector> argSelectors) {
         this.fun = fun;
         this.argSelectors = argSelectors;
         this.args = Arrays.asList(new ByteBuffer[argSelectors.size()]);
     }
 
     @Override
-    public void addFetchedColumns(ColumnFilter.Builder builder)
-    {
-        for (Selector selector : argSelectors)
-            selector.addFetchedColumns(builder);
+    public void addFetchedColumns(ColumnFilter.Builder builder) {
+        for (Selector selector : argSelectors) selector.addFetchedColumns(builder);
     }
 
     // Sets a given arg value. We should use that instead of directly setting the args list for the
     // sake of validation.
-    protected void setArg(int i, ByteBuffer value) throws InvalidRequestException
-    {
+    protected void setArg(int i, ByteBuffer value) throws InvalidRequestException {
         RequestValidations.checkBindValueSet(value, "Invalid unset value for argument in call to function %s", fun.name().name);
         args.set(i, value);
     }
 
-    protected List<ByteBuffer> args()
-    {
+    protected List<ByteBuffer> args() {
         return args;
     }
 
-    public AbstractType<?> getType()
-    {
+    public AbstractType<?> getType() {
         return fun.returnType();
     }
 
     @Override
-    public String toString()
-    {
-        return new StrBuilder().append(fun.name())
-                               .append("(")
-                               .appendWithSeparators(argSelectors, ", ")
-                               .append(")")
-                               .toString();
+    public String toString() {
+        return new StrBuilder().append(fun.name()).append("(").appendWithSeparators(argSelectors, ", ").append(")").toString();
     }
 }

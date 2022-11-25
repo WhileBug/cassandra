@@ -20,18 +20,18 @@ package org.apache.cassandra.exceptions;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.WriteType;
 
-public class WriteTimeoutException extends RequestTimeoutException
-{
-    public final WriteType writeType;
+public class WriteTimeoutException extends RequestTimeoutException {
 
-    public WriteTimeoutException(WriteType writeType, ConsistencyLevel consistency, int received, int blockFor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WriteTimeoutException.class);
+
+    public final transient WriteType writeType;
+
+    public WriteTimeoutException(WriteType writeType, ConsistencyLevel consistency, int received, int blockFor) {
         super(ExceptionCode.WRITE_TIMEOUT, consistency, received, blockFor);
         this.writeType = writeType;
     }
 
-    public WriteTimeoutException(WriteType writeType, ConsistencyLevel consistency, int received, int blockFor, String msg)
-    {
+    public WriteTimeoutException(WriteType writeType, ConsistencyLevel consistency, int received, int blockFor, String msg) {
         super(ExceptionCode.WRITE_TIMEOUT, consistency, received, blockFor, msg);
         this.writeType = writeType;
     }

@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.marshal;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.cql3.CQL3Type;
 import org.apache.cassandra.cql3.Constants;
 import org.apache.cassandra.cql3.Term;
@@ -28,65 +27,55 @@ import org.apache.cassandra.serializers.MarshalException;
 import org.apache.cassandra.transport.ProtocolVersion;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
+public class FloatType extends NumberType<Float> {
 
-public class FloatType extends NumberType<Float>
-{
-    public static final FloatType instance = new FloatType();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FloatType.class);
 
-    FloatType() {super(ComparisonType.CUSTOM);} // singleton
+    public static final transient FloatType instance = new FloatType();
 
-    public boolean isEmptyValueMeaningless()
-    {
+    // singleton
+    FloatType() {
+        super(ComparisonType.CUSTOM);
+    }
+
+    public boolean isEmptyValueMeaningless() {
         return true;
     }
 
     @Override
-    public boolean isFloatingPoint()
-    {
+    public boolean isFloatingPoint() {
         return true;
     }
 
-    public <VL, VR> int compareCustom(VL left, ValueAccessor<VL> accessorL, VR right, ValueAccessor<VR> accessorR)
-    {
+    public <VL, VR> int compareCustom(VL left, ValueAccessor<VL> accessorL, VR right, ValueAccessor<VR> accessorR) {
         return compareComposed(left, accessorL, right, accessorR, this);
     }
 
-    public ByteBuffer fromString(String source) throws MarshalException
-    {
-      // Return an empty ByteBuffer for an empty string.
-      if (source.isEmpty())
-          return ByteBufferUtil.EMPTY_BYTE_BUFFER;
-
-      try
-      {
-          return decompose(Float.parseFloat(source));
-      }
-      catch (NumberFormatException e1)
-      {
-          throw new MarshalException(String.format("Unable to make float from '%s'", source), e1);
-      }
+    public ByteBuffer fromString(String source) throws MarshalException {
+        // Return an empty ByteBuffer for an empty string.
+        if (source.isEmpty())
+            return ByteBufferUtil.EMPTY_BYTE_BUFFER;
+        try {
+            return decompose(Float.parseFloat(source));
+        } catch (NumberFormatException e1) {
+            throw new MarshalException(String.format("Unable to make float from '%s'", source), e1);
+        }
     }
 
     @Override
-    public Term fromJSONObject(Object parsed) throws MarshalException
-    {
-        try
-        {
+    public Term fromJSONObject(Object parsed) throws MarshalException {
+        try {
             if (parsed instanceof String)
                 return new Constants.Value(fromString((String) parsed));
             else
                 return new Constants.Value(getSerializer().serialize(((Number) parsed).floatValue()));
-        }
-        catch (ClassCastException exc)
-        {
-            throw new MarshalException(String.format(
-                    "Expected a float value, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
+        } catch (ClassCastException exc) {
+            throw new MarshalException(String.format("Expected a float value, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
         }
     }
 
     @Override
-    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion)
-    {
+    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion) {
         Float value = getSerializer().deserialize(buffer);
         if (value == null)
             return "\"\"";
@@ -96,67 +85,55 @@ public class FloatType extends NumberType<Float>
         return value.toString();
     }
 
-    public CQL3Type asCQL3Type()
-    {
+    public CQL3Type asCQL3Type() {
         return CQL3Type.Native.FLOAT;
     }
 
-    public TypeSerializer<Float> getSerializer()
-    {
+    public TypeSerializer<Float> getSerializer() {
         return FloatSerializer.instance;
     }
 
     @Override
-    public int valueLengthIfFixed()
-    {
+    public int valueLengthIfFixed() {
         return 4;
     }
 
     @Override
-    protected int toInt(ByteBuffer value)
-    {
+    protected int toInt(ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    protected float toFloat(ByteBuffer value)
-    {
+    protected float toFloat(ByteBuffer value) {
         return ByteBufferUtil.toFloat(value);
     }
 
     @Override
-    protected double toDouble(ByteBuffer value)
-    {
+    protected double toDouble(ByteBuffer value) {
         return toFloat(value);
     }
 
-    public ByteBuffer add(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer add(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toFloat(left) + rightType.toFloat(right));
     }
 
-    public ByteBuffer substract(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer substract(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toFloat(left) - rightType.toFloat(right));
     }
 
-    public ByteBuffer multiply(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer multiply(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toFloat(left) * rightType.toFloat(right));
     }
 
-    public ByteBuffer divide(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer divide(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toFloat(left) / rightType.toFloat(right));
     }
 
-    public ByteBuffer mod(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer mod(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toFloat(left) % rightType.toFloat(right));
     }
 
-    public ByteBuffer negate(ByteBuffer input)
-    {
+    public ByteBuffer negate(ByteBuffer input) {
         return ByteBufferUtil.bytes(-toFloat(input));
     }
 }

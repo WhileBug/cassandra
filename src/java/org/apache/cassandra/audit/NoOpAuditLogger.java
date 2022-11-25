@@ -22,28 +22,23 @@ import java.util.Map;
 /**
  * No-Op implementation of {@link IAuditLogger} to be used as a default audit logger when audit logging is disabled.
  */
-public class NoOpAuditLogger implements IAuditLogger
-{
-    public NoOpAuditLogger(Map<String, String> params)
-    {
+public class NoOpAuditLogger implements IAuditLogger {
 
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NoOpAuditLogger.class);
+
+    public NoOpAuditLogger(Map<String, String> params) {
     }
 
     @Override
-    public boolean isEnabled()
-    {
+    public boolean isEnabled() {
         return false;
     }
 
     @Override
-    public void log(AuditLogEntry logMessage)
-    {
-
+    public void log(AuditLogEntry logMessage) {
     }
 
     @Override
-    public void stop()
-    {
-
+    public void stop() {
     }
 }

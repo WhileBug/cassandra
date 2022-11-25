@@ -20,8 +20,10 @@ package org.apache.cassandra.locator;
 import com.google.common.collect.Iterables;
 import org.apache.cassandra.config.DatabaseDescriptor;
 
-public abstract class AbstractEndpointSnitch implements IEndpointSnitch
-{
+public abstract class AbstractEndpointSnitch implements IEndpointSnitch {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractEndpointSnitch.class);
+
     public abstract int compareEndpoints(InetAddressAndPort target, Replica r1, Replica r2);
 
     /**
@@ -30,29 +32,23 @@ public abstract class AbstractEndpointSnitch implements IEndpointSnitch
      * @param unsortedAddress the nodes to sort
      * @return a new sorted <tt>List</tt>
      */
-    public <C extends ReplicaCollection<? extends C>> C sortedByProximity(final InetAddressAndPort address, C unsortedAddress)
-    {
+    public <C extends ReplicaCollection<? extends C>> C sortedByProximity(final InetAddressAndPort address, C unsortedAddress) {
         return unsortedAddress.sorted((r1, r2) -> compareEndpoints(address, r1, r2));
     }
 
-    public void gossiperStarting()
-    {
+    public void gossiperStarting() {
         // noop by default
     }
 
-    public boolean isWorthMergingForRangeQuery(ReplicaCollection<?> merged, ReplicaCollection<?> l1, ReplicaCollection<?> l2)
-    {
+    public boolean isWorthMergingForRangeQuery(ReplicaCollection<?> merged, ReplicaCollection<?> l1, ReplicaCollection<?> l2) {
         // Querying remote DC is likely to be an order of magnitude slower than
         // querying locally, so 2 queries to local nodes is likely to still be
         // faster than 1 query involving remote ones
         boolean mergedHasRemote = hasRemoteNode(merged);
-        return mergedHasRemote
-             ? hasRemoteNode(l1) || hasRemoteNode(l2)
-             : true;
+        return mergedHasRemote ? hasRemoteNode(l1) || hasRemoteNode(l2) : true;
     }
 
-    private boolean hasRemoteNode(ReplicaCollection<?> l)
-    {
+    private boolean hasRemoteNode(ReplicaCollection<?> l) {
         String localDc = DatabaseDescriptor.getLocalDataCenter();
         return Iterables.any(l, replica -> !localDc.equals(getDatacenter(replica)));
     }

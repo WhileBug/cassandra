@@ -26,27 +26,27 @@ import org.apache.cassandra.io.util.DataOutputPlus;
  *
  * Prefer this singleton to writing one-off specialised classes.
  */
-public class NoPayload
-{
-    public static final NoPayload noPayload = new NoPayload();
+public class NoPayload {
 
-    private NoPayload() {}
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NoPayload.class);
 
-    public static final IVersionedSerializer<NoPayload> serializer = new IVersionedSerializer<NoPayload>()
-    {
-        public void serialize(NoPayload noPayload, DataOutputPlus out, int version)
-        {
+    public static final transient NoPayload noPayload = new NoPayload();
+
+    private NoPayload() {
+    }
+
+    public static final transient IVersionedSerializer<NoPayload> serializer = new IVersionedSerializer<NoPayload>() {
+
+        public void serialize(NoPayload noPayload, DataOutputPlus out, int version) {
             if (noPayload != NoPayload.noPayload)
                 throw new IllegalArgumentException();
         }
 
-        public NoPayload deserialize(DataInputPlus in, int version)
-        {
+        public NoPayload deserialize(DataInputPlus in, int version) {
             return noPayload;
         }
 
-        public long serializedSize(NoPayload noPayload, int version)
-        {
+        public long serializedSize(NoPayload noPayload, int version) {
             return 0;
         }
     };

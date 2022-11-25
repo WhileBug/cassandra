@@ -15,13 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.transport;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
-
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoop;
 import io.netty.util.AttributeKey;
@@ -34,18 +32,17 @@ import org.apache.cassandra.transport.Flusher.FlushItem;
 import org.apache.cassandra.transport.messages.ErrorMessage;
 import org.apache.cassandra.transport.messages.EventMessage;
 import org.apache.cassandra.utils.JVMStabilityInspector;
-
 import static org.apache.cassandra.concurrent.SharedExecutorPool.SHARED;
 
-public class Dispatcher
-{
-    private static final LocalAwareExecutorService requestExecutor = SHARED.newExecutor(DatabaseDescriptor.getNativeTransportMaxThreads(),
-                                                                                        DatabaseDescriptor::setNativeTransportMaxThreads,
-                                                                                        "transport",
-                                                                                        "Native-Transport-Requests");
+public class Dispatcher {
 
-    private static final ConcurrentMap<EventLoop, Flusher> flusherLookup = new ConcurrentHashMap<>();
-    private final boolean useLegacyFlusher;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Dispatcher.class);
+
+    private static final transient LocalAwareExecutorService requestExecutor = SHARED.newExecutor(DatabaseDescriptor.getNativeTransportMaxThreads(), DatabaseDescriptor::setNativeTransportMaxThreads, "transport", "Native-Transport-Requests");
+
+    private static final transient ConcurrentMap<EventLoop, Flusher> flusherLookup = new ConcurrentHashMap<>();
+
+    private final transient boolean useLegacyFlusher;
 
     /**
      * Takes a Channel, Request and the Response produced by processRequest and outputs a FlushItem
@@ -55,32 +52,27 @@ public class Dispatcher
      * right way for the specific pipeline that produced them.
      */
     // TODO parameterize with FlushItem subclass
-    interface FlushItemConverter
-    {
+    interface FlushItemConverter {
+
         FlushItem<?> toFlushItem(Channel channel, Message.Request request, Message.Response response);
     }
 
-    public Dispatcher(boolean useLegacyFlusher)
-    {
+    public Dispatcher(boolean useLegacyFlusher) {
         this.useLegacyFlusher = useLegacyFlusher;
     }
 
-    public void dispatch(Channel channel, Message.Request request, FlushItemConverter forFlusher)
-    {
+    public void dispatch(Channel channel, Message.Request request, FlushItemConverter forFlusher) {
         requestExecutor.submit(() -> processRequest(channel, request, forFlusher));
     }
 
     /**
      * Note: this method may be executed on the netty event loop, during initial protocol negotiation
      */
-    static Message.Response processRequest(ServerConnection connection, Message.Request request)
-    {
+    static Message.Response processRequest(ServerConnection connection, Message.Request request) {
         long queryStartNanoTime = System.nanoTime();
         if (connection.getVersion().isGreaterOrEqualTo(ProtocolVersion.V4))
             ClientWarn.instance.captureWarnings();
-
         QueryState qstate = connection.validateNewMessage(request.type, connection.getVersion());
-
         Message.logger.trace("Received: {}, v={}", request, connection.getVersion());
         connection.requests.inc();
         Message.Response response = request.execute(qstate, queryStartNanoTime);
@@ -94,58 +86,46 @@ public class Dispatcher
     /**
      * Note: this method is not expected to execute on the netty event loop.
      */
-    void processRequest(Channel channel, Message.Request request, FlushItemConverter forFlusher)
-    {
+    void processRequest(Channel channel, Message.Request request, FlushItemConverter forFlusher) {
         final Message.Response response;
         final ServerConnection connection;
         FlushItem<?> toFlush;
-        try
-        {
+        try {
             assert request.connection() instanceof ServerConnection;
             connection = (ServerConnection) request.connection();
             response = processRequest(connection, request);
             toFlush = forFlusher.toFlushItem(channel, request, response);
             Message.logger.trace("Responding: {}, v={}", response, connection.getVersion());
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             JVMStabilityInspector.inspectThrowable(t);
             ExceptionHandlers.UnexpectedChannelExceptionHandler handler = new ExceptionHandlers.UnexpectedChannelExceptionHandler(channel, true);
             ErrorMessage error = ErrorMessage.fromException(t, handler);
             error.setStreamId(request.getStreamId());
             toFlush = forFlusher.toFlushItem(channel, request, error);
-        }
-        finally
-        {
+        } finally {
             ClientWarn.instance.resetWarnings();
         }
         flush(toFlush);
     }
 
-    private void flush(FlushItem<?> item)
-    {
+    private void flush(FlushItem<?> item) {
         EventLoop loop = item.channel.eventLoop();
         Flusher flusher = flusherLookup.get(loop);
-        if (flusher == null)
-        {
+        if (flusher == null) {
             Flusher created = useLegacyFlusher ? Flusher.legacy(loop) : Flusher.immediate(loop);
             Flusher alt = flusherLookup.putIfAbsent(loop, flusher = created);
             if (alt != null)
                 flusher = alt;
         }
-
         flusher.enqueue(item);
         flusher.start();
     }
 
-    public static void shutdown()
-    {
-        if (requestExecutor != null)
-        {
+    public static void shutdown() {
+        if (requestExecutor != null) {
             requestExecutor.shutdown();
         }
     }
-
 
     /**
      * Dispatcher for EventMessages. In {@link Server.ConnectionTracker#send(Event)}, the strategy
@@ -160,15 +140,9 @@ public class Dispatcher
      *
      * Pre-v5 connections simply write the EventMessage directly to the pipeline.
      */
-    static final AttributeKey<Consumer<EventMessage>> EVENT_DISPATCHER = AttributeKey.valueOf("EVTDISP");
-    Consumer<EventMessage> eventDispatcher(final Channel channel,
-                                           final ProtocolVersion version,
-                                           final FrameEncoder.PayloadAllocator allocator)
-    {
-        return eventMessage -> flush(new FlushItem.Framed(channel,
-                                                          eventMessage.encode(version),
-                                                          null,
-                                                          allocator,
-                                                          f -> f.response.release()));
+    static final transient AttributeKey<Consumer<EventMessage>> EVENT_DISPATCHER = AttributeKey.valueOf("EVTDISP");
+
+    Consumer<EventMessage> eventDispatcher(final Channel channel, final ProtocolVersion version, final FrameEncoder.PayloadAllocator allocator) {
+        return eventMessage -> flush(new FlushItem.Framed(channel, eventMessage.encode(version), null, allocator, f -> f.response.release()));
     }
 }

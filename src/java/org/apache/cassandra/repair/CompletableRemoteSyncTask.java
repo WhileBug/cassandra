@@ -15,14 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair;
 
 import java.util.List;
-
 import org.apache.cassandra.streaming.SessionSummary;
 
-public interface CompletableRemoteSyncTask
-{
+public interface CompletableRemoteSyncTask {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompletableRemoteSyncTask.class);
+
     void syncComplete(boolean success, List<SessionSummary> summaries);
 }

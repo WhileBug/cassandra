@@ -25,8 +25,10 @@ import org.apache.cassandra.exceptions.InvalidRequestException;
 /**
  * Abstract the conditions and updates for a CAS operation.
  */
-public interface CASRequest
-{
+public interface CASRequest {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CASRequest.class);
+
     /**
      * The command to use to fetch the value to compare for the CAS.
      */

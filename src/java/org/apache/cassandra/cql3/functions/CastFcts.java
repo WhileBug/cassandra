@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
 import org.apache.cassandra.cql3.CQL3Type;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.AsciiType;
@@ -45,36 +44,23 @@ import org.apache.cassandra.db.marshal.TimestampType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.db.marshal.UUIDType;
 import org.apache.cassandra.transport.ProtocolVersion;
-
 import static org.apache.cassandra.cql3.functions.TimeFcts.*;
-
 import org.apache.commons.lang3.text.WordUtils;
 
 /**
  * Casting functions
- *
  */
-public final class CastFcts
-{
-    private static final String FUNCTION_NAME_PREFIX = "castAs";
+public final class CastFcts {
 
-    public static Collection<Function> all()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CastFcts.class);
+
+    private static final transient String FUNCTION_NAME_PREFIX = "castAs";
+
+    public static Collection<Function> all() {
         List<Function> functions = new ArrayList<>();
-
         @SuppressWarnings("unchecked")
-        final AbstractType<? extends Number>[] numericTypes = new AbstractType[] {ByteType.instance,
-                                                                                  ShortType.instance,
-                                                                                  Int32Type.instance,
-                                                                                  LongType.instance,
-                                                                                  FloatType.instance,
-                                                                                  DoubleType.instance,
-                                                                                  DecimalType.instance,
-                                                                                  CounterColumnType.instance,
-                                                                                  IntegerType.instance};
-
-        for (AbstractType<? extends Number> inputType : numericTypes)
-        {
+        final AbstractType<? extends Number>[] numericTypes = new AbstractType[] { ByteType.instance, ShortType.instance, Int32Type.instance, LongType.instance, FloatType.instance, DoubleType.instance, DecimalType.instance, CounterColumnType.instance, IntegerType.instance };
+        for (AbstractType<? extends Number> inputType : numericTypes) {
             addFunctionIfNeeded(functions, inputType, ByteType.instance, Number::byteValue);
             addFunctionIfNeeded(functions, inputType, ShortType.instance, Number::shortValue);
             addFunctionIfNeeded(functions, inputType, Int32Type.instance, Number::intValue);
@@ -86,15 +72,11 @@ public final class CastFcts
             functions.add(CastAsTextFunction.create(inputType, AsciiType.instance));
             functions.add(CastAsTextFunction.create(inputType, UTF8Type.instance));
         }
-
         functions.add(JavaFunctionWrapper.create(AsciiType.instance, UTF8Type.instance, p -> p));
-
         functions.add(CastAsTextFunction.create(InetAddressType.instance, AsciiType.instance));
         functions.add(CastAsTextFunction.create(InetAddressType.instance, UTF8Type.instance));
-
         functions.add(CastAsTextFunction.create(BooleanType.instance, AsciiType.instance));
         functions.add(CastAsTextFunction.create(BooleanType.instance, UTF8Type.instance));
-
         functions.add(CassandraFunctionWrapper.create(TimeUUIDType.instance, SimpleDateType.instance, toDate(TimeUUIDType.instance)));
         functions.add(CassandraFunctionWrapper.create(TimeUUIDType.instance, TimestampType.instance, toTimestamp(TimeUUIDType.instance)));
         functions.add(CastAsTextFunction.create(TimeUUIDType.instance, AsciiType.instance));
@@ -107,10 +89,8 @@ public final class CastFcts
         functions.add(CastAsTextFunction.create(SimpleDateType.instance, UTF8Type.instance));
         functions.add(CastAsTextFunction.create(TimeType.instance, AsciiType.instance));
         functions.add(CastAsTextFunction.create(TimeType.instance, UTF8Type.instance));
-
         functions.add(CastAsTextFunction.create(UUIDType.instance, AsciiType.instance));
         functions.add(CastAsTextFunction.create(UUIDType.instance, UTF8Type.instance));
-
         return functions;
     }
 
@@ -120,14 +100,11 @@ public final class CastFcts
      * @param inputType the input type
      * @return the conversion function to convert the specified type into a Decimal type
      */
-    private static <I extends Number> java.util.function.Function<I, BigDecimal> getDecimalConversionFunction(AbstractType<? extends Number> inputType)
-    {
+    private static <I extends Number> java.util.function.Function<I, BigDecimal> getDecimalConversionFunction(AbstractType<? extends Number> inputType) {
         if (inputType == FloatType.instance || inputType == DoubleType.instance)
             return p -> BigDecimal.valueOf(p.doubleValue());
-
         if (inputType == IntegerType.instance)
             return p -> new BigDecimal((BigInteger) p);
-
         return p -> BigDecimal.valueOf(p.longValue());
     }
 
@@ -137,8 +114,7 @@ public final class CastFcts
      * @param outputType the output type
      * @return the name of the cast function use to cast to the specified type
      */
-    public static String getFunctionName(AbstractType<?> outputType)
-    {
+    public static String getFunctionName(AbstractType<?> outputType) {
         return getFunctionName(outputType.asCQL3Type());
     }
 
@@ -148,8 +124,7 @@ public final class CastFcts
      * @param outputType the output type
      * @return the name of the cast function use to cast to the specified type
      */
-    public static String getFunctionName(CQL3Type outputType)
-    {
+    public static String getFunctionName(CQL3Type outputType) {
         return FUNCTION_NAME_PREFIX + WordUtils.capitalize(toLowerCaseString(outputType));
     }
 
@@ -161,27 +136,17 @@ public final class CastFcts
      * @param outputType the output type
      * @param converter the function use to convert the input type into the output type
      */
-    private static <I, O> void addFunctionIfNeeded(List<Function> functions,
-                                                   AbstractType<I> inputType,
-                                                   AbstractType<O> outputType,
-                                                   java.util.function.Function<I, O> converter)
-    {
+    private static <I, O> void addFunctionIfNeeded(List<Function> functions, AbstractType<I> inputType, AbstractType<O> outputType, java.util.function.Function<I, O> converter) {
         if (!inputType.equals(outputType))
             functions.add(wrapJavaFunction(inputType, outputType, converter));
     }
 
     @SuppressWarnings("unchecked")
-    private static <O, I> Function wrapJavaFunction(AbstractType<I> inputType,
-                                                    AbstractType<O> outputType,
-                                                    java.util.function.Function<I, O> converter)
-    {
-        return inputType.equals(CounterColumnType.instance)
-                ? JavaCounterFunctionWrapper.create(outputType, (java.util.function.Function<Long, O>) converter)
-                : JavaFunctionWrapper.create(inputType, outputType, converter);
+    private static <O, I> Function wrapJavaFunction(AbstractType<I> inputType, AbstractType<O> outputType, java.util.function.Function<I, O> converter) {
+        return inputType.equals(CounterColumnType.instance) ? JavaCounterFunctionWrapper.create(outputType, (java.util.function.Function<Long, O>) converter) : JavaFunctionWrapper.create(inputType, outputType, converter);
     }
 
-    private static String toLowerCaseString(CQL3Type type)
-    {
+    private static String toLowerCaseString(CQL3Type type) {
         return type.toString().toLowerCase();
     }
 
@@ -191,28 +156,24 @@ public final class CastFcts
      * @param <I> the input type
      * @param <O> the output type
      */
-    private static abstract class CastFunction<I, O> extends NativeScalarFunction
-    {
-        public CastFunction(AbstractType<I> inputType, AbstractType<O> outputType)
-        {
+    private static abstract class CastFunction<I, O> extends NativeScalarFunction {
+
+        public CastFunction(AbstractType<I> inputType, AbstractType<O> outputType) {
             super(getFunctionName(outputType), outputType, inputType);
         }
 
         @Override
-        public String columnName(List<String> columnNames)
-        {
+        public String columnName(List<String> columnNames) {
             return String.format("cast(%s as %s)", columnNames.get(0), toLowerCaseString(outputType().asCQL3Type()));
         }
 
         @SuppressWarnings("unchecked")
-        protected AbstractType<O> outputType()
-        {
+        protected AbstractType<O> outputType() {
             return (AbstractType<O>) returnType;
         }
 
         @SuppressWarnings("unchecked")
-        protected AbstractType<I> inputType()
-        {
+        protected AbstractType<I> inputType() {
             return (AbstractType<I>) argTypes.get(0);
         }
     }
@@ -223,39 +184,30 @@ public final class CastFcts
      * @param <I> the input parameter
      * @param <O> the output parameter
      */
-    private static class JavaFunctionWrapper<I, O> extends CastFunction<I, O>
-    {
+    private static class JavaFunctionWrapper<I, O> extends CastFunction<I, O> {
+
         /**
          * The java function used to convert the input type into the output one.
          */
-        private final java.util.function.Function<I, O> converter;
+        private final transient java.util.function.Function<I, O> converter;
 
-        public static <I, O> JavaFunctionWrapper<I, O> create(AbstractType<I> inputType,
-                                                              AbstractType<O> outputType,
-                                                              java.util.function.Function<I, O> converter)
-        {
+        public static <I, O> JavaFunctionWrapper<I, O> create(AbstractType<I> inputType, AbstractType<O> outputType, java.util.function.Function<I, O> converter) {
             return new JavaFunctionWrapper<I, O>(inputType, outputType, converter);
         }
 
-        protected JavaFunctionWrapper(AbstractType<I> inputType,
-                                      AbstractType<O> outputType,
-                                      java.util.function.Function<I, O> converter)
-        {
+        protected JavaFunctionWrapper(AbstractType<I> inputType, AbstractType<O> outputType, java.util.function.Function<I, O> converter) {
             super(inputType, outputType);
             this.converter = converter;
         }
 
-        public final ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters)
-        {
+        public final ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters) {
             ByteBuffer bb = parameters.get(0);
             if (bb == null)
                 return null;
-
             return outputType().decompose(converter.apply(compose(bb)));
         }
 
-        protected I compose(ByteBuffer bb)
-        {
+        protected I compose(ByteBuffer bb) {
             return inputType().compose(bb);
         }
     }
@@ -268,22 +220,17 @@ public final class CastFcts
      *
      * @param <O> the output parameter
      */
-    private static class JavaCounterFunctionWrapper<O> extends JavaFunctionWrapper<Long, O>
-    {
-        public static <O> JavaFunctionWrapper<Long, O> create(AbstractType<O> outputType,
-                                                              java.util.function.Function<Long, O> converter)
-        {
+    private static class JavaCounterFunctionWrapper<O> extends JavaFunctionWrapper<Long, O> {
+
+        public static <O> JavaFunctionWrapper<Long, O> create(AbstractType<O> outputType, java.util.function.Function<Long, O> converter) {
             return new JavaCounterFunctionWrapper<O>(outputType, converter);
         }
 
-        protected JavaCounterFunctionWrapper(AbstractType<O> outputType,
-                                            java.util.function.Function<Long, O> converter)
-        {
+        protected JavaCounterFunctionWrapper(AbstractType<O> outputType, java.util.function.Function<Long, O> converter) {
             super(CounterColumnType.instance, outputType, converter);
         }
 
-        protected Long compose(ByteBuffer bb)
-        {
+        protected Long compose(ByteBuffer bb) {
             return LongType.instance.compose(bb);
         }
     }
@@ -294,32 +241,25 @@ public final class CastFcts
      * @param <I> the input parameter
      * @param <O> the output parameter
      */
-    private static final class CassandraFunctionWrapper<I, O> extends CastFunction<I, O>
-    {
+    private static final class CassandraFunctionWrapper<I, O> extends CastFunction<I, O> {
+
         /**
          * The native scalar function used to perform the conversion.
          */
-        private final NativeScalarFunction delegate;
+        private final transient NativeScalarFunction delegate;
 
-        public static <I, O> CassandraFunctionWrapper<I, O> create(AbstractType<I> inputType,
-                                                                   AbstractType<O> outputType,
-                                                                   NativeScalarFunction delegate)
-        {
+        public static <I, O> CassandraFunctionWrapper<I, O> create(AbstractType<I> inputType, AbstractType<O> outputType, NativeScalarFunction delegate) {
             return new CassandraFunctionWrapper<I, O>(inputType, outputType, delegate);
         }
 
-        private CassandraFunctionWrapper(AbstractType<I> inputType,
-                                         AbstractType<O> outputType,
-                                         NativeScalarFunction delegate)
-        {
+        private CassandraFunctionWrapper(AbstractType<I> inputType, AbstractType<O> outputType, NativeScalarFunction delegate) {
             super(inputType, outputType);
             assert delegate.argTypes().size() == 1 && inputType.equals(delegate.argTypes().get(0));
             assert outputType.equals(delegate.returnType());
             this.delegate = delegate;
         }
 
-        public ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters)
-        {
+        public ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters) {
             return delegate.execute(protocolVersion, parameters);
         }
     }
@@ -329,27 +269,20 @@ public final class CastFcts
      *
      * @param <I> the input parameter
      */
-    private static final class CastAsTextFunction<I> extends CastFunction<I, String>
-    {
+    private static final class CastAsTextFunction<I> extends CastFunction<I, String> {
 
-        public static <I> CastAsTextFunction<I> create(AbstractType<I> inputType,
-                                                       AbstractType<String> outputType)
-        {
+        public static <I> CastAsTextFunction<I> create(AbstractType<I> inputType, AbstractType<String> outputType) {
             return new CastAsTextFunction<I>(inputType, outputType);
         }
 
-        private CastAsTextFunction(AbstractType<I> inputType,
-                                    AbstractType<String> outputType)
-        {
+        private CastAsTextFunction(AbstractType<I> inputType, AbstractType<String> outputType) {
             super(inputType, outputType);
         }
 
-        public ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters)
-        {
+        public ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters) {
             ByteBuffer bb = parameters.get(0);
             if (bb == null)
                 return null;
-
             return outputType().decompose(inputType().getSerializer().toCQLLiteral(bb));
         }
     }
@@ -357,7 +290,6 @@ public final class CastFcts
     /**
      * The class must not be instantiated as it contains only static variables.
      */
-    private CastFcts()
-    {
+    private CastFcts() {
     }
 }

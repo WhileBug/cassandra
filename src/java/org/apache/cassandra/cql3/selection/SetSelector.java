@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.Sets;
 import org.apache.cassandra.db.filter.ColumnFilter.Builder;
@@ -33,78 +32,65 @@ import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
  * <code>Selector</code> for literal set (e.g. {min(value), max(value), count(value)}).
- *
  */
-final class SetSelector extends Selector
-{
+final class SetSelector extends Selector {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetSelector.class);
+
     /**
      * The set type.
      */
-    private final SetType<?> type;
+    private final transient SetType<?> type;
 
     /**
      * The set elements
      */
-    private final List<Selector> elements;
+    private final transient List<Selector> elements;
 
-    public static Factory newFactory(final AbstractType<?> type, final SelectorFactories factories)
-    {
-        return new CollectionFactory(type, factories)
-        {
-            protected String getColumnName()
-            {
+    public static Factory newFactory(final AbstractType<?> type, final SelectorFactories factories) {
+        return new CollectionFactory(type, factories) {
+
+            protected String getColumnName() {
                 return Sets.setToString(factories, Factory::getColumnName);
             }
 
-            public Selector newInstance(final QueryOptions options)
-            {
+            public Selector newInstance(final QueryOptions options) {
                 return new SetSelector(type, factories.newInstances(options));
             }
         };
     }
 
     @Override
-    public void addFetchedColumns(Builder builder)
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-            elements.get(i).addFetchedColumns(builder);
+    public void addFetchedColumns(Builder builder) {
+        for (int i = 0, m = elements.size(); i < m; i++) elements.get(i).addFetchedColumns(builder);
     }
 
-    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-            elements.get(i).addInput(protocolVersion, rs);
+    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException {
+        for (int i = 0, m = elements.size(); i < m; i++) elements.get(i).addInput(protocolVersion, rs);
     }
 
-    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException
-    {
+    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException {
         Set<ByteBuffer> buffers = new TreeSet<>(type.getElementsType());
-        for (int i = 0, m = elements.size(); i < m; i++)
-        {
+        for (int i = 0, m = elements.size(); i < m; i++) {
             buffers.add(elements.get(i).getOutput(protocolVersion));
         }
         return CollectionSerializer.pack(buffers, buffers.size(), protocolVersion);
     }
 
-    public void reset()
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-            elements.get(i).reset();
+    public void reset() {
+        for (int i = 0, m = elements.size(); i < m; i++) elements.get(i).reset();
     }
 
-    public AbstractType<?> getType()
-    {
+    public AbstractType<?> getType() {
         return type;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return Sets.setToString(elements);
     }
 
-    private SetSelector(AbstractType<?> type, List<Selector> elements)
-    {
+    private SetSelector(AbstractType<?> type, List<Selector> elements) {
         this.type = (SetType<?>) type;
         this.elements = elements;
     }

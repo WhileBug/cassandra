@@ -18,7 +18,6 @@
 package org.apache.cassandra.db;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
@@ -26,42 +25,40 @@ import org.apache.cassandra.io.util.DataOutputPlus;
 /**
  * A truncate operation descriptor
  */
-public class TruncateRequest
-{
-    public static final IVersionedSerializer<TruncateRequest> serializer = new Serializer();
+public class TruncateRequest {
 
-    public final String keyspace;
-    public final String table;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncateRequest.class);
 
-    public TruncateRequest(String keyspace, String table)
-    {
+    public static final transient IVersionedSerializer<TruncateRequest> serializer = new Serializer();
+
+    public final transient String keyspace;
+
+    public final transient String table;
+
+    public TruncateRequest(String keyspace, String table) {
         this.keyspace = keyspace;
         this.table = table;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("TruncateRequest(keyspace='%s', table='%s')'", keyspace, table);
     }
 
-    private static class Serializer implements IVersionedSerializer<TruncateRequest>
-    {
-        public void serialize(TruncateRequest request, DataOutputPlus out, int version) throws IOException
-        {
+    private static class Serializer implements IVersionedSerializer<TruncateRequest> {
+
+        public void serialize(TruncateRequest request, DataOutputPlus out, int version) throws IOException {
             out.writeUTF(request.keyspace);
             out.writeUTF(request.table);
         }
 
-        public TruncateRequest deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public TruncateRequest deserialize(DataInputPlus in, int version) throws IOException {
             String keyspace = in.readUTF();
             String table = in.readUTF();
             return new TruncateRequest(keyspace, table);
         }
 
-        public long serializedSize(TruncateRequest request, int version)
-        {
+        public long serializedSize(TruncateRequest request, int version) {
             return TypeSizes.sizeof(request.keyspace) + TypeSizes.sizeof(request.table);
         }
     }

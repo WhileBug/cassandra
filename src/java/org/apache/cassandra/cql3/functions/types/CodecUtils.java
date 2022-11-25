@@ -18,21 +18,20 @@
 package org.apache.cassandra.cql3.functions.types;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
  * A set of utility methods to deal with type conversion and serialization.
  */
-public final class CodecUtils
-{
+public final class CodecUtils {
 
-    private static final long MAX_CQL_LONG_VALUE = ((1L << 32) - 1);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CodecUtils.class);
 
-    private static final long EPOCH_AS_CQL_LONG = (1L << 31);
+    private static final transient long MAX_CQL_LONG_VALUE = ((1L << 32) - 1);
 
-    private CodecUtils()
-    {
+    private static final transient long EPOCH_AS_CQL_LONG = (1L << 31);
+
+    private CodecUtils() {
     }
 
     /**
@@ -45,11 +44,9 @@ public final class CodecUtils
      * @param version  the protocol version to use
      * @return The serialized collection
      */
-    public static ByteBuffer pack(ByteBuffer[] buffers, int elements, ProtocolVersion version)
-    {
+    public static ByteBuffer pack(ByteBuffer[] buffers, int elements, ProtocolVersion version) {
         int size = 0;
-        for (ByteBuffer bb : buffers)
-        {
+        for (ByteBuffer bb : buffers) {
             int elemSize = sizeOfValue(bb, version);
             size += elemSize;
         }
@@ -67,10 +64,8 @@ public final class CodecUtils
      * @param version The protocol version to use.
      * @return The size value.
      */
-    static int readSize(ByteBuffer input, ProtocolVersion version)
-    {
-        switch (version)
-        {
+    static int readSize(ByteBuffer input, ProtocolVersion version) {
+        switch(version) {
             case V1:
             case V2:
                 return getUnsignedShort(input);
@@ -92,17 +87,12 @@ public final class CodecUtils
      * @param size    The collection size.
      * @param version The protocol version to use.
      */
-    private static void writeSize(ByteBuffer output, int size, ProtocolVersion version)
-    {
-        switch (version)
-        {
+    private static void writeSize(ByteBuffer output, int size, ProtocolVersion version) {
+        switch(version) {
             case V1:
             case V2:
                 if (size > 65535)
-                    throw new IllegalArgumentException(
-                    String.format(
-                    "Native protocol version %d supports up to 65535 elements in any collection - but collection contains %d elements",
-                    version.asInt(), size));
+                    throw new IllegalArgumentException(String.format("Native protocol version %d supports up to 65535 elements in any collection - but collection contains %d elements", version.asInt(), size));
                 output.putShort((short) size);
                 break;
             case V3:
@@ -124,8 +114,7 @@ public final class CodecUtils
      * @param version The protocol version to use.
      * @return The collection element.
      */
-    public static ByteBuffer readValue(ByteBuffer input, ProtocolVersion version)
-    {
+    public static ByteBuffer readValue(ByteBuffer input, ProtocolVersion version) {
         int size = readSize(input, version);
         return size < 0 ? null : readBytes(input, size);
     }
@@ -138,10 +127,8 @@ public final class CodecUtils
      * @param value   The value to write.
      * @param version The protocol version to use.
      */
-    public static void writeValue(ByteBuffer output, ByteBuffer value, ProtocolVersion version)
-    {
-        switch (version)
-        {
+    public static void writeValue(ByteBuffer output, ByteBuffer value, ProtocolVersion version) {
+        switch(version) {
             case V1:
             case V2:
                 assert value != null;
@@ -152,12 +139,9 @@ public final class CodecUtils
             case V4:
             case V5:
             case V6:
-                if (value == null)
-                {
+                if (value == null) {
                     output.putInt(-1);
-                }
-                else
-                {
+                } else {
                     output.putInt(value.remaining());
                     output.put(value.duplicate());
                 }
@@ -174,8 +158,7 @@ public final class CodecUtils
      * @param length The number of bytes to read.
      * @return The read bytes.
      */
-    public static ByteBuffer readBytes(ByteBuffer bb, int length)
-    {
+    public static ByteBuffer readBytes(ByteBuffer bb, int length) {
         ByteBuffer copy = bb.duplicate();
         copy.limit(copy.position() + length);
         bb.position(bb.position() + length);
@@ -188,9 +171,9 @@ public final class CodecUtils
      * <p>The protocol encodes DATE values as <em>unsigned</em> ints with the Epoch in the middle of
      * the range (2^31). This method handles the conversion from an "unsigned" to a signed int.
      */
-    static int fromUnsignedToSignedInt(int unsigned)
-    {
-        return unsigned + Integer.MIN_VALUE; // this relies on overflow for "negative" values
+    static int fromUnsignedToSignedInt(int unsigned) {
+        // this relies on overflow for "negative" values
+        return unsigned + Integer.MIN_VALUE;
     }
 
     /**
@@ -199,8 +182,7 @@ public final class CodecUtils
      * <p>The protocol encodes DATE values as <em>unsigned</em> ints with the Epoch in the middle of
      * the range (2^31). This method handles the conversion from a signed to an "unsigned" int.
      */
-    static int fromSignedToUnsignedInt(int signed)
-    {
+    static int fromSignedToUnsignedInt(int signed) {
         return signed - Integer.MIN_VALUE;
     }
 
@@ -213,20 +195,14 @@ public final class CodecUtils
      * @return The number of days since the Epoch corresponding to the given raw value.
      * @throws IllegalArgumentException if the value is out of range.
      */
-    static int fromCqlDateToDaysSinceEpoch(long raw)
-    {
+    static int fromCqlDateToDaysSinceEpoch(long raw) {
         if (raw < 0 || raw > MAX_CQL_LONG_VALUE)
-            throw new IllegalArgumentException(
-            String.format(
-            "Numeric literals for DATE must be between 0 and %d (got %d)",
-            MAX_CQL_LONG_VALUE, raw));
+            throw new IllegalArgumentException(String.format("Numeric literals for DATE must be between 0 and %d (got %d)", MAX_CQL_LONG_VALUE, raw));
         return (int) (raw - EPOCH_AS_CQL_LONG);
     }
 
-    private static int sizeOfCollectionSize(ProtocolVersion version)
-    {
-        switch (version)
-        {
+    private static int sizeOfCollectionSize(ProtocolVersion version) {
+        switch(version) {
             case V1:
             case V2:
                 return 2;
@@ -240,18 +216,13 @@ public final class CodecUtils
         }
     }
 
-    private static int sizeOfValue(ByteBuffer value, ProtocolVersion version)
-    {
-        switch (version)
-        {
+    private static int sizeOfValue(ByteBuffer value, ProtocolVersion version) {
+        switch(version) {
             case V1:
             case V2:
                 int elemSize = value.remaining();
                 if (elemSize > 65535)
-                    throw new IllegalArgumentException(
-                    String.format(
-                    "Native protocol version %d supports only elements with size up to 65535 bytes - but element size is %d bytes",
-                    version.asInt(), elemSize));
+                    throw new IllegalArgumentException(String.format("Native protocol version %d supports only elements with size up to 65535 bytes - but element size is %d bytes", version.asInt(), elemSize));
                 return 2 + elemSize;
             case V3:
             case V4:
@@ -263,8 +234,7 @@ public final class CodecUtils
         }
     }
 
-    private static int getUnsignedShort(ByteBuffer bb)
-    {
+    private static int getUnsignedShort(ByteBuffer bb) {
         int length = (bb.get() & 0xFF) << 8;
         return length | (bb.get() & 0xFF);
     }

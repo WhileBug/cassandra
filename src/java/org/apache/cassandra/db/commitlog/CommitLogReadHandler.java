@@ -15,31 +15,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.commitlog;
 
 import java.io.IOException;
-
 import org.apache.cassandra.db.Mutation;
 
-public interface CommitLogReadHandler
-{
-    enum CommitLogReadErrorReason
-    {
-        RECOVERABLE_DESCRIPTOR_ERROR,
-        UNRECOVERABLE_DESCRIPTOR_ERROR,
-        MUTATION_ERROR,
-        UNRECOVERABLE_UNKNOWN_ERROR,
-        EOF
+public interface CommitLogReadHandler {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CommitLogReadHandler.class);
+
+    enum CommitLogReadErrorReason {
+
+        RECOVERABLE_DESCRIPTOR_ERROR, UNRECOVERABLE_DESCRIPTOR_ERROR, MUTATION_ERROR, UNRECOVERABLE_UNKNOWN_ERROR, EOF
     }
 
-    class CommitLogReadException extends IOException
-    {
-        public final CommitLogReadErrorReason reason;
-        public final boolean permissible;
+    class CommitLogReadException extends IOException {
 
-        CommitLogReadException(String message, CommitLogReadErrorReason reason, boolean permissible)
-        {
+        public final transient CommitLogReadErrorReason reason;
+
+        public final transient boolean permissible;
+
+        CommitLogReadException(String message, CommitLogReadErrorReason reason, boolean permissible) {
             super(message);
             this.reason = reason;
             this.permissible = permissible;

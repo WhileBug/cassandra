@@ -18,69 +18,58 @@
 package org.apache.cassandra.cql3.restrictions;
 
 import java.util.Objects;
-
 import org.apache.cassandra.cql3.*;
 import org.apache.cassandra.db.filter.RowFilter;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.schema.TableMetadata;
 
-public class CustomIndexExpression
-{
-    private final ColumnIdentifier valueColId = new ColumnIdentifier("custom index expression", false);
+public class CustomIndexExpression {
 
-    public final QualifiedName targetIndex;
-    public final Term.Raw valueRaw;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CustomIndexExpression.class);
 
-    private Term value;
+    private final transient ColumnIdentifier valueColId = new ColumnIdentifier("custom index expression", false);
 
-    public CustomIndexExpression(QualifiedName targetIndex, Term.Raw value)
-    {
+    public final transient QualifiedName targetIndex;
+
+    public final transient Term.Raw valueRaw;
+
+    private transient Term value;
+
+    public CustomIndexExpression(QualifiedName targetIndex, Term.Raw value) {
         this.targetIndex = targetIndex;
         this.valueRaw = value;
     }
 
-    public void prepareValue(TableMetadata table, AbstractType<?> expressionType, VariableSpecifications boundNames)
-    {
+    public void prepareValue(TableMetadata table, AbstractType<?> expressionType, VariableSpecifications boundNames) {
         ColumnSpecification spec = new ColumnSpecification(table.keyspace, table.keyspace, valueColId, expressionType);
         value = valueRaw.prepare(table.keyspace, spec);
         value.collectMarkerSpecification(boundNames);
     }
 
-    public void addToRowFilter(RowFilter filter, TableMetadata table, QueryOptions options)
-    {
-        filter.addCustomIndexExpression(table,
-                                        table.indexes
-                                             .get(targetIndex.getName())
-                                             .orElseThrow(() -> IndexRestrictions.indexNotFound(targetIndex, table)),
-                                        value.bindAndGet(options));
+    public void addToRowFilter(RowFilter filter, TableMetadata table, QueryOptions options) {
+        filter.addCustomIndexExpression(table, table.indexes.get(targetIndex.getName()).orElseThrow(() -> IndexRestrictions.indexNotFound(targetIndex, table)), value.bindAndGet(options));
     }
 
-    public String toCQLString()
-    {
+    public String toCQLString() {
         return String.format("expr(%s,%s)", targetIndex.toCQLString(), valueRaw.getText());
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toCQLString();
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(targetIndex, valueRaw);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof CustomIndexExpression))
             return false;
-
         CustomIndexExpression cie = (CustomIndexExpression) o;
         return targetIndex.equals(cie.targetIndex) && valueRaw.equals(cie.valueRaw);
     }

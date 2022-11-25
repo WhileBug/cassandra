@@ -19,9 +19,7 @@ package org.apache.cassandra.streaming.messages;
 
 import java.io.IOException;
 import java.util.UUID;
-
 import com.google.common.base.Objects;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
@@ -30,35 +28,35 @@ import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.streaming.StreamSession;
 import org.apache.cassandra.utils.UUIDSerializer;
-
 import static org.apache.cassandra.locator.InetAddressAndPort.Serializer.inetAddressAndPortSerializer;
 
 /**
  * StreamMessageHeader is appended before sending actual data to describe what it's sending.
  */
-public class StreamMessageHeader
-{
-    public static FileMessageHeaderSerializer serializer = new FileMessageHeaderSerializer();
+public class StreamMessageHeader {
 
-    public final TableId tableId;
-    public UUID planId;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamMessageHeader.class);
+
+    public static transient FileMessageHeaderSerializer serializer = new FileMessageHeaderSerializer();
+
+    public final transient TableId tableId;
+
+    public transient UUID planId;
+
     // it tells us if the file was sent by a follower stream session
-    public final boolean sendByFollower;
-    public int sessionIndex;
-    public final int sequenceNumber;
-    public final long repairedAt;
-    public final UUID pendingRepair;
-    public final InetAddressAndPort sender;
+    public final transient boolean sendByFollower;
 
-    public StreamMessageHeader(TableId tableId,
-                               InetAddressAndPort sender,
-                               UUID planId,
-                               boolean sendByFollower,
-                               int sessionIndex,
-                               int sequenceNumber,
-                               long repairedAt,
-                               UUID pendingRepair)
-    {
+    public transient int sessionIndex;
+
+    public final transient int sequenceNumber;
+
+    public final transient long repairedAt;
+
+    public final transient UUID pendingRepair;
+
+    public final transient InetAddressAndPort sender;
+
+    public StreamMessageHeader(TableId tableId, InetAddressAndPort sender, UUID planId, boolean sendByFollower, int sessionIndex, int sequenceNumber, long repairedAt, UUID pendingRepair) {
         this.tableId = tableId;
         this.sender = sender;
         this.planId = planId;
@@ -70,8 +68,7 @@ public class StreamMessageHeader
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         final StringBuilder sb = new StringBuilder("Header (");
         sb.append("tableId: ").append(tableId);
         sb.append(", #").append(sequenceNumber);
@@ -83,32 +80,28 @@ public class StreamMessageHeader
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         StreamMessageHeader that = (StreamMessageHeader) o;
-        return sendByFollower == that.sendByFollower &&
-               sequenceNumber == that.sequenceNumber &&
-               Objects.equal(tableId, that.tableId);
+        return sendByFollower == that.sendByFollower && sequenceNumber == that.sequenceNumber && Objects.equal(tableId, that.tableId);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(tableId, sendByFollower, sequenceNumber);
     }
 
-    public void addSessionInfo(StreamSession session)
-    {
+    public void addSessionInfo(StreamSession session) {
         planId = session.planId();
         sessionIndex = session.sessionIndex();
     }
 
-    public static class FileMessageHeaderSerializer
-    {
-        public void serialize(StreamMessageHeader header, DataOutputPlus out, int version) throws IOException
-        {
+    public static class FileMessageHeaderSerializer {
+
+        public void serialize(StreamMessageHeader header, DataOutputPlus out, int version) throws IOException {
             header.tableId.serialize(out);
             inetAddressAndPortSerializer.serialize(header.sender, out, version);
             UUIDSerializer.serializer.serialize(header.planId, out, version);
@@ -117,14 +110,12 @@ public class StreamMessageHeader
             out.writeInt(header.sequenceNumber);
             out.writeLong(header.repairedAt);
             out.writeBoolean(header.pendingRepair != null);
-            if (header.pendingRepair != null)
-            {
+            if (header.pendingRepair != null) {
                 UUIDSerializer.serializer.serialize(header.pendingRepair, out, version);
             }
         }
 
-        public StreamMessageHeader deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public StreamMessageHeader deserialize(DataInputPlus in, int version) throws IOException {
             TableId tableId = TableId.deserialize(in);
             InetAddressAndPort sender = inetAddressAndPortSerializer.deserialize(in, version);
             UUID planId = UUIDSerializer.serializer.deserialize(in, MessagingService.current_version);
@@ -133,12 +124,10 @@ public class StreamMessageHeader
             int sequenceNumber = in.readInt();
             long repairedAt = in.readLong();
             UUID pendingRepair = in.readBoolean() ? UUIDSerializer.serializer.deserialize(in, version) : null;
-
             return new StreamMessageHeader(tableId, sender, planId, sendByFollower, sessionIndex, sequenceNumber, repairedAt, pendingRepair);
         }
 
-        public long serializedSize(StreamMessageHeader header, int version)
-        {
+        public long serializedSize(StreamMessageHeader header, int version) {
             long size = header.tableId.serializedSize();
             size += inetAddressAndPortSerializer.serializedSize(header.sender, version);
             size += UUIDSerializer.serializer.serializedSize(header.planId, version);
@@ -148,7 +137,6 @@ public class StreamMessageHeader
             size += TypeSizes.sizeof(header.repairedAt);
             size += TypeSizes.sizeof(header.pendingRepair != null);
             size += header.pendingRepair != null ? UUIDSerializer.serializer.serializedSize(header.pendingRepair, version) : 0;
-
             return size;
         }
     }

@@ -15,15 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
-public class SsdDiskOptimizationStrategy implements DiskOptimizationStrategy
-{
-    private final double diskOptimizationPageCrossChance;
+public class SsdDiskOptimizationStrategy implements DiskOptimizationStrategy {
 
-    public SsdDiskOptimizationStrategy(double diskOptimizationPageCrossChance)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SsdDiskOptimizationStrategy.class);
+
+    private final transient double diskOptimizationPageCrossChance;
+
+    public SsdDiskOptimizationStrategy(double diskOptimizationPageCrossChance) {
         this.diskOptimizationPageCrossChance = diskOptimizationPageCrossChance;
     }
 
@@ -34,8 +34,7 @@ public class SsdDiskOptimizationStrategy implements DiskOptimizationStrategy
      * @see org.apache.cassandra.config.Config#disk_optimization_page_cross_chance
      */
     @Override
-    public int bufferSize(long recordSize)
-    {
+    public int bufferSize(long recordSize) {
         // The crossing probability is calculated assuming a uniform distribution of record
         // start position in a page, so it's the record size modulo the page size divided by
         // the total page size.
@@ -43,7 +42,6 @@ public class SsdDiskOptimizationStrategy implements DiskOptimizationStrategy
         // if the page cross probability is equal or bigger than disk_optimization_page_cross_chance we add one page
         if ((pageCrossProbability - diskOptimizationPageCrossChance) > -1e-16)
             recordSize += 4096;
-
         return roundBufferSize(recordSize);
     }
 }

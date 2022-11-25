@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.index.internal;
 
 import java.util.List;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.ColumnFamilyStore;
@@ -30,10 +28,11 @@ import org.apache.cassandra.index.internal.composites.*;
 import org.apache.cassandra.index.internal.keys.KeysIndex;
 import org.apache.cassandra.schema.IndexMetadata;
 
-public interface CassandraIndexFunctions
-{
+public interface CassandraIndexFunctions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraIndexFunctions.class);
+
     /**
-     *
      * @param baseCfs
      * @param indexMetadata
      * @return
@@ -46,8 +45,7 @@ public interface CassandraIndexFunctions
      * @param indexedColumn
      * @return
      */
-    default AbstractType<?> getIndexedValueType(ColumnMetadata indexedColumn)
-    {
+    default AbstractType<?> getIndexedValueType(ColumnMetadata indexedColumn) {
         return indexedColumn.type;
     }
 
@@ -68,133 +66,103 @@ public interface CassandraIndexFunctions
      * @param cfDef
      * @return
      */
-    default TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder,
-                                                            TableMetadata baseMetadata,
-                                                            ColumnMetadata cfDef)
-    {
-        for (ColumnMetadata def : baseMetadata.clusteringColumns())
-            builder.addClusteringColumn(def.name, def.type);
+    default TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder, TableMetadata baseMetadata, ColumnMetadata cfDef) {
+        for (ColumnMetadata def : baseMetadata.clusteringColumns()) builder.addClusteringColumn(def.name, def.type);
         return builder;
     }
 
     /*
      * implementations providing specializations for the built in index types
      */
+    static final transient CassandraIndexFunctions KEYS_INDEX_FUNCTIONS = new CassandraIndexFunctions() {
 
-    static final CassandraIndexFunctions KEYS_INDEX_FUNCTIONS = new CassandraIndexFunctions()
-    {
         @Override
-        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata)
-        {
+        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata) {
             return new KeysIndex(baseCfs, indexMetadata);
         }
 
         @Override
-        public TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder,
-                                                               TableMetadata baseMetadata,
-                                                               ColumnMetadata columnDef)
-        {
+        public TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder, TableMetadata baseMetadata, ColumnMetadata columnDef) {
             // KEYS index are indexing the whole partition so have no clustering columns (outside of the
             // "partition_key" one that all the 'CassandraIndex' gets (see CassandraIndex#indexCfsMetadata)).
             return builder;
         }
     };
 
-    static final CassandraIndexFunctions REGULAR_COLUMN_INDEX_FUNCTIONS = new CassandraIndexFunctions()
-    {
+    static final transient CassandraIndexFunctions REGULAR_COLUMN_INDEX_FUNCTIONS = new CassandraIndexFunctions() {
+
         @Override
-        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata)
-        {
+        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata) {
             return new RegularColumnIndex(baseCfs, indexMetadata);
         }
     };
 
-    static final CassandraIndexFunctions CLUSTERING_COLUMN_INDEX_FUNCTIONS = new CassandraIndexFunctions()
-    {
+    static final transient CassandraIndexFunctions CLUSTERING_COLUMN_INDEX_FUNCTIONS = new CassandraIndexFunctions() {
+
         @Override
-        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata)
-        {
+        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata) {
             return new ClusteringColumnIndex(baseCfs, indexMetadata);
         }
 
         @Override
-        public TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder,
-                                                               TableMetadata baseMetadata,
-                                                               ColumnMetadata columnDef)
-        {
+        public TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder, TableMetadata baseMetadata, ColumnMetadata columnDef) {
             List<ColumnMetadata> cks = baseMetadata.clusteringColumns();
-            for (int i = 0; i < columnDef.position(); i++)
-            {
+            for (int i = 0; i < columnDef.position(); i++) {
                 ColumnMetadata def = cks.get(i);
                 builder.addClusteringColumn(def.name, def.type);
             }
-            for (int i = columnDef.position() + 1; i < cks.size(); i++)
-            {
+            for (int i = columnDef.position() + 1; i < cks.size(); i++) {
                 ColumnMetadata def = cks.get(i);
                 builder.addClusteringColumn(def.name, def.type);
             }
-
             return builder;
         }
     };
 
-    static final CassandraIndexFunctions COLLECTION_KEY_INDEX_FUNCTIONS = new CassandraIndexFunctions()
-    {
-        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata)
-        {
+    static final transient CassandraIndexFunctions COLLECTION_KEY_INDEX_FUNCTIONS = new CassandraIndexFunctions() {
+
+        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata) {
             return new CollectionKeyIndex(baseCfs, indexMetadata);
         }
 
-        public AbstractType<?> getIndexedValueType(ColumnMetadata indexedColumn)
-        {
+        public AbstractType<?> getIndexedValueType(ColumnMetadata indexedColumn) {
             return ((CollectionType) indexedColumn.type).nameComparator();
         }
     };
 
-    static final CassandraIndexFunctions PARTITION_KEY_INDEX_FUNCTIONS = new CassandraIndexFunctions()
-    {
-        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata)
-        {
+    static final transient CassandraIndexFunctions PARTITION_KEY_INDEX_FUNCTIONS = new CassandraIndexFunctions() {
+
+        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata) {
             return new PartitionKeyIndex(baseCfs, indexMetadata);
         }
     };
 
-    static final CassandraIndexFunctions COLLECTION_VALUE_INDEX_FUNCTIONS = new CassandraIndexFunctions()
-    {
+    static final transient CassandraIndexFunctions COLLECTION_VALUE_INDEX_FUNCTIONS = new CassandraIndexFunctions() {
 
-        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata)
-        {
+        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata) {
             return new CollectionValueIndex(baseCfs, indexMetadata);
         }
 
-        public AbstractType<?> getIndexedValueType(ColumnMetadata indexedColumn)
-        {
-            return ((CollectionType)indexedColumn.type).valueComparator();
+        public AbstractType<?> getIndexedValueType(ColumnMetadata indexedColumn) {
+            return ((CollectionType) indexedColumn.type).valueComparator();
         }
 
-        public TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder,
-                                                               TableMetadata baseMetadata,
-                                                               ColumnMetadata columnDef)
-        {
-            for (ColumnMetadata def : baseMetadata.clusteringColumns())
-                builder.addClusteringColumn(def.name, def.type);
-
+        public TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder, TableMetadata baseMetadata, ColumnMetadata columnDef) {
+            for (ColumnMetadata def : baseMetadata.clusteringColumns()) builder.addClusteringColumn(def.name, def.type);
             // collection key
-            builder.addClusteringColumn("cell_path", ((CollectionType)columnDef.type).nameComparator());
+            builder.addClusteringColumn("cell_path", ((CollectionType) columnDef.type).nameComparator());
             return builder;
         }
     };
 
-    static final CassandraIndexFunctions COLLECTION_ENTRY_INDEX_FUNCTIONS = new CassandraIndexFunctions()
-    {
-        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata)
-        {
+    static final transient CassandraIndexFunctions COLLECTION_ENTRY_INDEX_FUNCTIONS = new CassandraIndexFunctions() {
+
+        public CassandraIndex newIndexInstance(ColumnFamilyStore baseCfs, IndexMetadata indexMetadata) {
             return new CollectionEntryIndex(baseCfs, indexMetadata);
         }
 
-        public AbstractType<?> getIndexedValueType(ColumnMetadata indexedColumn)
-        {
-            CollectionType colType = (CollectionType)indexedColumn.type;
+        public AbstractType<?> getIndexedValueType(ColumnMetadata indexedColumn) {
+            CollectionType colType = (CollectionType) indexedColumn.type;
             return CompositeType.getInstance(colType.nameComparator(), colType.valueComparator());
         }
     };

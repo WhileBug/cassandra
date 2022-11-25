@@ -17,10 +17,11 @@
  */
 package org.apache.cassandra.exceptions;
 
-public class CDCWriteException extends RequestExecutionException
-{
-    public CDCWriteException(String msg)
-    {
+public class CDCWriteException extends RequestExecutionException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CDCWriteException.class);
+
+    public CDCWriteException(String msg) {
         super(ExceptionCode.CDC_WRITE_FAILURE, msg);
     }
 }

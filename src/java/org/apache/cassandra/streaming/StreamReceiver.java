@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 /**
@@ -23,8 +22,10 @@ package org.apache.cassandra.streaming;
  * ends up here, and is kept separate from the live data until all streams
  * for a session have been received successfully
  */
-public interface StreamReceiver
-{
+public interface StreamReceiver {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamReceiver.class);
+
     /**
      * Called after we've finished receiving stream data. The data covered by the given stream should
      * be kept isolated from the live dataset for it's table.

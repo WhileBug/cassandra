@@ -15,58 +15,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.io.compress.BufferType;
 
-class SimpleChunkReader extends AbstractReaderFileProxy implements ChunkReader
-{
-    private final int bufferSize;
-    private final BufferType bufferType;
+class SimpleChunkReader extends AbstractReaderFileProxy implements ChunkReader {
 
-    SimpleChunkReader(ChannelProxy channel, long fileLength, BufferType bufferType, int bufferSize)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SimpleChunkReader.class);
+
+    private final transient int bufferSize;
+
+    private final transient BufferType bufferType;
+
+    SimpleChunkReader(ChannelProxy channel, long fileLength, BufferType bufferType, int bufferSize) {
         super(channel, fileLength);
         this.bufferSize = bufferSize;
         this.bufferType = bufferType;
     }
 
     @Override
-    public void readChunk(long position, ByteBuffer buffer)
-    {
+    public void readChunk(long position, ByteBuffer buffer) {
         buffer.clear();
         channel.read(buffer, position);
         buffer.flip();
     }
 
     @Override
-    public int chunkSize()
-    {
+    public int chunkSize() {
         return bufferSize;
     }
 
     @Override
-    public BufferType preferredBufferType()
-    {
+    public BufferType preferredBufferType() {
         return bufferType;
     }
 
     @Override
-    public Rebufferer instantiateRebufferer()
-    {
+    public Rebufferer instantiateRebufferer() {
         return new BufferManagingRebufferer.Unaligned(this);
     }
 
     @Override
-    public String toString()
-    {
-        return String.format("%s(%s - chunk length %d, data length %d)",
-                             getClass().getSimpleName(),
-                             channel.filePath(),
-                             bufferSize,
-                             fileLength());
+    public String toString() {
+        return String.format("%s(%s - chunk length %d, data length %d)", getClass().getSimpleName(), channel.filePath(), bufferSize, fileLength());
     }
 }

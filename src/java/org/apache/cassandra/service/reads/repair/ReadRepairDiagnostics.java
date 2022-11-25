@@ -15,13 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads.repair;
 
 import java.util.Collections;
-
 import com.google.common.collect.Lists;
-
 import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.diag.DiagnosticEventService;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -31,50 +28,37 @@ import org.apache.cassandra.service.reads.DigestResolver;
 import org.apache.cassandra.service.reads.repair.PartitionRepairEvent.PartitionRepairEventType;
 import org.apache.cassandra.service.reads.repair.ReadRepairEvent.ReadRepairEventType;
 
-final class ReadRepairDiagnostics
-{
-    private static final DiagnosticEventService service = DiagnosticEventService.instance();
+final class ReadRepairDiagnostics {
 
-    private ReadRepairDiagnostics()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadRepairDiagnostics.class);
+
+    private static final transient DiagnosticEventService service = DiagnosticEventService.instance();
+
+    private ReadRepairDiagnostics() {
     }
 
-    static void startRepair(AbstractReadRepair readRepair, ReplicaPlan.ForRead<?> fullPlan, DigestResolver digestResolver)
-    {
+    static void startRepair(AbstractReadRepair readRepair, ReplicaPlan.ForRead<?> fullPlan, DigestResolver digestResolver) {
         if (service.isEnabled(ReadRepairEvent.class, ReadRepairEventType.START_REPAIR))
-            service.publish(new ReadRepairEvent(ReadRepairEventType.START_REPAIR,
-                                                readRepair,
-                                                fullPlan.contacts().endpoints(),
-                                                fullPlan.candidates().endpoints(), digestResolver));
+            service.publish(new ReadRepairEvent(ReadRepairEventType.START_REPAIR, readRepair, fullPlan.contacts().endpoints(), fullPlan.candidates().endpoints(), digestResolver));
     }
 
-    static void speculatedRead(AbstractReadRepair readRepair, InetAddressAndPort endpoint,
-                               ReplicaPlan.ForRead<?> fullPlan)
-    {
+    static void speculatedRead(AbstractReadRepair readRepair, InetAddressAndPort endpoint, ReplicaPlan.ForRead<?> fullPlan) {
         if (service.isEnabled(ReadRepairEvent.class, ReadRepairEventType.SPECULATED_READ))
-            service.publish(new ReadRepairEvent(ReadRepairEventType.SPECULATED_READ,
-                                                readRepair, Collections.singletonList(endpoint),
-                                                Lists.newArrayList(fullPlan.candidates().endpoints()), null));
+            service.publish(new ReadRepairEvent(ReadRepairEventType.SPECULATED_READ, readRepair, Collections.singletonList(endpoint), Lists.newArrayList(fullPlan.candidates().endpoints()), null));
     }
 
-    static void sendInitialRepair(BlockingPartitionRepair partitionRepair, InetAddressAndPort destination, Mutation mutation)
-    {
+    static void sendInitialRepair(BlockingPartitionRepair partitionRepair, InetAddressAndPort destination, Mutation mutation) {
         if (service.isEnabled(PartitionRepairEvent.class, PartitionRepairEventType.SEND_INITIAL_REPAIRS))
-            service.publish(new PartitionRepairEvent(PartitionRepairEventType.SEND_INITIAL_REPAIRS, partitionRepair,
-                                                     destination, mutation));
+            service.publish(new PartitionRepairEvent(PartitionRepairEventType.SEND_INITIAL_REPAIRS, partitionRepair, destination, mutation));
     }
 
-    static void speculatedWrite(BlockingPartitionRepair partitionRepair, InetAddressAndPort destination, Mutation mutation)
-    {
+    static void speculatedWrite(BlockingPartitionRepair partitionRepair, InetAddressAndPort destination, Mutation mutation) {
         if (service.isEnabled(PartitionRepairEvent.class, PartitionRepairEventType.SPECULATED_WRITE))
-            service.publish(new PartitionRepairEvent(PartitionRepairEventType.SPECULATED_WRITE, partitionRepair,
-                                                     destination, mutation));
+            service.publish(new PartitionRepairEvent(PartitionRepairEventType.SPECULATED_WRITE, partitionRepair, destination, mutation));
     }
 
-    static void speculatedWriteOversized(BlockingPartitionRepair partitionRepair, InetAddressAndPort destination)
-    {
+    static void speculatedWriteOversized(BlockingPartitionRepair partitionRepair, InetAddressAndPort destination) {
         if (service.isEnabled(PartitionRepairEvent.class, PartitionRepairEventType.UPDATE_OVERSIZED))
-            service.publish(new PartitionRepairEvent(PartitionRepairEventType.UPDATE_OVERSIZED, partitionRepair,
-                                                     destination, null));
+            service.publish(new PartitionRepairEvent(PartitionRepairEventType.UPDATE_OVERSIZED, partitionRepair, destination, null));
     }
 }

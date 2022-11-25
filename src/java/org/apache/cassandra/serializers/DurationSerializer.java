@@ -19,7 +19,6 @@ package org.apache.cassandra.serializers;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.cql3.Duration;
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.io.util.DataInputBuffer;
@@ -27,82 +26,62 @@ import org.apache.cassandra.io.util.DataOutputBufferFixed;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.vint.VIntCoding;
 
-public final class DurationSerializer extends TypeSerializer<Duration>
-{
-    public static final DurationSerializer instance = new DurationSerializer();
+public final class DurationSerializer extends TypeSerializer<Duration> {
 
-    public ByteBuffer serialize(Duration duration)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DurationSerializer.class);
+
+    public static final transient DurationSerializer instance = new DurationSerializer();
+
+    public ByteBuffer serialize(Duration duration) {
         if (duration == null)
             return ByteBufferUtil.EMPTY_BYTE_BUFFER;
-
         long months = duration.getMonths();
         long days = duration.getDays();
         long nanoseconds = duration.getNanoseconds();
-
-        int size = VIntCoding.computeVIntSize(months)
-                   + VIntCoding.computeVIntSize(days)
-                   + VIntCoding.computeVIntSize(nanoseconds);
-
-        try (DataOutputBufferFixed output = new DataOutputBufferFixed(size))
-        {
+        int size = VIntCoding.computeVIntSize(months) + VIntCoding.computeVIntSize(days) + VIntCoding.computeVIntSize(nanoseconds);
+        try (DataOutputBufferFixed output = new DataOutputBufferFixed(size)) {
             output.writeVInt(months);
             output.writeVInt(days);
             output.writeVInt(nanoseconds);
             return output.buffer();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             // this should never happen with a DataOutputBufferFixed
             throw new AssertionError("Unexpected error", e);
         }
     }
 
-    public <V> Duration deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public <V> Duration deserialize(V value, ValueAccessor<V> accessor) {
         if (accessor.isEmpty(value))
             return null;
-
-        try (DataInputBuffer in = new DataInputBuffer(accessor.toBuffer(value), true))  // TODO: make a value input buffer
-        {
+        try (// TODO: make a value input buffer
+        DataInputBuffer in = new DataInputBuffer(accessor.toBuffer(value), true)) {
             int months = (int) in.readVInt();
             int days = (int) in.readVInt();
             long nanoseconds = in.readVInt();
             return Duration.newInstance(months, days, nanoseconds);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             // this should never happen with a DataInputBuffer
             throw new AssertionError("Unexpected error", e);
         }
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (accessor.size(value) < 3)
             throw new MarshalException(String.format("Expected at least 3 bytes for a duration (%d)", accessor.size(value)));
-
-        try (DataInputBuffer in = new DataInputBuffer(accessor.toBuffer(value), true))  // FIXME: value input buffer
-        {
+        try (// FIXME: value input buffer
+        DataInputBuffer in = new DataInputBuffer(accessor.toBuffer(value), true)) {
             long monthsAsLong = in.readVInt();
             long daysAsLong = in.readVInt();
             long nanoseconds = in.readVInt();
-
             if (!canBeCastToInt(monthsAsLong))
-                throw new MarshalException(String.format("The duration months must be a 32 bits integer but was: %d",
-                                                         monthsAsLong));
+                throw new MarshalException(String.format("The duration months must be a 32 bits integer but was: %d", monthsAsLong));
             if (!canBeCastToInt(daysAsLong))
-                throw new MarshalException(String.format("The duration days must be a 32 bits integer but was: %d",
-                                                         daysAsLong));
+                throw new MarshalException(String.format("The duration days must be a 32 bits integer but was: %d", daysAsLong));
             int months = (int) monthsAsLong;
             int days = (int) daysAsLong;
-
-            if (!((months >= 0 && days >= 0 && nanoseconds >= 0) || (months <= 0 && days <=0 && nanoseconds <=0)))
-                throw new MarshalException(String.format("The duration months, days and nanoseconds must be all of the same sign (%d, %d, %d)",
-                                                         months, days, nanoseconds));
-        }
-        catch (IOException e)
-        {
+            if (!((months >= 0 && days >= 0 && nanoseconds >= 0) || (months <= 0 && days <= 0 && nanoseconds <= 0)))
+                throw new MarshalException(String.format("The duration months, days and nanoseconds must be all of the same sign (%d, %d, %d)", months, days, nanoseconds));
+        } catch (IOException e) {
             // this should never happen with a DataInputBuffer
             throw new AssertionError("Unexpected error", e);
         }
@@ -115,18 +94,15 @@ public final class DurationSerializer extends TypeSerializer<Duration>
      * @return {@code true} if the specified {@code long} can be cast to an {@code int} without information lost,
      * {@code false} otherwise.
      */
-    private boolean canBeCastToInt(long l)
-    {
+    private boolean canBeCastToInt(long l) {
         return ((int) l) == l;
     }
 
-    public String toString(Duration duration)
-    {
+    public String toString(Duration duration) {
         return duration == null ? "" : duration.toString();
     }
 
-    public Class<Duration> getType()
-    {
+    public Class<Duration> getType() {
         return Duration.class;
     }
 }

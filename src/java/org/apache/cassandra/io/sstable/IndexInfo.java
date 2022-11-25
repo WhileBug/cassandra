@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.sstable;
 
 import java.io.IOException;
 import java.util.List;
-
 import org.apache.cassandra.db.ClusteringPrefix;
 import org.apache.cassandra.db.DeletionTime;
 import org.apache.cassandra.db.RowIndexEntry;
@@ -57,25 +55,25 @@ import org.apache.cassandra.utils.ObjectSizes;
  * }
  * </p>
  */
-public class IndexInfo
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new IndexInfo(null, null, 0, 0, null));
+public class IndexInfo {
 
-    public final long offset;
-    public final long width;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexInfo.class);
+
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new IndexInfo(null, null, 0, 0, null));
+
+    public final transient long offset;
+
+    public final transient long width;
+
     public final ClusteringPrefix<?> firstName;
+
     public final ClusteringPrefix<?> lastName;
 
     // If at the end of the index block there is an open range tombstone marker, this marker
     // deletion infos. null otherwise.
     public final DeletionTime endOpenMarker;
 
-    public IndexInfo(ClusteringPrefix<?> firstName,
-                     ClusteringPrefix<?> lastName,
-                     long offset,
-                     long width,
-                     DeletionTime endOpenMarker)
-    {
+    public IndexInfo(ClusteringPrefix<?> firstName, ClusteringPrefix<?> lastName, long offset, long width, DeletionTime endOpenMarker) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.offset = offset;
@@ -83,42 +81,38 @@ public class IndexInfo
         this.endOpenMarker = endOpenMarker;
     }
 
-    public static IndexInfo.Serializer serializer(Version version, SerializationHeader header)
-    {
+    public static IndexInfo.Serializer serializer(Version version, SerializationHeader header) {
         return new IndexInfo.Serializer(version, header.clusteringTypes());
     }
 
-    public static class Serializer implements ISerializer<IndexInfo>
-    {
+    public static class Serializer implements ISerializer<IndexInfo> {
+
         // This is the default index size that we use to delta-encode width when serializing so we get better vint-encoding.
         // This is imperfect as user can change the index size and ideally we would save the index size used with each index file
         // to use as base. However, that's a bit more involved a change that we want for now and very seldom do use change the index
         // size so using the default is almost surely better than using no base at all.
-        public static final long WIDTH_BASE = 64 * 1024;
+        public static final transient long WIDTH_BASE = 64 * 1024;
 
-        private final int version;
-        private final List<AbstractType<?>> clusteringTypes;
+        private final transient int version;
 
-        public Serializer(Version version, List<AbstractType<?>> clusteringTypes)
-        {
+        private final transient List<AbstractType<?>> clusteringTypes;
+
+        public Serializer(Version version, List<AbstractType<?>> clusteringTypes) {
             this.version = version.correspondingMessagingVersion();
             this.clusteringTypes = clusteringTypes;
         }
 
-        public void serialize(IndexInfo info, DataOutputPlus out) throws IOException
-        {
+        public void serialize(IndexInfo info, DataOutputPlus out) throws IOException {
             ClusteringPrefix.serializer.serialize(info.firstName, out, version, clusteringTypes);
             ClusteringPrefix.serializer.serialize(info.lastName, out, version, clusteringTypes);
             out.writeUnsignedVInt(info.offset);
             out.writeVInt(info.width - WIDTH_BASE);
-
             out.writeBoolean(info.endOpenMarker != null);
             if (info.endOpenMarker != null)
                 DeletionTime.serializer.serialize(info.endOpenMarker, out);
         }
 
-        public void skip(DataInputPlus in) throws IOException
-        {
+        public void skip(DataInputPlus in) throws IOException {
             ClusteringPrefix.serializer.skip(in, version, clusteringTypes);
             ClusteringPrefix.serializer.skip(in, version, clusteringTypes);
             in.readUnsignedVInt();
@@ -127,8 +121,7 @@ public class IndexInfo
                 DeletionTime.serializer.skip(in);
         }
 
-        public IndexInfo deserialize(DataInputPlus in) throws IOException
-        {
+        public IndexInfo deserialize(DataInputPlus in) throws IOException {
             ClusteringPrefix<byte[]> firstName = ClusteringPrefix.serializer.deserialize(in, version, clusteringTypes);
             ClusteringPrefix<byte[]> lastName = ClusteringPrefix.serializer.deserialize(in, version, clusteringTypes);
             long offset = in.readUnsignedVInt();
@@ -139,25 +132,18 @@ public class IndexInfo
             return new IndexInfo(firstName, lastName, offset, width, endOpenMarker);
         }
 
-        public long serializedSize(IndexInfo info)
-        {
-            long size = ClusteringPrefix.serializer.serializedSize(info.firstName, version, clusteringTypes)
-                      + ClusteringPrefix.serializer.serializedSize(info.lastName, version, clusteringTypes)
-                      + TypeSizes.sizeofUnsignedVInt(info.offset)
-                      + TypeSizes.sizeofVInt(info.width - WIDTH_BASE)
-                      + TypeSizes.sizeof(info.endOpenMarker != null);
-
+        public long serializedSize(IndexInfo info) {
+            long size = ClusteringPrefix.serializer.serializedSize(info.firstName, version, clusteringTypes) + ClusteringPrefix.serializer.serializedSize(info.lastName, version, clusteringTypes) + TypeSizes.sizeofUnsignedVInt(info.offset) + TypeSizes.sizeofVInt(info.width - WIDTH_BASE) + TypeSizes.sizeof(info.endOpenMarker != null);
             if (info.endOpenMarker != null)
                 size += DeletionTime.serializer.serializedSize(info.endOpenMarker);
             return size;
         }
     }
 
-    public long unsharedHeapSize()
-    {
-        return EMPTY_SIZE
-             + firstName.unsharedHeapSize()
-             + lastName.unsharedHeapSize()
-             + (endOpenMarker == null ? 0 : endOpenMarker.unsharedHeapSize());
+    public long unsharedHeapSize() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.io.sstable.IndexInfo.endOpenMarker]=" + org.json.simple.JSONValue.toJSONString(endOpenMarker).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.io.sstable.IndexInfo.lastName]=" + org.json.simple.JSONValue.toJSONString(lastName).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.io.sstable.IndexInfo.firstName]=" + org.json.simple.JSONValue.toJSONString(firstName).replace("\n", "").replace("\r", ""));
+        return EMPTY_SIZE + firstName.unsharedHeapSize() + lastName.unsharedHeapSize() + (endOpenMarker == null ? 0 : endOpenMarker.unsharedHeapSize());
     }
 }

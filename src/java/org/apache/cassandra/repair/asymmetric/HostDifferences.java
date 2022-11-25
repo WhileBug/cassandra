@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.asymmetric;
 
 import java.util.Collection;
@@ -27,7 +26,6 @@ import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeSet;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -35,43 +33,38 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 /**
  * Tracks the differences for a single host
  */
-public class HostDifferences
-{
-    private final Map<InetAddressAndPort, NavigableSet<Range<Token>>> perHostDifferences = new HashMap<>();
-    private static final Comparator<Range<Token>> comparator = Comparator.comparing((Range<Token> o) -> o.left);
+public class HostDifferences {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HostDifferences.class);
+
+    private final transient Map<InetAddressAndPort, NavigableSet<Range<Token>>> perHostDifferences = new HashMap<>();
+
+    private static final transient Comparator<Range<Token>> comparator = Comparator.comparing((Range<Token> o) -> o.left);
 
     /**
      * Adds a set of differences between the node this instance is tracking and endpoint
      */
-    public void add(InetAddressAndPort endpoint, Collection<Range<Token>> difference)
-    {
+    public void add(InetAddressAndPort endpoint, Collection<Range<Token>> difference) {
         TreeSet<Range<Token>> sortedDiffs = new TreeSet<>(comparator);
         sortedDiffs.addAll(difference);
         perHostDifferences.put(endpoint, sortedDiffs);
     }
 
-    public void addSingleRange(InetAddressAndPort remoteNode, Range<Token> rangeToFetch)
-    {
+    public void addSingleRange(InetAddressAndPort remoteNode, Range<Token> rangeToFetch) {
         perHostDifferences.computeIfAbsent(remoteNode, (x) -> new TreeSet<>(comparator)).add(rangeToFetch);
     }
 
     /**
      * Does this instance have differences for range with node2?
      */
-    public boolean hasDifferencesFor(InetAddressAndPort node2, Range<Token> range)
-    {
+    public boolean hasDifferencesFor(InetAddressAndPort node2, Range<Token> range) {
         NavigableSet<Range<Token>> differences = get(node2);
-
         if (differences.size() > 0 && differences.last().isWrapAround() && differences.last().intersects(range))
             return true;
-
-        for (Range<Token> unwrappedRange : range.unwrap())
-        {
+        for (Range<Token> unwrappedRange : range.unwrap()) {
             Range<Token> startKey = differences.floor(unwrappedRange);
             Iterator<Range<Token>> iter = startKey == null ? differences.iterator() : differences.tailSet(startKey, true).iterator();
-
-            while (iter.hasNext())
-            {
+            while (iter.hasNext()) {
                 Range<Token> diff = iter.next();
                 // if the other node has a diff for this range, we know they are not equal.
                 if (unwrappedRange.equals(diff) || unwrappedRange.intersects(diff))
@@ -83,20 +76,15 @@ public class HostDifferences
         return false;
     }
 
-    public Set<InetAddressAndPort> hosts()
-    {
+    public Set<InetAddressAndPort> hosts() {
         return perHostDifferences.keySet();
     }
 
-    public NavigableSet<Range<Token>> get(InetAddressAndPort differingHost)
-    {
+    public NavigableSet<Range<Token>> get(InetAddressAndPort differingHost) {
         return perHostDifferences.getOrDefault(differingHost, Collections.emptyNavigableSet());
     }
 
-    public String toString()
-    {
-        return "HostDifferences{" +
-               "perHostDifferences=" + perHostDifferences +
-               '}';
+    public String toString() {
+        return "HostDifferences{" + "perHostDifferences=" + perHostDifferences + '}';
     }
 }

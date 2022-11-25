@@ -24,11 +24,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.FBUtilities;
@@ -47,41 +45,38 @@ import org.apache.commons.lang3.StringUtils;
  * 10.20.114.15=DC2:RAC2
  * default=DC1:r1
  */
-public class PropertyFileSnitch extends AbstractNetworkTopologySnitch
-{
-    private static final Logger logger = LoggerFactory.getLogger(PropertyFileSnitch.class);
+public class PropertyFileSnitch extends AbstractNetworkTopologySnitch {
 
-    public static final String SNITCH_PROPERTIES_FILENAME = "cassandra-topology.properties";
-    private static final int DEFAULT_REFRESH_PERIOD_IN_SECONDS = 5;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PropertyFileSnitch.class);
 
-    private static volatile Map<InetAddressAndPort, String[]> endpointMap;
-    private static volatile String[] defaultDCRack;
+    private static final transient Logger logger = LoggerFactory.getLogger(PropertyFileSnitch.class);
 
-    private volatile boolean gossipStarted;
+    public static final transient String SNITCH_PROPERTIES_FILENAME = "cassandra-topology.properties";
 
-    public PropertyFileSnitch() throws ConfigurationException
-    {
+    private static final transient int DEFAULT_REFRESH_PERIOD_IN_SECONDS = 5;
+
+    private static volatile transient Map<InetAddressAndPort, String[]> endpointMap;
+
+    private static volatile transient String[] defaultDCRack;
+
+    private volatile transient boolean gossipStarted;
+
+    public PropertyFileSnitch() throws ConfigurationException {
         this(DEFAULT_REFRESH_PERIOD_IN_SECONDS);
     }
 
-    public PropertyFileSnitch(int refreshPeriodInSeconds) throws ConfigurationException
-    {
+    public PropertyFileSnitch(int refreshPeriodInSeconds) throws ConfigurationException {
         reloadConfiguration(false);
-
-        try
-        {
+        try {
             FBUtilities.resourceToFile(SNITCH_PROPERTIES_FILENAME);
-            Runnable runnable = new WrappedRunnable()
-            {
-                protected void runMayThrow() throws ConfigurationException
-                {
+            Runnable runnable = new WrappedRunnable() {
+
+                protected void runMayThrow() throws ConfigurationException {
                     reloadConfiguration(true);
                 }
             };
             ResourceWatcher.watch(SNITCH_PROPERTIES_FILENAME, runnable, refreshPeriodInSeconds * 1000);
-        }
-        catch (ConfigurationException ex)
-        {
+        } catch (ConfigurationException ex) {
             logger.error("{} found, but does not look like a plain file. Will not watch it for changes", SNITCH_PROPERTIES_FILENAME);
         }
     }
@@ -92,19 +87,16 @@ public class PropertyFileSnitch extends AbstractNetworkTopologySnitch
      * @param endpoint endpoint to process
      * @return a array of string with the first index being the data center and the second being the rack
      */
-    public static String[] getEndpointInfo(InetAddressAndPort endpoint)
-    {
+    public static String[] getEndpointInfo(InetAddressAndPort endpoint) {
         String[] rawEndpointInfo = getRawEndpointInfo(endpoint);
         if (rawEndpointInfo == null)
             throw new RuntimeException("Unknown host " + endpoint + " with no default configured");
         return rawEndpointInfo;
     }
 
-    private static String[] getRawEndpointInfo(InetAddressAndPort endpoint)
-    {
+    private static String[] getRawEndpointInfo(InetAddressAndPort endpoint) {
         String[] value = endpointMap.get(endpoint);
-        if (value == null)
-        {
+        if (value == null) {
             logger.trace("Could not find end point information for {}, will use default", endpoint);
             return defaultDCRack;
         }
@@ -117,8 +109,7 @@ public class PropertyFileSnitch extends AbstractNetworkTopologySnitch
      * @param endpoint the endpoint to process
      * @return string of data center
      */
-    public String getDatacenter(InetAddressAndPort endpoint)
-    {
+    public String getDatacenter(InetAddressAndPort endpoint) {
         String[] info = getEndpointInfo(endpoint);
         assert info != null : "No location defined for endpoint " + endpoint;
         return info[0];
@@ -130,51 +121,36 @@ public class PropertyFileSnitch extends AbstractNetworkTopologySnitch
      * @param endpoint the endpoint to process
      * @return string of rack
      */
-    public String getRack(InetAddressAndPort endpoint)
-    {
+    public String getRack(InetAddressAndPort endpoint) {
         String[] info = getEndpointInfo(endpoint);
         assert info != null : "No location defined for endpoint " + endpoint;
         return info[1];
     }
 
-    public void reloadConfiguration(boolean isUpdate) throws ConfigurationException
-    {
+    public void reloadConfiguration(boolean isUpdate) throws ConfigurationException {
         HashMap<InetAddressAndPort, String[]> reloadedMap = new HashMap<>();
         String[] reloadedDefaultDCRack = null;
-
         Properties properties = new Properties();
-        try (InputStream stream = getClass().getClassLoader().getResourceAsStream(SNITCH_PROPERTIES_FILENAME))
-        {
+        try (InputStream stream = getClass().getClassLoader().getResourceAsStream(SNITCH_PROPERTIES_FILENAME)) {
             properties.load(stream);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new ConfigurationException("Unable to read " + SNITCH_PROPERTIES_FILENAME, e);
         }
-
-        for (Map.Entry<Object, Object> entry : properties.entrySet())
-        {
+        for (Map.Entry<Object, Object> entry : properties.entrySet()) {
             String key = (String) entry.getKey();
             String value = (String) entry.getValue();
-
-            if ("default".equals(key))
-            {
+            if ("default".equals(key)) {
                 String[] newDefault = value.split(":");
                 if (newDefault.length < 2)
                     reloadedDefaultDCRack = new String[] { "default", "default" };
                 else
                     reloadedDefaultDCRack = new String[] { newDefault[0].trim(), newDefault[1].trim() };
-            }
-            else
-            {
+            } else {
                 InetAddressAndPort host;
                 String hostString = StringUtils.remove(key, '/');
-                try
-                {
+                try {
                     host = InetAddressAndPort.getByName(hostString);
-                }
-                catch (UnknownHostException e)
-                {
+                } catch (UnknownHostException e) {
                     throw new ConfigurationException("Unknown host " + hostString, e);
                 }
                 String[] token = value.split(":");
@@ -188,37 +164,28 @@ public class PropertyFileSnitch extends AbstractNetworkTopologySnitch
         InetAddressAndPort broadcastAddress = FBUtilities.getBroadcastAddressAndPort();
         String[] localInfo = reloadedMap.get(broadcastAddress);
         if (reloadedDefaultDCRack == null && localInfo == null)
-            throw new ConfigurationException(String.format("Snitch definitions at %s do not define a location for " +
-                                                           "this node's broadcast address %s, nor does it provides a default",
-                                                           SNITCH_PROPERTIES_FILENAME, broadcastAddress));
+            throw new ConfigurationException(String.format("Snitch definitions at %s do not define a location for " + "this node's broadcast address %s, nor does it provides a default", SNITCH_PROPERTIES_FILENAME, broadcastAddress));
         // internode messaging code converts our broadcast address to local,
         // make sure we can be found at that as well.
         InetAddressAndPort localAddress = FBUtilities.getLocalAddressAndPort();
         if (!localAddress.equals(broadcastAddress) && !reloadedMap.containsKey(localAddress))
             reloadedMap.put(localAddress, localInfo);
-
         if (isUpdate && !livenessCheck(reloadedMap, reloadedDefaultDCRack))
             return;
-
-        if (logger.isTraceEnabled())
-        {
+        if (logger.isTraceEnabled()) {
             StringBuilder sb = new StringBuilder();
-            for (Map.Entry<InetAddressAndPort, String[]> entry : reloadedMap.entrySet())
-                sb.append(entry.getKey()).append(':').append(Arrays.toString(entry.getValue())).append(", ");
+            for (Map.Entry<InetAddressAndPort, String[]> entry : reloadedMap.entrySet()) sb.append(entry.getKey()).append(':').append(Arrays.toString(entry.getValue())).append(", ");
             logger.trace("Loaded network topology from property file: {}", StringUtils.removeEnd(sb.toString(), ", "));
         }
-
-
         defaultDCRack = reloadedDefaultDCRack;
         endpointMap = reloadedMap;
-        if (StorageService.instance != null) // null check tolerates circular dependency; see CASSANDRA-4145
-        {
+        if (// null check tolerates circular dependency; see CASSANDRA-4145
+        StorageService.instance != null) {
             if (isUpdate)
                 StorageService.instance.updateTopology();
             else
                 StorageService.instance.getTokenMetadata().invalidateCachedRings();
         }
-
         if (gossipStarted)
             StorageService.instance.gossipSnitchInfo();
     }
@@ -230,37 +197,27 @@ public class PropertyFileSnitch extends AbstractNetworkTopologySnitch
      * @param reloadedDefaultDCRack - the default dc:rack or null if no default
      * @return true if we can continue updating (no live host had dc or rack updated)
      */
-    private static boolean livenessCheck(HashMap<InetAddressAndPort, String[]> reloadedMap, String[] reloadedDefaultDCRack)
-    {
+    private static boolean livenessCheck(HashMap<InetAddressAndPort, String[]> reloadedMap, String[] reloadedDefaultDCRack) {
         // If the default has changed we must check all live hosts but hopefully we will find a live
         // host quickly and interrupt the loop. Otherwise we only check the live hosts that were either
         // in the old set or in the new set
-        Set<InetAddressAndPort> hosts = Arrays.equals(defaultDCRack, reloadedDefaultDCRack)
-                                 ? Sets.intersection(StorageService.instance.getLiveRingMembers(), // same default
-                                                     Sets.union(endpointMap.keySet(), reloadedMap.keySet()))
-                                 : StorageService.instance.getLiveRingMembers(); // default updated
-
-        for (InetAddressAndPort host : hosts)
-        {
+        Set<InetAddressAndPort> hosts = Arrays.equals(defaultDCRack, reloadedDefaultDCRack) ? // same default
+        Sets.intersection(// same default
+        StorageService.instance.getLiveRingMembers(), Sets.union(endpointMap.keySet(), reloadedMap.keySet())) : // default updated
+        StorageService.instance.getLiveRingMembers();
+        for (InetAddressAndPort host : hosts) {
             String[] origValue = endpointMap.containsKey(host) ? endpointMap.get(host) : defaultDCRack;
             String[] updateValue = reloadedMap.containsKey(host) ? reloadedMap.get(host) : reloadedDefaultDCRack;
-
-            if (!Arrays.equals(origValue, updateValue))
-            {
-                logger.error("Cannot update data center or rack from {} to {} for live host {}, property file NOT RELOADED",
-                             origValue,
-                             updateValue,
-                             host);
-                 return false;
+            if (!Arrays.equals(origValue, updateValue)) {
+                logger.error("Cannot update data center or rack from {} to {} for live host {}, property file NOT RELOADED", origValue, updateValue, host);
+                return false;
             }
         }
-
         return true;
     }
 
     @Override
-    public void gossiperStarting()
-    {
+    public void gossiperStarting() {
         gossipStarted = true;
     }
 }

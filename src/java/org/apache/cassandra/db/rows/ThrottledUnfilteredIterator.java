@@ -21,12 +21,10 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
-
 import org.apache.cassandra.db.DeletionTime;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.utils.AbstractIterator;
 import org.apache.cassandra.utils.CloseableIterator;
-
 import com.google.common.annotations.VisibleForTesting;
 
 /**
@@ -45,22 +43,23 @@ import com.google.common.annotations.VisibleForTesting;
  * effectively skipping unfiltereds up to the throttle size.
  *
  * Closing this iterator will close the underlying iterator.
- *
  */
-public class ThrottledUnfilteredIterator extends AbstractIterator<UnfilteredRowIterator> implements CloseableIterator<UnfilteredRowIterator>
-{
-    private final UnfilteredRowIterator origin;
-    private final int throttle;
+public class ThrottledUnfilteredIterator extends AbstractIterator<UnfilteredRowIterator> implements CloseableIterator<UnfilteredRowIterator> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ThrottledUnfilteredIterator.class);
+
+    private final transient UnfilteredRowIterator origin;
+
+    private final transient int throttle;
 
     // internal mutable state
-    private UnfilteredRowIterator throttledItr;
+    private transient UnfilteredRowIterator throttledItr;
 
     // extra unfiltereds from previous iteration
-    private Iterator<Unfiltered> overflowed = Collections.emptyIterator();
+    private transient Iterator<Unfiltered> overflowed = Collections.emptyIterator();
 
     @VisibleForTesting
-    ThrottledUnfilteredIterator(UnfilteredRowIterator origin, int throttle)
-    {
+    ThrottledUnfilteredIterator(UnfilteredRowIterator origin, int throttle) {
         assert origin != null;
         assert throttle > 1 : "Throttle size must be higher than 1 to properly support open and close tombstone boundaries.";
         this.origin = origin;
@@ -69,24 +68,20 @@ public class ThrottledUnfilteredIterator extends AbstractIterator<UnfilteredRowI
     }
 
     @Override
-    protected UnfilteredRowIterator computeNext()
-    {
+    protected UnfilteredRowIterator computeNext() {
         // exhaust previous throttled iterator
-        while (throttledItr != null && throttledItr.hasNext())
-            throttledItr.next();
-
+        while (throttledItr != null && throttledItr.hasNext()) throttledItr.next();
         // The original UnfilteredRowIterator may have only partition deletion or static column but without unfiltereds.
         // Return the original UnfilteredRowIterator
-        if (!origin.hasNext())
-        {
+        if (!origin.hasNext()) {
             if (throttledItr != null)
                 return endOfData();
             return throttledItr = origin;
         }
+        throttledItr = new WrappingUnfilteredRowIterator(origin) {
 
-        throttledItr = new WrappingUnfilteredRowIterator(origin)
-        {
             private int count = 0;
+
             private boolean isFirst = throttledItr == null;
 
             // current batch's openMarker. if it's generated in previous batch,
@@ -98,22 +93,18 @@ public class ThrottledUnfilteredIterator extends AbstractIterator<UnfilteredRowI
             private RangeTombstoneMarker closeMarker = null;
 
             @Override
-            public boolean hasNext()
-            {
+            public boolean hasNext() {
                 return (withinLimit() && wrapped.hasNext()) || closeMarker != null;
             }
 
             @Override
-            public Unfiltered next()
-            {
-                if (closeMarker != null)
-                {
+            public Unfiltered next() {
+                if (closeMarker != null) {
                     assert count == throttle;
                     Unfiltered toReturn = closeMarker;
                     closeMarker = null;
                     return toReturn;
                 }
-
                 Unfiltered next;
                 assert withinLimit();
                 // in the beginning of the batch, there might be remaining unfiltereds from previous iteration
@@ -125,26 +116,22 @@ public class ThrottledUnfilteredIterator extends AbstractIterator<UnfilteredRowI
                 return next;
             }
 
-            private void recordNext(Unfiltered unfiltered)
-            {
+            private void recordNext(Unfiltered unfiltered) {
                 count++;
                 if (unfiltered.isRangeTombstoneMarker())
                     updateMarker((RangeTombstoneMarker) unfiltered);
                 // when reach throttle with a remaining openMarker, we need to create corresponding closeMarker.
-                if (count == throttle && openMarker != null)
-                {
+                if (count == throttle && openMarker != null) {
                     assert wrapped.hasNext();
                     closeOpenMarker(wrapped.next());
                 }
             }
 
-            private boolean withinLimit()
-            {
+            private boolean withinLimit() {
                 return count < throttle;
             }
 
-            private void updateMarker(RangeTombstoneMarker marker)
-            {
+            private void updateMarker(RangeTombstoneMarker marker) {
                 openMarker = marker.isOpen(isReverseOrder()) ? marker : null;
             }
 
@@ -154,64 +141,49 @@ public class ThrottledUnfilteredIterator extends AbstractIterator<UnfilteredRowI
              * corresponding closeMarker for current batch, and create next openMarker for next batch including current
              * Row.
              */
-            private void closeOpenMarker(Unfiltered next)
-            {
+            private void closeOpenMarker(Unfiltered next) {
                 assert openMarker != null;
-
-                if (next.isRangeTombstoneMarker())
-                {
+                if (next.isRangeTombstoneMarker()) {
                     RangeTombstoneMarker marker = (RangeTombstoneMarker) next;
                     // if it's boundary, create closeMarker for current batch and openMarker for next batch
-                    if (marker.isBoundary())
-                    {
+                    if (marker.isBoundary()) {
                         RangeTombstoneBoundaryMarker boundary = (RangeTombstoneBoundaryMarker) marker;
                         closeMarker = boundary.createCorrespondingCloseMarker(isReverseOrder());
-                        overflowed = Collections.singleton((Unfiltered)boundary.createCorrespondingOpenMarker(isReverseOrder())).iterator();
-                    }
-                    else
-                    {
+                        overflowed = Collections.singleton((Unfiltered) boundary.createCorrespondingOpenMarker(isReverseOrder())).iterator();
+                    } else {
                         // if it's bound, it must be closeMarker.
                         assert marker.isClose(isReverseOrder());
                         updateMarker(marker);
                         closeMarker = marker;
                     }
-                }
-                else
-                {
+                } else {
                     // it's Row, need to create closeMarker for current batch and openMarker for next batch
                     DeletionTime openDeletion = openMarker.openDeletionTime(isReverseOrder());
                     closeMarker = RangeTombstoneBoundMarker.exclusiveClose(isReverseOrder(), next.clustering(), openDeletion);
-
                     // for next batch
-                    overflowed = Arrays.asList(RangeTombstoneBoundMarker.inclusiveOpen(isReverseOrder(),
-                                                                                       next.clustering(),
-                                                                                       openDeletion), next).iterator();
+                    overflowed = Arrays.asList(RangeTombstoneBoundMarker.inclusiveOpen(isReverseOrder(), next.clustering(), openDeletion), next).iterator();
                 }
             }
 
             @Override
-            public DeletionTime partitionLevelDeletion()
-            {
+            public DeletionTime partitionLevelDeletion() {
                 return isFirst ? wrapped.partitionLevelDeletion() : DeletionTime.LIVE;
             }
 
             @Override
-            public Row staticRow()
-            {
+            public Row staticRow() {
                 return isFirst ? wrapped.staticRow() : Rows.EMPTY_STATIC_ROW;
             }
 
             @Override
-            public void close()
-            {
+            public void close() {
                 // no op
             }
         };
         return throttledItr;
     }
 
-    public void close()
-    {
+    public void close() {
         if (origin != null)
             origin.close();
     }
@@ -224,36 +196,28 @@ public class ThrottledUnfilteredIterator extends AbstractIterator<UnfilteredRowI
      * @param maxBatchSize max number of unfiltereds in the UnfilteredRowIterator. if 0 is given, it means no throttle.
      * @return
      */
-    public static CloseableIterator<UnfilteredRowIterator> throttle(UnfilteredPartitionIterator partitionIterator, int maxBatchSize)
-    {
-        if (maxBatchSize == 0) // opt out
+    public static CloseableIterator<UnfilteredRowIterator> throttle(UnfilteredPartitionIterator partitionIterator, int maxBatchSize) {
+        if (// opt out
+        maxBatchSize == 0)
             return partitionIterator;
+        return new AbstractIterator<UnfilteredRowIterator>() {
 
-        return new AbstractIterator<UnfilteredRowIterator>()
-        {
             ThrottledUnfilteredIterator current = null;
 
-            protected UnfilteredRowIterator computeNext()
-            {
-                if (current != null && !current.hasNext())
-                {
+            protected UnfilteredRowIterator computeNext() {
+                if (current != null && !current.hasNext()) {
                     current.close();
                     current = null;
                 }
-
-                if (current == null && partitionIterator.hasNext())
-                {
+                if (current == null && partitionIterator.hasNext()) {
                     current = new ThrottledUnfilteredIterator(partitionIterator.next(), maxBatchSize);
                 }
-
                 if (current != null && current.hasNext())
                     return current.next();
-
                 return endOfData();
             }
 
-            public void close()
-            {
+            public void close() {
                 if (current != null)
                     current.close();
             }

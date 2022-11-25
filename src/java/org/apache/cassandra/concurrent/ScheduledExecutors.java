@@ -19,39 +19,38 @@ package org.apache.cassandra.concurrent;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.utils.ExecutorUtils;
 
 /**
  * Centralized location for shared executors
  */
-public class ScheduledExecutors
-{
+public class ScheduledExecutors {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ScheduledExecutors.class);
+
     /**
      * This pool is used for periodic fast (sub-microsecond) tasks.
      */
-    public static final DebuggableScheduledThreadPoolExecutor scheduledFastTasks = new DebuggableScheduledThreadPoolExecutor("ScheduledFastTasks");
+    public static final transient DebuggableScheduledThreadPoolExecutor scheduledFastTasks = new DebuggableScheduledThreadPoolExecutor("ScheduledFastTasks");
 
     /**
      * This pool is used for periodic short (sub-second) tasks.
      */
-     public static final DebuggableScheduledThreadPoolExecutor scheduledTasks = new DebuggableScheduledThreadPoolExecutor("ScheduledTasks");
+    public static final transient DebuggableScheduledThreadPoolExecutor scheduledTasks = new DebuggableScheduledThreadPoolExecutor("ScheduledTasks");
 
     /**
      * This executor is used for tasks that can have longer execution times, and usually are non periodic.
      */
-    public static final DebuggableScheduledThreadPoolExecutor nonPeriodicTasks = new DebuggableScheduledThreadPoolExecutor("NonPeriodicTasks");
+    public static final transient DebuggableScheduledThreadPoolExecutor nonPeriodicTasks = new DebuggableScheduledThreadPoolExecutor("NonPeriodicTasks");
 
     /**
      * This executor is used for tasks that do not need to be waited for on shutdown/drain.
      */
-    public static final DebuggableScheduledThreadPoolExecutor optionalTasks = new DebuggableScheduledThreadPoolExecutor("OptionalTasks");
+    public static final transient DebuggableScheduledThreadPoolExecutor optionalTasks = new DebuggableScheduledThreadPoolExecutor("OptionalTasks");
 
     @VisibleForTesting
-    public static void shutdownAndWait(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException
-    {
+    public static void shutdownAndWait(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException {
         ExecutorUtils.shutdownNowAndWait(timeout, unit, scheduledFastTasks, scheduledTasks, nonPeriodicTasks, optionalTasks);
     }
 }

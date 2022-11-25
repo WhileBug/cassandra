@@ -25,11 +25,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-
 import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.io.FSError;
 import org.apache.cassandra.io.FSReadError;
 import org.apache.cassandra.io.FSWriteError;
@@ -37,76 +35,59 @@ import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.NativeLibrary;
 import org.apache.cassandra.utils.SyncUtil;
-
 import static java.util.stream.Collectors.groupingBy;
 
 /**
  * A simple catalog for easy host id -> {@link HintsStore} lookup and manipulation.
  */
-final class HintsCatalog
-{
-    private static final Logger logger = LoggerFactory.getLogger(HintsCatalog.class);
+final class HintsCatalog {
 
-    private final File hintsDirectory;
-    private final Map<UUID, HintsStore> stores;
-    private final ImmutableMap<String, Object> writerParams;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintsCatalog.class);
 
-    private HintsCatalog(File hintsDirectory, ImmutableMap<String, Object> writerParams, Map<UUID, List<HintsDescriptor>> descriptors)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(HintsCatalog.class);
+
+    private final transient File hintsDirectory;
+
+    private final transient Map<UUID, HintsStore> stores;
+
+    private final transient ImmutableMap<String, Object> writerParams;
+
+    private HintsCatalog(File hintsDirectory, ImmutableMap<String, Object> writerParams, Map<UUID, List<HintsDescriptor>> descriptors) {
         this.hintsDirectory = hintsDirectory;
         this.writerParams = writerParams;
         this.stores = new ConcurrentHashMap<>();
-
-        for (Map.Entry<UUID, List<HintsDescriptor>> entry : descriptors.entrySet())
-            stores.put(entry.getKey(), HintsStore.create(entry.getKey(), hintsDirectory, writerParams, entry.getValue()));
+        for (Map.Entry<UUID, List<HintsDescriptor>> entry : descriptors.entrySet()) stores.put(entry.getKey(), HintsStore.create(entry.getKey(), hintsDirectory, writerParams, entry.getValue()));
     }
 
     /**
      * Loads hints stores from a given directory.
      */
-    static HintsCatalog load(File hintsDirectory, ImmutableMap<String, Object> writerParams)
-    {
-        try(Stream<Path> list = Files.list(hintsDirectory.toPath()))
-        {
-            Map<UUID, List<HintsDescriptor>> stores =
-                     list
-                     .filter(HintsDescriptor::isHintFileName)
-                     .map(HintsDescriptor::readFromFileQuietly)
-                     .filter(Optional::isPresent)
-                     .map(Optional::get)
-                     .collect(groupingBy(h -> h.hostId));
+    static HintsCatalog load(File hintsDirectory, ImmutableMap<String, Object> writerParams) {
+        try (Stream<Path> list = Files.list(hintsDirectory.toPath())) {
+            Map<UUID, List<HintsDescriptor>> stores = list.filter(HintsDescriptor::isHintFileName).map(HintsDescriptor::readFromFileQuietly).filter(Optional::isPresent).map(Optional::get).collect(groupingBy(h -> h.hostId));
             return new HintsCatalog(hintsDirectory, writerParams, stores);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new FSReadError(e, hintsDirectory);
         }
     }
 
-    Stream<HintsStore> stores()
-    {
+    Stream<HintsStore> stores() {
         return stores.values().stream();
     }
 
-    void maybeLoadStores(Iterable<UUID> hostIds)
-    {
-        for (UUID hostId : hostIds)
-            get(hostId);
+    void maybeLoadStores(Iterable<UUID> hostIds) {
+        for (UUID hostId : hostIds) get(hostId);
     }
 
-    HintsStore get(UUID hostId)
-    {
+    HintsStore get(UUID hostId) {
         // we intentionally don't just return stores.computeIfAbsent() because it's expensive compared to simple get(),
         // and in this case would also allocate for the capturing lambda; the method is on a really hot path
         HintsStore store = stores.get(hostId);
-        return store == null
-             ? stores.computeIfAbsent(hostId, (id) -> HintsStore.create(id, hintsDirectory, writerParams, Collections.emptyList()))
-             : store;
+        return store == null ? stores.computeIfAbsent(hostId, (id) -> HintsStore.create(id, hintsDirectory, writerParams, Collections.emptyList())) : store;
     }
 
     @Nullable
-    HintsStore getNullable(UUID hostId)
-    {
+    HintsStore getNullable(UUID hostId) {
         return stores.get(hostId);
     }
 
@@ -115,8 +96,7 @@ final class HintsCatalog
      *
      * Will not delete the files that are currently being dispatched, or written to.
      */
-    void deleteAllHints()
-    {
+    void deleteAllHints() {
         stores.keySet().forEach(this::deleteAllHints);
     }
 
@@ -125,8 +105,7 @@ final class HintsCatalog
      *
      * Will not delete the files that are currently being dispatched, or written to.
      */
-    void deleteAllHints(UUID hostId)
-    {
+    void deleteAllHints(UUID hostId) {
         HintsStore store = stores.get(hostId);
         if (store != null)
             store.deleteAllHints();
@@ -135,42 +114,33 @@ final class HintsCatalog
     /**
      * @return true if at least one of the stores has a file pending dispatch
      */
-    boolean hasFiles()
-    {
+    boolean hasFiles() {
         return stores().anyMatch(HintsStore::hasFiles);
     }
 
-    void exciseStore(UUID hostId)
-    {
+    void exciseStore(UUID hostId) {
         deleteAllHints(hostId);
         stores.remove(hostId);
     }
 
-    void fsyncDirectory()
-    {
+    void fsyncDirectory() {
         int fd = NativeLibrary.tryOpenDirectory(hintsDirectory.getAbsolutePath());
-        if (fd != -1)
-        {
-            try
-            {
+        if (fd != -1) {
+            try {
                 SyncUtil.trySync(fd);
                 NativeLibrary.tryCloseFD(fd);
-            }
-            catch (FSError e) // trySync failed
-            {
+            } catch (// trySync failed
+            FSError e) {
                 logger.error("Unable to sync directory {}", hintsDirectory.getAbsolutePath(), e);
                 FileUtils.handleFSErrorAndPropagate(e);
             }
-        }
-        else if (!FBUtilities.isWindows)
-        {
+        } else if (!FBUtilities.isWindows) {
             logger.error("Unable to open directory {}", hintsDirectory.getAbsolutePath());
             FileUtils.handleFSErrorAndPropagate(new FSWriteError(new IOException(String.format("Unable to open hint directory %s", hintsDirectory.getAbsolutePath())), hintsDirectory.getAbsolutePath()));
         }
     }
 
-    ImmutableMap<String, Object> getWriterParams()
-    {
+    ImmutableMap<String, Object> getWriterParams() {
         return writerParams;
     }
 }

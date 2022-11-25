@@ -18,7 +18,6 @@
 package org.apache.cassandra.io.sstable.metadata;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.sstable.format.Version;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
@@ -26,12 +25,12 @@ import org.apache.cassandra.io.util.DataOutputPlus;
 /**
  * Metadata component serializer
  */
-public interface IMetadataComponentSerializer<T extends MetadataComponent>
-{
+public interface IMetadataComponentSerializer<T extends MetadataComponent> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IMetadataComponentSerializer.class);
+
     /**
      * Calculate and return serialized size.
-     *
-     *
      *
      * @param version
      * @param component MetadataComponent to calculate serialized size
@@ -42,8 +41,6 @@ public interface IMetadataComponentSerializer<T extends MetadataComponent>
 
     /**
      * Serialize metadata component to given output.
-     *
-     *
      *
      * @param version
      * @param component MetadataComponent to serialize

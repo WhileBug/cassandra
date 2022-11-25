@@ -18,48 +18,43 @@
 package org.apache.cassandra.db;
 
 import java.util.*;
-
 import com.google.common.collect.Iterators;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.utils.ObjectSizes;
 import org.apache.cassandra.utils.btree.BTree;
-
 import static java.util.Comparator.naturalOrder;
 
 /**
  * Columns (or a subset of the columns) that a partition contains.
  * This mainly groups both static and regular columns for convenience.
  */
-public class RegularAndStaticColumns implements Iterable<ColumnMetadata>
-{
-    public static RegularAndStaticColumns NONE = new RegularAndStaticColumns(Columns.NONE, Columns.NONE);
-    static final long EMPTY_SIZE = ObjectSizes.measure(NONE);
+public class RegularAndStaticColumns implements Iterable<ColumnMetadata> {
 
-    public final Columns statics;
-    public final Columns regulars;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RegularAndStaticColumns.class);
 
-    public RegularAndStaticColumns(Columns statics, Columns regulars)
-    {
+    public static transient RegularAndStaticColumns NONE = new RegularAndStaticColumns(Columns.NONE, Columns.NONE);
+
+    static final transient long EMPTY_SIZE = ObjectSizes.measure(NONE);
+
+    public final transient Columns statics;
+
+    public final transient Columns regulars;
+
+    public RegularAndStaticColumns(Columns statics, Columns regulars) {
         assert statics != null && regulars != null;
         this.statics = statics;
         this.regulars = regulars;
     }
 
-    public static RegularAndStaticColumns of(ColumnMetadata column)
-    {
-        return new RegularAndStaticColumns(column.isStatic() ? Columns.of(column) : Columns.NONE,
-                                           column.isStatic() ? Columns.NONE : Columns.of(column));
+    public static RegularAndStaticColumns of(ColumnMetadata column) {
+        return new RegularAndStaticColumns(column.isStatic() ? Columns.of(column) : Columns.NONE, column.isStatic() ? Columns.NONE : Columns.of(column));
     }
 
-    public RegularAndStaticColumns without(ColumnMetadata column)
-    {
-        return new RegularAndStaticColumns(column.isStatic() ? statics.without(column) : statics,
-                                           column.isStatic() ? regulars : regulars.without(column));
+    public RegularAndStaticColumns without(ColumnMetadata column) {
+        return new RegularAndStaticColumns(column.isStatic() ? statics.without(column) : statics, column.isStatic() ? regulars : regulars.without(column));
     }
 
-    public RegularAndStaticColumns mergeTo(RegularAndStaticColumns that)
-    {
+    public RegularAndStaticColumns mergeTo(RegularAndStaticColumns that) {
         if (this == that)
             return this;
         Columns statics = this.statics.mergeTo(that.statics);
@@ -71,98 +66,82 @@ public class RegularAndStaticColumns implements Iterable<ColumnMetadata>
         return new RegularAndStaticColumns(statics, regulars);
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return statics.isEmpty() && regulars.isEmpty();
     }
 
-    public Columns columns(boolean isStatic)
-    {
+    public Columns columns(boolean isStatic) {
         return isStatic ? statics : regulars;
     }
 
-    public boolean contains(ColumnMetadata column)
-    {
+    public boolean contains(ColumnMetadata column) {
         return column.isStatic() ? statics.contains(column) : regulars.contains(column);
     }
 
-    public boolean includes(RegularAndStaticColumns columns)
-    {
+    public boolean includes(RegularAndStaticColumns columns) {
         return statics.containsAll(columns.statics) && regulars.containsAll(columns.regulars);
     }
 
-    public Iterator<ColumnMetadata> iterator()
-    {
+    public Iterator<ColumnMetadata> iterator() {
         return Iterators.concat(statics.iterator(), regulars.iterator());
     }
 
-    public Iterator<ColumnMetadata> selectOrderIterator()
-    {
+    public Iterator<ColumnMetadata> selectOrderIterator() {
         return Iterators.concat(statics.selectOrderIterator(), regulars.selectOrderIterator());
     }
 
-    /** * Returns the total number of static and regular columns. */
-    public int size()
-    {
+    /**
+     * Returns the total number of static and regular columns.
+     */
+    public int size() {
         return regulars.size() + statics.size();
     }
 
-    public long unsharedHeapSize()
-    {
-        if(this == NONE)
+    public long unsharedHeapSize() {
+        if (this == NONE)
             return 0;
-
         return EMPTY_SIZE + regulars.unsharedHeapSize() + statics.unsharedHeapSize();
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append('[').append(statics).append(" | ").append(regulars).append(']');
         return sb.toString();
     }
 
     @Override
-    public boolean equals(Object other)
-    {
+    public boolean equals(Object other) {
         if (!(other instanceof RegularAndStaticColumns))
             return false;
-
-        RegularAndStaticColumns that = (RegularAndStaticColumns)other;
-        return this.statics.equals(that.statics)
-            && this.regulars.equals(that.regulars);
+        RegularAndStaticColumns that = (RegularAndStaticColumns) other;
+        return this.statics.equals(that.statics) && this.regulars.equals(that.regulars);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(statics, regulars);
     }
 
-    public static Builder builder()
-    {
+    public static Builder builder() {
         return new Builder();
     }
 
-    public static class Builder
-    {
+    public static class Builder {
+
         // Note that we do want to use sorted sets because we want the column definitions to be compared
         // through compareTo, not equals. The former basically check it's the same column name, while the latter
         // check it's the same object, including the same type.
-        private BTree.Builder<ColumnMetadata> regularColumns;
-        private BTree.Builder<ColumnMetadata> staticColumns;
+        private transient BTree.Builder<ColumnMetadata> regularColumns;
 
-        public Builder add(ColumnMetadata c)
-        {
-            if (c.isStatic())
-            {
+        private transient BTree.Builder<ColumnMetadata> staticColumns;
+
+        public Builder add(ColumnMetadata c) {
+            if (c.isStatic()) {
                 if (staticColumns == null)
                     staticColumns = BTree.builder(naturalOrder());
                 staticColumns.add(c);
-            }
-            else
-            {
+            } else {
                 assert c.isRegular();
                 if (regularColumns == null)
                     regularColumns = BTree.builder(naturalOrder());
@@ -171,34 +150,23 @@ public class RegularAndStaticColumns implements Iterable<ColumnMetadata>
             return this;
         }
 
-        public Builder addAll(Iterable<ColumnMetadata> columns)
-        {
-            for (ColumnMetadata c : columns)
-                add(c);
+        public Builder addAll(Iterable<ColumnMetadata> columns) {
+            for (ColumnMetadata c : columns) add(c);
             return this;
         }
 
-        public Builder addAll(RegularAndStaticColumns columns)
-        {
+        public Builder addAll(RegularAndStaticColumns columns) {
             if (regularColumns == null && !columns.regulars.isEmpty())
                 regularColumns = BTree.builder(naturalOrder());
-
-            for (ColumnMetadata c : columns.regulars)
-                regularColumns.add(c);
-
+            for (ColumnMetadata c : columns.regulars) regularColumns.add(c);
             if (staticColumns == null && !columns.statics.isEmpty())
                 staticColumns = BTree.builder(naturalOrder());
-
-            for (ColumnMetadata c : columns.statics)
-                staticColumns.add(c);
-
+            for (ColumnMetadata c : columns.statics) staticColumns.add(c);
             return this;
         }
 
-        public RegularAndStaticColumns build()
-        {
-            return new RegularAndStaticColumns(staticColumns  == null ? Columns.NONE : Columns.from(staticColumns),
-                                               regularColumns == null ? Columns.NONE : Columns.from(regularColumns));
+        public RegularAndStaticColumns build() {
+            return new RegularAndStaticColumns(staticColumns == null ? Columns.NONE : Columns.from(staticColumns), regularColumns == null ? Columns.NONE : Columns.from(regularColumns));
         }
     }
 }

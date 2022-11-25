@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.rows.EncodingStats;
@@ -37,87 +36,71 @@ import org.apache.cassandra.service.ActiveRepairService;
 /**
  * Base class for the sstable writers used by CQLSSTableWriter.
  */
-abstract class AbstractSSTableSimpleWriter implements Closeable
-{
-    protected final File directory;
-    protected final TableMetadataRef metadata;
-    protected final RegularAndStaticColumns columns;
-    protected SSTableFormat.Type formatType = SSTableFormat.Type.current();
-    protected static AtomicInteger generation = new AtomicInteger(0);
-    protected boolean makeRangeAware = false;
+abstract class AbstractSSTableSimpleWriter implements Closeable {
 
-    protected AbstractSSTableSimpleWriter(File directory, TableMetadataRef metadata, RegularAndStaticColumns columns)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractSSTableSimpleWriter.class);
+
+    protected final transient File directory;
+
+    protected final transient TableMetadataRef metadata;
+
+    protected final transient RegularAndStaticColumns columns;
+
+    protected transient SSTableFormat.Type formatType = SSTableFormat.Type.current();
+
+    protected static transient AtomicInteger generation = new AtomicInteger(0);
+
+    protected transient boolean makeRangeAware = false;
+
+    protected AbstractSSTableSimpleWriter(File directory, TableMetadataRef metadata, RegularAndStaticColumns columns) {
         this.metadata = metadata;
         this.directory = directory;
         this.columns = columns;
     }
 
-    protected void setSSTableFormatType(SSTableFormat.Type type)
-    {
+    protected void setSSTableFormatType(SSTableFormat.Type type) {
         this.formatType = type;
     }
 
-    protected void setRangeAwareWriting(boolean makeRangeAware)
-    {
+    protected void setRangeAwareWriting(boolean makeRangeAware) {
         this.makeRangeAware = makeRangeAware;
     }
 
-
-    protected SSTableTxnWriter createWriter()
-    {
+    protected SSTableTxnWriter createWriter() {
         SerializationHeader header = new SerializationHeader(true, metadata.get(), columns, EncodingStats.NO_STATS);
-
         if (makeRangeAware)
-            return SSTableTxnWriter.createRangeAware(metadata, 0,  ActiveRepairService.UNREPAIRED_SSTABLE, ActiveRepairService.NO_PENDING_REPAIR, false, formatType, 0, header);
-
-        return SSTableTxnWriter.create(metadata,
-                                       createDescriptor(directory, metadata.keyspace, metadata.name, formatType),
-                                       0,
-                                       ActiveRepairService.UNREPAIRED_SSTABLE,
-                                       ActiveRepairService.NO_PENDING_REPAIR,
-                                       false,
-                                       0,
-                                       header,
-                                       Collections.emptySet());
+            return SSTableTxnWriter.createRangeAware(metadata, 0, ActiveRepairService.UNREPAIRED_SSTABLE, ActiveRepairService.NO_PENDING_REPAIR, false, formatType, 0, header);
+        return SSTableTxnWriter.create(metadata, createDescriptor(directory, metadata.keyspace, metadata.name, formatType), 0, ActiveRepairService.UNREPAIRED_SSTABLE, ActiveRepairService.NO_PENDING_REPAIR, false, 0, header, Collections.emptySet());
     }
 
-    private static Descriptor createDescriptor(File directory, final String keyspace, final String columnFamily, final SSTableFormat.Type fmt)
-    {
+    private static Descriptor createDescriptor(File directory, final String keyspace, final String columnFamily, final SSTableFormat.Type fmt) {
         int maxGen = getNextGeneration(directory, columnFamily);
         return new Descriptor(directory, keyspace, columnFamily, maxGen + 1, fmt);
     }
 
-    private static int getNextGeneration(File directory, final String columnFamily)
-    {
+    private static int getNextGeneration(File directory, final String columnFamily) {
         final Set<Descriptor> existing = new HashSet<>();
-        directory.listFiles(new FileFilter()
-        {
-            public boolean accept(File file)
-            {
+        directory.listFiles(new FileFilter() {
+
+            public boolean accept(File file) {
                 Descriptor desc = SSTable.tryDescriptorFromFilename(file);
                 if (desc == null)
                     return false;
-
                 if (desc.cfname.equals(columnFamily))
                     existing.add(desc);
-
                 return false;
             }
         });
         int maxGen = generation.getAndIncrement();
-        for (Descriptor desc : existing)
-        {
-            while (desc.generation > maxGen)
-            {
+        for (Descriptor desc : existing) {
+            while (desc.generation > maxGen) {
                 maxGen = generation.getAndIncrement();
             }
         }
         return maxGen;
     }
 
-    PartitionUpdate.Builder getUpdateFor(ByteBuffer key) throws IOException
-    {
+    PartitionUpdate.Builder getUpdateFor(ByteBuffer key) throws IOException {
         return getUpdateFor(metadata.get().partitioner.decorateKey(key));
     }
 
@@ -129,4 +112,3 @@ abstract class AbstractSSTableSimpleWriter implements Closeable
      */
     abstract PartitionUpdate.Builder getUpdateFor(DecoratedKey key) throws IOException;
 }
-

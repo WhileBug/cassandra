@@ -19,10 +19,8 @@ package org.apache.cassandra.transport;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.security.cert.X509Certificate;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import io.netty.channel.Channel;
 import com.codahale.metrics.Counter;
 import io.netty.handler.ssl.SslHandler;
@@ -31,37 +29,36 @@ import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.QueryState;
 
-public class ServerConnection extends Connection
-{
-    private static final Logger logger = LoggerFactory.getLogger(ServerConnection.class);
+public class ServerConnection extends Connection {
 
-    private volatile IAuthenticator.SaslNegotiator saslNegotiator;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ServerConnection.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(ServerConnection.class);
+
+    private volatile transient IAuthenticator.SaslNegotiator saslNegotiator;
+
     private final ClientState clientState;
-    private volatile ConnectionStage stage;
-    public final Counter requests = new Counter();
 
-    ServerConnection(Channel channel, ProtocolVersion version, Connection.Tracker tracker)
-    {
+    private volatile transient ConnectionStage stage;
+
+    public final transient Counter requests = new Counter();
+
+    ServerConnection(Channel channel, ProtocolVersion version, Connection.Tracker tracker) {
         super(channel, version, tracker);
-
         clientState = ClientState.forExternalCalls(channel.remoteAddress());
         stage = ConnectionStage.ESTABLISHED;
     }
 
-    public ClientState getClientState()
-    {
+    public ClientState getClientState() {
         return clientState;
     }
 
-    ConnectionStage stage()
-    {
+    ConnectionStage stage() {
         return stage;
     }
 
-    QueryState validateNewMessage(Message.Type type, ProtocolVersion version)
-    {
-        switch (stage)
-        {
+    QueryState validateNewMessage(Message.Type type, ProtocolVersion version) {
+        switch(stage) {
             case ESTABLISHED:
                 if (type != Message.Type.STARTUP && type != Message.Type.OPTIONS)
                     throw new ProtocolException(String.format("Unexpected message %s, expecting STARTUP or OPTIONS", type));
@@ -78,17 +75,14 @@ public class ServerConnection extends Connection
             default:
                 throw new AssertionError();
         }
-
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.transport.ServerConnection.clientState]=" + org.json.simple.JSONValue.toJSONString(clientState).replace("\n", "").replace("\r", ""));
         return new QueryState(clientState);
     }
 
-    void applyStateTransition(Message.Type requestType, Message.Type responseType)
-    {
-        switch (stage)
-        {
+    void applyStateTransition(Message.Type requestType, Message.Type responseType) {
+        switch(stage) {
             case ESTABLISHED:
-                if (requestType == Message.Type.STARTUP)
-                {
+                if (requestType == Message.Type.STARTUP) {
                     if (responseType == Message.Type.AUTHENTICATE)
                         stage = ConnectionStage.AUTHENTICATING;
                     else if (responseType == Message.Type.READY)
@@ -98,9 +92,7 @@ public class ServerConnection extends Connection
             case AUTHENTICATING:
                 // Support both SASL auth from protocol v2 and the older style Credentials auth from v1
                 assert requestType == Message.Type.AUTH_RESPONSE || requestType == Message.Type.CREDENTIALS;
-
-                if (responseType == Message.Type.READY || responseType == Message.Type.AUTH_SUCCESS)
-                {
+                if (responseType == Message.Type.READY || responseType == Message.Type.AUTH_SUCCESS) {
                     stage = ConnectionStage.READY;
                     // we won't use the authenticator again, null it so that it can be GC'd
                     saslNegotiator = null;
@@ -113,30 +105,19 @@ public class ServerConnection extends Connection
         }
     }
 
-    public IAuthenticator.SaslNegotiator getSaslNegotiator(QueryState queryState)
-    {
+    public IAuthenticator.SaslNegotiator getSaslNegotiator(QueryState queryState) {
         if (saslNegotiator == null)
-            saslNegotiator = DatabaseDescriptor.getAuthenticator()
-                                               .newSaslNegotiator(queryState.getClientAddress(), certificates());
+            saslNegotiator = DatabaseDescriptor.getAuthenticator().newSaslNegotiator(queryState.getClientAddress(), certificates());
         return saslNegotiator;
     }
 
-    private X509Certificate[] certificates()
-    {
-        SslHandler sslHandler = (SslHandler) channel().pipeline()
-                                                      .get("ssl");
+    private X509Certificate[] certificates() {
+        SslHandler sslHandler = (SslHandler) channel().pipeline().get("ssl");
         X509Certificate[] certificates = null;
-
-        if (sslHandler != null)
-        {
-            try
-            {
-                certificates = sslHandler.engine()
-                                         .getSession()
-                                         .getPeerCertificateChain();
-            }
-            catch (SSLPeerUnverifiedException e)
-            {
+        if (sslHandler != null) {
+            try {
+                certificates = sslHandler.engine().getSession().getPeerCertificateChain();
+            } catch (SSLPeerUnverifiedException e) {
                 logger.debug("Failed to get peer certificates for peer {}", channel().remoteAddress(), e);
             }
         }

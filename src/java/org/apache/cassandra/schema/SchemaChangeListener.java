@@ -18,85 +18,68 @@
 package org.apache.cassandra.schema;
 
 import java.util.List;
-
 import org.apache.cassandra.db.marshal.AbstractType;
 
-public abstract class SchemaChangeListener
-{
-    public void onCreateKeyspace(String keyspace)
-    {
+public abstract class SchemaChangeListener {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaChangeListener.class);
+
+    public void onCreateKeyspace(String keyspace) {
     }
 
-    public void onCreateTable(String keyspace, String table)
-    {
+    public void onCreateTable(String keyspace, String table) {
     }
 
-    public void onCreateView(String keyspace, String view)
-    {
+    public void onCreateView(String keyspace, String view) {
         onCreateTable(keyspace, view);
     }
 
-    public void onCreateType(String keyspace, String type)
-    {
+    public void onCreateType(String keyspace, String type) {
     }
 
-    public void onCreateFunction(String keyspace, String function, List<AbstractType<?>> argumentTypes)
-    {
+    public void onCreateFunction(String keyspace, String function, List<AbstractType<?>> argumentTypes) {
     }
 
-    public void onCreateAggregate(String keyspace, String aggregate, List<AbstractType<?>> argumentTypes)
-    {
+    public void onCreateAggregate(String keyspace, String aggregate, List<AbstractType<?>> argumentTypes) {
     }
 
-    public void onAlterKeyspace(String keyspace)
-    {
+    public void onAlterKeyspace(String keyspace) {
     }
 
     // the boolean flag indicates whether the change that triggered this event may have a substantive
     // impact on statements using the column family.
-    public void onAlterTable(String keyspace, String table, boolean affectsStatements)
-    {
+    public void onAlterTable(String keyspace, String table, boolean affectsStatements) {
     }
 
-    public void onAlterView(String keyspace, String view, boolean affectsStataments)
-    {
+    public void onAlterView(String keyspace, String view, boolean affectsStataments) {
         onAlterTable(keyspace, view, affectsStataments);
     }
 
-    public void onAlterType(String keyspace, String type)
-    {
+    public void onAlterType(String keyspace, String type) {
     }
 
-    public void onAlterFunction(String keyspace, String function, List<AbstractType<?>> argumentTypes)
-    {
+    public void onAlterFunction(String keyspace, String function, List<AbstractType<?>> argumentTypes) {
     }
 
-    public void onAlterAggregate(String keyspace, String aggregate, List<AbstractType<?>> argumentTypes)
-    {
+    public void onAlterAggregate(String keyspace, String aggregate, List<AbstractType<?>> argumentTypes) {
     }
 
-    public void onDropKeyspace(String keyspace)
-    {
+    public void onDropKeyspace(String keyspace) {
     }
 
-    public void onDropTable(String keyspace, String table)
-    {
+    public void onDropTable(String keyspace, String table) {
     }
 
-    public void onDropView(String keyspace, String view)
-    {
+    public void onDropView(String keyspace, String view) {
         onDropTable(keyspace, view);
     }
 
-    public void onDropType(String keyspace, String type)
-    {
+    public void onDropType(String keyspace, String type) {
     }
 
-    public void onDropFunction(String keyspace, String function, List<AbstractType<?>> argumentTypes)
-    {
+    public void onDropFunction(String keyspace, String function, List<AbstractType<?>> argumentTypes) {
     }
 
-    public void onDropAggregate(String keyspace, String aggregate, List<AbstractType<?>> argumentTypes)
-    {
+    public void onDropAggregate(String keyspace, String aggregate, List<AbstractType<?>> argumentTypes) {
     }
 }

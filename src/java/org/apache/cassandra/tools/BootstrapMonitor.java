@@ -21,67 +21,60 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.text.SimpleDateFormat;
 import java.util.concurrent.locks.Condition;
-
 import org.apache.cassandra.utils.concurrent.SimpleCondition;
 import org.apache.cassandra.utils.progress.ProgressEvent;
 import org.apache.cassandra.utils.progress.ProgressEventType;
 import org.apache.cassandra.utils.progress.jmx.JMXNotificationProgressListener;
 
-public class BootstrapMonitor extends JMXNotificationProgressListener
-{
-    private final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS");
-    private final PrintStream out;
-    private final Condition condition = new SimpleCondition();
+public class BootstrapMonitor extends JMXNotificationProgressListener {
 
-    public BootstrapMonitor(PrintStream out)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BootstrapMonitor.class);
+
+    private final transient SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS");
+
+    private final transient PrintStream out;
+
+    private final transient Condition condition = new SimpleCondition();
+
+    public BootstrapMonitor(PrintStream out) {
         this.out = out;
     }
 
-    public void awaitCompletion() throws InterruptedException
-    {
+    public void awaitCompletion() throws InterruptedException {
         condition.await();
     }
 
     @Override
-    public boolean isInterestedIn(String tag)
-    {
+    public boolean isInterestedIn(String tag) {
         return "bootstrap".equals(tag);
     }
 
     @Override
-    public void handleNotificationLost(long timestamp, String message)
-    {
+    public void handleNotificationLost(long timestamp, String message) {
         super.handleNotificationLost(timestamp, message);
     }
 
     @Override
-    public void handleConnectionClosed(long timestamp, String message)
-    {
+    public void handleConnectionClosed(long timestamp, String message) {
         handleConnectionFailed(timestamp, message);
     }
 
     @Override
-    public void handleConnectionFailed(long timestamp, String message)
-    {
-        Exception error = new IOException(String.format("[%s] JMX connection closed. (%s)",
-                                              format.format(timestamp), message));
+    public void handleConnectionFailed(long timestamp, String message) {
+        Exception error = new IOException(String.format("[%s] JMX connection closed. (%s)", format.format(timestamp), message));
         out.println(error.getMessage());
         condition.signalAll();
     }
 
     @Override
-    public void progress(String tag, ProgressEvent event)
-    {
+    public void progress(String tag, ProgressEvent event) {
         ProgressEventType type = event.getType();
         String message = String.format("[%s] %s", format.format(System.currentTimeMillis()), event.getMessage());
-        if (type == ProgressEventType.PROGRESS)
-        {
-            message = message + " (progress: " + (int)event.getProgressPercentage() + "%)";
+        if (type == ProgressEventType.PROGRESS) {
+            message = message + " (progress: " + (int) event.getProgressPercentage() + "%)";
         }
         out.println(message);
-        if (type == ProgressEventType.COMPLETE)
-        {
+        if (type == ProgressEventType.COMPLETE) {
             condition.signalAll();
         }
     }

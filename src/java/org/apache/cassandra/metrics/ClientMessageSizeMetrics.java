@@ -17,20 +17,24 @@
   */
 package org.apache.cassandra.metrics;
 
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
-
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Histogram;
 
 /**
  * Metrics to track the size of incoming and outgoing bytes at Cassandra server.
  */
-public class ClientMessageSizeMetrics
-{
-    private static final String TYPE = "ClientMessageSize";
-    public static final Counter bytesReceived = Metrics.counter(DefaultNameFactory.createMetricName(TYPE, "BytesReceived", null));
-    public static final Counter bytesSent = Metrics.counter(DefaultNameFactory.createMetricName(TYPE, "BytesSent", null));
-    public static final Histogram bytesReceivedPerRequest = Metrics.histogram(DefaultNameFactory.createMetricName(TYPE, "BytesReceivedPerRequest", null), true);
-    public static final Histogram bytesSentPerResponse = Metrics.histogram(DefaultNameFactory.createMetricName(TYPE, "BytesSentPerResponse", null), true);
+public class ClientMessageSizeMetrics {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientMessageSizeMetrics.class);
+
+    private static final transient String TYPE = "ClientMessageSize";
+
+    public static final transient Counter bytesReceived = Metrics.counter(DefaultNameFactory.createMetricName(TYPE, "BytesReceived", null));
+
+    public static final transient Counter bytesSent = Metrics.counter(DefaultNameFactory.createMetricName(TYPE, "BytesSent", null));
+
+    public static final transient Histogram bytesReceivedPerRequest = Metrics.histogram(DefaultNameFactory.createMetricName(TYPE, "BytesReceivedPerRequest", null), true);
+
+    public static final transient Histogram bytesSentPerResponse = Metrics.histogram(DefaultNameFactory.createMetricName(TYPE, "BytesSentPerResponse", null), true);
 }

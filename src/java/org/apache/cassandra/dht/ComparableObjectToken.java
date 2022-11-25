@@ -17,67 +17,58 @@
  */
 package org.apache.cassandra.dht;
 
-abstract class ComparableObjectToken<C extends Comparable<C>> extends Token
-{
-    private static final long serialVersionUID = 1L;
+abstract class ComparableObjectToken<C extends Comparable<C>> extends Token {
 
-    final C token;   // Package-private to allow access from subtypes, which should all reside in the dht package.
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ComparableObjectToken.class);
 
-    protected ComparableObjectToken(C token)
-    {
+    private static final transient long serialVersionUID = 1L;
+
+    // Package-private to allow access from subtypes, which should all reside in the dht package.
+    final transient C token;
+
+    protected ComparableObjectToken(C token) {
         this.token = token;
     }
 
     @Override
-    public C getTokenValue()
-    {
+    public C getTokenValue() {
         return token;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return token.toString();
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         if (this == obj)
             return true;
         if (obj == null || this.getClass() != obj.getClass())
             return false;
-
-        return token.equals(((ComparableObjectToken<?>)obj).token);
+        return token.equals(((ComparableObjectToken<?>) obj).token);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return token.hashCode();
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public int compareTo(Token o)
-    {
+    public int compareTo(Token o) {
         if (o.getClass() != getClass())
             throw new IllegalArgumentException("Invalid type of Token.compareTo() argument.");
-
         return token.compareTo(((ComparableObjectToken<C>) o).token);
     }
 
     @Override
-    public double size(Token next)
-    {
-        throw new UnsupportedOperationException(String.format("Token type %s does not support token allocation.",
-                                                              getClass().getSimpleName()));
+    public double size(Token next) {
+        throw new UnsupportedOperationException(String.format("Token type %s does not support token allocation.", getClass().getSimpleName()));
     }
 
     @Override
-    public Token increaseSlightly()
-    {
-        throw new UnsupportedOperationException(String.format("Token type %s does not support token allocation.",
-                                                              getClass().getSimpleName()));
+    public Token increaseSlightly() {
+        throw new UnsupportedOperationException(String.format("Token type %s does not support token allocation.", getClass().getSimpleName()));
     }
 }

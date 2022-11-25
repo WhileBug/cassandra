@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.nio.ByteBuffer;
@@ -23,8 +22,10 @@ import java.nio.ByteBuffer;
 /**
  * Rebufferer for reading data by a RandomAccessReader.
  */
-public interface Rebufferer extends ReaderFileProxy
-{
+public interface Rebufferer extends ReaderFileProxy {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Rebufferer.class);
+
     /**
      * Rebuffer (move on or seek to) a given position, and return a buffer that can be used there.
      * The only guarantee about the size of the returned data is that unless rebuffering at the end of the file,
@@ -38,8 +39,8 @@ public interface Rebufferer extends ReaderFileProxy
      */
     void closeReader();
 
-    interface BufferHolder
-    {
+    interface BufferHolder {
+
         /**
          * Returns a useable buffer (i.e. one whose position and limit can be freely modified). Its limit will be set
          * to the size of the available data in the buffer.
@@ -59,25 +60,22 @@ public interface Rebufferer extends ReaderFileProxy
         void release();
     }
 
-    BufferHolder EMPTY = new BufferHolder()
-    {
+    transient BufferHolder EMPTY = new BufferHolder() {
+
         final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
         @Override
-        public ByteBuffer buffer()
-        {
+        public ByteBuffer buffer() {
             return EMPTY_BUFFER;
         }
 
         @Override
-        public long offset()
-        {
+        public long offset() {
             return 0;
         }
 
         @Override
-        public void release()
-        {
+        public void release() {
             // nothing to do
         }
     };

@@ -45,42 +45,37 @@ import org.apache.cassandra.service.ClientState;
  * trigger a query so in some (fairly rare) case we might not know the paging
  * is done even though it is.
  */
-public interface QueryPager
-{
-    QueryPager EMPTY = new QueryPager()
-    {
-        public ReadExecutionController executionController()
-        {
+public interface QueryPager {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QueryPager.class);
+
+    transient QueryPager EMPTY = new QueryPager() {
+
+        public ReadExecutionController executionController() {
             return ReadExecutionController.empty();
         }
 
-        public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState, long queryStartNanoTime) throws RequestValidationException, RequestExecutionException
-        {
+        public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState, long queryStartNanoTime) throws RequestValidationException, RequestExecutionException {
             return EmptyIterators.partition();
         }
 
-        public PartitionIterator fetchPageInternal(int pageSize, ReadExecutionController executionController) throws RequestValidationException, RequestExecutionException
-        {
+        public PartitionIterator fetchPageInternal(int pageSize, ReadExecutionController executionController) throws RequestValidationException, RequestExecutionException {
             return EmptyIterators.partition();
         }
 
-        public boolean isExhausted()
-        {
+        public boolean isExhausted() {
             return true;
         }
 
-        public int maxRemaining()
-        {
+        public int maxRemaining() {
             return 0;
         }
 
-        public PagingState state()
-        {
+        public PagingState state() {
             return null;
         }
 
-        public QueryPager withUpdatedLimit(DataLimits newLimits)
-        {
+        public QueryPager withUpdatedLimit(DataLimits newLimits) {
             throw new UnsupportedOperationException();
         }
     };

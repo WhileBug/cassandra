@@ -18,21 +18,21 @@
 // Protocol Buffers - Google's data interchange format
 // Copyright 2008 Google Inc.  All rights reserved.
 // https://developers.google.com/protocol-buffers/
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
-//     * Redistributions of source code must retain the above copyright
+// 
+// * Redistributions of source code must retain the above copyright
 // notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above
+// * Redistributions in binary form must reproduce the above
 // copyright notice, this list of conditions and the following disclaimer
 // in the documentation and/or other materials provided with the
 // distribution.
-//     * Neither the name of Google Inc. nor the names of its
+// * Neither the name of Google Inc. nor the names of its
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
-//
+// 
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -50,7 +50,6 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import io.netty.util.concurrent.FastThreadLocal;
 import net.nicoulaj.compilecommand.annotations.Inline;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -59,32 +58,28 @@ import org.apache.cassandra.io.util.DataInputPlus;
  * Borrows idea from
  * https://developers.google.com/protocol-buffers/docs/encoding#varints
  */
-public class VIntCoding
-{
-    public static final int MAX_SIZE = 10;
+public class VIntCoding {
 
-    public static long readUnsignedVInt(DataInput input) throws IOException
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VIntCoding.class);
+
+    public static final transient int MAX_SIZE = 10;
+
+    public static long readUnsignedVInt(DataInput input) throws IOException {
         int firstByte = input.readByte();
-
-        //Bail out early if this is one byte, necessary or it fails later
+        // Bail out early if this is one byte, necessary or it fails later
         if (firstByte >= 0)
             return firstByte;
-
         int size = numberOfExtraBytesToRead(firstByte);
         long retval = firstByte & firstByteValueMask(size);
-        for (int ii = 0; ii < size; ii++)
-        {
+        for (int ii = 0; ii < size; ii++) {
             byte b = input.readByte();
             retval <<= 8;
             retval |= b & 0xff;
         }
-
         return retval;
     }
 
-    public static void skipUnsignedVInt(DataInputPlus input) throws IOException
-    {
+    public static void skipUnsignedVInt(DataInputPlus input) throws IOException {
         int firstByte = input.readByte();
         if (firstByte < 0)
             input.skipBytesFully(numberOfExtraBytesToRead(firstByte));
@@ -99,36 +94,28 @@ public class VIntCoding
      *
      * @return -1 if there are not enough bytes in the input to read the value; else, the vint unsigned value.
      */
-    public static long getUnsignedVInt(ByteBuffer input, int readerIndex)
-    {
+    public static long getUnsignedVInt(ByteBuffer input, int readerIndex) {
         return getUnsignedVInt(input, readerIndex, input.limit());
     }
-    public static long getUnsignedVInt(ByteBuffer input, int readerIndex, int readerLimit)
-    {
+
+    public static long getUnsignedVInt(ByteBuffer input, int readerIndex, int readerLimit) {
         if (readerIndex < 0)
             throw new IllegalArgumentException("Reader index should be non-negative, but was " + readerIndex);
-
         if (readerIndex >= readerLimit)
             return -1;
-
         int firstByte = input.get(readerIndex++);
-
-        //Bail out early if this is one byte, necessary or it fails later
+        // Bail out early if this is one byte, necessary or it fails later
         if (firstByte >= 0)
             return firstByte;
-
         int size = numberOfExtraBytesToRead(firstByte);
         if (readerIndex + size > readerLimit)
             return -1;
-
         long retval = firstByte & firstByteValueMask(size);
-        for (int ii = 0; ii < size; ii++)
-        {
+        for (int ii = 0; ii < size; ii++) {
             byte b = input.get(readerIndex++);
             retval <<= 8;
             retval |= b & 0xff;
         }
-
         return retval;
     }
 
@@ -137,77 +124,64 @@ public class VIntCoding
      *
      * @return -1 if there are not enough bytes in the input to calculate the size; else, the vint unsigned value size in bytes.
      */
-    public static int computeUnsignedVIntSize(ByteBuffer input, int readerIndex)
-    {
+    public static int computeUnsignedVIntSize(ByteBuffer input, int readerIndex) {
         return computeUnsignedVIntSize(input, readerIndex, input.limit());
     }
-    public static int computeUnsignedVIntSize(ByteBuffer input, int readerIndex, int readerLimit)
-    {
+
+    public static int computeUnsignedVIntSize(ByteBuffer input, int readerIndex, int readerLimit) {
         if (readerIndex >= readerLimit)
             return -1;
-
         int firstByte = input.get(readerIndex);
         return 1 + ((firstByte >= 0) ? 0 : numberOfExtraBytesToRead(firstByte));
     }
 
-    public static long readVInt(DataInput input) throws IOException
-    {
+    public static long readVInt(DataInput input) throws IOException {
         return decodeZigZag64(readUnsignedVInt(input));
     }
 
     // & this with the first byte to give the value part for a given extraBytesToRead encoded in the byte
-    public static int firstByteValueMask(int extraBytesToRead)
-    {
+    public static int firstByteValueMask(int extraBytesToRead) {
         // by including the known 0bit in the mask, we can use this for encodeExtraBytesToRead
         return 0xff >> extraBytesToRead;
     }
 
-    public static int encodeExtraBytesToRead(int extraBytesToRead)
-    {
+    public static int encodeExtraBytesToRead(int extraBytesToRead) {
         // because we have an extra bit in the value mask, we just need to invert it
         return ~firstByteValueMask(extraBytesToRead);
     }
 
-    public static int numberOfExtraBytesToRead(int firstByte)
-    {
+    public static int numberOfExtraBytesToRead(int firstByte) {
         // we count number of set upper bits; so if we simply invert all of the bits, we're golden
         // this is aided by the fact that we only work with negative numbers, so when upcast to an int all
         // of the new upper bits are also set, so by inverting we set all of them to zero
         return Integer.numberOfLeadingZeros(~firstByte) - 24;
     }
 
-    protected static final FastThreadLocal<byte[]> encodingBuffer = new FastThreadLocal<byte[]>()
-    {
+    protected static final transient FastThreadLocal<byte[]> encodingBuffer = new FastThreadLocal<byte[]>() {
+
         @Override
-        public byte[] initialValue()
-        {
+        public byte[] initialValue() {
             return new byte[9];
         }
     };
 
     @Inline
-    public static void writeUnsignedVInt(long value, DataOutput output) throws IOException
-    {
+    public static void writeUnsignedVInt(long value, DataOutput output) throws IOException {
         int size = VIntCoding.computeUnsignedVIntSize(value);
-        if (size == 1)
-        {
-            output.write((int)value);
+        if (size == 1) {
+            output.write((int) value);
             return;
         }
-
         output.write(VIntCoding.encodeUnsignedVInt(value, size), 0, size);
     }
 
     @Inline
-    public static void writeUnsignedVInt(long value, ByteBuffer output)
-    {
+    public static void writeUnsignedVInt(long value, ByteBuffer output) {
         int size = VIntCoding.computeUnsignedVIntSize(value);
-        if (size == 1)
-        {
+        if (size == 1) {
             output.put((byte) value);
             return;
         }
-
         output.put(VIntCoding.encodeUnsignedVInt(value, size), 0, size);
     }
 
@@ -216,19 +190,16 @@ public class VIntCoding
      * This byte[] must be discarded by the caller immediately, and synchronously
      */
     @Inline
-    private static byte[] encodeUnsignedVInt(long value, int size)
-    {
+    private static byte[] encodeUnsignedVInt(long value, int size) {
         byte[] encodingSpace = encodingBuffer.get();
         encodeUnsignedVInt(value, size, encodingSpace);
         return encodingSpace;
     }
 
     @Inline
-    private static void encodeUnsignedVInt(long value, int size, byte[] encodeInto)
-    {
+    private static void encodeUnsignedVInt(long value, int size, byte[] encodeInto) {
         int extraBytes = size - 1;
-        for (int i = extraBytes ; i >= 0; --i)
-        {
+        for (int i = extraBytes; i >= 0; --i) {
             encodeInto[i] = (byte) value;
             value >>= 8;
         }
@@ -236,8 +207,7 @@ public class VIntCoding
     }
 
     @Inline
-    public static void writeVInt(long value, DataOutput output) throws IOException
-    {
+    public static void writeVInt(long value, DataOutput output) throws IOException {
         writeUnsignedVInt(encodeZigZag64(value), output);
     }
 
@@ -251,8 +221,7 @@ public class VIntCoding
      *          Java has no explicit unsigned support.
      * @return A signed 64-bit integer.
      */
-    public static long decodeZigZag64(final long n)
-    {
+    public static long decodeZigZag64(final long n) {
         return (n >>> 1) ^ -(n & 1);
     }
 
@@ -266,22 +235,24 @@ public class VIntCoding
      * @return An unsigned 64-bit integer, stored in a signed int because
      *         Java has no explicit unsigned support.
      */
-    public static long encodeZigZag64(final long n)
-    {
+    public static long encodeZigZag64(final long n) {
         // Note:  the right-shift must be arithmetic
         return (n << 1) ^ (n >> 63);
     }
 
-    /** Compute the number of bytes that would be needed to encode a varint. */
-    public static int computeVIntSize(final long param)
-    {
+    /**
+     * Compute the number of bytes that would be needed to encode a varint.
+     */
+    public static int computeVIntSize(final long param) {
         return computeUnsignedVIntSize(encodeZigZag64(param));
     }
 
-    /** Compute the number of bytes that would be needed to encode an unsigned varint. */
-    public static int computeUnsignedVIntSize(final long value)
-    {
-        int magnitude = Long.numberOfLeadingZeros(value | 1); // | with 1 to ensure magntiude <= 63, so (63 - 1) / 7 <= 8
+    /**
+     * Compute the number of bytes that would be needed to encode an unsigned varint.
+     */
+    public static int computeUnsignedVIntSize(final long value) {
+        // | with 1 to ensure magntiude <= 63, so (63 - 1) / 7 <= 8
+        int magnitude = Long.numberOfLeadingZeros(value | 1);
         return 9 - ((magnitude - 1) / 7);
     }
 }

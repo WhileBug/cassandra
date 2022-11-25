@@ -27,18 +27,16 @@ import org.apache.cassandra.tools.nodetool.stats.StatsHolder;
 import org.apache.cassandra.tools.nodetool.stats.StatsPrinter;
 
 @Command(name = "compactionhistory", description = "Print history of compaction")
-public class CompactionHistory extends NodeToolCmd
-{
-    @Option(title = "format",
-            name = {"-F", "--format"},
-            description = "Output format (json, yaml)")
-    private String outputFormat = "";
+public class CompactionHistory extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionHistory.class);
+
+    @Option(title = "format", name = { "-F", "--format" }, description = "Output format (json, yaml)")
+    private transient String outputFormat = "";
 
     @Override
-    public void execute(NodeProbe probe)
-    {
-        if (!outputFormat.isEmpty() && !"json".equals(outputFormat) && !"yaml".equals(outputFormat))
-        {
+    public void execute(NodeProbe probe) {
+        if (!outputFormat.isEmpty() && !"json".equals(outputFormat) && !"yaml".equals(outputFormat)) {
             throw new IllegalArgumentException("arguments for -F are json,yaml only.");
         }
         StatsHolder data = new CompactionHistoryHolder(probe);

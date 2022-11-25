@@ -17,24 +17,23 @@
  */
 package org.apache.cassandra.exceptions;
 
-public abstract class CassandraException extends RuntimeException implements TransportException
-{
-    private final ExceptionCode code;
+public abstract class CassandraException extends RuntimeException implements TransportException {
 
-    protected CassandraException(ExceptionCode code, String msg)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraException.class);
+
+    private final transient ExceptionCode code;
+
+    protected CassandraException(ExceptionCode code, String msg) {
         super(msg);
         this.code = code;
     }
 
-    protected CassandraException(ExceptionCode code, String msg, Throwable cause)
-    {
+    protected CassandraException(ExceptionCode code, String msg, Throwable cause) {
         super(msg, cause);
         this.code = code;
     }
 
-    public ExceptionCode code()
-    {
+    public ExceptionCode code() {
         return code;
     }
 }

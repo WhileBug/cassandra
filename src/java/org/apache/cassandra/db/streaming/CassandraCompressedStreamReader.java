@@ -18,11 +18,9 @@
 package org.apache.cassandra.db.streaming;
 
 import java.io.IOException;
-
 import com.google.common.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.io.compress.CompressionMetadata;
 import org.apache.cassandra.io.sstable.SSTableMultiWriter;
@@ -34,20 +32,20 @@ import org.apache.cassandra.streaming.StreamSession;
 import org.apache.cassandra.streaming.messages.StreamMessageHeader;
 import org.apache.cassandra.utils.ChecksumType;
 import org.apache.cassandra.utils.FBUtilities;
-
 import static org.apache.cassandra.utils.Throwables.extractIOExceptionCause;
 
 /**
  * CassandraStreamReader that reads from streamed compressed SSTable
  */
-public class CassandraCompressedStreamReader extends CassandraStreamReader
-{
-    private static final Logger logger = LoggerFactory.getLogger(CassandraCompressedStreamReader.class);
+public class CassandraCompressedStreamReader extends CassandraStreamReader {
 
-    protected final CompressionInfo compressionInfo;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraCompressedStreamReader.class);
 
-    public CassandraCompressedStreamReader(StreamMessageHeader header, CassandraStreamHeader streamHeader, StreamSession session)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(CassandraCompressedStreamReader.class);
+
+    protected final transient CompressionInfo compressionInfo;
+
+    public CassandraCompressedStreamReader(StreamMessageHeader header, CassandraStreamHeader streamHeader, StreamSession session) {
         super(header, streamHeader, session);
         this.compressionInfo = streamHeader.compressionInfo;
     }
@@ -57,61 +55,44 @@ public class CassandraCompressedStreamReader extends CassandraStreamReader
      * @throws java.io.IOException if reading the remote sstable fails. Will throw an RTE if local write fails.
      */
     @Override
-    @SuppressWarnings("resource") // input needs to remain open, streams on top of it can't be closed
-    public SSTableMultiWriter read(DataInputPlus inputPlus) throws IOException
-    {
+    // input needs to remain open, streams on top of it can't be closed
+    @SuppressWarnings("resource")
+    public SSTableMultiWriter read(DataInputPlus inputPlus) throws IOException {
         long totalSize = totalSize();
-
         ColumnFamilyStore cfs = ColumnFamilyStore.getIfExists(tableId);
-
-        if (cfs == null)
-        {
+        if (cfs == null) {
             // schema was dropped during streaming
             throw new IOException("CF " + tableId + " was dropped during streaming");
         }
-
-        logger.debug("[Stream #{}] Start receiving file #{} from {}, repairedAt = {}, size = {}, ks = '{}', pendingRepair = '{}', table = '{}'.",
-                     session.planId(), fileSeqNum, session.peer, repairedAt, totalSize, cfs.keyspace.getName(), pendingRepair,
-                     cfs.getTableName());
-
+        logger.debug("[Stream #{}] Start receiving file #{} from {}, repairedAt = {}, size = {}, ks = '{}', pendingRepair = '{}', table = '{}'.", session.planId(), fileSeqNum, session.peer, repairedAt, totalSize, cfs.keyspace.getName(), pendingRepair, cfs.getTableName());
         StreamDeserializer deserializer = null;
         SSTableMultiWriter writer = null;
-        try (CompressedInputStream cis = new CompressedInputStream(inputPlus, compressionInfo, ChecksumType.CRC32, cfs::getCrcCheckChance))
-        {
+        try (CompressedInputStream cis = new CompressedInputStream(inputPlus, compressionInfo, ChecksumType.CRC32, cfs::getCrcCheckChance)) {
             TrackedDataInputPlus in = new TrackedDataInputPlus(cis);
             deserializer = new StreamDeserializer(cfs.metadata(), in, inputVersion, getHeader(cfs.metadata()));
             writer = createWriter(cfs, totalSize, repairedAt, pendingRepair, format);
             String filename = writer.getFilename();
             int sectionIdx = 0;
-            for (SSTableReader.PartitionPositionBounds section : sections)
-            {
+            for (SSTableReader.PartitionPositionBounds section : sections) {
                 assert cis.chunkBytesRead() <= totalSize;
                 long sectionLength = section.upperPosition - section.lowerPosition;
-
                 logger.trace("[Stream #{}] Reading section {} with length {} from stream.", session.planId(), sectionIdx++, sectionLength);
                 // skip to beginning of section inside chunk
                 cis.position(section.lowerPosition);
                 in.reset(0);
-
-                while (in.getBytesRead() < sectionLength)
-                {
+                while (in.getBytesRead() < sectionLength) {
                     writePartition(deserializer, writer);
                     // when compressed, report total bytes of compressed chunks read since remoteFile.size is the sum of chunks transferred
                     session.progress(filename + '-' + fileSeqNum, ProgressInfo.Direction.IN, cis.chunkBytesRead(), totalSize);
                 }
                 assert in.getBytesRead() == sectionLength;
             }
-            logger.trace("[Stream #{}] Finished receiving file #{} from {} readBytes = {}, totalSize = {}", session.planId(), fileSeqNum,
-                         session.peer, FBUtilities.prettyPrintMemory(cis.chunkBytesRead()), FBUtilities.prettyPrintMemory(totalSize));
+            logger.trace("[Stream #{}] Finished receiving file #{} from {} readBytes = {}, totalSize = {}", session.planId(), fileSeqNum, session.peer, FBUtilities.prettyPrintMemory(cis.chunkBytesRead()), FBUtilities.prettyPrintMemory(totalSize));
             return writer;
-        }
-        catch (Throwable e)
-        {
+        } catch (Throwable e) {
             Object partitionKey = deserializer != null ? deserializer.partitionKey() : "";
-            logger.warn("[Stream {}] Error while reading partition {} from stream on ks='{}' and table='{}'.",
-                        session.planId(), partitionKey, cfs.keyspace.getName(), cfs.getTableName());
-            if (writer != null)
-            {
+            logger.warn("[Stream {}] Error while reading partition {} from stream on ks='{}' and table='{}'.", session.planId(), partitionKey, cfs.keyspace.getName(), cfs.getTableName());
+            if (writer != null) {
                 writer.abort(e);
             }
             if (extractIOExceptionCause(e).isPresent())
@@ -121,8 +102,7 @@ public class CassandraCompressedStreamReader extends CassandraStreamReader
     }
 
     @Override
-    protected long totalSize()
-    {
+    protected long totalSize() {
         return compressionInfo.getTotalSize();
     }
 }

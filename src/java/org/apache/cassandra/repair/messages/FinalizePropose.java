@@ -15,64 +15,55 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.messages;
 
 import java.io.IOException;
 import java.util.UUID;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.utils.UUIDSerializer;
 
-public class FinalizePropose extends RepairMessage
-{
-    public final UUID sessionID;
+public class FinalizePropose extends RepairMessage {
 
-    public FinalizePropose(UUID sessionID)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FinalizePropose.class);
+
+    public final transient UUID sessionID;
+
+    public FinalizePropose(UUID sessionID) {
         super(null);
         assert sessionID != null;
         this.sessionID = sessionID;
     }
 
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         FinalizePropose that = (FinalizePropose) o;
-
         return sessionID.equals(that.sessionID);
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         return sessionID.hashCode();
     }
 
-    public String toString()
-    {
-        return "FinalizePropose{" +
-               "sessionID=" + sessionID +
-               '}';
+    public String toString() {
+        return "FinalizePropose{" + "sessionID=" + sessionID + '}';
     }
 
-    public static final IVersionedSerializer<FinalizePropose> serializer = new IVersionedSerializer<FinalizePropose>()
-    {
-        public void serialize(FinalizePropose msg, DataOutputPlus out, int version) throws IOException
-        {
+    public static final transient IVersionedSerializer<FinalizePropose> serializer = new IVersionedSerializer<FinalizePropose>() {
+
+        public void serialize(FinalizePropose msg, DataOutputPlus out, int version) throws IOException {
             UUIDSerializer.serializer.serialize(msg.sessionID, out, version);
         }
 
-        public FinalizePropose deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public FinalizePropose deserialize(DataInputPlus in, int version) throws IOException {
             return new FinalizePropose(UUIDSerializer.serializer.deserialize(in, version));
         }
 
-        public long serializedSize(FinalizePropose msg, int version)
-        {
+        public long serializedSize(FinalizePropose msg, int version) {
             return UUIDSerializer.serializer.serializedSize(msg.sessionID, version);
         }
     };

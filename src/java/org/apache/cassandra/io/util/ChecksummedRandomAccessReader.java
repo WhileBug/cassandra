@@ -19,25 +19,21 @@ package org.apache.cassandra.io.util;
 
 import java.io.File;
 import java.io.IOException;
-
 import org.apache.cassandra.utils.ChecksumType;
 
-public final class ChecksummedRandomAccessReader
-{
-    @SuppressWarnings("resource") // The Rebufferer owns both the channel and the validator and handles closing both.
-    public static RandomAccessReader open(File file, File crcFile) throws IOException
-    {
+public final class ChecksummedRandomAccessReader {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ChecksummedRandomAccessReader.class);
+
+    // The Rebufferer owns both the channel and the validator and handles closing both.
+    @SuppressWarnings("resource")
+    public static RandomAccessReader open(File file, File crcFile) throws IOException {
         ChannelProxy channel = new ChannelProxy(file);
-        try
-        {
-            DataIntegrityMetadata.ChecksumValidator validator = new DataIntegrityMetadata.ChecksumValidator(ChecksumType.CRC32,
-                                                                                                            RandomAccessReader.open(crcFile),
-                                                                                                            file.getPath());
+        try {
+            DataIntegrityMetadata.ChecksumValidator validator = new DataIntegrityMetadata.ChecksumValidator(ChecksumType.CRC32, RandomAccessReader.open(crcFile), file.getPath());
             Rebufferer rebufferer = new ChecksummedRebufferer(channel, validator);
             return new RandomAccessReader.RandomAccessReaderWithOwnChannel(rebufferer);
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             channel.close();
             throw t;
         }

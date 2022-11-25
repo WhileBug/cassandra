@@ -22,15 +22,15 @@ import org.apache.cassandra.db.marshal.AbstractType;
 /**
  * Base class for the <code>AggregateFunction</code> native classes.
  */
-public abstract class NativeAggregateFunction extends NativeFunction implements AggregateFunction
-{
-    protected NativeAggregateFunction(String name, AbstractType<?> returnType, AbstractType<?>... argTypes)
-    {
+public abstract class NativeAggregateFunction extends NativeFunction implements AggregateFunction {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativeAggregateFunction.class);
+
+    protected NativeAggregateFunction(String name, AbstractType<?> returnType, AbstractType<?>... argTypes) {
         super(name, returnType, argTypes);
     }
 
-    public final boolean isAggregate()
-    {
+    public final boolean isAggregate() {
         return true;
     }
 }

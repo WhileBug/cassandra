@@ -19,10 +19,8 @@ package org.apache.cassandra.utils;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.slf4j.Logger;
-
 import com.google.common.annotations.VisibleForTesting;
 
 /**
@@ -35,101 +33,92 @@ import com.google.common.annotations.VisibleForTesting;
  * If the statement is cached and used to log directly then only a volatile read will be required in the common case.
  * If the Logger is cached then there is a single concurrent hash map lookup + the volatile read.
  * If neither the logger nor the statement is cached then it is two concurrent hash map lookups + the volatile read.
- *
  */
-public class NoSpamLogger
-{
+public class NoSpamLogger {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NoSpamLogger.class);
+
     /**
      * Levels for programmatically specifying the severity of a log statement
      */
-    public enum Level
-    {
-        INFO, WARN, ERROR;
+    public enum Level {
+
+        INFO, WARN, ERROR
     }
 
     @VisibleForTesting
-    static interface Clock
-    {
+    static interface Clock {
+
         long nanoTime();
     }
 
     @VisibleForTesting
-    static Clock CLOCK = new Clock()
-    {
-        public long nanoTime()
-        {
+    static Clock CLOCK = new Clock() {
+
+        public long nanoTime() {
             return System.nanoTime();
         }
     };
 
-    public class NoSpamLogStatement extends AtomicLong
-    {
-        private static final long serialVersionUID = 1L;
+    public class NoSpamLogStatement extends AtomicLong {
 
-        private final String statement;
-        private final long minIntervalNanos;
+        private static final transient long serialVersionUID = 1L;
 
-        public NoSpamLogStatement(String statement, long minIntervalNanos)
-        {
+        private final transient String statement;
+
+        private final transient long minIntervalNanos;
+
+        public NoSpamLogStatement(String statement, long minIntervalNanos) {
             super(Long.MIN_VALUE);
             this.statement = statement;
             this.minIntervalNanos = minIntervalNanos;
         }
 
-        private boolean shouldLog(long nowNanos)
-        {
+        private boolean shouldLog(long nowNanos) {
             long expected = get();
             return nowNanos >= expected && compareAndSet(expected, nowNanos + minIntervalNanos);
         }
 
-        public boolean log(Level l, long nowNanos, Object... objects)
-        {
-            if (!shouldLog(nowNanos)) return false;
-
-            switch (l)
-            {
-            case INFO:
-                wrapped.info(statement, objects);
-                break;
-            case WARN:
-                wrapped.warn(statement, objects);
-                break;
-            case ERROR:
-                wrapped.error(statement, objects);
-                break;
+        public boolean log(Level l, long nowNanos, Object... objects) {
+            if (!shouldLog(nowNanos))
+                return false;
+            switch(l) {
+                case INFO:
+                    wrapped.info(statement, objects);
+                    break;
+                case WARN:
+                    wrapped.warn(statement, objects);
+                    break;
+                case ERROR:
+                    wrapped.error(statement, objects);
+                    break;
                 default:
                     throw new AssertionError();
             }
             return true;
         }
 
-        public boolean info(long nowNanos, Object... objects)
-        {
+        public boolean info(long nowNanos, Object... objects) {
             return NoSpamLogStatement.this.log(Level.INFO, nowNanos, objects);
         }
 
-        public boolean info(Object... objects)
-        {
+        public boolean info(Object... objects) {
             return NoSpamLogStatement.this.info(CLOCK.nanoTime(), objects);
         }
 
-        public boolean warn(long nowNanos, Object... objects)
-        {
+        public boolean warn(long nowNanos, Object... objects) {
             return NoSpamLogStatement.this.log(Level.WARN, nowNanos, objects);
         }
 
-        public boolean warn(Object... objects)
-        {
+        public boolean warn(Object... objects) {
             return NoSpamLogStatement.this.warn(CLOCK.nanoTime(), objects);
         }
 
-        public boolean error(long nowNanos, Object... objects)
-        {
+        public boolean error(long nowNanos, Object... objects) {
             return NoSpamLogStatement.this.log(Level.ERROR, nowNanos, objects);
         }
 
-        public boolean error(Object... objects)
-        {
+        public boolean error(Object... objects) {
             return NoSpamLogStatement.this.error(CLOCK.nanoTime(), objects);
         }
     }
@@ -137,16 +126,14 @@ public class NoSpamLogger
     private static final NonBlockingHashMap<Logger, NoSpamLogger> wrappedLoggers = new NonBlockingHashMap<>();
 
     @VisibleForTesting
-    static void clearWrappedLoggersForTest()
-    {
+    static void clearWrappedLoggersForTest() {
         wrappedLoggers.clear();
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.utils.NoSpamLogger.wrappedLoggers]=" + org.json.simple.JSONValue.toJSONString(wrappedLoggers).replace("\n", "").replace("\r", ""));
     }
 
-    public static NoSpamLogger getLogger(Logger logger, long minInterval, TimeUnit unit)
-    {
+    public static NoSpamLogger getLogger(Logger logger, long minInterval, TimeUnit unit) {
         NoSpamLogger wrapped = wrappedLoggers.get(logger);
-        if (wrapped == null)
-        {
+        if (wrapped == null) {
             wrapped = new NoSpamLogger(logger, minInterval, unit);
             NoSpamLogger temp = wrappedLoggers.putIfAbsent(logger, wrapped);
             if (temp != null)
@@ -155,99 +142,88 @@ public class NoSpamLogger
         return wrapped;
     }
 
-    public static boolean log(Logger logger, Level level, long minInterval, TimeUnit unit, String message, Object... objects)
-    {
+    public static boolean log(Logger logger, Level level, long minInterval, TimeUnit unit, String message, Object... objects) {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.utils.NoSpamLogger.CLOCK]=" + org.json.simple.JSONValue.toJSONString(CLOCK).replace("\n", "").replace("\r", ""));
         return log(logger, level, message, minInterval, unit, CLOCK.nanoTime(), message, objects);
     }
 
-    public static boolean log(Logger logger, Level level, String key, long minInterval, TimeUnit unit, String message, Object... objects)
-    {
+    public static boolean log(Logger logger, Level level, String key, long minInterval, TimeUnit unit, String message, Object... objects) {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.utils.NoSpamLogger.CLOCK]=" + org.json.simple.JSONValue.toJSONString(CLOCK).replace("\n", "").replace("\r", ""));
         return log(logger, level, key, minInterval, unit, CLOCK.nanoTime(), message, objects);
     }
 
-    public static boolean log(Logger logger, Level level, String key, long minInterval, TimeUnit unit, long nowNanos, String message, Object... objects)
-    {
+    public static boolean log(Logger logger, Level level, String key, long minInterval, TimeUnit unit, long nowNanos, String message, Object... objects) {
         NoSpamLogger wrapped = getLogger(logger, minInterval, unit);
         NoSpamLogStatement statement = wrapped.getStatement(key, message);
         return statement.log(level, nowNanos, objects);
     }
 
-    public static NoSpamLogStatement getStatement(Logger logger, String message, long minInterval, TimeUnit unit)
-    {
+    public static NoSpamLogStatement getStatement(Logger logger, String message, long minInterval, TimeUnit unit) {
         NoSpamLogger wrapped = getLogger(logger, minInterval, unit);
         return wrapped.getStatement(message);
     }
 
-    private final Logger wrapped;
-    private final long minIntervalNanos;
-    private final NonBlockingHashMap<String, NoSpamLogStatement> lastMessage = new NonBlockingHashMap<>();
+    private final transient Logger wrapped;
 
-    private NoSpamLogger(Logger wrapped, long minInterval, TimeUnit timeUnit)
-    {
+    private final transient long minIntervalNanos;
+
+    private final transient NonBlockingHashMap<String, NoSpamLogStatement> lastMessage = new NonBlockingHashMap<>();
+
+    private NoSpamLogger(Logger wrapped, long minInterval, TimeUnit timeUnit) {
         this.wrapped = wrapped;
         minIntervalNanos = timeUnit.toNanos(minInterval);
     }
 
-    public boolean info(long nowNanos, String s, Object... objects)
-    {
-        return NoSpamLogger.this.log( Level.INFO, s, nowNanos, objects);
+    public boolean info(long nowNanos, String s, Object... objects) {
+        return NoSpamLogger.this.log(Level.INFO, s, nowNanos, objects);
     }
 
-    public boolean info(String s, Object... objects)
-    {
+    public boolean info(String s, Object... objects) {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.utils.NoSpamLogger.CLOCK]=" + org.json.simple.JSONValue.toJSONString(CLOCK).replace("\n", "").replace("\r", ""));
         return NoSpamLogger.this.info(CLOCK.nanoTime(), s, objects);
     }
 
-    public boolean warn(long nowNanos, String s, Object... objects)
-    {
-        return NoSpamLogger.this.log( Level.WARN, s, nowNanos, objects);
+    public boolean warn(long nowNanos, String s, Object... objects) {
+        return NoSpamLogger.this.log(Level.WARN, s, nowNanos, objects);
     }
 
-    public boolean warn(String s, Object... objects)
-    {
+    public boolean warn(String s, Object... objects) {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.utils.NoSpamLogger.CLOCK]=" + org.json.simple.JSONValue.toJSONString(CLOCK).replace("\n", "").replace("\r", ""));
         return NoSpamLogger.this.warn(CLOCK.nanoTime(), s, objects);
     }
 
-    public boolean error(long nowNanos, String s, Object... objects)
-    {
-        return NoSpamLogger.this.log( Level.ERROR, s, nowNanos, objects);
+    public boolean error(long nowNanos, String s, Object... objects) {
+        return NoSpamLogger.this.log(Level.ERROR, s, nowNanos, objects);
     }
 
-    public boolean error(String s, Object... objects)
-    {
+    public boolean error(String s, Object... objects) {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.utils.NoSpamLogger.CLOCK]=" + org.json.simple.JSONValue.toJSONString(CLOCK).replace("\n", "").replace("\r", ""));
         return NoSpamLogger.this.error(CLOCK.nanoTime(), s, objects);
     }
 
-    public boolean log(Level l, String s, long nowNanos, Object... objects)
-    {
+    public boolean log(Level l, String s, long nowNanos, Object... objects) {
         return NoSpamLogger.this.getStatement(s, minIntervalNanos).log(l, nowNanos, objects);
     }
 
-    public NoSpamLogStatement getStatement(String s)
-    {
+    public NoSpamLogStatement getStatement(String s) {
         return NoSpamLogger.this.getStatement(s, minIntervalNanos);
     }
 
-    public NoSpamLogStatement getStatement(String key, String s)
-    {
+    public NoSpamLogStatement getStatement(String key, String s) {
         return NoSpamLogger.this.getStatement(key, s, minIntervalNanos);
     }
 
-    public NoSpamLogStatement getStatement(String s, long minInterval, TimeUnit unit)
-    {
+    public NoSpamLogStatement getStatement(String s, long minInterval, TimeUnit unit) {
         return NoSpamLogger.this.getStatement(s, unit.toNanos(minInterval));
     }
 
-    public NoSpamLogStatement getStatement(String s, long minIntervalNanos)
-    {
+    public NoSpamLogStatement getStatement(String s, long minIntervalNanos) {
         return getStatement(s, s, minIntervalNanos);
     }
 
-    public NoSpamLogStatement getStatement(String key, String s, long minIntervalNanos)
-    {
+    public NoSpamLogStatement getStatement(String key, String s, long minIntervalNanos) {
         NoSpamLogStatement statement = lastMessage.get(key);
-        if (statement == null)
-        {
+        if (statement == null) {
             statement = new NoSpamLogStatement(s, minIntervalNanos);
             NoSpamLogStatement temp = lastMessage.putIfAbsent(key, statement);
             if (temp != null)

@@ -18,11 +18,9 @@
 package org.apache.cassandra.repair;
 
 import java.util.List;
-
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.exceptions.RepairException;
@@ -39,18 +37,18 @@ import org.apache.cassandra.utils.FBUtilities;
  *
  * When SymmetricRemoteSyncTask receives SyncComplete from remote node, task completes.
  */
-public class SymmetricRemoteSyncTask extends SyncTask implements CompletableRemoteSyncTask
-{
-    private static final Logger logger = LoggerFactory.getLogger(SymmetricRemoteSyncTask.class);
+public class SymmetricRemoteSyncTask extends SyncTask implements CompletableRemoteSyncTask {
 
-    public SymmetricRemoteSyncTask(RepairJobDesc desc, InetAddressAndPort r1, InetAddressAndPort r2, List<Range<Token>> differences, PreviewKind previewKind)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SymmetricRemoteSyncTask.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(SymmetricRemoteSyncTask.class);
+
+    public SymmetricRemoteSyncTask(RepairJobDesc desc, InetAddressAndPort r1, InetAddressAndPort r2, List<Range<Token>> differences, PreviewKind previewKind) {
         super(desc, r1, r2, differences, previewKind);
     }
 
     @Override
-    protected void startSync()
-    {
+    protected void startSync() {
         InetAddressAndPort local = FBUtilities.getBroadcastAddressAndPort();
         SyncRequest request = new SyncRequest(desc, local, nodePair.coordinator, nodePair.peer, rangesToSync, previewKind, false);
         Preconditions.checkArgument(nodePair.coordinator.equals(request.src));
@@ -60,25 +58,17 @@ public class SymmetricRemoteSyncTask extends SyncTask implements CompletableRemo
         sendRequest(request, request.src);
     }
 
-    public void syncComplete(boolean success, List<SessionSummary> summaries)
-    {
-        if (success)
-        {
+    public void syncComplete(boolean success, List<SessionSummary> summaries) {
+        if (success) {
             set(stat.withSummaries(summaries));
-        }
-        else
-        {
+        } else {
             setException(new RepairException(desc, previewKind, String.format("Sync failed between %s and %s", nodePair.coordinator, nodePair.peer)));
         }
         finished();
     }
 
     @Override
-    public String toString()
-    {
-        return "SymmetricRemoteSyncTask{" +
-               "rangesToSync=" + rangesToSync +
-               ", nodePair=" + nodePair +
-               '}';
+    public String toString() {
+        return "SymmetricRemoteSyncTask{" + "rangesToSync=" + rangesToSync + ", nodePair=" + nodePair + '}';
     }
 }

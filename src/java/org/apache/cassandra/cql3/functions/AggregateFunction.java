@@ -19,15 +19,16 @@ package org.apache.cassandra.cql3.functions;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
  * Performs a calculation on a set of values and return a single value.
  */
-public interface AggregateFunction extends Function
-{
+public interface AggregateFunction extends Function {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AggregateFunction.class);
+
     /**
      * Creates a new <code>Aggregate</code> instance.
      *
@@ -38,8 +39,8 @@ public interface AggregateFunction extends Function
     /**
      * An aggregation operation.
      */
-    interface Aggregate
-    {
+    interface Aggregate {
+
         /**
          * Adds the specified input to this aggregate.
          *  @param protocolVersion native protocol version

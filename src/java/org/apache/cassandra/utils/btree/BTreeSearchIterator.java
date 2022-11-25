@@ -19,12 +19,12 @@
 package org.apache.cassandra.utils.btree;
 
 import java.util.Iterator;
-
 import org.apache.cassandra.utils.IndexedSearchIterator;
 
+public interface BTreeSearchIterator<K, V> extends IndexedSearchIterator<K, V>, Iterator<V> {
 
-public interface BTreeSearchIterator<K, V> extends IndexedSearchIterator<K, V>, Iterator<V>
-{
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BTreeSearchIterator.class);
+
     /**
      * Reset this Iterator to its starting position
      */

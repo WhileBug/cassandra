@@ -20,39 +20,35 @@ package org.apache.cassandra.service.reads;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import com.google.common.base.Objects;
-
 import com.codahale.metrics.Snapshot;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.schema.TableParams;
 
-public class FixedSpeculativeRetryPolicy implements SpeculativeRetryPolicy
-{
-    private static final Pattern PATTERN = Pattern.compile("^(?<val>[0-9.]+)ms$", Pattern.CASE_INSENSITIVE);
+public class FixedSpeculativeRetryPolicy implements SpeculativeRetryPolicy {
 
-    private final int speculateAtMilliseconds;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FixedSpeculativeRetryPolicy.class);
 
-    FixedSpeculativeRetryPolicy(int speculateAtMilliseconds)
-    {
+    private static final transient Pattern PATTERN = Pattern.compile("^(?<val>[0-9.]+)ms$", Pattern.CASE_INSENSITIVE);
+
+    private final transient int speculateAtMilliseconds;
+
+    FixedSpeculativeRetryPolicy(int speculateAtMilliseconds) {
         this.speculateAtMilliseconds = speculateAtMilliseconds;
     }
 
     @Override
-    public long calculateThreshold(Snapshot latency, long existingValue)
-    {
+    public long calculateThreshold(Snapshot latency, long existingValue) {
         return TimeUnit.MILLISECONDS.toNanos(speculateAtMilliseconds);
     }
 
     @Override
-    public Kind kind()
-    {
+    public Kind kind() {
         return Kind.FIXED;
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         if (!(obj instanceof FixedSpeculativeRetryPolicy))
             return false;
         FixedSpeculativeRetryPolicy rhs = (FixedSpeculativeRetryPolicy) obj;
@@ -60,38 +56,29 @@ public class FixedSpeculativeRetryPolicy implements SpeculativeRetryPolicy
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(kind(), speculateAtMilliseconds);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("%dms", speculateAtMilliseconds);
     }
 
-    static FixedSpeculativeRetryPolicy fromString(String str)
-    {
+    static FixedSpeculativeRetryPolicy fromString(String str) {
         Matcher matcher = PATTERN.matcher(str);
-
         if (!matcher.matches())
             throw new IllegalArgumentException();
-
         String val = matcher.group("val");
-        try
-        {
-             // historically we've always parsed this as double, but treated as int; so we keep doing it for compatibility
+        try {
+            // historically we've always parsed this as double, but treated as int; so we keep doing it for compatibility
             return new FixedSpeculativeRetryPolicy((int) Double.parseDouble(val));
-        }
-        catch (IllegalArgumentException e)
-        {
+        } catch (IllegalArgumentException e) {
             throw new ConfigurationException(String.format("Invalid value %s for option '%s'", str, TableParams.Option.SPECULATIVE_RETRY));
         }
     }
 
-    static boolean stringMatches(String str)
-    {
+    static boolean stringMatches(String str) {
         return PATTERN.matcher(str).matches();
     }
 }

@@ -20,12 +20,10 @@ package org.apache.cassandra.repair;
 import java.util.UUID;
 import java.util.Collections;
 import java.util.Collection;
-
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.cassandra.locator.RangesAtEndpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -38,32 +36,38 @@ import org.apache.cassandra.streaming.StreamEventHandler;
 import org.apache.cassandra.streaming.StreamPlan;
 import org.apache.cassandra.streaming.StreamState;
 import org.apache.cassandra.streaming.StreamOperation;
-
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.apache.cassandra.net.Verb.SYNC_RSP;
 import static org.apache.cassandra.utils.MonotonicClock.approxTime;
 
-
 /**
  * StreamingRepairTask performs data streaming between two remote replicas, neither of which is repair coordinator.
  * Task will send {@link SyncResponse} message back to coordinator upon streaming completion.
  */
-public class StreamingRepairTask implements Runnable, StreamEventHandler
-{
-    private static final Logger logger = LoggerFactory.getLogger(StreamingRepairTask.class);
+public class StreamingRepairTask implements Runnable, StreamEventHandler {
 
-    private final RepairJobDesc desc;
-    private final boolean asymmetric;
-    private final InetAddressAndPort initiator;
-    private final InetAddressAndPort src;
-    private final InetAddressAndPort dst;
-    private final Collection<Range<Token>> ranges;
-    private final UUID pendingRepair;
-    private final PreviewKind previewKind;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamingRepairTask.class);
 
-    public StreamingRepairTask(RepairJobDesc desc, InetAddressAndPort initiator, InetAddressAndPort src, InetAddressAndPort dst, Collection<Range<Token>> ranges,  UUID pendingRepair, PreviewKind previewKind, boolean asymmetric)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(StreamingRepairTask.class);
+
+    private final transient RepairJobDesc desc;
+
+    private final transient boolean asymmetric;
+
+    private final transient InetAddressAndPort initiator;
+
+    private final transient InetAddressAndPort src;
+
+    private final transient InetAddressAndPort dst;
+
+    private final transient Collection<Range<Token>> ranges;
+
+    private final transient UUID pendingRepair;
+
+    private final transient PreviewKind previewKind;
+
+    public StreamingRepairTask(RepairJobDesc desc, InetAddressAndPort initiator, InetAddressAndPort src, InetAddressAndPort dst, Collection<Range<Token>> ranges, UUID pendingRepair, PreviewKind previewKind, boolean asymmetric) {
         this.desc = desc;
         this.initiator = initiator;
         this.src = src;
@@ -74,8 +78,7 @@ public class StreamingRepairTask implements Runnable, StreamEventHandler
         this.previewKind = previewKind;
     }
 
-    public void run()
-    {
+    public void run() {
         logger.info("[streaming task #{}] Performing {}streaming repair of {} ranges with {}", desc.sessionId, asymmetric ? "asymmetric " : "", ranges.size(), dst);
         long start = approxTime.now();
         StreamPlan streamPlan = createStreamPlan(dst);
@@ -84,22 +87,18 @@ public class StreamingRepairTask implements Runnable, StreamEventHandler
     }
 
     @VisibleForTesting
-    StreamPlan createStreamPlan(InetAddressAndPort dest)
-    {
-        StreamPlan sp = new StreamPlan(StreamOperation.REPAIR, 1, false, pendingRepair, previewKind)
-               .listeners(this)
-               .flushBeforeTransfer(pendingRepair == null) // sstables are isolated at the beginning of an incremental repair session, so flushing isn't neccessary
-               // see comment on RangesAtEndpoint.toDummyList for why we synthesize replicas here
-               .requestRanges(dest, desc.keyspace, RangesAtEndpoint.toDummyList(ranges),
-                       RangesAtEndpoint.toDummyList(Collections.emptyList()), desc.columnFamily); // request ranges from the remote node
+    StreamPlan createStreamPlan(InetAddressAndPort dest) {
+        StreamPlan sp = new StreamPlan(StreamOperation.REPAIR, 1, false, pendingRepair, previewKind).listeners(this).flushBeforeTransfer(// sstables are isolated at the beginning of an incremental repair session, so flushing isn't neccessary
+        pendingRepair == null).requestRanges(dest, desc.keyspace, RangesAtEndpoint.toDummyList(ranges), RangesAtEndpoint.toDummyList(Collections.emptyList()), // request ranges from the remote node
+        desc.columnFamily);
         if (!asymmetric)
             // see comment on RangesAtEndpoint.toDummyList for why we synthesize replicas here
-            sp.transferRanges(dest, desc.keyspace, RangesAtEndpoint.toDummyList(ranges), desc.columnFamily); // send ranges to the remote node
+            // send ranges to the remote node
+            sp.transferRanges(dest, desc.keyspace, RangesAtEndpoint.toDummyList(ranges), desc.columnFamily);
         return sp;
     }
 
-    public void handleStreamEvent(StreamEvent event)
-    {
+    public void handleStreamEvent(StreamEvent event) {
         // Nothing to do here, all we care about is the final success or failure and that's handled by
         // onSuccess and onFailure
     }
@@ -107,8 +106,7 @@ public class StreamingRepairTask implements Runnable, StreamEventHandler
     /**
      * If we succeeded on both stream in and out, respond back to coordinator
      */
-    public void onSuccess(StreamState state)
-    {
+    public void onSuccess(StreamState state) {
         logger.info("[repair #{}] streaming task succeed, returning response to {}", desc.sessionId, initiator);
         MessagingService.instance().send(Message.out(SYNC_RSP, new SyncResponse(desc, src, dst, true, state.createSummaries())), initiator);
     }
@@ -116,8 +114,7 @@ public class StreamingRepairTask implements Runnable, StreamEventHandler
     /**
      * If we failed on either stream in or out, respond fail to coordinator
      */
-    public void onFailure(Throwable t)
-    {
+    public void onFailure(Throwable t) {
         MessagingService.instance().send(Message.out(SYNC_RSP, new SyncResponse(desc, src, dst, false, Collections.emptyList())), initiator);
     }
 }

@@ -18,33 +18,33 @@
 package org.apache.cassandra.exceptions;
 
 import java.util.List;
-
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.cql3.functions.FunctionName;
 import org.apache.cassandra.db.marshal.AbstractType;
 
-public class FunctionExecutionException extends RequestExecutionException
-{
-    public final FunctionName functionName;
-    public final List<String> argTypes;
-    public final String detail;
+public class FunctionExecutionException extends RequestExecutionException {
 
-    public static FunctionExecutionException create(Function function, Throwable cause)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FunctionExecutionException.class);
+
+    public final transient FunctionName functionName;
+
+    public final transient List<String> argTypes;
+
+    public final transient String detail;
+
+    public static FunctionExecutionException create(Function function, Throwable cause) {
         List<String> cqlTypes = AbstractType.asCQLTypeStringList(function.argTypes());
         FunctionExecutionException fee = new FunctionExecutionException(function.name(), cqlTypes, cause.toString());
         fee.initCause(cause);
         return fee;
     }
 
-    public static FunctionExecutionException create(FunctionName functionName, List<String> argTypes, String detail)
-    {
+    public static FunctionExecutionException create(FunctionName functionName, List<String> argTypes, String detail) {
         String msg = "execution of '" + functionName + argTypes + "' failed: " + detail;
         return new FunctionExecutionException(functionName, argTypes, msg);
     }
 
-    public FunctionExecutionException(FunctionName functionName, List<String> argTypes, String msg)
-    {
+    public FunctionExecutionException(FunctionName functionName, List<String> argTypes, String msg) {
         super(ExceptionCode.FUNCTION_FAILURE, msg);
         this.functionName = functionName;
         this.argTypes = argTypes;

@@ -20,32 +20,34 @@ package org.apache.cassandra.index.sasi.disk;
 /**
  * Object descriptor for SASIIndex files. Similar to, and based upon, the sstable descriptor.
  */
-public class Descriptor
-{
-    public static final String VERSION_AA = "aa";
-    public static final String VERSION_AB = "ab";
-    public static final String CURRENT_VERSION = VERSION_AB;
-    public static final Descriptor CURRENT = new Descriptor(CURRENT_VERSION);
+public class Descriptor {
 
-    public static class Version
-    {
-        public final String version;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Descriptor.class);
 
-        public Version(String version)
-        {
+    public static final transient String VERSION_AA = "aa";
+
+    public static final transient String VERSION_AB = "ab";
+
+    public static final transient String CURRENT_VERSION = VERSION_AB;
+
+    public static final transient Descriptor CURRENT = new Descriptor(CURRENT_VERSION);
+
+    public static class Version {
+
+        public final transient String version;
+
+        public Version(String version) {
             this.version = version;
         }
 
-        public String toString()
-        {
+        public String toString() {
             return version;
         }
     }
 
-    public final Version version;
+    public final transient Version version;
 
-    public Descriptor(String v)
-    {
+    public Descriptor(String v) {
         this.version = new Version(v);
     }
 }

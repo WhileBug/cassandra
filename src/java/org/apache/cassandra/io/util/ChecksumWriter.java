@@ -15,37 +15,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.CRC32;
-
 import javax.annotation.Nonnull;
-
 import org.apache.cassandra.io.FSWriteError;
 
-public class ChecksumWriter
-{
-    private final CRC32 incrementalChecksum = new CRC32();
-    private final DataOutput incrementalOut;
-    private final CRC32 fullChecksum = new CRC32();
+public class ChecksumWriter {
 
-    public ChecksumWriter(DataOutput incrementalOut)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ChecksumWriter.class);
+
+    private final transient CRC32 incrementalChecksum = new CRC32();
+
+    private final transient DataOutput incrementalOut;
+
+    private final transient CRC32 fullChecksum = new CRC32();
+
+    public ChecksumWriter(DataOutput incrementalOut) {
         this.incrementalOut = incrementalOut;
     }
 
-    public void writeChunkSize(int length)
-    {
-        try
-        {
+    public void writeChunkSize(int length) {
+        try {
             incrementalOut.writeInt(length);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new IOError(e);
         }
     }
@@ -54,51 +50,37 @@ public class ChecksumWriter
     // included in the full checksum, translating to if the partial checksum is serialized along with the
     // data it checksums (in which case the file checksum as calculated by external tools would mismatch if
     // we did not include it), or independently.
-
     // CompressedSequentialWriters serialize the partial checksums inline with the compressed data chunks they
     // corroborate, whereas ChecksummedSequentialWriters serialize them to a different file.
-    public void appendDirect(ByteBuffer bb, boolean checksumIncrementalResult)
-    {
-        try
-        {
+    public void appendDirect(ByteBuffer bb, boolean checksumIncrementalResult) {
+        try {
             ByteBuffer toAppend = bb.duplicate();
             toAppend.mark();
             incrementalChecksum.update(toAppend);
             toAppend.reset();
-
             int incrementalChecksumValue = (int) incrementalChecksum.getValue();
             incrementalOut.writeInt(incrementalChecksumValue);
-
             fullChecksum.update(toAppend);
-            if (checksumIncrementalResult)
-            {
+            if (checksumIncrementalResult) {
                 ByteBuffer byteBuffer = ByteBuffer.allocate(4);
                 byteBuffer.putInt(incrementalChecksumValue);
                 assert byteBuffer.arrayOffset() == 0;
                 fullChecksum.update(byteBuffer.array(), 0, byteBuffer.array().length);
             }
             incrementalChecksum.reset();
-
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new IOError(e);
         }
     }
 
-    public void writeFullChecksum(@Nonnull File digestFile)
-    {
+    public void writeFullChecksum(@Nonnull File digestFile) {
         try (FileOutputStream fos = new FileOutputStream(digestFile);
-             DataOutputStream out = new DataOutputStream(new BufferedOutputStream(fos)))
-        {
+            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(fos))) {
             out.write(String.valueOf(fullChecksum.getValue()).getBytes(StandardCharsets.UTF_8));
             out.flush();
             fos.getFD().sync();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new FSWriteError(e, digestFile);
         }
     }
 }
-

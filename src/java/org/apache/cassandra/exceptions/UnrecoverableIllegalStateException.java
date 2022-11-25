@@ -15,11 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.exceptions;
 
-public class UnrecoverableIllegalStateException extends RuntimeException
-{
+public class UnrecoverableIllegalStateException extends RuntimeException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnrecoverableIllegalStateException.class);
+
     public UnrecoverableIllegalStateException(String message) {
         super(message);
     }

@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.consistent.admin;
 
 import java.util.HashMap;
@@ -23,7 +22,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
 import javax.management.openmbean.ArrayType;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.CompositeDataSupport;
@@ -31,113 +29,89 @@ import javax.management.openmbean.CompositeType;
 import javax.management.openmbean.OpenDataException;
 import javax.management.openmbean.OpenType;
 import javax.management.openmbean.SimpleType;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Sets;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 
-public class CleanupSummary
-{
-    private static final String[] COMPOSITE_NAMES = new String[] { "keyspace", "table", "successful", "unsuccessful" };
-    private static final OpenType<?>[] COMPOSITE_TYPES;
-    private static final CompositeType COMPOSITE_TYPE;
+public class CleanupSummary {
 
-    static
-    {
-        try
-        {
-            COMPOSITE_TYPES = new OpenType[] { SimpleType.STRING,
-                                               SimpleType.STRING,
-                                               ArrayType.getArrayType(SimpleType.STRING),
-                                               ArrayType.getArrayType(SimpleType.STRING) };
-            COMPOSITE_TYPE = new CompositeType(RepairStats.Section.class.getName(), "PendingStats",
-                                               COMPOSITE_NAMES, COMPOSITE_NAMES, COMPOSITE_TYPES);
-        }
-        catch (OpenDataException e)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CleanupSummary.class);
+
+    private static final transient String[] COMPOSITE_NAMES = new String[] { "keyspace", "table", "successful", "unsuccessful" };
+
+    private static final transient OpenType<?>[] COMPOSITE_TYPES;
+
+    private static final transient CompositeType COMPOSITE_TYPE;
+
+    static {
+        try {
+            COMPOSITE_TYPES = new OpenType[] { SimpleType.STRING, SimpleType.STRING, ArrayType.getArrayType(SimpleType.STRING), ArrayType.getArrayType(SimpleType.STRING) };
+            COMPOSITE_TYPE = new CompositeType(RepairStats.Section.class.getName(), "PendingStats", COMPOSITE_NAMES, COMPOSITE_NAMES, COMPOSITE_TYPES);
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public final String keyspace;
-    public final String table;
+    public final transient String keyspace;
 
-    public final Set<UUID> successful;
-    public final Set<UUID> unsuccessful;
+    public final transient String table;
 
-    public CleanupSummary(String keyspace, String table, Set<UUID> successful, Set<UUID> unsuccessful)
-    {
+    public final transient Set<UUID> successful;
+
+    public final transient Set<UUID> unsuccessful;
+
+    public CleanupSummary(String keyspace, String table, Set<UUID> successful, Set<UUID> unsuccessful) {
         this.keyspace = keyspace;
         this.table = table;
         this.successful = successful;
         this.unsuccessful = unsuccessful;
     }
 
-    public CleanupSummary(ColumnFamilyStore cfs, Set<UUID> successful, Set<UUID> unsuccessful)
-    {
+    public CleanupSummary(ColumnFamilyStore cfs, Set<UUID> successful, Set<UUID> unsuccessful) {
         this(cfs.keyspace.getName(), cfs.name, successful, unsuccessful);
     }
 
-    public static CleanupSummary add(CleanupSummary l, CleanupSummary r)
-    {
+    public static CleanupSummary add(CleanupSummary l, CleanupSummary r) {
         Preconditions.checkArgument(l.keyspace.equals(r.keyspace));
         Preconditions.checkArgument(l.table.equals(r.table));
-
         Set<UUID> unsuccessful = new HashSet<>(l.unsuccessful);
         unsuccessful.addAll(r.unsuccessful);
-
         Set<UUID> successful = new HashSet<>(l.successful);
         successful.addAll(r.successful);
         successful.removeAll(unsuccessful);
-
         return new CleanupSummary(l.keyspace, l.table, successful, unsuccessful);
     }
 
-    private static String[] uuids2Strings(Set<UUID> uuids)
-    {
+    private static String[] uuids2Strings(Set<UUID> uuids) {
         String[] strings = new String[uuids.size()];
         int idx = 0;
-        for (UUID uuid : uuids)
-            strings[idx++] = uuid.toString();
+        for (UUID uuid : uuids) strings[idx++] = uuid.toString();
         return strings;
     }
 
-    private static Set<UUID> strings2Uuids(String[] strings)
-    {
+    private static Set<UUID> strings2Uuids(String[] strings) {
         Set<UUID> uuids = Sets.newHashSetWithExpectedSize(strings.length);
-        for (String string : strings)
-            uuids.add(UUID.fromString(string));
-
+        for (String string : strings) uuids.add(UUID.fromString(string));
         return uuids;
     }
 
-    public CompositeData toComposite()
-    {
+    public CompositeData toComposite() {
         Map<String, Object> values = new HashMap<>();
         values.put(COMPOSITE_NAMES[0], keyspace);
         values.put(COMPOSITE_NAMES[1], table);
         values.put(COMPOSITE_NAMES[2], uuids2Strings(successful));
         values.put(COMPOSITE_NAMES[3], uuids2Strings(unsuccessful));
-        try
-        {
+        try {
             return new CompositeDataSupport(COMPOSITE_TYPE, values);
-        }
-        catch (OpenDataException e)
-        {
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public static CleanupSummary fromComposite(CompositeData cd)
-    {
+    public static CleanupSummary fromComposite(CompositeData cd) {
         Preconditions.checkArgument(cd.getCompositeType().equals(COMPOSITE_TYPE));
         Object[] values = cd.getAll(COMPOSITE_NAMES);
-        return new CleanupSummary((String) values[0],
-                                  (String) values[1],
-                                  strings2Uuids((String[]) values[2]),
-                                  strings2Uuids((String[]) values[3]));
-
+        return new CleanupSummary((String) values[0], (String) values[1], strings2Uuids((String[]) values[2]), strings2Uuids((String[]) values[3]));
     }
 }

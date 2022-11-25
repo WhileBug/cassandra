@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool;
 
 import java.net.UnknownHostException;
@@ -23,32 +22,30 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.cassandra.locator.InetAddressAndPort;
 
-public class SetHostStatWithPort implements Iterable<HostStatWithPort>
-{
-    final List<HostStatWithPort> hostStats = new ArrayList<>();
-    final boolean resolveIp;
+public class SetHostStatWithPort implements Iterable<HostStatWithPort> {
 
-    public SetHostStatWithPort(boolean resolveIp)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetHostStatWithPort.class);
+
+    final transient List<HostStatWithPort> hostStats = new ArrayList<>();
+
+    final transient boolean resolveIp;
+
+    public SetHostStatWithPort(boolean resolveIp) {
         this.resolveIp = resolveIp;
     }
 
-    public int size()
-    {
+    public int size() {
         return hostStats.size();
     }
 
     @Override
-    public Iterator<HostStatWithPort> iterator()
-    {
+    public Iterator<HostStatWithPort> iterator() {
         return hostStats.iterator();
     }
 
-    public void add(String token, String host, Map<String, Float> ownerships) throws UnknownHostException
-    {
+    public void add(String token, String host, Map<String, Float> ownerships) throws UnknownHostException {
         InetAddressAndPort endpoint = InetAddressAndPort.getByName(host);
         Float owns = ownerships.get(endpoint.getHostAddressAndPort());
         hostStats.add(new HostStatWithPort(token, endpoint, resolveIp, owns));

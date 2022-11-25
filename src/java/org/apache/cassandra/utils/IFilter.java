@@ -19,11 +19,15 @@ package org.apache.cassandra.utils;
 
 import org.apache.cassandra.utils.concurrent.SharedCloseable;
 
-public interface IFilter extends SharedCloseable
-{
-    interface FilterKey
-    {
-        /** Places the murmur3 hash of the key in the given long array of size at least two. */
+public interface IFilter extends SharedCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IFilter.class);
+
+    interface FilterKey {
+
+        /**
+         * Places the murmur3 hash of the key in the given long array of size at least two.
+         */
         void filterHash(long[] dest);
     }
 

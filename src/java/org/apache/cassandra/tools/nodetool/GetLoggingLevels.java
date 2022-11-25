@@ -18,21 +18,19 @@
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
-
 import java.util.Map;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "getlogginglevels", description = "Get the runtime logging levels")
-public class GetLoggingLevels extends NodeToolCmd
-{
+public class GetLoggingLevels extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetLoggingLevels.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         // what if some one set a very long logger name? 50 space may not be enough...
         probe.output().out.printf("%n%-50s%10s%n", "Logger Name", "Log Level");
-        for (Map.Entry<String, String> entry : probe.getLoggingLevels().entrySet())
-            probe.output().out.printf("%-50s%10s%n", entry.getKey(), entry.getValue());
+        for (Map.Entry<String, String> entry : probe.getLoggingLevels().entrySet()) probe.output().out.printf("%-50s%10s%n", entry.getKey(), entry.getValue());
     }
 }

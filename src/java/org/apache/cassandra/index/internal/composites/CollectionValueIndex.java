@@ -18,7 +18,6 @@
 package org.apache.cassandra.index.internal.composites;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.Operator;
 import org.apache.cassandra.db.*;
@@ -40,76 +39,55 @@ import org.apache.cassandra.schema.IndexMetadata;
  *   for each so that if we delete one of the value only we only delete the
  *   entry corresponding to that value.
  */
-public class CollectionValueIndex extends CassandraIndex
-{
-    public CollectionValueIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef)
-    {
+public class CollectionValueIndex extends CassandraIndex {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CollectionValueIndex.class);
+
+    public CollectionValueIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef) {
         super(baseCfs, indexDef);
     }
 
-    public ByteBuffer getIndexedValue(ByteBuffer partitionKey,
-                                      Clustering<?> clustering,
-                                      CellPath path, ByteBuffer cellValue)
-    {
+    public ByteBuffer getIndexedValue(ByteBuffer partitionKey, Clustering<?> clustering, CellPath path, ByteBuffer cellValue) {
         return cellValue;
     }
 
-    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey,
-                                                   ClusteringPrefix<T> prefix,
-                                                   CellPath path)
-    {
+    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey, ClusteringPrefix<T> prefix, CellPath path) {
         CBuilder builder = CBuilder.create(getIndexComparator());
         builder.add(partitionKey);
-        for (int i = 0; i < prefix.size(); i++)
-            builder.add(prefix.get(i), prefix.accessor());
-
+        for (int i = 0; i < prefix.size(); i++) builder.add(prefix.get(i), prefix.accessor());
         // When indexing a static column, prefix will be empty but only the
         // partition key is needed at query time.
         // In the non-static case, cell will be present during indexing but
         // not when searching (CASSANDRA-7525).
         if (prefix.size() == baseCfs.metadata().clusteringColumns().size() && path != null)
             builder.add(path.get(0));
-
         return builder;
     }
 
-    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry)
-    {
+    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry) {
         Clustering<?> clustering = indexEntry.clustering();
         Clustering<?> indexedEntryClustering = null;
         if (getIndexedColumn().isStatic())
             indexedEntryClustering = Clustering.STATIC_CLUSTERING;
-        else
-        {
+        else {
             CBuilder builder = CBuilder.create(baseCfs.getComparator());
-            for (int i = 0; i < baseCfs.getComparator().size(); i++)
-                builder.add(clustering, i + 1);
+            for (int i = 0; i < baseCfs.getComparator().size(); i++) builder.add(clustering, i + 1);
             indexedEntryClustering = builder.build();
         }
-
-        return new IndexEntry(indexedValue,
-                                clustering,
-                                indexEntry.primaryKeyLivenessInfo().timestamp(),
-                                clustering.bufferAt(0),
-                                indexedEntryClustering);
+        return new IndexEntry(indexedValue, clustering, indexEntry.primaryKeyLivenessInfo().timestamp(), clustering.bufferAt(0), indexedEntryClustering);
     }
 
-    public boolean supportsOperator(ColumnMetadata indexedColumn, Operator operator)
-    {
+    public boolean supportsOperator(ColumnMetadata indexedColumn, Operator operator) {
         return operator == Operator.CONTAINS && !(indexedColumn.type instanceof SetType);
     }
 
-    public boolean isStale(Row data, ByteBuffer indexValue, int nowInSec)
-    {
+    public boolean isStale(Row data, ByteBuffer indexValue, int nowInSec) {
         ColumnMetadata columnDef = indexedColumn;
         ComplexColumnData complexData = data.getComplexColumnData(columnDef);
         if (complexData == null)
             return true;
-
-        for (Cell<?> cell : complexData)
-        {
-            if (cell.isLive(nowInSec) && ((CollectionType) columnDef.type).valueComparator()
-                                                                          .compare(indexValue, cell.buffer()) == 0)
+        for (Cell<?> cell : complexData) {
+            if (cell.isLive(nowInSec) && ((CollectionType) columnDef.type).valueComparator().compare(indexValue, cell.buffer()) == 0)
                 return false;
         }
         return true;

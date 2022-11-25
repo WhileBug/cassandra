@@ -18,9 +18,7 @@
 package org.apache.cassandra.cql3.selection;
 
 import java.util.*;
-
 import com.google.common.collect.Lists;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.cql3.QueryOptions;
@@ -34,27 +32,29 @@ import org.apache.cassandra.exceptions.InvalidRequestException;
 /**
  * A set of <code>Selector</code> factories.
  */
-final class SelectorFactories implements Iterable<Selector.Factory>
-{
+final class SelectorFactories implements Iterable<Selector.Factory> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SelectorFactories.class);
+
     /**
      * The <code>Selector</code> factories.
      */
-    private final List<Selector.Factory> factories;
+    private final transient List<Selector.Factory> factories;
 
     /**
      * <code>true</code> if one of the factory creates writetime selectors.
      */
-    private boolean containsWritetimeFactory;
+    private transient boolean containsWritetimeFactory;
 
     /**
      * <code>true</code> if one of the factory creates TTL selectors.
      */
-    private boolean containsTTLFactory;
+    private transient boolean containsTTLFactory;
 
     /**
      * The number of factories creating aggregates.
      */
-    private int numberOfAggregateFactories;
+    private transient int numberOfAggregateFactories;
 
     /**
      * Creates a new <code>SelectorFactories</code> instance and collect the column definitions.
@@ -70,27 +70,13 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      * @return a new <code>SelectorFactories</code> instance
      * @throws InvalidRequestException if a problem occurs while creating the factories
      */
-    public static SelectorFactories createFactoriesAndCollectColumnDefinitions(List<Selectable> selectables,
-                                                                               List<AbstractType<?>> expectedTypes,
-                                                                               TableMetadata table,
-                                                                               List<ColumnMetadata> defs,
-                                                                               VariableSpecifications boundNames)
-                                                                               throws InvalidRequestException
-    {
+    public static SelectorFactories createFactoriesAndCollectColumnDefinitions(List<Selectable> selectables, List<AbstractType<?>> expectedTypes, TableMetadata table, List<ColumnMetadata> defs, VariableSpecifications boundNames) throws InvalidRequestException {
         return new SelectorFactories(selectables, expectedTypes, table, defs, boundNames);
     }
 
-    private SelectorFactories(List<Selectable> selectables,
-                              List<AbstractType<?>> expectedTypes,
-                              TableMetadata table,
-                              List<ColumnMetadata> defs,
-                              VariableSpecifications boundNames)
-                              throws InvalidRequestException
-    {
+    private SelectorFactories(List<Selectable> selectables, List<AbstractType<?>> expectedTypes, TableMetadata table, List<ColumnMetadata> defs, VariableSpecifications boundNames) throws InvalidRequestException {
         factories = new ArrayList<>(selectables.size());
-
-        for (int i = 0; i < selectables.size(); i++)
-        {
+        for (int i = 0; i < selectables.size(); i++) {
             Selectable selectable = selectables.get(i);
             AbstractType<?> expectedType = expectedTypes == null ? null : expectedTypes.get(i);
             Factory factory = selectable.newSelectorFactory(table, expectedType, defs, boundNames);
@@ -102,8 +88,7 @@ final class SelectorFactories implements Iterable<Selector.Factory>
         }
     }
 
-    public void addFunctionsTo(List<Function> functions)
-    {
+    public void addFunctionsTo(List<Function> functions) {
         factories.forEach(p -> p.addFunctionsTo(functions));
     }
 
@@ -113,8 +98,7 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      * @param i the factory index
      * @return the factory with the specified index
      */
-    public Selector.Factory get(int i)
-    {
+    public Selector.Factory get(int i) {
         return factories.get(i);
     }
 
@@ -124,10 +108,8 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      * @param columnIndex the index of the column
      * @return the index of the {@code SimpleSelector.Factory} for the specified column or -1 if it does not exist.
      */
-    public int indexOfSimpleSelectorFactory(int columnIndex)
-    {
-        for (int i = 0, m = factories.size(); i < m; i++)
-        {
+    public int indexOfSimpleSelectorFactory(int columnIndex) {
+        for (int i = 0, m = factories.size(); i < m; i++) {
             if (factories.get(i).isSimpleSelectorFactoryFor(columnIndex))
                 return i;
         }
@@ -139,8 +121,7 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      * @param def the column that is needed for ordering
      * @param index the index of the column definition in the Selection's list of columns
      */
-    public void addSelectorForOrdering(ColumnMetadata def, int index)
-    {
+    public void addSelectorForOrdering(ColumnMetadata def, int index) {
         factories.add(SimpleSelector.newFactory(def, index));
     }
 
@@ -149,8 +130,7 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      *
      * @return <code>true</code> if the selector built by this factor does aggregation, <code>false</code> otherwise.
      */
-    public boolean doesAggregation()
-    {
+    public boolean doesAggregation() {
         return numberOfAggregateFactories > 0;
     }
 
@@ -160,8 +140,7 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      * @return <code>true</code> if this <code>SelectorFactories</code> contains at least one factory for writetime
      * selectors, <code>false</code> otherwise.
      */
-    public boolean containsWritetimeSelectorFactory()
-    {
+    public boolean containsWritetimeSelectorFactory() {
         return containsWritetimeFactory;
     }
 
@@ -171,8 +150,7 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      * @return <code>true</code> if this <code>SelectorFactories</code> contains at least one factory for TTL
      * selectors, <code>false</code> otherwise.
      */
-    public boolean containsTTLSelectorFactory()
-    {
+    public boolean containsTTLSelectorFactory() {
         return containsTTLFactory;
     }
 
@@ -182,16 +160,13 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      * @param options the query options for the query being executed.
      * @return a list of new <code>Selector</code> instances.
      */
-    public List<Selector> newInstances(QueryOptions options) throws InvalidRequestException
-    {
+    public List<Selector> newInstances(QueryOptions options) throws InvalidRequestException {
         List<Selector> selectors = new ArrayList<>(factories.size());
-        for (Selector.Factory factory : factories)
-            selectors.add(factory.newInstance(options));
+        for (Selector.Factory factory : factories) selectors.add(factory.newInstance(options));
         return selectors;
     }
 
-    public Iterator<Factory> iterator()
-    {
+    public Iterator<Factory> iterator() {
         return factories.iterator();
     }
 
@@ -201,12 +176,10 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      *
      * @return a list of column names
      */
-    public List<String> getColumnNames()
-    {
-        return Lists.transform(factories, new com.google.common.base.Function<Selector.Factory, String>()
-        {
-            public String apply(Selector.Factory factory)
-            {
+    public List<String> getColumnNames() {
+        return Lists.transform(factories, new com.google.common.base.Function<Selector.Factory, String>() {
+
+            public String apply(Selector.Factory factory) {
                 return factory.getColumnName();
             }
         });
@@ -217,39 +190,32 @@ final class SelectorFactories implements Iterable<Selector.Factory>
      *
      * @return a list of types
      */
-    public List<AbstractType<?>> getReturnTypes()
-    {
-        return Lists.transform(factories, new com.google.common.base.Function<Selector.Factory, AbstractType<?>>()
-        {
-            public AbstractType<?> apply(Selector.Factory factory)
-            {
+    public List<AbstractType<?>> getReturnTypes() {
+        return Lists.transform(factories, new com.google.common.base.Function<Selector.Factory, AbstractType<?>>() {
+
+            public AbstractType<?> apply(Selector.Factory factory) {
                 return factory.getReturnType();
             }
         });
     }
 
-    boolean areAllFetchedColumnsKnown()
-    {
-        for (Factory factory : factories)
-        {
+    boolean areAllFetchedColumnsKnown() {
+        for (Factory factory : factories) {
             if (!factory.areAllFetchedColumnsKnown())
                 return false;
         }
         return true;
     }
 
-    void addFetchedColumns(Builder builder)
-    {
-        for (Factory factory : factories)
-            factory.addFetchedColumns(builder);
+    void addFetchedColumns(Builder builder) {
+        for (Factory factory : factories) factory.addFetchedColumns(builder);
     }
 
     /**
      * Returns the number of factories.
      * @return the number of factories
      */
-    public int size()
-    {
+    public int size() {
         return factories.size();
     }
 }

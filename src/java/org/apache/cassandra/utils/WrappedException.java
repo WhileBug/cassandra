@@ -15,16 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 /**
  * Wrapped runtime exception for lambda functions
  */
-public class WrappedException extends RuntimeException
-{
-    public WrappedException(Exception cause)
-    {
+public class WrappedException extends RuntimeException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WrappedException.class);
+
+    public WrappedException(Exception cause) {
         super(cause);
     }
 }

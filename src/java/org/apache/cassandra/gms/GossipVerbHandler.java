@@ -15,16 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.gms;
 
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 
-public class GossipVerbHandler<T> implements IVerbHandler<T>
-{
-    public void doVerb(Message<T> message)
-    {
+public class GossipVerbHandler<T> implements IVerbHandler<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GossipVerbHandler.class);
+
+    public void doVerb(Message<T> message) {
         Gossiper.instance.setLastProcessedMessageAt(message.creationTimeMillis());
     }
 }

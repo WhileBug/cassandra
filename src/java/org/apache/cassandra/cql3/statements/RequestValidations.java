@@ -22,17 +22,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.utils.ByteBufferUtil;
-
 import static org.apache.commons.lang3.ArrayUtils.EMPTY_OBJECT_ARRAY;
 
 /**
  * Utility methods use to perform request validation.
  */
-public final class RequestValidations
-{
+public final class RequestValidations {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RequestValidations.class);
+
     /**
      * Checks that the specified expression is <code>true</code>. If not an <code>InvalidRequestException</code> will
      * be thrown.
@@ -41,8 +41,7 @@ public final class RequestValidations
      * @param message the error message
      * @throws InvalidRequestException if the specified expression is <code>false</code>.
      */
-    public static void checkTrue(boolean expression, String message) throws InvalidRequestException
-    {
+    public static void checkTrue(boolean expression, String message) throws InvalidRequestException {
         checkTrue(expression, message, EMPTY_OBJECT_ARRAY);
     }
 
@@ -55,11 +54,7 @@ public final class RequestValidations
      * @param messageArgs the message arguments
      * @throws InvalidRequestException if the specified expression is <code>false</code>.
      */
-    public static void checkTrue(boolean expression,
-                                 String messageTemplate,
-                                 Object... messageArgs)
-                                 throws InvalidRequestException
-    {
+    public static void checkTrue(boolean expression, String messageTemplate, Object... messageArgs) throws InvalidRequestException {
         if (!expression)
             throw invalidRequest(messageTemplate, messageArgs);
     }
@@ -71,8 +66,7 @@ public final class RequestValidations
      * @param message the error message
      * @throws InvalidRequestException if the specified list contains duplicates.
      */
-    public static void checkContainsNoDuplicates(List<?> list, String message) throws InvalidRequestException
-    {
+    public static void checkContainsNoDuplicates(List<?> list, String message) throws InvalidRequestException {
         if (new HashSet<>(list).size() != list.size())
             throw invalidRequest(message);
     }
@@ -85,10 +79,7 @@ public final class RequestValidations
      * @param message the error message
      * @throws InvalidRequestException if the specified list contains duplicates.
      */
-    public static <E> void checkContainsOnly(List<E> list,
-                                             List<E> expectedElements,
-                                             String message) throws InvalidRequestException
-    {
+    public static <E> void checkContainsOnly(List<E> list, List<E> expectedElements, String message) throws InvalidRequestException {
         List<E> copy = new ArrayList<>(list);
         copy.removeAll(expectedElements);
         if (!copy.isEmpty())
@@ -104,11 +95,7 @@ public final class RequestValidations
      * @param messageArgs the message arguments
      * @throws InvalidRequestException if the specified expression is <code>true</code>.
      */
-    public static void checkFalse(boolean expression,
-                                  String messageTemplate,
-                                  Object... messageArgs)
-                                  throws InvalidRequestException
-    {
+    public static void checkFalse(boolean expression, String messageTemplate, Object... messageArgs) throws InvalidRequestException {
         checkTrue(!expression, messageTemplate, messageArgs);
     }
 
@@ -120,8 +107,7 @@ public final class RequestValidations
      * @param message the error message
      * @throws InvalidRequestException if the specified expression is <code>true</code>.
      */
-    public static void checkFalse(boolean expression, String message) throws InvalidRequestException
-    {
+    public static void checkFalse(boolean expression, String message) throws InvalidRequestException {
         checkTrue(!expression, message);
     }
 
@@ -135,9 +121,7 @@ public final class RequestValidations
      * @return the object
      * @throws InvalidRequestException if the specified object is <code>null</code>.
      */
-    public static <T> T checkNotNull(T object, String messageTemplate, Object... messageArgs)
-            throws InvalidRequestException
-    {
+    public static <T> T checkNotNull(T object, String messageTemplate, Object... messageArgs) throws InvalidRequestException {
         checkTrue(object != null, messageTemplate, messageArgs);
         return object;
     }
@@ -152,9 +136,7 @@ public final class RequestValidations
      * @return the collection
      * @throws InvalidRequestException if the specified collection is <code>empty</code>.
      */
-    public static <T extends Collection<E>, E> T checkNotEmpty(T collection, String messageTemplate, Object... messageArgs)
-            throws InvalidRequestException
-    {
+    public static <T extends Collection<E>, E> T checkNotEmpty(T collection, String messageTemplate, Object... messageArgs) throws InvalidRequestException {
         checkTrue(!collection.isEmpty(), messageTemplate, messageArgs);
         return collection;
     }
@@ -168,9 +150,7 @@ public final class RequestValidations
      * @param messageArgs the message arguments
      * @throws InvalidRequestException if the specified bind marker value is not set to a meaningful value.
      */
-    public static void checkBindValueSet(ByteBuffer b, String messageTemplate, Object... messageArgs)
-            throws InvalidRequestException
-    {
+    public static void checkBindValueSet(ByteBuffer b, String messageTemplate, Object... messageArgs) throws InvalidRequestException {
         checkTrue(b != ByteBufferUtil.UNSET_BYTE_BUFFER, messageTemplate, messageArgs);
     }
 
@@ -184,9 +164,7 @@ public final class RequestValidations
      * @return the object
      * @throws InvalidRequestException if the specified object is not <code>null</code>.
      */
-    public static <T> T checkNull(T object, String messageTemplate, Object... messageArgs)
-            throws InvalidRequestException
-    {
+    public static <T> T checkNull(T object, String messageTemplate, Object... messageArgs) throws InvalidRequestException {
         checkTrue(object == null, messageTemplate, messageArgs);
         return object;
     }
@@ -200,8 +178,7 @@ public final class RequestValidations
      * @return the object
      * @throws InvalidRequestException if the specified object is not <code>null</code>.
      */
-    public static <T> T checkNull(T object, String message) throws InvalidRequestException
-    {
+    public static <T> T checkNull(T object, String message) throws InvalidRequestException {
         return checkNull(object, message, EMPTY_OBJECT_ARRAY);
     }
 
@@ -212,16 +189,13 @@ public final class RequestValidations
      * @param messageArgs the message arguments
      * @return an <code>InvalidRequestException</code> with the specified message.
      */
-    public static InvalidRequestException invalidRequest(String messageTemplate, Object... messageArgs)
-    {
+    public static InvalidRequestException invalidRequest(String messageTemplate, Object... messageArgs) {
         return new InvalidRequestException(String.format(messageTemplate, messageArgs));
     }
 
     /**
      * This class must not be instantiated as it only contains static methods.
      */
-    private RequestValidations()
-    {
-
+    private RequestValidations() {
     }
 }

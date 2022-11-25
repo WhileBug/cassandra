@@ -19,9 +19,7 @@ package org.apache.cassandra.net;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
-
 import io.netty.channel.ChannelPipeline;
-
 import static org.apache.cassandra.net.FrameDecoderCrc.HEADER_LENGTH;
 import static org.apache.cassandra.net.FrameDecoderCrc.isSelfContained;
 import static org.apache.cassandra.net.FrameDecoderCrc.payloadLength;
@@ -55,46 +53,40 @@ import static org.apache.cassandra.net.FrameDecoderCrc.verifyHeader6b;
  * |                                                               |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
-final class FrameDecoderUnprotected extends FrameDecoderWith8bHeader
-{
-    FrameDecoderUnprotected(BufferPoolAllocator allocator)
-    {
+final class FrameDecoderUnprotected extends FrameDecoderWith8bHeader {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameDecoderUnprotected.class);
+
+    FrameDecoderUnprotected(BufferPoolAllocator allocator) {
         super(allocator);
     }
 
-    public static FrameDecoderUnprotected create(BufferPoolAllocator allocator)
-    {
+    public static FrameDecoderUnprotected create(BufferPoolAllocator allocator) {
         return new FrameDecoderUnprotected(allocator);
     }
 
-    final long readHeader(ByteBuffer frame, int begin)
-    {
+    final long readHeader(ByteBuffer frame, int begin) {
         return readHeader6b(frame, begin);
     }
 
-    final CorruptFrame verifyHeader(long header6b)
-    {
+    final CorruptFrame verifyHeader(long header6b) {
         return verifyHeader6b(header6b);
     }
 
-    final int frameLength(long header6b)
-    {
+    final int frameLength(long header6b) {
         return payloadLength(header6b) + HEADER_LENGTH;
     }
 
-    final Frame unpackFrame(ShareableBytes bytes, int begin, int end, long header6b)
-    {
+    final Frame unpackFrame(ShareableBytes bytes, int begin, int end, long header6b) {
         boolean isSelfContained = isSelfContained(header6b);
         return new IntactFrame(isSelfContained, bytes.slice(begin + HEADER_LENGTH, end));
     }
 
-    void decode(Collection<Frame> into, ShareableBytes bytes)
-    {
+    void decode(Collection<Frame> into, ShareableBytes bytes) {
         decode(into, bytes, HEADER_LENGTH);
     }
 
-    void addLastTo(ChannelPipeline pipeline)
-    {
+    void addLastTo(ChannelPipeline pipeline) {
         pipeline.addLast("frameDecoderUnprotected", this);
     }
 }

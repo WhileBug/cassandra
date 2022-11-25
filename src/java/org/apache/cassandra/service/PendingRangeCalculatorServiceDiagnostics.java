@@ -15,59 +15,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service;
 
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.cassandra.diag.DiagnosticEventService;
 import org.apache.cassandra.service.PendingRangeCalculatorServiceEvent.PendingRangeCalculatorServiceEventType;
 
 /**
  * Utility methods for diagnostic events related to {@link PendingRangeCalculatorService}.
  */
-final class PendingRangeCalculatorServiceDiagnostics
-{
-    private static final DiagnosticEventService service = DiagnosticEventService.instance();
+final class PendingRangeCalculatorServiceDiagnostics {
 
-    private PendingRangeCalculatorServiceDiagnostics()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PendingRangeCalculatorServiceDiagnostics.class);
+
+    private static final transient DiagnosticEventService service = DiagnosticEventService.instance();
+
+    private PendingRangeCalculatorServiceDiagnostics() {
     }
-    
-    static void taskStarted(PendingRangeCalculatorService calculatorService, AtomicInteger taskCount)
-    {
+
+    static void taskStarted(PendingRangeCalculatorService calculatorService, AtomicInteger taskCount) {
         if (isEnabled(PendingRangeCalculatorServiceEventType.TASK_STARTED))
-            service.publish(new PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType.TASK_STARTED,
-                                                                   calculatorService,
-                                                                   taskCount.get()));
+            service.publish(new PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType.TASK_STARTED, calculatorService, taskCount.get()));
     }
 
-    static void taskFinished(PendingRangeCalculatorService calculatorService, AtomicInteger taskCount)
-    {
+    static void taskFinished(PendingRangeCalculatorService calculatorService, AtomicInteger taskCount) {
         if (isEnabled(PendingRangeCalculatorServiceEventType.TASK_FINISHED_SUCCESSFULLY))
-            service.publish(new PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType.TASK_FINISHED_SUCCESSFULLY,
-                                                                   calculatorService,
-                                                                   taskCount.get()));
+            service.publish(new PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType.TASK_FINISHED_SUCCESSFULLY, calculatorService, taskCount.get()));
     }
 
-    static void taskRejected(PendingRangeCalculatorService calculatorService, AtomicInteger taskCount)
-    {
+    static void taskRejected(PendingRangeCalculatorService calculatorService, AtomicInteger taskCount) {
         if (isEnabled(PendingRangeCalculatorServiceEventType.TASK_EXECUTION_REJECTED))
-            service.publish(new PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType.TASK_EXECUTION_REJECTED,
-                                                                   calculatorService,
-                                                                   taskCount.get()));
+            service.publish(new PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType.TASK_EXECUTION_REJECTED, calculatorService, taskCount.get()));
     }
 
-    static void taskCountChanged(PendingRangeCalculatorService calculatorService, int taskCount)
-    {
+    static void taskCountChanged(PendingRangeCalculatorService calculatorService, int taskCount) {
         if (isEnabled(PendingRangeCalculatorServiceEventType.TASK_COUNT_CHANGED))
-            service.publish(new PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType.TASK_COUNT_CHANGED,
-                                                                   calculatorService,
-                                                                   taskCount));
+            service.publish(new PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType.TASK_COUNT_CHANGED, calculatorService, taskCount));
     }
 
-    private static boolean isEnabled(PendingRangeCalculatorServiceEventType type)
-    {
+    private static boolean isEnabled(PendingRangeCalculatorServiceEventType type) {
         return service.isEnabled(PendingRangeCalculatorServiceEvent.class, type);
     }
 }

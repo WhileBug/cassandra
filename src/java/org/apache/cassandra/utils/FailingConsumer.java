@@ -19,24 +19,21 @@ package org.apache.cassandra.utils;
 
 import java.util.function.Consumer;
 
-public interface FailingConsumer<T> extends Consumer<T>
-{
+public interface FailingConsumer<T> extends Consumer<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FailingConsumer.class);
+
     void doAccept(T t) throws Throwable;
 
-    default void accept(T t)
-    {
-        try
-        {
+    default void accept(T t) {
+        try {
             doAccept(t);
-        }
-        catch (Throwable e)
-        {
+        } catch (Throwable e) {
             throw Throwables.throwAsUncheckedException(e);
         }
     }
 
-    static <T> FailingConsumer<T> orFail(FailingConsumer<T> fn)
-    {
+    static <T> FailingConsumer<T> orFail(FailingConsumer<T> fn) {
         return fn;
     }
 }

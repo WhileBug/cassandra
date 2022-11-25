@@ -21,74 +21,72 @@ import java.io.DataInput;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.PartitionPosition;
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.io.util.DataOutputPlus;
 
-public abstract class Token implements RingPosition<Token>, Serializable
-{
-    private static final long serialVersionUID = 1L;
+public abstract class Token implements RingPosition<Token>, Serializable {
 
-    public static final TokenSerializer serializer = new TokenSerializer();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Token.class);
 
-    public static abstract class TokenFactory
-    {
+    private static final transient long serialVersionUID = 1L;
+
+    public static final transient TokenSerializer serializer = new TokenSerializer();
+
+    public static abstract class TokenFactory {
+
         public abstract ByteBuffer toByteArray(Token token);
+
         public abstract Token fromByteArray(ByteBuffer bytes);
-        public abstract String toString(Token token); // serialize as string, not necessarily human-readable
-        public abstract Token fromString(String string); // deserialize
+
+        // serialize as string, not necessarily human-readable
+        public abstract String toString(Token token);
+
+        // deserialize
+        public abstract Token fromString(String string);
+
         public abstract void validate(String token) throws ConfigurationException;
 
-        public void serialize(Token token, DataOutputPlus out) throws IOException
-        {
+        public void serialize(Token token, DataOutputPlus out) throws IOException {
             out.write(toByteArray(token));
         }
 
-        public void serialize(Token token, ByteBuffer out) throws IOException
-        {
+        public void serialize(Token token, ByteBuffer out) throws IOException {
             out.put(toByteArray(token));
         }
 
-        public Token fromByteBuffer(ByteBuffer bytes, int position, int length)
-        {
+        public Token fromByteBuffer(ByteBuffer bytes, int position, int length) {
             bytes = bytes.duplicate();
-            bytes.position(position)
-                 .limit(position + length);
+            bytes.position(position).limit(position + length);
             return fromByteArray(bytes);
         }
 
-        public int byteSize(Token token)
-        {
+        public int byteSize(Token token) {
             return toByteArray(token).remaining();
         }
     }
 
-    public static class TokenSerializer implements IPartitionerDependentSerializer<Token>
-    {
-        public void serialize(Token token, DataOutputPlus out, int version) throws IOException
-        {
+    public static class TokenSerializer implements IPartitionerDependentSerializer<Token> {
+
+        public void serialize(Token token, DataOutputPlus out, int version) throws IOException {
             IPartitioner p = token.getPartitioner();
             out.writeInt(p.getTokenFactory().byteSize(token));
             p.getTokenFactory().serialize(token, out);
         }
 
-        public Token deserialize(DataInput in, IPartitioner p, int version) throws IOException
-        {
+        public Token deserialize(DataInput in, IPartitioner p, int version) throws IOException {
             int size = deserializeSize(in);
             byte[] bytes = new byte[size];
             in.readFully(bytes);
             return p.getTokenFactory().fromByteArray(ByteBuffer.wrap(bytes));
         }
 
-        public int deserializeSize(DataInput in) throws IOException
-        {
+        public int deserializeSize(DataInput in) throws IOException {
             return in.readInt();
         }
 
-        public long serializedSize(Token object, int version)
-        {
+        public long serializedSize(Token object, int version) {
             IPartitioner p = object.getPartitioner();
             int byteSize = p.getTokenFactory().byteSize(object);
             return TypeSizes.sizeof(byteSize) + byteSize;
@@ -96,7 +94,9 @@ public abstract class Token implements RingPosition<Token>, Serializable
     }
 
     abstract public IPartitioner getPartitioner();
+
     abstract public long getHeapSize();
+
     abstract public Object getTokenValue();
 
     /**
@@ -104,6 +104,7 @@ public abstract class Token implements RingPosition<Token>, Serializable
      * Used by the token allocation algorithm (see CASSANDRA-7032).
      */
     abstract public double size(Token next);
+
     /**
      * Returns a token that is slightly greater than this. Used to avoid clashes
      * between nodes in separate datacentres trying to use the same token via
@@ -111,18 +112,15 @@ public abstract class Token implements RingPosition<Token>, Serializable
      */
     abstract public Token increaseSlightly();
 
-    public Token getToken()
-    {
+    public Token getToken() {
         return this;
     }
 
-    public Token minValue()
-    {
+    public Token minValue() {
         return getPartitioner().getMinimumToken();
     }
 
-    public boolean isMinimum()
-    {
+    public boolean isMinimum() {
         return this.equals(minValue());
     }
 
@@ -140,13 +138,11 @@ public abstract class Token implements RingPosition<Token>, Serializable
      * Note that those are "fake" keys and should only be used for comparison
      * of other keys, for selection of keys when only a token is known.
      */
-    public KeyBound minKeyBound()
-    {
+    public KeyBound minKeyBound() {
         return new KeyBound(this, true);
     }
 
-    public KeyBound maxKeyBound()
-    {
+    public KeyBound maxKeyBound() {
         /*
          * For each token, we needs both minKeyBound and maxKeyBound
          * because a token corresponds to a range of keys. But the minimun
@@ -159,78 +155,66 @@ public abstract class Token implements RingPosition<Token>, Serializable
         return new KeyBound(this, false);
     }
 
-    public static class KeyBound implements PartitionPosition
-    {
-        private final Token token;
-        public final boolean isMinimumBound;
+    public static class KeyBound implements PartitionPosition {
 
-        private KeyBound(Token t, boolean isMinimumBound)
-        {
+        private final transient Token token;
+
+        public final transient boolean isMinimumBound;
+
+        private KeyBound(Token t, boolean isMinimumBound) {
             this.token = t;
             this.isMinimumBound = isMinimumBound;
         }
 
-        public Token getToken()
-        {
+        public Token getToken() {
             return token;
         }
 
-        public int compareTo(PartitionPosition pos)
-        {
+        public int compareTo(PartitionPosition pos) {
             if (this == pos)
                 return 0;
-
             int cmp = getToken().compareTo(pos.getToken());
             if (cmp != 0)
                 return cmp;
-
             if (isMinimumBound)
-                return ((pos instanceof KeyBound) && ((KeyBound)pos).isMinimumBound) ? 0 : -1;
+                return ((pos instanceof KeyBound) && ((KeyBound) pos).isMinimumBound) ? 0 : -1;
             else
-                return ((pos instanceof KeyBound) && !((KeyBound)pos).isMinimumBound) ? 0 : 1;
+                return ((pos instanceof KeyBound) && !((KeyBound) pos).isMinimumBound) ? 0 : 1;
         }
 
-        public IPartitioner getPartitioner()
-        {
+        public IPartitioner getPartitioner() {
             return getToken().getPartitioner();
         }
 
-        public KeyBound minValue()
-        {
+        public KeyBound minValue() {
             return getPartitioner().getMinimumToken().minKeyBound();
         }
 
-        public boolean isMinimum()
-        {
+        public boolean isMinimum() {
             return getToken().isMinimum();
         }
 
-        public PartitionPosition.Kind kind()
-        {
+        public PartitionPosition.Kind kind() {
             return isMinimumBound ? PartitionPosition.Kind.MIN_BOUND : PartitionPosition.Kind.MAX_BOUND;
         }
 
         @Override
-        public boolean equals(Object obj)
-        {
+        public boolean equals(Object obj) {
             if (this == obj)
                 return true;
             if (obj == null || this.getClass() != obj.getClass())
                 return false;
-
-            KeyBound other = (KeyBound)obj;
+            KeyBound other = (KeyBound) obj;
             return token.equals(other.token) && isMinimumBound == other.isMinimumBound;
         }
 
         @Override
-        public int hashCode()
-        {
+        public int hashCode() {
             return getToken().hashCode() + (isMinimumBound ? 0 : 1);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return String.format("%s(%s)", isMinimumBound ? "min" : "max", getToken().toString());
         }
     }

@@ -15,18 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads.repair;
 
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.cassandra.db.DecoratedKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.codahale.metrics.Meter;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.Mutation;
@@ -38,7 +35,6 @@ import org.apache.cassandra.locator.Replica;
 import org.apache.cassandra.locator.ReplicaPlan;
 import org.apache.cassandra.metrics.ReadRepairMetrics;
 import org.apache.cassandra.tracing.Tracing;
-
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
@@ -46,52 +42,44 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  *  updates have been written to nodes needing correction. Breaks write
  *  atomicity in some situations
  */
-public class BlockingReadRepair<E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>>
-        extends AbstractReadRepair<E, P>
-{
-    private static final Logger logger = LoggerFactory.getLogger(BlockingReadRepair.class);
+public class BlockingReadRepair<E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>> extends AbstractReadRepair<E, P> {
 
-    protected final Queue<BlockingPartitionRepair> repairs = new ConcurrentLinkedQueue<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BlockingReadRepair.class);
 
-    BlockingReadRepair(ReadCommand command, ReplicaPlan.Shared<E, P> replicaPlan, long queryStartNanoTime)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(BlockingReadRepair.class);
+
+    protected final transient Queue<BlockingPartitionRepair> repairs = new ConcurrentLinkedQueue<>();
+
+    BlockingReadRepair(ReadCommand command, ReplicaPlan.Shared<E, P> replicaPlan, long queryStartNanoTime) {
         super(command, replicaPlan, queryStartNanoTime);
     }
 
-    public UnfilteredPartitionIterators.MergeListener getMergeListener(P replicaPlan)
-    {
+    public UnfilteredPartitionIterators.MergeListener getMergeListener(P replicaPlan) {
         return new PartitionIteratorMergeListener<>(replicaPlan, command, this);
     }
 
     @Override
-    Meter getRepairMeter()
-    {
+    Meter getRepairMeter() {
         return ReadRepairMetrics.repairedBlocking;
     }
 
     @Override
-    public void maybeSendAdditionalWrites()
-    {
-        for (BlockingPartitionRepair repair: repairs)
-        {
+    public void maybeSendAdditionalWrites() {
+        for (BlockingPartitionRepair repair : repairs) {
             repair.maybeSendAdditionalWrites(cfs.additionalWriteLatencyNanos, TimeUnit.NANOSECONDS);
         }
     }
 
     @Override
-    public void awaitWrites()
-    {
+    public void awaitWrites() {
         BlockingPartitionRepair timedOut = null;
-        for (BlockingPartitionRepair repair : repairs)
-        {
-            if (!repair.awaitRepairsUntil(DatabaseDescriptor.getReadRpcTimeout(NANOSECONDS) + queryStartNanoTime, NANOSECONDS))
-            {
+        for (BlockingPartitionRepair repair : repairs) {
+            if (!repair.awaitRepairsUntil(DatabaseDescriptor.getReadRpcTimeout(NANOSECONDS) + queryStartNanoTime, NANOSECONDS)) {
                 timedOut = repair;
                 break;
             }
         }
-        if (timedOut != null)
-        {
+        if (timedOut != null) {
             // We got all responses, but timed out while repairing;
             // pick one of the repairs to throw, as this is better than completely manufacturing the error message
             int blockFor = timedOut.blockFor();
@@ -100,14 +88,12 @@ public class BlockingReadRepair<E extends Endpoints<E>, P extends ReplicaPlan.Fo
                 Tracing.trace("Timed out while read-repairing after receiving all {} data and digest responses", blockFor);
             else
                 logger.debug("Timeout while read-repairing after receiving all {} data and digest responses", blockFor);
-
             throw new ReadTimeoutException(replicaPlan().consistencyLevel(), received, blockFor, true);
         }
     }
 
     @Override
-    public void repairPartition(DecoratedKey partitionKey, Map<Replica, Mutation> mutations, ReplicaPlan.ForTokenWrite writePlan)
-    {
+    public void repairPartition(DecoratedKey partitionKey, Map<Replica, Mutation> mutations, ReplicaPlan.ForTokenWrite writePlan) {
         BlockingPartitionRepair blockingRepair = new BlockingPartitionRepair(partitionKey, mutations, writePlan);
         blockingRepair.sendInitialRepairs();
         repairs.add(blockingRepair);

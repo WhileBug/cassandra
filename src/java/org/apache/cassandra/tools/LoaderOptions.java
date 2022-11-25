@@ -26,15 +26,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.*;
 import java.util.HashSet;
 import java.util.Set;
-
 import com.google.common.base.Throwables;
 import com.google.common.net.HostAndPort;
-
 import org.apache.cassandra.config.*;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.tools.BulkLoader.CmdLineOptions;
-
 import com.datastax.driver.core.AuthProvider;
 import com.datastax.driver.core.PlainTextAuthProvider;
 import org.apache.commons.cli.*;
@@ -42,60 +39,101 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LoaderOptions
-{
-    private static final Logger logger = LoggerFactory.getLogger(LoaderOptions.class);
+public class LoaderOptions {
 
-    public static final String HELP_OPTION = "help";
-    public static final String VERBOSE_OPTION = "verbose";
-    public static final String NOPROGRESS_OPTION = "no-progress";
-    public static final String NATIVE_PORT_OPTION = "port";
-    public static final String STORAGE_PORT_OPTION = "storage-port";
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LoaderOptions.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(LoaderOptions.class);
+
+    public static final transient String HELP_OPTION = "help";
+
+    public static final transient String VERBOSE_OPTION = "verbose";
+
+    public static final transient String NOPROGRESS_OPTION = "no-progress";
+
+    public static final transient String NATIVE_PORT_OPTION = "port";
+
+    public static final transient String STORAGE_PORT_OPTION = "storage-port";
+
     @Deprecated
-    public static final String SSL_STORAGE_PORT_OPTION = "ssl-storage-port";
-    public static final String USER_OPTION = "username";
-    public static final String PASSWD_OPTION = "password";
-    public static final String AUTH_PROVIDER_OPTION = "auth-provider";
-    public static final String INITIAL_HOST_ADDRESS_OPTION = "nodes";
-    public static final String IGNORE_NODES_OPTION = "ignore";
-    public static final String CONNECTIONS_PER_HOST = "connections-per-host";
-    public static final String CONFIG_PATH = "conf-path";
-    public static final String THROTTLE_MBITS = "throttle";
-    public static final String INTER_DC_THROTTLE_MBITS = "inter-dc-throttle";
-    public static final String TOOL_NAME = "sstableloader";
-    public static final String TARGET_KEYSPACE = "target-keyspace";
+    public static final transient String SSL_STORAGE_PORT_OPTION = "ssl-storage-port";
+
+    public static final transient String USER_OPTION = "username";
+
+    public static final transient String PASSWD_OPTION = "password";
+
+    public static final transient String AUTH_PROVIDER_OPTION = "auth-provider";
+
+    public static final transient String INITIAL_HOST_ADDRESS_OPTION = "nodes";
+
+    public static final transient String IGNORE_NODES_OPTION = "ignore";
+
+    public static final transient String CONNECTIONS_PER_HOST = "connections-per-host";
+
+    public static final transient String CONFIG_PATH = "conf-path";
+
+    public static final transient String THROTTLE_MBITS = "throttle";
+
+    public static final transient String INTER_DC_THROTTLE_MBITS = "inter-dc-throttle";
+
+    public static final transient String TOOL_NAME = "sstableloader";
+
+    public static final transient String TARGET_KEYSPACE = "target-keyspace";
 
     /* client encryption options */
-    public static final String SSL_TRUSTSTORE = "truststore";
-    public static final String SSL_TRUSTSTORE_PW = "truststore-password";
-    public static final String SSL_KEYSTORE = "keystore";
-    public static final String SSL_KEYSTORE_PW = "keystore-password";
-    public static final String SSL_PROTOCOL = "ssl-protocol";
-    public static final String SSL_ALGORITHM = "ssl-alg";
-    public static final String SSL_STORE_TYPE = "store-type";
-    public static final String SSL_CIPHER_SUITES = "ssl-ciphers";
+    public static final transient String SSL_TRUSTSTORE = "truststore";
 
-    public final File directory;
-    public final boolean debug;
-    public final boolean verbose;
-    public final boolean noProgress;
-    public final int nativePort;
-    public final String user;
-    public final String passwd;
-    public final AuthProvider authProvider;
-    public final int throttle;
-    public final int interDcThrottle;
-    public final int storagePort;
-    public final int sslStoragePort;
-    public final EncryptionOptions clientEncOptions;
-    public final int connectionsPerHost;
-    public final EncryptionOptions.ServerEncryptionOptions serverEncOptions;
-    public final Set<InetSocketAddress> hosts;
-    public final Set<InetAddressAndPort> ignores;
-    public final String targetKeyspace;
+    public static final transient String SSL_TRUSTSTORE_PW = "truststore-password";
 
-    LoaderOptions(Builder builder)
-    {
+    public static final transient String SSL_KEYSTORE = "keystore";
+
+    public static final transient String SSL_KEYSTORE_PW = "keystore-password";
+
+    public static final transient String SSL_PROTOCOL = "ssl-protocol";
+
+    public static final transient String SSL_ALGORITHM = "ssl-alg";
+
+    public static final transient String SSL_STORE_TYPE = "store-type";
+
+    public static final transient String SSL_CIPHER_SUITES = "ssl-ciphers";
+
+    public final transient File directory;
+
+    public final transient boolean debug;
+
+    public final transient boolean verbose;
+
+    public final transient boolean noProgress;
+
+    public final transient int nativePort;
+
+    public final transient String user;
+
+    public final transient String passwd;
+
+    public final transient AuthProvider authProvider;
+
+    public final transient int throttle;
+
+    public final transient int interDcThrottle;
+
+    public final transient int storagePort;
+
+    public final transient int sslStoragePort;
+
+    public final transient EncryptionOptions clientEncOptions;
+
+    public final transient int connectionsPerHost;
+
+    public final transient EncryptionOptions.ServerEncryptionOptions serverEncOptions;
+
+    public final transient Set<InetSocketAddress> hosts;
+
+    public final transient Set<InetAddressAndPort> ignores;
+
+    public final transient String targetKeyspace;
+
+    LoaderOptions(Builder builder) {
         directory = builder.directory;
         debug = builder.debug;
         verbose = builder.verbose;
@@ -116,505 +154,395 @@ public class LoaderOptions
         targetKeyspace = builder.targetKeyspace;
     }
 
-    static class Builder
-    {
-        File directory;
-        boolean debug;
-        boolean verbose;
-        boolean noProgress;
-        int nativePort = 9042;
-        String user;
-        String passwd;
-        String authProviderName;
-        AuthProvider authProvider;
-        int throttle = 0;
-        int interDcThrottle = 0;
-        int storagePort;
-        int sslStoragePort;
-        EncryptionOptions clientEncOptions = new EncryptionOptions();
-        int connectionsPerHost = 1;
-        EncryptionOptions.ServerEncryptionOptions serverEncOptions = new EncryptionOptions.ServerEncryptionOptions();
-        Set<InetAddress> hostsArg = new HashSet<>();
-        Set<InetAddress> ignoresArg = new HashSet<>();
-        Set<InetSocketAddress> hosts = new HashSet<>();
-        Set<InetAddressAndPort> ignores = new HashSet<>();
-        String targetKeyspace;
+    static class Builder {
 
-        Builder()
-        {
-            //
+        transient File directory;
+
+        transient boolean debug;
+
+        transient boolean verbose;
+
+        transient boolean noProgress;
+
+        transient int nativePort = 9042;
+
+        transient String user;
+
+        transient String passwd;
+
+        transient String authProviderName;
+
+        transient AuthProvider authProvider;
+
+        transient int throttle = 0;
+
+        transient int interDcThrottle = 0;
+
+        transient int storagePort;
+
+        transient int sslStoragePort;
+
+        transient EncryptionOptions clientEncOptions = new EncryptionOptions();
+
+        transient int connectionsPerHost = 1;
+
+        transient EncryptionOptions.ServerEncryptionOptions serverEncOptions = new EncryptionOptions.ServerEncryptionOptions();
+
+        transient Set<InetAddress> hostsArg = new HashSet<>();
+
+        transient Set<InetAddress> ignoresArg = new HashSet<>();
+
+        transient Set<InetSocketAddress> hosts = new HashSet<>();
+
+        transient Set<InetAddressAndPort> ignores = new HashSet<>();
+
+        transient String targetKeyspace;
+
+        Builder() {
+            // 
         }
 
-        public LoaderOptions build()
-        {
+        public LoaderOptions build() {
             constructAuthProvider();
-
-            try
-            {
-                for (InetAddress host : hostsArg)
-                {
+            try {
+                for (InetAddress host : hostsArg) {
                     hosts.add(new InetSocketAddress(host, nativePort));
                 }
-                for (InetAddress host : ignoresArg)
-                {
+                for (InetAddress host : ignoresArg) {
                     ignores.add(InetAddressAndPort.getByNameOverrideDefaults(host.getHostAddress(), storagePort));
                 }
-            }
-            catch (UnknownHostException e)
-            {
+            } catch (UnknownHostException e) {
                 Throwables.propagate(e);
             }
-
             return new LoaderOptions(this);
         }
 
-        public Builder directory(File directory)
-        {
+        public Builder directory(File directory) {
             this.directory = directory;
             return this;
         }
 
-        public Builder debug(boolean debug)
-        {
+        public Builder debug(boolean debug) {
             this.debug = debug;
             return this;
         }
 
-        public Builder verbose(boolean verbose)
-        {
+        public Builder verbose(boolean verbose) {
             this.verbose = verbose;
             return this;
         }
 
-        public Builder noProgress(boolean noProgress)
-        {
+        public Builder noProgress(boolean noProgress) {
             this.noProgress = noProgress;
             return this;
         }
 
-        public Builder nativePort(int nativePort)
-        {
+        public Builder nativePort(int nativePort) {
             this.nativePort = nativePort;
             return this;
         }
 
-        public Builder user(String user)
-        {
+        public Builder user(String user) {
             this.user = user;
             return this;
         }
 
-        public Builder password(String passwd)
-        {
+        public Builder password(String passwd) {
             this.passwd = passwd;
             return this;
         }
 
-        public Builder authProvider(AuthProvider authProvider)
-        {
+        public Builder authProvider(AuthProvider authProvider) {
             this.authProvider = authProvider;
             return this;
         }
 
-        public Builder throttle(int throttle)
-        {
+        public Builder throttle(int throttle) {
             this.throttle = throttle;
             return this;
         }
 
-        public Builder interDcThrottle(int interDcThrottle)
-        {
+        public Builder interDcThrottle(int interDcThrottle) {
             this.interDcThrottle = interDcThrottle;
             return this;
         }
 
-        public Builder storagePort(int storagePort)
-        {
+        public Builder storagePort(int storagePort) {
             this.storagePort = storagePort;
             return this;
         }
 
         @Deprecated
-        public Builder sslStoragePort(int sslStoragePort)
-        {
+        public Builder sslStoragePort(int sslStoragePort) {
             this.sslStoragePort = storagePort;
             return this;
         }
 
-        public Builder encOptions(EncryptionOptions encOptions)
-        {
+        public Builder encOptions(EncryptionOptions encOptions) {
             this.clientEncOptions = encOptions;
             return this;
         }
 
-        public Builder connectionsPerHost(int connectionsPerHost)
-        {
+        public Builder connectionsPerHost(int connectionsPerHost) {
             this.connectionsPerHost = connectionsPerHost;
             return this;
         }
 
-        public Builder serverEncOptions(EncryptionOptions.ServerEncryptionOptions serverEncOptions)
-        {
+        public Builder serverEncOptions(EncryptionOptions.ServerEncryptionOptions serverEncOptions) {
             this.serverEncOptions = serverEncOptions;
             return this;
         }
 
         @Deprecated
-        public Builder hosts(Set<InetAddress> hosts)
-        {
+        public Builder hosts(Set<InetAddress> hosts) {
             this.hostsArg.addAll(hosts);
             return this;
         }
 
-        public Builder hostsAndNativePort(Set<InetSocketAddress> hosts)
-        {
+        public Builder hostsAndNativePort(Set<InetSocketAddress> hosts) {
             this.hosts.addAll(hosts);
             return this;
         }
 
-        public Builder host(InetAddress host)
-        {
+        public Builder host(InetAddress host) {
             hostsArg.add(host);
             return this;
         }
 
-        public Builder hostAndNativePort(InetSocketAddress host)
-        {
+        public Builder hostAndNativePort(InetSocketAddress host) {
             hosts.add(host);
             return this;
         }
 
-        public Builder ignore(Set<InetAddress> ignores)
-        {
+        public Builder ignore(Set<InetAddress> ignores) {
             this.ignoresArg.addAll(ignores);
             return this;
         }
 
-        public Builder ignoresAndInternalPorts(Set<InetAddressAndPort> ignores)
-        {
+        public Builder ignoresAndInternalPorts(Set<InetAddressAndPort> ignores) {
             this.ignores.addAll(ignores);
             return this;
         }
 
-        public Builder ignore(InetAddress ignore)
-        {
+        public Builder ignore(InetAddress ignore) {
             ignoresArg.add(ignore);
             return this;
         }
 
-        public Builder ignoreAndInternalPorts(InetAddressAndPort ignore)
-        {
+        public Builder ignoreAndInternalPorts(InetAddressAndPort ignore) {
             ignores.add(ignore);
             return this;
         }
 
-        public Builder parseArgs(String cmdArgs[])
-        {
+        public Builder parseArgs(String[] cmdArgs) {
             CommandLineParser parser = new GnuParser();
             CmdLineOptions options = getCmdLineOptions();
-            try
-            {
+            try {
                 CommandLine cmd = parser.parse(options, cmdArgs, false);
-
-                if (cmd.hasOption(HELP_OPTION))
-                {
+                if (cmd.hasOption(HELP_OPTION)) {
                     printUsage(options);
                     System.exit(0);
                 }
-
                 String[] args = cmd.getArgs();
-                if (args.length == 0)
-                {
+                if (args.length == 0) {
                     System.err.println("Missing sstable directory argument");
                     printUsage(options);
                     System.exit(1);
                 }
-
-                if (args.length > 1)
-                {
+                if (args.length > 1) {
                     System.err.println("Too many arguments");
                     printUsage(options);
                     System.exit(1);
                 }
-
                 String dirname = args[0];
                 File dir = new File(dirname);
-
-                if (!dir.exists())
-                {
+                if (!dir.exists()) {
                     errorMsg("Unknown directory: " + dirname, options);
                 }
-
-                if (!dir.isDirectory())
-                {
+                if (!dir.isDirectory()) {
                     errorMsg(dirname + " is not a directory", options);
                 }
-
                 directory = dir;
-
                 verbose = cmd.hasOption(VERBOSE_OPTION);
                 noProgress = cmd.hasOption(NOPROGRESS_OPTION);
-
-                if (cmd.hasOption(USER_OPTION))
-                {
+                if (cmd.hasOption(USER_OPTION)) {
                     user = cmd.getOptionValue(USER_OPTION);
                 }
-
-                if (cmd.hasOption(PASSWD_OPTION))
-                {
+                if (cmd.hasOption(PASSWD_OPTION)) {
                     passwd = cmd.getOptionValue(PASSWD_OPTION);
                 }
-
-                if (cmd.hasOption(AUTH_PROVIDER_OPTION))
-                {
+                if (cmd.hasOption(AUTH_PROVIDER_OPTION)) {
                     authProviderName = cmd.getOptionValue(AUTH_PROVIDER_OPTION);
                 }
-
                 // try to load config file first, so that values can be
                 // rewritten with other option values.
                 // otherwise use default config.
                 Config config;
-                if (cmd.hasOption(CONFIG_PATH))
-                {
+                if (cmd.hasOption(CONFIG_PATH)) {
                     File configFile = new File(cmd.getOptionValue(CONFIG_PATH));
-                    if (!configFile.exists())
-                    {
+                    if (!configFile.exists()) {
                         errorMsg("Config file not found", options);
                     }
                     config = new YamlConfigurationLoader().loadConfig(configFile.toURI().toURL());
-                }
-                else
-                {
+                } else {
                     config = new Config();
                     // unthrottle stream by default
                     config.stream_throughput_outbound_megabits_per_sec = 0;
                     config.inter_dc_stream_throughput_outbound_megabits_per_sec = 0;
                 }
-
                 if (cmd.hasOption(STORAGE_PORT_OPTION))
                     storagePort = Integer.parseInt(cmd.getOptionValue(STORAGE_PORT_OPTION));
                 else
                     storagePort = config.storage_port;
-
-                if (cmd.hasOption(IGNORE_NODES_OPTION))
-                {
+                if (cmd.hasOption(IGNORE_NODES_OPTION)) {
                     String[] nodes = cmd.getOptionValue(IGNORE_NODES_OPTION).split(",");
-                    try
-                    {
-                        for (String node : nodes)
-                        {
+                    try {
+                        for (String node : nodes) {
                             ignores.add(InetAddressAndPort.getByNameOverrideDefaults(node.trim(), storagePort));
                         }
-                    } catch (UnknownHostException e)
-                    {
+                    } catch (UnknownHostException e) {
                         errorMsg("Unknown host: " + e.getMessage(), options);
                     }
                 }
-
-                if (cmd.hasOption(CONNECTIONS_PER_HOST))
-                {
+                if (cmd.hasOption(CONNECTIONS_PER_HOST)) {
                     connectionsPerHost = Integer.parseInt(cmd.getOptionValue(CONNECTIONS_PER_HOST));
                 }
-
                 if (cmd.hasOption(SSL_STORAGE_PORT_OPTION))
-                    logger.info("ssl storage port is deprecated and not used, all communication goes though storage port " +
-                                "which is able to handle encrypted communication too.");
-
+                    logger.info("ssl storage port is deprecated and not used, all communication goes though storage port " + "which is able to handle encrypted communication too.");
                 throttle = config.stream_throughput_outbound_megabits_per_sec;
                 // Copy the encryption options and apply the config so that argument parsing can accesss isEnabled.
                 clientEncOptions = config.client_encryption_options.applyConfig();
                 serverEncOptions = config.server_encryption_options;
                 serverEncOptions.applyConfig();
-
-                if (cmd.hasOption(NATIVE_PORT_OPTION))
-                {
+                if (cmd.hasOption(NATIVE_PORT_OPTION)) {
                     nativePort = Integer.parseInt(cmd.getOptionValue(NATIVE_PORT_OPTION));
-                }
-                else
-                {
+                } else {
                     if (config.native_transport_port_ssl != null && (config.client_encryption_options.isEnabled() || clientEncOptions.isEnabled()))
                         nativePort = config.native_transport_port_ssl;
                     else
                         nativePort = config.native_transport_port;
                 }
-
-                if (cmd.hasOption(INITIAL_HOST_ADDRESS_OPTION))
-                {
+                if (cmd.hasOption(INITIAL_HOST_ADDRESS_OPTION)) {
                     String[] nodes = cmd.getOptionValue(INITIAL_HOST_ADDRESS_OPTION).split(",");
-                    try
-                    {
-                        for (String node : nodes)
-                        {
+                    try {
+                        for (String node : nodes) {
                             HostAndPort hap = HostAndPort.fromString(node);
                             hosts.add(new InetSocketAddress(InetAddress.getByName(hap.getHost()), hap.getPortOrDefault(nativePort)));
                         }
-                    } catch (UnknownHostException e)
-                    {
+                    } catch (UnknownHostException e) {
                         errorMsg("Unknown host: " + e.getMessage(), options);
                     }
-
-                } else
-                {
+                } else {
                     System.err.println("Initial hosts must be specified (-d)");
                     printUsage(options);
                     System.exit(1);
                 }
-
-                if (cmd.hasOption(THROTTLE_MBITS))
-                {
+                if (cmd.hasOption(THROTTLE_MBITS)) {
                     throttle = Integer.parseInt(cmd.getOptionValue(THROTTLE_MBITS));
                 }
-
-                if (cmd.hasOption(INTER_DC_THROTTLE_MBITS))
-                {
+                if (cmd.hasOption(INTER_DC_THROTTLE_MBITS)) {
                     interDcThrottle = Integer.parseInt(cmd.getOptionValue(INTER_DC_THROTTLE_MBITS));
                 }
-
-                if (cmd.hasOption(SSL_TRUSTSTORE) || cmd.hasOption(SSL_TRUSTSTORE_PW) ||
-                            cmd.hasOption(SSL_KEYSTORE) || cmd.hasOption(SSL_KEYSTORE_PW))
-                {
+                if (cmd.hasOption(SSL_TRUSTSTORE) || cmd.hasOption(SSL_TRUSTSTORE_PW) || cmd.hasOption(SSL_KEYSTORE) || cmd.hasOption(SSL_KEYSTORE_PW)) {
                     clientEncOptions = clientEncOptions.withEnabled(true);
                 }
-
-                if (cmd.hasOption(SSL_TRUSTSTORE))
-                {
+                if (cmd.hasOption(SSL_TRUSTSTORE)) {
                     clientEncOptions = clientEncOptions.withTrustStore(cmd.getOptionValue(SSL_TRUSTSTORE));
                 }
-
-                if (cmd.hasOption(SSL_TRUSTSTORE_PW))
-                {
+                if (cmd.hasOption(SSL_TRUSTSTORE_PW)) {
                     clientEncOptions = clientEncOptions.withTrustStorePassword(cmd.getOptionValue(SSL_TRUSTSTORE_PW));
                 }
-
-                if (cmd.hasOption(SSL_KEYSTORE))
-                {
+                if (cmd.hasOption(SSL_KEYSTORE)) {
                     // if a keystore was provided, lets assume we'll need to use
-                    clientEncOptions = clientEncOptions.withKeyStore(cmd.getOptionValue(SSL_KEYSTORE))
-                                                       .withRequireClientAuth(true);
+                    clientEncOptions = clientEncOptions.withKeyStore(cmd.getOptionValue(SSL_KEYSTORE)).withRequireClientAuth(true);
                 }
-
-                if (cmd.hasOption(SSL_KEYSTORE_PW))
-                {
+                if (cmd.hasOption(SSL_KEYSTORE_PW)) {
                     clientEncOptions = clientEncOptions.withKeyStorePassword(cmd.getOptionValue(SSL_KEYSTORE_PW));
                 }
-
-                if (cmd.hasOption(SSL_PROTOCOL))
-                {
+                if (cmd.hasOption(SSL_PROTOCOL)) {
                     clientEncOptions = clientEncOptions.withProtocol(cmd.getOptionValue(SSL_PROTOCOL));
                 }
-
-                if (cmd.hasOption(SSL_ALGORITHM))
-                {
+                if (cmd.hasOption(SSL_ALGORITHM)) {
                     clientEncOptions = clientEncOptions.withAlgorithm(cmd.getOptionValue(SSL_ALGORITHM));
                 }
-
-                if (cmd.hasOption(SSL_STORE_TYPE))
-                {
+                if (cmd.hasOption(SSL_STORE_TYPE)) {
                     clientEncOptions = clientEncOptions.withStoreType(cmd.getOptionValue(SSL_STORE_TYPE));
                 }
-
-                if (cmd.hasOption(SSL_CIPHER_SUITES))
-                {
+                if (cmd.hasOption(SSL_CIPHER_SUITES)) {
                     clientEncOptions = clientEncOptions.withCipherSuites(cmd.getOptionValue(SSL_CIPHER_SUITES).split(","));
                 }
-
-                if (cmd.hasOption(TARGET_KEYSPACE))
-                {
+                if (cmd.hasOption(TARGET_KEYSPACE)) {
                     targetKeyspace = cmd.getOptionValue(TARGET_KEYSPACE);
-                    if (StringUtils.isBlank(targetKeyspace))
-                    {
+                    if (StringUtils.isBlank(targetKeyspace)) {
                         errorMsg("Empty keyspace is not supported.", options);
                     }
                 }
                 return this;
-            }
-            catch (ParseException | ConfigurationException | MalformedURLException e)
-            {
+            } catch (ParseException | ConfigurationException | MalformedURLException e) {
                 errorMsg(e.getMessage(), options);
                 return null;
             }
         }
 
-        private void constructAuthProvider()
-        {
+        private void constructAuthProvider() {
             // Both username and password need to be provided
             if ((user != null) != (passwd != null))
                 errorMsg("Username and password must both be provided", getCmdLineOptions());
-
-            if (user != null)
-            {
+            if (user != null) {
                 // Support for 3rd party auth providers that support plain text credentials.
                 // In this case the auth provider must provide a constructor of the form:
-                //
+                // 
                 // public MyAuthProvider(String username, String password)
-                if (authProviderName != null)
-                {
-                    try
-                    {
+                if (authProviderName != null) {
+                    try {
                         Class authProviderClass = Class.forName(authProviderName);
                         Constructor constructor = authProviderClass.getConstructor(String.class, String.class);
-                        authProvider = (AuthProvider)constructor.newInstance(user, passwd);
-                    }
-                    catch (ClassNotFoundException e)
-                    {
+                        authProvider = (AuthProvider) constructor.newInstance(user, passwd);
+                    } catch (ClassNotFoundException e) {
                         errorMsg("Unknown auth provider: " + e.getMessage(), getCmdLineOptions());
-                    }
-                    catch (NoSuchMethodException e)
-                    {
+                    } catch (NoSuchMethodException e) {
                         errorMsg("Auth provider does not support plain text credentials: " + e.getMessage(), getCmdLineOptions());
-                    }
-                    catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e)
-                    {
+                    } catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
                         errorMsg("Could not create auth provider with plain text credentials: " + e.getMessage(), getCmdLineOptions());
                     }
-                }
-                else
-                {
+                } else {
                     // If a 3rd party auth provider wasn't provided use the driver plain text provider
                     this.authProvider = new PlainTextAuthProvider(user, passwd);
                 }
-            }
-            // Alternate support for 3rd party auth providers that don't use plain text credentials.
+            } else // Alternate support for 3rd party auth providers that don't use plain text credentials.
             // In this case the auth provider must provide a nullary constructor of the form:
-            //
+            // 
             // public MyAuthProvider()
-            else if (authProviderName != null)
-            {
-                try
-                {
-                    authProvider = (AuthProvider)Class.forName(authProviderName).newInstance();
-                }
-                catch (ClassNotFoundException | InstantiationException | IllegalAccessException e)
-                {
+            if (authProviderName != null) {
+                try {
+                    authProvider = (AuthProvider) Class.forName(authProviderName).newInstance();
+                } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
                     errorMsg("Unknown auth provider: " + e.getMessage(), getCmdLineOptions());
                 }
             }
         }
     }
 
-    public static Builder builder()
-    {
+    public static Builder builder() {
         return new Builder();
     }
 
-    private static void errorMsg(String msg, CmdLineOptions options)
-    {
+    private static void errorMsg(String msg, CmdLineOptions options) {
         System.err.println(msg);
         printUsage(options);
         System.exit(1);
     }
 
-    private static CmdLineOptions getCmdLineOptions()
-    {
+    private static CmdLineOptions getCmdLineOptions() {
         CmdLineOptions options = new CmdLineOptions();
         options.addOption("v", VERBOSE_OPTION, "verbose output");
         options.addOption("h", HELP_OPTION, "display this help message");
         options.addOption(null, NOPROGRESS_OPTION, "don't display progress");
         options.addOption("i", IGNORE_NODES_OPTION, "NODES", "don't stream to this (comma separated) list of nodes");
         options.addOption("d", INITIAL_HOST_ADDRESS_OPTION, "initial hosts", "Required. try to connect to these hosts (comma separated) initially for ring information");
-        options.addOption("p",  NATIVE_PORT_OPTION, "native transport port", "port used for native connection (default 9042)");
-        options.addOption("sp",  STORAGE_PORT_OPTION, "storage port", "port used for internode communication (default 7000)");
-        options.addOption("ssp",  SSL_STORAGE_PORT_OPTION, "ssl storage port", "port used for TLS internode communication (default 7001), this option is deprecated, all communication goes through storage port which handles encrypted communication as well");
+        options.addOption("p", NATIVE_PORT_OPTION, "native transport port", "port used for native connection (default 9042)");
+        options.addOption("sp", STORAGE_PORT_OPTION, "storage port", "port used for internode communication (default 7000)");
+        options.addOption("ssp", SSL_STORAGE_PORT_OPTION, "ssl storage port", "port used for TLS internode communication (default 7001), this option is deprecated, all communication goes through storage port which handles encrypted communication as well");
         options.addOption("t", THROTTLE_MBITS, "throttle", "throttle speed in Mbits (default unlimited)");
         options.addOption("idct", INTER_DC_THROTTLE_MBITS, "inter-dc-throttle", "inter-datacenter throttle speed in Mbits (default unlimited)");
         options.addOption("u", USER_OPTION, "username", "username for cassandra authentication");
@@ -635,18 +563,10 @@ public class LoaderOptions
         return options;
     }
 
-    public static void printUsage(Options options)
-    {
+    public static void printUsage(Options options) {
         String usage = String.format("%s [options] <dir_path>", TOOL_NAME);
-        String header = System.lineSeparator() +
-                "Bulk load the sstables found in the directory <dir_path> to the configured cluster." +
-                "The parent directories of <dir_path> are used as the target keyspace/table name. " +
-                "So for instance, to load an sstable named Standard1-g-1-Data.db into Keyspace1/Standard1, " +
-                "you will need to have the files Standard1-g-1-Data.db and Standard1-g-1-Index.db into a directory /path/to/Keyspace1/Standard1/.";
-        String footer = System.lineSeparator() +
-                "You can provide cassandra.yaml file with -f command line option to set up streaming throughput, client and server encryption options. " +
-                "Only stream_throughput_outbound_megabits_per_sec, server_encryption_options and client_encryption_options are read from yaml. " +
-                "You can override options read from cassandra.yaml with corresponding command line options.";
+        String header = System.lineSeparator() + "Bulk load the sstables found in the directory <dir_path> to the configured cluster." + "The parent directories of <dir_path> are used as the target keyspace/table name. " + "So for instance, to load an sstable named Standard1-g-1-Data.db into Keyspace1/Standard1, " + "you will need to have the files Standard1-g-1-Data.db and Standard1-g-1-Index.db into a directory /path/to/Keyspace1/Standard1/.";
+        String footer = System.lineSeparator() + "You can provide cassandra.yaml file with -f command line option to set up streaming throughput, client and server encryption options. " + "Only stream_throughput_outbound_megabits_per_sec, server_encryption_options and client_encryption_options are read from yaml. " + "You can override options read from cassandra.yaml with corresponding command line options.";
         new HelpFormatter().printHelp(usage, header, options, footer);
     }
 }

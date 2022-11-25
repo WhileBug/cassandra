@@ -23,9 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.SerializationHeader;
@@ -39,34 +37,46 @@ import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.utils.ByteBufferUtil;
-
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class CassandraStreamHeader
-{
-    /** SSTable version */
-    public final Version version;
+public class CassandraStreamHeader {
 
-    /** SSTable format **/
-    public final SSTableFormat.Type format;
-    public final long estimatedKeys;
-    public final List<SSTableReader.PartitionPositionBounds> sections;
-    public final CompressionInfo compressionInfo;
-    public final int sstableLevel;
-    public final SerializationHeader.Component serializationHeader;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraStreamHeader.class);
+
+    /**
+     * SSTable version
+     */
+    public final transient Version version;
+
+    /**
+     * SSTable format *
+     */
+    public final transient SSTableFormat.Type format;
+
+    public final transient long estimatedKeys;
+
+    public final transient List<SSTableReader.PartitionPositionBounds> sections;
+
+    public final transient CompressionInfo compressionInfo;
+
+    public final transient int sstableLevel;
+
+    public final transient SerializationHeader.Component serializationHeader;
 
     /* flag indicating whether this is a partial or entire sstable transfer */
-    public final boolean isEntireSSTable;
+    public final transient boolean isEntireSSTable;
+
     /* first token of the sstable required for faster streaming */
-    public final DecoratedKey firstKey;
-    public final TableId tableId;
-    public final ComponentManifest componentManifest;
+    public final transient DecoratedKey firstKey;
+
+    public final transient TableId tableId;
+
+    public final transient ComponentManifest componentManifest;
 
     /* cached size value */
-    private final long size;
+    private final transient long size;
 
-    private CassandraStreamHeader(Builder builder)
-    {
+    private CassandraStreamHeader(Builder builder) {
         version = builder.version;
         format = builder.format;
         estimatedKeys = builder.estimatedKeys;
@@ -81,146 +91,101 @@ public class CassandraStreamHeader
         size = calculateSize();
     }
 
-    public static Builder builder()
-    {
+    public static Builder builder() {
         return new Builder();
     }
 
-    public boolean isCompressed()
-    {
+    public boolean isCompressed() {
         return compressionInfo != null;
     }
 
     /**
      * @return total file size to transfer in bytes
      */
-    public long size()
-    {
+    public long size() {
         return size;
     }
 
     @VisibleForTesting
-    public long calculateSize()
-    {
+    public long calculateSize() {
         if (isEntireSSTable)
             return componentManifest.totalSize();
-
         if (compressionInfo != null)
             return compressionInfo.getTotalSize();
-
         long transferSize = 0;
-        for (SSTableReader.PartitionPositionBounds section : sections)
-            transferSize += section.upperPosition - section.lowerPosition;
+        for (SSTableReader.PartitionPositionBounds section : sections) transferSize += section.upperPosition - section.lowerPosition;
         return transferSize;
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         CassandraStreamHeader that = (CassandraStreamHeader) o;
-        return estimatedKeys == that.estimatedKeys &&
-               sstableLevel == that.sstableLevel &&
-               isEntireSSTable == that.isEntireSSTable &&
-               Objects.equals(version, that.version) &&
-               format == that.format &&
-               Objects.equals(sections, that.sections) &&
-               Objects.equals(compressionInfo, that.compressionInfo) &&
-               Objects.equals(serializationHeader, that.serializationHeader) &&
-               Objects.equals(componentManifest, that.componentManifest) &&
-               Objects.equals(firstKey, that.firstKey) &&
-               Objects.equals(tableId, that.tableId);
+        return estimatedKeys == that.estimatedKeys && sstableLevel == that.sstableLevel && isEntireSSTable == that.isEntireSSTable && Objects.equals(version, that.version) && format == that.format && Objects.equals(sections, that.sections) && Objects.equals(compressionInfo, that.compressionInfo) && Objects.equals(serializationHeader, that.serializationHeader) && Objects.equals(componentManifest, that.componentManifest) && Objects.equals(firstKey, that.firstKey) && Objects.equals(tableId, that.tableId);
     }
 
     @Override
-    public int hashCode()
-    {
-        return Objects.hash(version, format, estimatedKeys, sections, compressionInfo, sstableLevel, serializationHeader, componentManifest,
-                            isEntireSSTable, firstKey, tableId);
+    public int hashCode() {
+        return Objects.hash(version, format, estimatedKeys, sections, compressionInfo, sstableLevel, serializationHeader, componentManifest, isEntireSSTable, firstKey, tableId);
     }
 
     @Override
-    public String toString()
-    {
-        return "CassandraStreamHeader{" +
-               "version=" + version +
-               ", format=" + format +
-               ", estimatedKeys=" + estimatedKeys +
-               ", sections=" + sections +
-               ", sstableLevel=" + sstableLevel +
-               ", header=" + serializationHeader +
-               ", isEntireSSTable=" + isEntireSSTable +
-               ", firstKey=" + firstKey +
-               ", tableId=" + tableId +
-               '}';
+    public String toString() {
+        return "CassandraStreamHeader{" + "version=" + version + ", format=" + format + ", estimatedKeys=" + estimatedKeys + ", sections=" + sections + ", sstableLevel=" + sstableLevel + ", header=" + serializationHeader + ", isEntireSSTable=" + isEntireSSTable + ", firstKey=" + firstKey + ", tableId=" + tableId + '}';
     }
 
-    public static final IVersionedSerializer<CassandraStreamHeader> serializer = new CassandraStreamHeaderSerializer();
+    public static final transient IVersionedSerializer<CassandraStreamHeader> serializer = new CassandraStreamHeaderSerializer();
 
-    public static class CassandraStreamHeaderSerializer implements IVersionedSerializer<CassandraStreamHeader>
-    {
-        public void serialize(CassandraStreamHeader header, DataOutputPlus out, int version) throws IOException
-        {
+    public static class CassandraStreamHeaderSerializer implements IVersionedSerializer<CassandraStreamHeader> {
+
+        public void serialize(CassandraStreamHeader header, DataOutputPlus out, int version) throws IOException {
             out.writeUTF(header.version.toString());
             out.writeUTF(header.format.name);
-
             out.writeLong(header.estimatedKeys);
             out.writeInt(header.sections.size());
-            for (SSTableReader.PartitionPositionBounds section : header.sections)
-            {
+            for (SSTableReader.PartitionPositionBounds section : header.sections) {
                 out.writeLong(section.lowerPosition);
                 out.writeLong(section.upperPosition);
             }
             CompressionInfo.serializer.serialize(header.compressionInfo, out, version);
             out.writeInt(header.sstableLevel);
-
             SerializationHeader.serializer.serialize(header.version, header.serializationHeader, out);
-
             header.tableId.serialize(out);
             out.writeBoolean(header.isEntireSSTable);
-
-            if (header.isEntireSSTable)
-            {
+            if (header.isEntireSSTable) {
                 ComponentManifest.serializer.serialize(header.componentManifest, out, version);
                 ByteBufferUtil.writeWithVIntLength(header.firstKey.getKey(), out);
             }
         }
 
-        public CassandraStreamHeader deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public CassandraStreamHeader deserialize(DataInputPlus in, int version) throws IOException {
             return deserialize(in, version, tableId -> {
                 ColumnFamilyStore cfs = ColumnFamilyStore.getIfExists(tableId);
                 if (cfs != null)
                     return cfs.getPartitioner();
-
                 return null;
             });
         }
 
         @VisibleForTesting
-        public CassandraStreamHeader deserialize(DataInputPlus in, int version, Function<TableId, IPartitioner> partitionerMapper) throws IOException
-        {
+        public CassandraStreamHeader deserialize(DataInputPlus in, int version, Function<TableId, IPartitioner> partitionerMapper) throws IOException {
             Version sstableVersion = SSTableFormat.Type.current().info.getVersion(in.readUTF());
             SSTableFormat.Type format = SSTableFormat.Type.validate(in.readUTF());
-
             long estimatedKeys = in.readLong();
             int count = in.readInt();
             List<SSTableReader.PartitionPositionBounds> sections = new ArrayList<>(count);
-            for (int k = 0; k < count; k++)
-                sections.add(new SSTableReader.PartitionPositionBounds(in.readLong(), in.readLong()));
+            for (int k = 0; k < count; k++) sections.add(new SSTableReader.PartitionPositionBounds(in.readLong(), in.readLong()));
             CompressionInfo compressionInfo = CompressionInfo.serializer.deserialize(in, version);
             int sstableLevel = in.readInt();
-
-            SerializationHeader.Component header =  SerializationHeader.serializer.deserialize(sstableVersion, in);
-
+            SerializationHeader.Component header = SerializationHeader.serializer.deserialize(sstableVersion, in);
             TableId tableId = TableId.deserialize(in);
             boolean isEntireSSTable = in.readBoolean();
             ComponentManifest manifest = null;
             DecoratedKey firstKey = null;
-
-            if (isEntireSSTable)
-            {
+            if (isEntireSSTable) {
                 manifest = ComponentManifest.serializer.deserialize(in, version);
                 ByteBuffer keyBuf = ByteBufferUtil.readWithVIntLength(in);
                 IPartitioner partitioner = partitionerMapper.apply(tableId);
@@ -228,45 +193,25 @@ public class CassandraStreamHeader
                     throw new IllegalArgumentException(String.format("Could not determine partitioner for tableId %s", tableId));
                 firstKey = partitioner.decorateKey(keyBuf);
             }
-
-            return builder().withSSTableFormat(format)
-                            .withSSTableVersion(sstableVersion)
-                            .withSSTableLevel(sstableLevel)
-                            .withEstimatedKeys(estimatedKeys)
-                            .withSections(sections)
-                            .withCompressionInfo(compressionInfo)
-                            .withSerializationHeader(header)
-                            .withComponentManifest(manifest)
-                            .isEntireSSTable(isEntireSSTable)
-                            .withFirstKey(firstKey)
-                            .withTableId(tableId)
-                            .build();
+            return builder().withSSTableFormat(format).withSSTableVersion(sstableVersion).withSSTableLevel(sstableLevel).withEstimatedKeys(estimatedKeys).withSections(sections).withCompressionInfo(compressionInfo).withSerializationHeader(header).withComponentManifest(manifest).isEntireSSTable(isEntireSSTable).withFirstKey(firstKey).withTableId(tableId).build();
         }
 
-        public long serializedSize(CassandraStreamHeader header, int version)
-        {
+        public long serializedSize(CassandraStreamHeader header, int version) {
             long size = 0;
             size += TypeSizes.sizeof(header.version.toString());
             size += TypeSizes.sizeof(header.format.name);
             size += TypeSizes.sizeof(header.estimatedKeys);
-
             size += TypeSizes.sizeof(header.sections.size());
-            for (SSTableReader.PartitionPositionBounds section : header.sections)
-            {
+            for (SSTableReader.PartitionPositionBounds section : header.sections) {
                 size += TypeSizes.sizeof(section.lowerPosition);
                 size += TypeSizes.sizeof(section.upperPosition);
             }
-
             size += CompressionInfo.serializer.serializedSize(header.compressionInfo, version);
             size += TypeSizes.sizeof(header.sstableLevel);
-
             size += SerializationHeader.serializer.serializedSize(header.version, header.serializationHeader);
-
             size += header.tableId.serializedSize();
             size += TypeSizes.sizeof(header.isEntireSSTable);
-
-            if (header.isEntireSSTable)
-            {
+            if (header.isEntireSSTable) {
                 size += ComponentManifest.serializer.serializedSize(header.componentManifest, version);
                 size += ByteBufferUtil.serializedSizeWithVIntLength(header.firstKey.getKey());
             }
@@ -274,100 +219,95 @@ public class CassandraStreamHeader
         }
     }
 
-    public static final class Builder
-    {
-        private Version version;
-        private SSTableFormat.Type format;
-        private long estimatedKeys;
-        private List<SSTableReader.PartitionPositionBounds> sections;
-        private CompressionInfo compressionInfo;
-        private int sstableLevel;
-        private SerializationHeader.Component serializationHeader;
-        private ComponentManifest componentManifest;
-        private boolean isEntireSSTable;
-        private DecoratedKey firstKey;
-        private TableId tableId;
+    public static final class Builder {
 
-        public Builder withSSTableFormat(SSTableFormat.Type format)
-        {
+        private transient Version version;
+
+        private transient SSTableFormat.Type format;
+
+        private transient long estimatedKeys;
+
+        private transient List<SSTableReader.PartitionPositionBounds> sections;
+
+        private transient CompressionInfo compressionInfo;
+
+        private transient int sstableLevel;
+
+        private transient SerializationHeader.Component serializationHeader;
+
+        private transient ComponentManifest componentManifest;
+
+        private transient boolean isEntireSSTable;
+
+        private transient DecoratedKey firstKey;
+
+        private transient TableId tableId;
+
+        public Builder withSSTableFormat(SSTableFormat.Type format) {
             this.format = format;
             return this;
         }
 
-        public Builder withSSTableVersion(Version version)
-        {
+        public Builder withSSTableVersion(Version version) {
             this.version = version;
             return this;
         }
 
-        public Builder withSSTableLevel(int sstableLevel)
-        {
+        public Builder withSSTableLevel(int sstableLevel) {
             this.sstableLevel = sstableLevel;
             return this;
         }
 
-        public Builder withEstimatedKeys(long estimatedKeys)
-        {
+        public Builder withEstimatedKeys(long estimatedKeys) {
             this.estimatedKeys = estimatedKeys;
             return this;
         }
 
-        public Builder withSections(List<SSTableReader.PartitionPositionBounds> sections)
-        {
+        public Builder withSections(List<SSTableReader.PartitionPositionBounds> sections) {
             this.sections = sections;
             return this;
         }
 
-        public Builder withCompressionInfo(CompressionInfo compressionInfo)
-        {
+        public Builder withCompressionInfo(CompressionInfo compressionInfo) {
             this.compressionInfo = compressionInfo;
             return this;
         }
 
-        public Builder withSerializationHeader(SerializationHeader.Component header)
-        {
+        public Builder withSerializationHeader(SerializationHeader.Component header) {
             this.serializationHeader = header;
             return this;
         }
 
-        public Builder withTableId(TableId tableId)
-        {
+        public Builder withTableId(TableId tableId) {
             this.tableId = tableId;
             return this;
         }
 
-        public Builder isEntireSSTable(boolean isEntireSSTable)
-        {
+        public Builder isEntireSSTable(boolean isEntireSSTable) {
             this.isEntireSSTable = isEntireSSTable;
             return this;
         }
 
-        public Builder withComponentManifest(ComponentManifest componentManifest)
-        {
+        public Builder withComponentManifest(ComponentManifest componentManifest) {
             this.componentManifest = componentManifest;
             return this;
         }
 
-        public Builder withFirstKey(DecoratedKey firstKey)
-        {
+        public Builder withFirstKey(DecoratedKey firstKey) {
             this.firstKey = firstKey;
             return this;
         }
 
-        public CassandraStreamHeader build()
-        {
+        public CassandraStreamHeader build() {
             checkNotNull(version);
             checkNotNull(format);
             checkNotNull(sections);
             checkNotNull(serializationHeader);
             checkNotNull(tableId);
-
-            if (isEntireSSTable)
-            {
+            if (isEntireSSTable) {
                 checkNotNull(componentManifest);
                 checkNotNull(firstKey);
             }
-
             return new CassandraStreamHeader(this);
         }
     }

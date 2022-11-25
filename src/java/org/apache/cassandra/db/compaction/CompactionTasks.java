@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.compaction;
 
 import java.util.AbstractCollection;
@@ -23,51 +22,43 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.stream.Collectors;
-
 import org.apache.cassandra.utils.FBUtilities;
 
-public class CompactionTasks extends AbstractCollection<AbstractCompactionTask> implements AutoCloseable
-{
+public class CompactionTasks extends AbstractCollection<AbstractCompactionTask> implements AutoCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionTasks.class);
+
     @SuppressWarnings("resource")
-    private static final CompactionTasks EMPTY = new CompactionTasks(Collections.emptyList());
+    private static final transient CompactionTasks EMPTY = new CompactionTasks(Collections.emptyList());
 
-    private final Collection<AbstractCompactionTask> tasks;
+    private final transient Collection<AbstractCompactionTask> tasks;
 
-    private CompactionTasks(Collection<AbstractCompactionTask> tasks)
-    {
+    private CompactionTasks(Collection<AbstractCompactionTask> tasks) {
         this.tasks = tasks;
     }
 
-    public static CompactionTasks create(Collection<AbstractCompactionTask> tasks)
-    {
+    public static CompactionTasks create(Collection<AbstractCompactionTask> tasks) {
         if (tasks == null || tasks.isEmpty())
             return EMPTY;
         return new CompactionTasks(tasks);
     }
 
-    public static CompactionTasks empty()
-    {
+    public static CompactionTasks empty() {
         return EMPTY;
     }
 
-    public Iterator<AbstractCompactionTask> iterator()
-    {
+    public Iterator<AbstractCompactionTask> iterator() {
         return tasks.iterator();
     }
 
-    public int size()
-    {
+    public int size() {
         return tasks.size();
     }
 
-    public void close()
-    {
-        try
-        {
+    public void close() {
+        try {
             FBUtilities.closeAll(tasks.stream().map(task -> task.transaction).collect(Collectors.toList()));
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

@@ -18,12 +18,9 @@
 package org.apache.cassandra.transport.messages;
 
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.collect.ImmutableMap;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import io.netty.buffer.ByteBuf;
 import org.apache.cassandra.cql3.QueryEvents;
 import org.apache.cassandra.cql3.QueryHandler;
@@ -36,38 +33,35 @@ import org.apache.cassandra.transport.ProtocolVersion;
 import org.apache.cassandra.utils.JVMStabilityInspector;
 import org.apache.cassandra.utils.NoSpamLogger;
 
-public class PrepareMessage extends Message.Request
-{
-    private static final Logger logger = LoggerFactory.getLogger(PrepareMessage.class);
-    private static final NoSpamLogger nospam = NoSpamLogger.getLogger(logger, 10, TimeUnit.MINUTES);
+public class PrepareMessage extends Message.Request {
 
-    public static final Message.Codec<PrepareMessage> codec = new Message.Codec<PrepareMessage>()
-    {
-        public PrepareMessage decode(ByteBuf body, ProtocolVersion version)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareMessage.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(PrepareMessage.class);
+
+    private static final transient NoSpamLogger nospam = NoSpamLogger.getLogger(logger, 10, TimeUnit.MINUTES);
+
+    public static final transient Message.Codec<PrepareMessage> codec = new Message.Codec<PrepareMessage>() {
+
+        public PrepareMessage decode(ByteBuf body, ProtocolVersion version) {
             String query = CBUtil.readLongString(body);
             String keyspace = null;
             if (version.isGreaterOrEqualTo(ProtocolVersion.V5)) {
                 // If flags grows, we may want to consider creating a PrepareOptions class with an internal codec
                 // class that handles flags and options of the prepare message. Since there's only one right now,
                 // we just take care of business here.
-
-                int flags = (int)body.readUnsignedInt();
-                if ((flags & 0x1) == 0x1)
-                {
+                int flags = (int) body.readUnsignedInt();
+                if ((flags & 0x1) == 0x1) {
                     keyspace = CBUtil.readString(body);
-                    nospam.warn("Keyspace is set via query options. This is considered dangerous and should not be used. Query: {}. Keyspace: {}",
-                                query, keyspace);
+                    nospam.warn("Keyspace is set via query options. This is considered dangerous and should not be used. Query: {}. Keyspace: {}", query, keyspace);
                 }
             }
             return new PrepareMessage(query, keyspace);
         }
 
-        public void encode(PrepareMessage msg, ByteBuf dest, ProtocolVersion version)
-        {
+        public void encode(PrepareMessage msg, ByteBuf dest, ProtocolVersion version) {
             CBUtil.writeLongString(msg.query, dest);
-            if (version.isGreaterOrEqualTo(ProtocolVersion.V5))
-            {
+            if (version.isGreaterOrEqualTo(ProtocolVersion.V5)) {
                 // If we have no keyspace, write out a 0-valued flag field.
                 if (msg.keyspace == null)
                     dest.writeInt(0x0);
@@ -78,56 +72,45 @@ public class PrepareMessage extends Message.Request
             }
         }
 
-        public int encodedSize(PrepareMessage msg, ProtocolVersion version)
-        {
+        public int encodedSize(PrepareMessage msg, ProtocolVersion version) {
             int size = CBUtil.sizeOfLongString(msg.query);
-            if (version.isGreaterOrEqualTo(ProtocolVersion.V5))
-            {
+            if (version.isGreaterOrEqualTo(ProtocolVersion.V5)) {
                 // We always emit a flags int
                 size += 4;
-
                 // If we have a keyspace, we'd write it out. Otherwise, we'd write nothing.
-                size += msg.keyspace == null
-                    ? 0
-                    : CBUtil.sizeOfAsciiString(msg.keyspace);
+                size += msg.keyspace == null ? 0 : CBUtil.sizeOfAsciiString(msg.keyspace);
             }
             return size;
         }
     };
 
-    private final String query;
-    private final String keyspace;
+    private final transient String query;
 
-    public PrepareMessage(String query, String keyspace)
-    {
+    private final transient String keyspace;
+
+    public PrepareMessage(String query, String keyspace) {
         super(Message.Type.PREPARE);
         this.query = query;
         this.keyspace = keyspace;
     }
 
     @Override
-    protected boolean isTraceable()
-    {
+    protected boolean isTraceable() {
         return true;
     }
 
     @Override
-    protected Message.Response execute(QueryState state, long queryStartNanoTime, boolean traceRequest)
-    {
-        try
-        {
+    protected Message.Response execute(QueryState state, long queryStartNanoTime, boolean traceRequest) {
+        try {
             if (traceRequest)
                 Tracing.instance.begin("Preparing CQL3 query", state.getClientAddress(), ImmutableMap.of("query", query));
-
             ClientState clientState = state.getClientState().cloneWithKeyspaceIfSet(keyspace);
             QueryHandler queryHandler = ClientState.getCQLQueryHandler();
             long queryTime = System.currentTimeMillis();
             ResultMessage.Prepared response = queryHandler.prepare(query, clientState, getCustomPayload());
             QueryEvents.instance.notifyPrepareSuccess(() -> queryHandler.getPrepared(response.statementId), query, state, queryTime, response);
             return response;
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             QueryEvents.instance.notifyPrepareFailure(null, query, state, e);
             JVMStabilityInspector.inspectThrowable(e);
             return ErrorMessage.fromException(e);
@@ -135,8 +118,7 @@ public class PrepareMessage extends Message.Request
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "PREPARE " + query;
     }
 }

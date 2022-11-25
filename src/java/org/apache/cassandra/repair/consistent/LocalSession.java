@@ -15,117 +15,98 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.consistent;
 
 import com.google.common.base.Preconditions;
-
 import org.apache.cassandra.utils.FBUtilities;
 
 /**
  * Basically just a record of a local session. All of the local session logic is implemented in {@link LocalSessions}
  */
-public class LocalSession extends ConsistentSession
-{
-    public final int startedAt;
-    private volatile int lastUpdate;
+public class LocalSession extends ConsistentSession {
 
-    public LocalSession(Builder builder)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LocalSession.class);
+
+    public final transient int startedAt;
+
+    private volatile transient int lastUpdate;
+
+    public LocalSession(Builder builder) {
         super(builder);
         this.startedAt = builder.startedAt;
         this.lastUpdate = builder.lastUpdate;
     }
 
-    public boolean isCompleted()
-    {
+    public boolean isCompleted() {
         State s = getState();
         return s == State.FINALIZED || s == State.FAILED;
     }
 
-    public int getStartedAt()
-    {
+    public int getStartedAt() {
         return startedAt;
     }
 
-    public int getLastUpdate()
-    {
+    public int getLastUpdate() {
         return lastUpdate;
     }
 
-    public void setLastUpdate()
-    {
+    public void setLastUpdate() {
         lastUpdate = FBUtilities.nowInSeconds();
     }
 
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        if (!super.equals(o))
+            return false;
         LocalSession session = (LocalSession) o;
-
-        if (startedAt != session.startedAt) return false;
+        if (startedAt != session.startedAt)
+            return false;
         return lastUpdate == session.lastUpdate;
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         int result = super.hashCode();
         result = 31 * result + startedAt;
         result = 31 * result + lastUpdate;
         return result;
     }
 
-    public String toString()
-    {
-        return "LocalSession{" +
-               "sessionID=" + sessionID +
-               ", state=" + getState() +
-               ", coordinator=" + coordinator +
-               ", tableIds=" + tableIds +
-               ", repairedAt=" + repairedAt +
-               ", ranges=" + ranges +
-               ", participants=" + participants +
-               ", startedAt=" + startedAt +
-               ", lastUpdate=" + lastUpdate +
-               '}';
+    public String toString() {
+        return "LocalSession{" + "sessionID=" + sessionID + ", state=" + getState() + ", coordinator=" + coordinator + ", tableIds=" + tableIds + ", repairedAt=" + repairedAt + ", ranges=" + ranges + ", participants=" + participants + ", startedAt=" + startedAt + ", lastUpdate=" + lastUpdate + '}';
     }
 
-    public static class Builder extends AbstractBuilder
-    {
-        private int startedAt;
-        private int lastUpdate;
+    public static class Builder extends AbstractBuilder {
 
-        public Builder withStartedAt(int startedAt)
-        {
+        private transient int startedAt;
+
+        private transient int lastUpdate;
+
+        public Builder withStartedAt(int startedAt) {
             this.startedAt = startedAt;
             return this;
         }
 
-        public Builder withLastUpdate(int lastUpdate)
-        {
+        public Builder withLastUpdate(int lastUpdate) {
             this.lastUpdate = lastUpdate;
             return this;
         }
 
-        void validate()
-        {
+        void validate() {
             super.validate();
             Preconditions.checkArgument(startedAt > 0);
             Preconditions.checkArgument(lastUpdate > 0);
         }
 
-        public LocalSession build()
-        {
+        public LocalSession build() {
             validate();
             return new LocalSession(this);
         }
     }
 
-    public static Builder builder()
-    {
+    public static Builder builder() {
         return new Builder();
     }
 }

@@ -21,41 +21,34 @@ package org.apache.cassandra.utils.concurrent;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class Blocker
-{
-    private final ReentrantLock lock = new ReentrantLock();
-    private final Condition unblocked = lock.newCondition();
-    private volatile boolean block = false;
+public class Blocker {
 
-    public void block(boolean block)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Blocker.class);
+
+    private final transient ReentrantLock lock = new ReentrantLock();
+
+    private final transient Condition unblocked = lock.newCondition();
+
+    private volatile transient boolean block = false;
+
+    public void block(boolean block) {
         this.block = block;
-        if (!block)
-        {
+        if (!block) {
             lock.lock();
-            try
-            {
+            try {
                 unblocked.signalAll();
-            }
-            finally
-            {
+            } finally {
                 lock.unlock();
             }
         }
     }
 
-    public void ask()
-    {
-        if (block)
-        {
+    public void ask() {
+        if (block) {
             lock.lock();
-            try
-            {
-                while (block)
-                    unblocked.awaitUninterruptibly();
-            }
-            finally
-            {
+            try {
+                while (block) unblocked.awaitUninterruptibly();
+            } finally {
                 lock.unlock();
             }
         }

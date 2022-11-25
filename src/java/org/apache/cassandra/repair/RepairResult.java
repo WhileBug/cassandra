@@ -22,13 +22,15 @@ import java.util.List;
 /**
  * RepairJob's result
  */
-public class RepairResult
-{
-    public final RepairJobDesc desc;
-    public final List<SyncStat> stats;
+public class RepairResult {
 
-    public RepairResult(RepairJobDesc desc, List<SyncStat> stats)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairResult.class);
+
+    public final transient RepairJobDesc desc;
+
+    public final transient List<SyncStat> stats;
+
+    public RepairResult(RepairJobDesc desc, List<SyncStat> stats) {
         this.desc = desc;
         this.stats = stats;
     }

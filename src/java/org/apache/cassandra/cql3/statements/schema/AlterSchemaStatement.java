@@ -18,9 +18,7 @@
 package org.apache.cassandra.cql3.statements.schema;
 
 import java.util.Set;
-
 import com.google.common.collect.ImmutableSet;
-
 import org.apache.cassandra.auth.AuthenticatedUser;
 import org.apache.cassandra.auth.IResource;
 import org.apache.cassandra.config.DatabaseDescriptor;
@@ -35,33 +33,31 @@ import org.apache.cassandra.service.QueryState;
 import org.apache.cassandra.transport.Event.SchemaChange;
 import org.apache.cassandra.transport.messages.ResultMessage;
 
-abstract public class AlterSchemaStatement implements CQLStatement.SingleKeyspaceCqlStatement, SchemaTransformation
-{
-    protected final String keyspaceName; // name of the keyspace affected by the statement
+abstract public class AlterSchemaStatement implements CQLStatement.SingleKeyspaceCqlStatement, SchemaTransformation {
 
-    protected AlterSchemaStatement(String keyspaceName)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AlterSchemaStatement.class);
+
+    // name of the keyspace affected by the statement
+    protected final transient String keyspaceName;
+
+    protected AlterSchemaStatement(String keyspaceName) {
         this.keyspaceName = keyspaceName;
     }
 
-    public final void validate(ClientState state)
-    {
+    public final void validate(ClientState state) {
         // no-op; validation is performed while executing the statement, in apply()
     }
 
-    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime)
-    {
+    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime) {
         return execute(state, false);
     }
 
     @Override
-    public String keyspace()
-    {
+    public String keyspace() {
         return keyspaceName;
     }
 
-    public ResultMessage executeLocally(QueryState state, QueryOptions options)
-    {
+    public ResultMessage executeLocally(QueryState state, QueryOptions options) {
         return execute(state, true);
     }
 
@@ -78,8 +74,7 @@ abstract public class AlterSchemaStatement implements CQLStatement.SingleKeyspac
      *
      * Only called if the transformation resulted in a non-empty diff.
      */
-    Set<IResource> createdResources(KeyspacesDiff diff)
-    {
+    Set<IResource> createdResources(KeyspacesDiff diff) {
         return ImmutableSet.of();
     }
 
@@ -89,29 +84,21 @@ abstract public class AlterSchemaStatement implements CQLStatement.SingleKeyspac
      *
      * Only called if the transformation resulted in a non-empty diff.
      */
-    Set<String> clientWarnings(KeyspacesDiff diff)
-    {
+    Set<String> clientWarnings(KeyspacesDiff diff) {
         return ImmutableSet.of();
     }
 
-    public ResultMessage execute(QueryState state, boolean locally)
-    {
+    public ResultMessage execute(QueryState state, boolean locally) {
         if (SchemaConstants.isLocalSystemKeyspace(keyspaceName))
             throw ire("System keyspace '%s' is not user-modifiable", keyspaceName);
-
         KeyspaceMetadata keyspace = Schema.instance.getKeyspaceMetadata(keyspaceName);
         if (null != keyspace && keyspace.isVirtual())
             throw ire("Virtual keyspace '%s' is not user-modifiable", keyspaceName);
-
         validateKeyspaceName();
-
         KeyspacesDiff diff = MigrationManager.announce(this, locally);
-
         clientWarnings(diff).forEach(ClientWarn.instance::warn);
-
         if (diff.isEmpty())
             return new ResultMessage.Void();
-
         /*
          * When a schema alteration results in a new db object being created, we grant permissions on the new
          * object to the user performing the request if:
@@ -122,38 +109,24 @@ abstract public class AlterSchemaStatement implements CQLStatement.SingleKeyspac
         AuthenticatedUser user = state.getClientState().getUser();
         if (null != user && !user.isAnonymous())
             createdResources(diff).forEach(r -> grantPermissionsOnResource(r, user));
-
         return new ResultMessage.SchemaChange(schemaChangeEvent(diff));
     }
 
-    private void validateKeyspaceName()
-    {
-        if (!SchemaConstants.isValidName(keyspaceName))
-        {
-            throw ire("Keyspace name must not be empty, more than %d characters long, " +
-                      "or contain non-alphanumeric-underscore characters (got '%s')",
-                      SchemaConstants.NAME_LENGTH, keyspaceName);
+    private void validateKeyspaceName() {
+        if (!SchemaConstants.isValidName(keyspaceName)) {
+            throw ire("Keyspace name must not be empty, more than %d characters long, " + "or contain non-alphanumeric-underscore characters (got '%s')", SchemaConstants.NAME_LENGTH, keyspaceName);
         }
     }
 
-    private void grantPermissionsOnResource(IResource resource, AuthenticatedUser user)
-    {
-        try
-        {
-            DatabaseDescriptor.getAuthorizer()
-                              .grant(AuthenticatedUser.SYSTEM_USER,
-                                     resource.applicablePermissions(),
-                                     resource,
-                                     user.getPrimaryRole());
-        }
-        catch (UnsupportedOperationException e)
-        {
+    private void grantPermissionsOnResource(IResource resource, AuthenticatedUser user) {
+        try {
+            DatabaseDescriptor.getAuthorizer().grant(AuthenticatedUser.SYSTEM_USER, resource.applicablePermissions(), resource, user.getPrimaryRole());
+        } catch (UnsupportedOperationException e) {
             // not a problem - grant is an optional method on IAuthorizer
         }
     }
 
-    static InvalidRequestException ire(String format, Object... args)
-    {
+    static InvalidRequestException ire(String format, Object... args) {
         return new InvalidRequestException(String.format(format, args));
     }
 }

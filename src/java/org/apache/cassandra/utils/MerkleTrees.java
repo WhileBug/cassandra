@@ -20,12 +20,10 @@ package org.apache.cassandra.utils;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.*;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.PeekingIterator;
 import org.slf4j.Logger;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.dht.Range;
@@ -34,32 +32,31 @@ import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 
-
 /**
  * Wrapper class for handling of multiple MerkleTrees at once.
  *
  * The MerkleTree's are divided in Ranges of non-overlapping tokens.
  */
-public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>>
-{
-    public static final MerkleTreesSerializer serializer = new MerkleTreesSerializer();
+public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>> {
 
-    private final Map<Range<Token>, MerkleTree> merkleTrees = new TreeMap<>(new TokenRangeComparator());
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MerkleTrees.class);
 
-    private final IPartitioner partitioner;
+    public static final transient MerkleTreesSerializer serializer = new MerkleTreesSerializer();
+
+    private final transient Map<Range<Token>, MerkleTree> merkleTrees = new TreeMap<>(new TokenRangeComparator());
+
+    private final transient IPartitioner partitioner;
 
     /**
      * Creates empty MerkleTrees object.
      *
      * @param partitioner The partitioner to use
      */
-    public MerkleTrees(IPartitioner partitioner)
-    {
+    public MerkleTrees(IPartitioner partitioner) {
         this(partitioner, new ArrayList<>());
     }
 
-    private MerkleTrees(IPartitioner partitioner, Collection<MerkleTree> merkleTrees)
-    {
+    private MerkleTrees(IPartitioner partitioner, Collection<MerkleTree> merkleTrees) {
         this.partitioner = partitioner;
         addTrees(merkleTrees);
     }
@@ -69,8 +66,7 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      *
      * @return
      */
-    public Collection<Range<Token>> ranges()
-    {
+    public Collection<Range<Token>> ranges() {
         return merkleTrees.keySet();
     }
 
@@ -79,8 +75,7 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      *
      * @return
      */
-    public IPartitioner partitioner()
-    {
+    public IPartitioner partitioner() {
         return partitioner;
     }
 
@@ -90,10 +85,8 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      * @param maxsize
      * @param ranges
      */
-    public void addMerkleTrees(int maxsize, Collection<Range<Token>> ranges)
-    {
-        for (Range<Token> range : ranges)
-        {
+    public void addMerkleTrees(int maxsize, Collection<Range<Token>> ranges) {
+        for (Range<Token> range : ranges) {
             addMerkleTree(maxsize, range);
         }
     }
@@ -105,17 +98,14 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      * @param range
      * @return The created merkle tree.
      */
-    public MerkleTree addMerkleTree(int maxsize, Range<Token> range)
-    {
+    public MerkleTree addMerkleTree(int maxsize, Range<Token> range) {
         return addMerkleTree(maxsize, MerkleTree.RECOMMENDED_DEPTH, range);
     }
 
     @VisibleForTesting
-    public MerkleTree addMerkleTree(int maxsize, byte hashdepth, Range<Token> range)
-    {
+    public MerkleTree addMerkleTree(int maxsize, byte hashdepth, Range<Token> range) {
         MerkleTree tree = new MerkleTree(partitioner, range, hashdepth, maxsize);
         addTree(tree);
-
         return tree;
     }
 
@@ -126,18 +116,15 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      * @return
      */
     @VisibleForTesting
-    public MerkleTree.TreeRange get(Token t)
-    {
+    public MerkleTree.TreeRange get(Token t) {
         return getMerkleTree(t).get(t);
     }
 
     /**
      * Init all MerkleTree's with an even tree distribution.
      */
-    public void init()
-    {
-        for (Range<Token> range : merkleTrees.keySet())
-        {
+    public void init() {
+        for (Range<Token> range : merkleTrees.keySet()) {
             init(range);
         }
     }
@@ -145,8 +132,7 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
     /**
      * Dereference all merkle trees and release direct memory for all off-heap trees.
      */
-    public void release()
-    {
+    public void release() {
         merkleTrees.values().forEach(MerkleTree::release);
         merkleTrees.clear();
     }
@@ -156,8 +142,7 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      *
      * @param range
      */
-    public void init(Range<Token> range)
-    {
+    public void init(Range<Token> range) {
         merkleTrees.get(range).init();
     }
 
@@ -167,8 +152,7 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      * @param t
      * @return
      */
-    public boolean split(Token t)
-    {
+    public boolean split(Token t) {
         return getMerkleTree(t).split(t);
     }
 
@@ -178,8 +162,7 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      * @param t
      */
     @VisibleForTesting
-    public void invalidate(Token t)
-    {
+    public void invalidate(Token t) {
         getMerkleTree(t).unsafeInvalidate(t);
     }
 
@@ -189,26 +172,20 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      * @param range
      * @return
      */
-    public MerkleTree getMerkleTree(Range<Token> range)
-    {
+    public MerkleTree getMerkleTree(Range<Token> range) {
         return merkleTrees.get(range);
     }
 
-    public long size()
-    {
+    public long size() {
         long size = 0;
-
-        for (MerkleTree tree : merkleTrees.values())
-        {
+        for (MerkleTree tree : merkleTrees.values()) {
             size += tree.size();
         }
-
         return size;
     }
 
     @VisibleForTesting
-    public void maxsize(Range<Token> range, int maxsize)
-    {
+    public void maxsize(Range<Token> range, int maxsize) {
         getMerkleTree(range).maxsize(maxsize);
     }
 
@@ -218,40 +195,30 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      * @param t
      * @return The given MerkleTree or null if none exist.
      */
-    private MerkleTree getMerkleTree(Token t)
-    {
-        for (Range<Token> range : merkleTrees.keySet())
-        {
+    private MerkleTree getMerkleTree(Token t) {
+        for (Range<Token> range : merkleTrees.keySet()) {
             if (range.contains(t))
                 return merkleTrees.get(range);
         }
-
         throw new AssertionError("Expected tree for token " + t);
     }
 
-    private void addTrees(Collection<MerkleTree> trees)
-    {
-        for (MerkleTree tree : trees)
-        {
+    private void addTrees(Collection<MerkleTree> trees) {
+        for (MerkleTree tree : trees) {
             addTree(tree);
         }
     }
 
-    private void addTree(MerkleTree tree)
-    {
+    private void addTree(MerkleTree tree) {
         assert validateNonOverlapping(tree) : "Range [" + tree.fullRange + "] is intersecting an existing range";
-
         merkleTrees.put(tree.fullRange, tree);
     }
 
-    private boolean validateNonOverlapping(MerkleTree tree)
-    {
-        for (Range<Token> range : merkleTrees.keySet())
-        {
+    private boolean validateNonOverlapping(MerkleTree tree) {
+        for (Range<Token> range : merkleTrees.keySet()) {
             if (tree.fullRange.intersects(range))
                 return false;
         }
-
         return true;
     }
 
@@ -260,8 +227,7 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      *
      * @return
      */
-    public TreeRangeIterator rangeIterator()
-    {
+    public TreeRangeIterator rangeIterator() {
         return new TreeRangeIterator();
     }
 
@@ -270,10 +236,8 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      *
      * @param logger
      */
-    public void logRowCountPerLeaf(Logger logger)
-    {
-        for (MerkleTree tree : merkleTrees.values())
-        {
+    public void logRowCountPerLeaf(Logger logger) {
+        for (MerkleTree tree : merkleTrees.values()) {
             tree.histogramOfRowCountPerLeaf().log(logger);
         }
     }
@@ -283,29 +247,20 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      *
      * @param logger
      */
-    public void logRowSizePerLeaf(Logger logger)
-    {
-        for (MerkleTree tree : merkleTrees.values())
-        {
+    public void logRowSizePerLeaf(Logger logger) {
+        for (MerkleTree tree : merkleTrees.values()) {
             tree.histogramOfRowSizePerLeaf().log(logger);
         }
     }
 
     @VisibleForTesting
-    public byte[] hash(Range<Token> range)
-    {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream())
-        {
+    public byte[] hash(Range<Token> range) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             boolean hashed = false;
-
-            for (Map.Entry<Range<Token>, MerkleTree> entry : merkleTrees.entrySet())
-                if (entry.getKey().intersects(range))
-                    hashed |= entry.getValue().ifHashesRange(range, n -> baos.write(n.hash()));
-
+            for (Map.Entry<Range<Token>, MerkleTree> entry : merkleTrees.entrySet()) if (entry.getKey().intersects(range))
+                hashed |= entry.getValue().ifHashesRange(range, n -> baos.write(n.hash()));
             return hashed ? baos.toByteArray() : null;
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException("Unable to append merkle tree hash to result");
         }
     }
@@ -313,56 +268,43 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
     /**
      * Get an iterator of all ranges and their MerkleTrees.
      */
-    public Iterator<Map.Entry<Range<Token>, MerkleTree>> iterator()
-    {
+    public Iterator<Map.Entry<Range<Token>, MerkleTree>> iterator() {
         return merkleTrees.entrySet().iterator();
     }
 
-    public long rowCount()
-    {
+    public long rowCount() {
         long totalCount = 0;
-        for (MerkleTree tree : merkleTrees.values())
-        {
+        for (MerkleTree tree : merkleTrees.values()) {
             totalCount += tree.rowCount();
         }
         return totalCount;
     }
 
-    public class TreeRangeIterator extends AbstractIterator<MerkleTree.TreeRange> implements
-            Iterable<MerkleTree.TreeRange>,
-            PeekingIterator<MerkleTree.TreeRange>
-    {
-        private final Iterator<MerkleTree> it;
+    public class TreeRangeIterator extends AbstractIterator<MerkleTree.TreeRange> implements Iterable<MerkleTree.TreeRange>, PeekingIterator<MerkleTree.TreeRange> {
 
-        private MerkleTree.TreeRangeIterator current = null;
+        private final transient Iterator<MerkleTree> it;
 
-        private TreeRangeIterator()
-        {
+        private transient MerkleTree.TreeRangeIterator current = null;
+
+        private TreeRangeIterator() {
             it = merkleTrees.values().iterator();
         }
 
-        public MerkleTree.TreeRange computeNext()
-        {
+        public MerkleTree.TreeRange computeNext() {
             if (current == null || !current.hasNext())
                 return nextIterator();
-
             return current.next();
         }
 
-        private MerkleTree.TreeRange nextIterator()
-        {
-            if (it.hasNext())
-            {
+        private MerkleTree.TreeRange nextIterator() {
+            if (it.hasNext()) {
                 current = it.next().rangeIterator();
-
                 return current.next();
             }
-
             return endOfData();
         }
 
-        public Iterator<MerkleTree.TreeRange> iterator()
-        {
+        public Iterator<MerkleTree.TreeRange> iterator() {
             return this;
         }
     }
@@ -370,11 +312,9 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
     /**
      * @return a new {@link MerkleTrees} instance with all trees moved off heap.
      */
-    public MerkleTrees tryMoveOffHeap() throws IOException
-    {
+    public MerkleTrees tryMoveOffHeap() throws IOException {
         Map<Range<Token>, MerkleTree> movedTrees = new TreeMap<>(new TokenRangeComparator());
-        for (Map.Entry<Range<Token>, MerkleTree> entry : merkleTrees.entrySet())
-            movedTrees.put(entry.getKey(), entry.getValue().tryMoveOffHeap());
+        for (Map.Entry<Range<Token>, MerkleTree> entry : merkleTrees.entrySet()) movedTrees.put(entry.getKey(), entry.getValue().tryMoveOffHeap());
         return new MerkleTrees(partitioner, movedTrees.values());
     }
 
@@ -385,69 +325,54 @@ public class MerkleTrees implements Iterable<Map.Entry<Range<Token>, MerkleTree>
      * @param rtree
      * @return
      */
-    public static List<Range<Token>> difference(MerkleTrees ltree, MerkleTrees rtree)
-    {
+    public static List<Range<Token>> difference(MerkleTrees ltree, MerkleTrees rtree) {
         List<Range<Token>> differences = new ArrayList<>();
-        for (MerkleTree tree : ltree.merkleTrees.values())
-            differences.addAll(MerkleTree.difference(tree, rtree.getMerkleTree(tree.fullRange)));
+        for (MerkleTree tree : ltree.merkleTrees.values()) differences.addAll(MerkleTree.difference(tree, rtree.getMerkleTree(tree.fullRange)));
         return differences;
     }
 
-    public static class MerkleTreesSerializer implements IVersionedSerializer<MerkleTrees>
-    {
-        public void serialize(MerkleTrees trees, DataOutputPlus out, int version) throws IOException
-        {
+    public static class MerkleTreesSerializer implements IVersionedSerializer<MerkleTrees> {
+
+        public void serialize(MerkleTrees trees, DataOutputPlus out, int version) throws IOException {
             out.writeInt(trees.merkleTrees.size());
-            for (MerkleTree tree : trees.merkleTrees.values())
-            {
+            for (MerkleTree tree : trees.merkleTrees.values()) {
                 tree.serialize(out, version);
             }
         }
 
-        public MerkleTrees deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public MerkleTrees deserialize(DataInputPlus in, int version) throws IOException {
             IPartitioner partitioner = null;
             int nTrees = in.readInt();
             Collection<MerkleTree> trees = new ArrayList<>(nTrees);
-            if (nTrees > 0)
-            {
-                for (int i = 0; i < nTrees; i++)
-                {
+            if (nTrees > 0) {
+                for (int i = 0; i < nTrees; i++) {
                     MerkleTree tree = MerkleTree.deserialize(in, version);
                     trees.add(tree);
-
                     if (partitioner == null)
                         partitioner = tree.partitioner();
                     else
                         assert tree.partitioner() == partitioner;
                 }
             }
-
             return new MerkleTrees(partitioner, trees);
         }
 
-        public long serializedSize(MerkleTrees trees, int version)
-        {
+        public long serializedSize(MerkleTrees trees, int version) {
             assert trees != null;
-
             long size = TypeSizes.sizeof(trees.merkleTrees.size());
-            for (MerkleTree tree : trees.merkleTrees.values())
-            {
+            for (MerkleTree tree : trees.merkleTrees.values()) {
                 size += tree.serializedSize(version);
             }
             return size;
         }
-
     }
 
-    private static class TokenRangeComparator implements Comparator<Range<Token>>
-    {
+    private static class TokenRangeComparator implements Comparator<Range<Token>> {
+
         @Override
-        public int compare(Range<Token> rt1, Range<Token> rt2)
-        {
+        public int compare(Range<Token> rt1, Range<Token> rt2) {
             if (rt1.left.compareTo(rt2.left) == 0)
                 return 0;
-
             return rt1.compareTo(rt2);
         }
     }

@@ -21,53 +21,48 @@ import java.io.Closeable;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
-
 import com.google.common.annotations.VisibleForTesting;
 
-public abstract class RangeIterator<K extends Comparable<K>, T extends CombinedValue<K>> extends AbstractIterator<T> implements Closeable
-{
-    private final K min, max;
-    private final long count;
-    private K current;
+public abstract class RangeIterator<K extends Comparable<K>, T extends CombinedValue<K>> extends AbstractIterator<T> implements Closeable {
 
-    protected RangeIterator(Builder.Statistics<K, T> statistics)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RangeIterator.class);
+
+    private final transient K min, max;
+
+    private final transient long count;
+
+    private transient K current;
+
+    protected RangeIterator(Builder.Statistics<K, T> statistics) {
         this(statistics.min, statistics.max, statistics.tokenCount);
     }
 
-    public RangeIterator(RangeIterator<K, T> range)
-    {
+    public RangeIterator(RangeIterator<K, T> range) {
         this(range == null ? null : range.min, range == null ? null : range.max, range == null ? -1 : range.count);
     }
 
-    public RangeIterator(K min, K max, long count)
-    {
+    public RangeIterator(K min, K max, long count) {
         if (min == null || max == null || count == 0)
             assert min == null && max == null && (count == 0 || count == -1);
-
         this.min = min;
         this.current = min;
         this.max = max;
         this.count = count;
     }
 
-    public final K getMinimum()
-    {
+    public final K getMinimum() {
         return min;
     }
 
-    public final K getCurrent()
-    {
+    public final K getCurrent() {
         return current;
     }
 
-    public final K getMaximum()
-    {
+    public final K getMaximum() {
         return max;
     }
 
-    public final long getCount()
-    {
+    public final long getCount() {
         return count;
     }
 
@@ -81,131 +76,124 @@ public abstract class RangeIterator<K extends Comparable<K>, T extends CombinedV
      *
      * @return The next current token after the skip was performed
      */
-    public final T skipTo(K nextToken)
-    {
+    public final T skipTo(K nextToken) {
         if (min == null || max == null)
             return endOfData();
-
         if (current.compareTo(nextToken) >= 0)
             return next == null ? recomputeNext() : next;
-
         if (max.compareTo(nextToken) < 0)
             return endOfData();
-
         performSkipTo(nextToken);
         return recomputeNext();
     }
 
     protected abstract void performSkipTo(K nextToken);
 
-    protected T recomputeNext()
-    {
+    protected T recomputeNext() {
         return tryToComputeNext() ? peek() : endOfData();
     }
 
-    protected boolean tryToComputeNext()
-    {
+    protected boolean tryToComputeNext() {
         boolean hasNext = super.tryToComputeNext();
         current = hasNext ? next.get() : getMaximum();
         return hasNext;
     }
 
-    public static abstract class Builder<K extends Comparable<K>, D extends CombinedValue<K>>
-    {
-        public enum IteratorType
-        {
+    public static abstract class Builder<K extends Comparable<K>, D extends CombinedValue<K>> {
+
+        public enum IteratorType {
+
             UNION, INTERSECTION
         }
 
         @VisibleForTesting
-        protected final Statistics<K, D> statistics;
+        protected final transient Statistics<K, D> statistics;
 
         @VisibleForTesting
-        protected final PriorityQueue<RangeIterator<K, D>> ranges;
+        protected final transient PriorityQueue<RangeIterator<K, D>> ranges;
 
-        public Builder(IteratorType type)
-        {
+        public Builder(IteratorType type) {
             statistics = new Statistics<>(type);
             ranges = new PriorityQueue<>(16, (Comparator<RangeIterator<K, D>>) (a, b) -> a.getCurrent().compareTo(b.getCurrent()));
         }
 
-        public K getMinimum()
-        {
+        public K getMinimum() {
             return statistics.min;
         }
 
-        public K getMaximum()
-        {
+        public K getMaximum() {
             return statistics.max;
         }
 
-        public long getTokenCount()
-        {
+        public long getTokenCount() {
             return statistics.tokenCount;
         }
 
-        public int rangeCount()
-        {
+        public int rangeCount() {
             return ranges.size();
         }
 
-        public Builder<K, D> add(RangeIterator<K, D> range)
-        {
+        public Builder<K, D> add(RangeIterator<K, D> range) {
             if (range == null)
                 return this;
-
             if (range.getCount() > 0)
                 ranges.add(range);
             statistics.update(range);
-
             return this;
         }
 
-        public Builder<K, D> add(List<RangeIterator<K, D>> ranges)
-        {
+        public Builder<K, D> add(List<RangeIterator<K, D>> ranges) {
             if (ranges == null || ranges.isEmpty())
                 return this;
-
             ranges.forEach(this::add);
             return this;
         }
 
-        public final RangeIterator<K, D> build()
-        {
+        public final RangeIterator<K, D> build() {
             if (rangeCount() == 0)
                 return new EmptyRangeIterator<>();
             else
                 return buildIterator();
         }
 
-        public static class EmptyRangeIterator<K extends Comparable<K>, D extends CombinedValue<K>> extends RangeIterator<K, D>
-        {
-            EmptyRangeIterator() { super(null, null, 0); }
-            public D computeNext() { return endOfData(); }
-            protected void performSkipTo(K nextToken) { }
-            public void close() { }
+        public static class EmptyRangeIterator<K extends Comparable<K>, D extends CombinedValue<K>> extends RangeIterator<K, D> {
+
+            EmptyRangeIterator() {
+                super(null, null, 0);
+            }
+
+            public D computeNext() {
+                return endOfData();
+            }
+
+            protected void performSkipTo(K nextToken) {
+            }
+
+            public void close() {
+            }
         }
 
         protected abstract RangeIterator<K, D> buildIterator();
 
-        public static class Statistics<K extends Comparable<K>, D extends CombinedValue<K>>
-        {
-            protected final IteratorType iteratorType;
+        public static class Statistics<K extends Comparable<K>, D extends CombinedValue<K>> {
 
-            protected K min, max;
-            protected long tokenCount;
+            protected final transient IteratorType iteratorType;
+
+            protected transient K min, max;
+
+            protected transient long tokenCount;
 
             // iterator with the least number of items
-            protected RangeIterator<K, D> minRange;
+            protected transient RangeIterator<K, D> minRange;
+
             // iterator with the most number of items
-            protected RangeIterator<K, D> maxRange;
+            protected transient RangeIterator<K, D> maxRange;
 
             // tracks if all of the added ranges overlap, which is useful in case of intersection,
             // as it gives direct answer as to such iterator is going to produce any results.
-            private boolean isOverlapping = true;
+            private transient boolean isOverlapping = true;
 
-            public Statistics(IteratorType iteratorType)
-            {
+            public Statistics(IteratorType iteratorType) {
                 this.iteratorType = iteratorType;
             }
 
@@ -217,61 +205,49 @@ public abstract class RangeIterator<K extends Comparable<K>, T extends CombinedV
              *
              * @param range The range to update statistics with.
              */
-            public void update(RangeIterator<K, D> range)
-            {
-                switch (iteratorType)
-                {
+            public void update(RangeIterator<K, D> range) {
+                switch(iteratorType) {
                     case UNION:
                         min = nullSafeMin(min, range.getMinimum());
                         max = nullSafeMax(max, range.getMaximum());
                         break;
-
                     case INTERSECTION:
                         // minimum of the intersection is the biggest minimum of individual iterators
                         min = nullSafeMax(min, range.getMinimum());
                         // maximum of the intersection is the smallest maximum of individual iterators
                         max = nullSafeMin(max, range.getMaximum());
                         break;
-
                     default:
                         throw new IllegalStateException("Unknown iterator type: " + iteratorType);
                 }
-
                 // check if new range is disjoint with already added ranges, which means that this intersection
                 // is not going to produce any results, so we can cleanup range storage and never added anything to it.
                 isOverlapping &= isOverlapping(min, max, range);
-
                 minRange = minRange == null ? range : min(minRange, range);
                 maxRange = maxRange == null ? range : max(maxRange, range);
-
                 tokenCount += range.getCount();
             }
 
-            private RangeIterator<K, D> min(RangeIterator<K, D> a, RangeIterator<K, D> b)
-            {
+            private RangeIterator<K, D> min(RangeIterator<K, D> a, RangeIterator<K, D> b) {
                 return a.getCount() > b.getCount() ? b : a;
             }
 
-            private RangeIterator<K, D> max(RangeIterator<K, D> a, RangeIterator<K, D> b)
-            {
+            private RangeIterator<K, D> max(RangeIterator<K, D> a, RangeIterator<K, D> b) {
                 return a.getCount() > b.getCount() ? a : b;
             }
 
-            public boolean isDisjoint()
-            {
+            public boolean isDisjoint() {
                 return !isOverlapping;
             }
 
-            public double sizeRatio()
-            {
+            public double sizeRatio() {
                 return minRange.getCount() * 1d / maxRange.getCount();
             }
         }
     }
 
     @VisibleForTesting
-    protected static <K extends Comparable<K>, D extends CombinedValue<K>> boolean isOverlapping(RangeIterator<K, D> a, RangeIterator<K, D> b)
-    {
+    protected static <K extends Comparable<K>, D extends CombinedValue<K>> boolean isOverlapping(RangeIterator<K, D> a, RangeIterator<K, D> b) {
         return isOverlapping(a.getCurrent(), a.getMaximum(), b);
     }
 
@@ -289,32 +265,28 @@ public abstract class RangeIterator<K extends Comparable<K>, T extends CombinedV
      *   min        b.current     b.max        max
      *   +----------|-------------|------------+
      *
-     *
      *  If either range is empty, they're disjoint.
      */
     @VisibleForTesting
-    protected static <K extends Comparable<K>, D extends CombinedValue<K>> boolean isOverlapping(K min, K max, RangeIterator<K, D> b)
-    {
-        return (min != null && max != null) &&
-               b.getCount() != 0 &&
-               (min.compareTo(b.getMaximum()) <= 0 && b.getCurrent().compareTo(max) <= 0);
+    protected static <K extends Comparable<K>, D extends CombinedValue<K>> boolean isOverlapping(K min, K max, RangeIterator<K, D> b) {
+        return (min != null && max != null) && b.getCount() != 0 && (min.compareTo(b.getMaximum()) <= 0 && b.getCurrent().compareTo(max) <= 0);
     }
 
     @SuppressWarnings("unchecked")
-    private static <T extends Comparable> T nullSafeMin(T a, T b)
-    {
-        if (a == null) return b;
-        if (b == null) return a;
-
+    private static <T extends Comparable> T nullSafeMin(T a, T b) {
+        if (a == null)
+            return b;
+        if (b == null)
+            return a;
         return a.compareTo(b) > 0 ? b : a;
     }
 
     @SuppressWarnings("unchecked")
-    private static <T extends Comparable> T nullSafeMax(T a, T b)
-    {
-        if (a == null) return b;
-        if (b == null) return a;
-
+    private static <T extends Comparable> T nullSafeMax(T a, T b) {
+        if (a == null)
+            return b;
+        if (b == null)
+            return a;
         return a.compareTo(b) > 0 ? a : b;
     }
 }

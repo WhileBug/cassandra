@@ -18,15 +18,15 @@
 package org.apache.cassandra.exceptions;
 
 import java.util.List;
-
 import org.apache.cassandra.cql3.functions.OperationFcts;
 import org.apache.cassandra.db.marshal.AbstractType;
 
 /**
  * Thrown when an operation problem has occured (e.g. division by zero with integer).
  */
-public final class OperationExecutionException extends FunctionExecutionException
-{
+public final class OperationExecutionException extends FunctionExecutionException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OperationExecutionException.class);
 
     /**
      * Creates a new <code>OperationExecutionException</code> for the specified operation.
@@ -36,8 +36,7 @@ public final class OperationExecutionException extends FunctionExecutionExceptio
      * @param e the original Exception
      * @return a new <code>OperationExecutionException</code> for the specified operation
      */
-    public static OperationExecutionException create(char operator, List<AbstractType<?>> argTypes, Exception e)
-    {
+    public static OperationExecutionException create(char operator, List<AbstractType<?>> argTypes, Exception e) {
         List<String> cqlTypes = AbstractType.asCQLTypeStringList(argTypes);
         String msg = String.format("the operation '%s %s %s' failed: %s", cqlTypes.get(0), operator, cqlTypes.get(1), e.getMessage());
         return new OperationExecutionException(operator, cqlTypes, msg);
@@ -49,9 +48,7 @@ public final class OperationExecutionException extends FunctionExecutionExceptio
      * @param argTypes the argument types
      * @param msg the error message
      */
-    public OperationExecutionException(char operator, List<String> argTypes, String msg)
-    {
+    public OperationExecutionException(char operator, List<String> argTypes, String msg) {
         super(OperationFcts.getFunctionNameFromOperator(operator), argTypes, msg);
     }
-
 }

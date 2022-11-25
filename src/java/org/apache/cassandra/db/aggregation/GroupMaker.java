@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.aggregation;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.Clustering;
 import org.apache.cassandra.db.ClusteringComparator;
 import org.apache.cassandra.db.DecoratedKey;
@@ -26,31 +25,29 @@ import org.apache.cassandra.db.DecoratedKey;
 /**
  * A <code>GroupMaker</code> can be used to determine if some sorted rows belongs to the same group or not.
  */
-public abstract class GroupMaker
-{
+public abstract class GroupMaker {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GroupMaker.class);
+
     /**
      * <code>GroupMaker</code> that groups all the rows together.
      */
-    public static final GroupMaker GROUP_EVERYTHING = new GroupMaker()
-    {
-        public boolean isNewGroup(DecoratedKey partitionKey, Clustering<?> clustering)
-        {
+    public static final transient GroupMaker GROUP_EVERYTHING = new GroupMaker() {
+
+        public boolean isNewGroup(DecoratedKey partitionKey, Clustering<?> clustering) {
             return false;
         }
 
-        public boolean returnAtLeastOneRow()
-        {
+        public boolean returnAtLeastOneRow() {
             return true;
         }
     };
 
-    public static GroupMaker newInstance(ClusteringComparator comparator, int clusteringPrefixSize, GroupingState state)
-    {
+    public static GroupMaker newInstance(ClusteringComparator comparator, int clusteringPrefixSize, GroupingState state) {
         return new PkPrefixGroupMaker(comparator, clusteringPrefixSize, state);
     }
 
-    public static GroupMaker newInstance(ClusteringComparator comparator, int clusteringPrefixSize)
-    {
+    public static GroupMaker newInstance(ClusteringComparator comparator, int clusteringPrefixSize) {
         return new PkPrefixGroupMaker(comparator, clusteringPrefixSize);
     }
 
@@ -70,69 +67,59 @@ public abstract class GroupMaker
      *
      * @return <code>true</code> if at least one row must be returned, <code>false</code> otherwise.
      */
-    public boolean returnAtLeastOneRow()
-    {
+    public boolean returnAtLeastOneRow() {
         return false;
     }
 
-    private static final class PkPrefixGroupMaker extends GroupMaker
-    {
+    private static final class PkPrefixGroupMaker extends GroupMaker {
+
         /**
          * The size of the clustering prefix used to make the groups
          */
-        private final int clusteringPrefixSize;
+        private final transient int clusteringPrefixSize;
 
         /**
          * The comparator used to compare the clustering prefixes.
          */
-        private final ClusteringComparator comparator;
+        private final transient ClusteringComparator comparator;
 
         /**
          * The last partition key seen
          */
-        private ByteBuffer lastPartitionKey;
+        private transient ByteBuffer lastPartitionKey;
 
         /**
          * The last clustering seen
          */
-        private Clustering<?> lastClustering;
+        private transient Clustering<?> lastClustering;
 
-        public PkPrefixGroupMaker(ClusteringComparator comparator, int clusteringPrefixSize, GroupingState state)
-        {
+        public PkPrefixGroupMaker(ClusteringComparator comparator, int clusteringPrefixSize, GroupingState state) {
             this(comparator, clusteringPrefixSize);
             this.lastPartitionKey = state.partitionKey();
             this.lastClustering = state.clustering;
         }
 
-        public PkPrefixGroupMaker(ClusteringComparator comparator, int clusteringPrefixSize)
-        {
+        public PkPrefixGroupMaker(ClusteringComparator comparator, int clusteringPrefixSize) {
             this.comparator = comparator;
             this.clusteringPrefixSize = clusteringPrefixSize;
         }
 
         @Override
-        public boolean isNewGroup(DecoratedKey partitionKey, Clustering<?> clustering)
-        {
+        public boolean isNewGroup(DecoratedKey partitionKey, Clustering<?> clustering) {
             boolean isNew = false;
-
             // We are entering a new group if:
             // - the partition key is a new one
             // - the last clustering was not null and does not have the same prefix as the new clustering one
-            if (!partitionKey.getKey().equals(lastPartitionKey))
-            {
+            if (!partitionKey.getKey().equals(lastPartitionKey)) {
                 lastPartitionKey = partitionKey.getKey();
                 isNew = true;
-                if (Clustering.STATIC_CLUSTERING == clustering)
-                {
+                if (Clustering.STATIC_CLUSTERING == clustering) {
                     lastClustering = null;
                     return true;
                 }
-            }
-            else if (lastClustering != null && comparator.compare(lastClustering, clustering, clusteringPrefixSize) != 0)
-            {
+            } else if (lastClustering != null && comparator.compare(lastClustering, clustering, clusteringPrefixSize) != 0) {
                 isNew = true;
             }
-
             lastClustering = clustering;
             return isNew;
         }

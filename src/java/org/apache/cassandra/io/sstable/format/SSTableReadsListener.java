@@ -22,32 +22,31 @@ import org.apache.cassandra.db.RowIndexEntry;
 /**
  * Listener for receiving notifications associated with reading SSTables.
  */
-public interface SSTableReadsListener
-{
+public interface SSTableReadsListener {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableReadsListener.class);
+
     /**
      * The reasons for skipping an SSTable
      */
-    enum SkippingReason
-    {
-        BLOOM_FILTER,
-        MIN_MAX_KEYS,
-        PARTITION_INDEX_LOOKUP,
-        INDEX_ENTRY_NOT_FOUND;
+    enum SkippingReason {
+
+        BLOOM_FILTER, MIN_MAX_KEYS, PARTITION_INDEX_LOOKUP, INDEX_ENTRY_NOT_FOUND
     }
 
     /**
      * The reasons for selecting an SSTable
      */
-    enum SelectionReason
-    {
-        KEY_CACHE_HIT,
-        INDEX_ENTRY_FOUND;
+    enum SelectionReason {
+
+        KEY_CACHE_HIT, INDEX_ENTRY_FOUND
     }
 
     /**
      * Listener that does nothing.
      */
-    static final SSTableReadsListener NOOP_LISTENER = new SSTableReadsListener() {};
+    static final transient SSTableReadsListener NOOP_LISTENER = new SSTableReadsListener() {
+    };
 
     /**
      * Handles notification that the specified SSTable has been skipped during a single partition query.
@@ -55,8 +54,7 @@ public interface SSTableReadsListener
      * @param sstable the SSTable reader
      * @param reason the reason for which the SSTable has been skipped
      */
-    default void onSSTableSkipped(SSTableReader sstable, SkippingReason reason)
-    {
+    default void onSSTableSkipped(SSTableReader sstable, SkippingReason reason) {
     }
 
     /**
@@ -66,8 +64,7 @@ public interface SSTableReadsListener
      * @param indexEntry the index entry
      * @param reason the reason for which the SSTable has been selected
      */
-    default void onSSTableSelected(SSTableReader sstable, RowIndexEntry<?> indexEntry, SelectionReason reason)
-    {
+    default void onSSTableSelected(SSTableReader sstable, RowIndexEntry<?> indexEntry, SelectionReason reason) {
     }
 
     /**
@@ -75,7 +72,6 @@ public interface SSTableReadsListener
      *
      * @param sstable the SSTable reader of the SSTable being scanned.
      */
-    default void onScanningStarted(SSTableReader sstable)
-    {
+    default void onScanningStarted(SSTableReader sstable) {
     }
 }

@@ -13,12 +13,10 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-
 package org.apache.cassandra.index.sasi.utils.trie;
 
 import java.util.Map;
 import java.util.SortedMap;
-
 import org.apache.cassandra.index.sasi.utils.trie.Cursor.Decision;
 
 /**
@@ -28,7 +26,6 @@ import org.apache.cassandra.index.sasi.utils.trie.Cursor.Decision;
  * on rkapsi/patricia-trie project) only supports String keys)
  * but unfortunately is not deployed to the maven central as a downloadable artifact.
  */
-
 /**
  * Defines the interface for a prefix tree, an ordered tree data structure. For
  * more information, see <a href="http://en.wikipedia.org/wiki/Trie">Tries</a>.
@@ -36,8 +33,10 @@ import org.apache.cassandra.index.sasi.utils.trie.Cursor.Decision;
  * @author Roger Kapsi
  * @author Sam Berlin
  */
-public interface Trie<K, V> extends SortedMap<K, V>
-{
+public interface Trie<K, V> extends SortedMap<K, V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Trie.class);
+
     /**
      * Returns the {@link Map.Entry} whose key is closest in a bitwise XOR
      * metric to the given key. This is NOT lexicographic closeness.
@@ -118,7 +117,7 @@ public interface Trie<K, V> extends SortedMap<K, V>
      * @return The entry the cursor returned {@link Decision#EXIT} on, or null
      * if it continued till the end.
      */
-    Map.Entry<K,V> select(K key, Cursor<? super K, ? super V> cursor);
+    Map.Entry<K, V> select(K key, Cursor<? super K, ? super V> cursor);
 
     /**
      * Traverses the {@link Trie} in lexicographical order.
@@ -135,7 +134,7 @@ public interface Trie<K, V> extends SortedMap<K, V>
      * @return The entry the cursor returned {@link Decision#EXIT} on, or null
      * if it continued till the end.
      */
-    Map.Entry<K,V> traverse(Cursor<? super K, ? super V> cursor);
+    Map.Entry<K, V> traverse(Cursor<? super K, ? super V> cursor);
 
     /**
      * Returns a view of this {@link Trie} of all elements that are prefixed

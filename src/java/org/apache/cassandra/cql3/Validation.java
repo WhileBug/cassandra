@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.serializers.MarshalException;
@@ -31,8 +30,9 @@ import org.apache.cassandra.utils.FBUtilities;
  * it's not necessary clear that this is the best place to have this (this is
  * certainly not horrible either though).
  */
-public abstract class Validation
-{
+public abstract class Validation {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Validation.class);
 
     /**
      * Validates a (full serialized) partition key.
@@ -42,25 +42,16 @@ public abstract class Validation
      *
      * @throws InvalidRequestException if the provided {@code key} is invalid.
      */
-    public static void validateKey(TableMetadata metadata, ByteBuffer key)
-    {
+    public static void validateKey(TableMetadata metadata, ByteBuffer key) {
         if (key == null || key.remaining() == 0)
             throw new InvalidRequestException("Key may not be empty");
-
         // check that key can be handled by FBUtilities.writeShortByteArray
-        if (key.remaining() > FBUtilities.MAX_UNSIGNED_SHORT)
-        {
-            throw new InvalidRequestException("Key length of " + key.remaining() +
-                                              " is longer than maximum of " +
-                                              FBUtilities.MAX_UNSIGNED_SHORT);
+        if (key.remaining() > FBUtilities.MAX_UNSIGNED_SHORT) {
+            throw new InvalidRequestException("Key length of " + key.remaining() + " is longer than maximum of " + FBUtilities.MAX_UNSIGNED_SHORT);
         }
-
-        try
-        {
+        try {
             metadata.partitionKeyType.validate(key);
-        }
-        catch (MarshalException e)
-        {
+        } catch (MarshalException e) {
             throw new InvalidRequestException(e.getMessage());
         }
     }

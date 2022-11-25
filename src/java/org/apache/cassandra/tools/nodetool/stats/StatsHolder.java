@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool.stats;
 
 import java.util.Map;
@@ -23,7 +22,9 @@ import java.util.Map;
 /**
  * Interface for the Stats property bag
  */
-public interface StatsHolder
-{
+public interface StatsHolder {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StatsHolder.class);
+
     public Map<String, Object> convert2Map();
 }

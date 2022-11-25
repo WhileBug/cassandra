@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool.stats;
 
 import java.io.IOException;
 import java.io.PrintStream;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -31,37 +29,32 @@ import org.yaml.snakeyaml.Yaml;
  *
  * @param <T> Stats property bad type
  */
-public interface StatsPrinter<T extends StatsHolder>
-{
+public interface StatsPrinter<T extends StatsHolder> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StatsPrinter.class);
+
     void print(T data, PrintStream out);
 
-    static class JsonPrinter<T extends StatsHolder> implements StatsPrinter<T>
-    {
+    static class JsonPrinter<T extends StatsHolder> implements StatsPrinter<T> {
+
         @Override
-        public void print(T data, PrintStream out)
-        {
+        public void print(T data, PrintStream out) {
             ObjectMapper mapper = new ObjectMapper();
-            try
-            {
-                String json = mapper.writerWithDefaultPrettyPrinter()
-                                    .writeValueAsString(data.convert2Map());
+            try {
+                String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(data.convert2Map());
                 out.println(json);
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 out.println(e);
             }
         }
     }
 
-    static class YamlPrinter<T extends StatsHolder> implements StatsPrinter<T>
-    {
+    static class YamlPrinter<T extends StatsHolder> implements StatsPrinter<T> {
+
         @Override
-        public void print(T data, PrintStream out)
-        {
+        public void print(T data, PrintStream out) {
             DumperOptions options = new DumperOptions();
             options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-
             Yaml yaml = new Yaml(options);
             out.println(yaml.dump(data.convert2Map()));
         }

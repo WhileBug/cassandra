@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.config;
 
 import java.lang.annotation.ElementType;
@@ -29,10 +28,10 @@ import java.lang.annotation.Target;
  * config parameters we annotate are deprecated and we need to warn the users. (CASSANDRA-17141)
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ ElementType.FIELD})
+@Target({ ElementType.FIELD })
 @Repeatable(ReplacesList.class)
-public @interface Replaces
-{
+public @interface Replaces {
+
     /**
      * @return old configuration parameter name
      */

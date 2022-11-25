@@ -19,8 +19,10 @@ package org.apache.cassandra.config;
 
 import org.apache.cassandra.exceptions.ConfigurationException;
 
-public interface ConfigurationLoader
-{
+public interface ConfigurationLoader {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ConfigurationLoader.class);
+
     /**
      * Loads a {@link Config} object to use to configure a node.
      *

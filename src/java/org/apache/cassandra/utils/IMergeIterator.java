@@ -19,8 +19,9 @@ package org.apache.cassandra.utils;
 
 import java.util.Iterator;
 
-public interface IMergeIterator<In, Out> extends CloseableIterator<Out>
-{
+public interface IMergeIterator<In, Out> extends CloseableIterator<Out> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IMergeIterator.class);
 
     Iterable<? extends Iterator<In>> iterators();
 }

@@ -15,33 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.auth;
 
 import java.util.Map;
 import java.util.Set;
-
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-public class Role
-{
+public class Role {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Role.class);
+
     /**
      * Represents a user or group in the auth subsystem.
      * Roles may be members of other roles, but circular graphs of roles are not permitted.
      * The reason that memberOf is a Set<String> and not Set<Role> is to simplify loading
      * for IRoleManager implementations (in particular, CassandraRoleManager)
      */
+    public final transient RoleResource resource;
 
-    public final RoleResource resource ;
-    public final boolean isSuper;
-    public final boolean canLogin;
-    public final Set<String> memberOf;
-    public final Map<String, String> options;
+    public final transient boolean isSuper;
 
-    public Role(String name, boolean isSuperUser, boolean canLogin, Map<String, String> options, Set<String> memberOf)
-    {
+    public final transient boolean canLogin;
+
+    public final transient Set<String> memberOf;
+
+    public final transient Map<String, String> options;
+
+    public Role(String name, boolean isSuperUser, boolean canLogin, Map<String, String> options, Set<String> memberOf) {
         this.resource = RoleResource.role(name);
         this.isSuper = isSuperUser;
         this.canLogin = canLogin;
@@ -49,24 +51,16 @@ public class Role
         this.options = ImmutableMap.copyOf(options);
     }
 
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof Role))
             return false;
-
-        Role r = (Role)o;
-        return Objects.equal(resource, r.resource)
-               && Objects.equal(isSuper, r.isSuper)
-               && Objects.equal(canLogin, r.canLogin)
-               && Objects.equal(memberOf, r.memberOf)
-               && Objects.equal(options, r.options);
+        Role r = (Role) o;
+        return Objects.equal(resource, r.resource) && Objects.equal(isSuper, r.isSuper) && Objects.equal(canLogin, r.canLogin) && Objects.equal(memberOf, r.memberOf) && Objects.equal(options, r.options);
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(resource, isSuper, canLogin, memberOf, options);
     }
 }

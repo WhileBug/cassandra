@@ -19,41 +19,34 @@ package org.apache.cassandra.net;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.exceptions.RequestFailureReason;
 import org.apache.cassandra.tracing.Tracing;
-
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.apache.cassandra.utils.MonotonicClock.approxTime;
 
-class ResponseVerbHandler implements IVerbHandler
-{
-    public static final ResponseVerbHandler instance = new ResponseVerbHandler();
+class ResponseVerbHandler implements IVerbHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(ResponseVerbHandler.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ResponseVerbHandler.class);
+
+    public static final transient ResponseVerbHandler instance = new ResponseVerbHandler();
+
+    private static final transient Logger logger = LoggerFactory.getLogger(ResponseVerbHandler.class);
 
     @Override
-    public void doVerb(Message message)
-    {
+    public void doVerb(Message message) {
         RequestCallbacks.CallbackInfo callbackInfo = MessagingService.instance().callbacks.remove(message.id(), message.from());
-        if (callbackInfo == null)
-        {
+        if (callbackInfo == null) {
             String msg = "Callback already removed for {} (from {})";
             logger.trace(msg, message.id(), message.from());
             Tracing.trace(msg, message.id(), message.from());
             return;
         }
-
         long latencyNanos = approxTime.now() - callbackInfo.createdAtNanos;
         Tracing.trace("Processing response from {}", message.from());
-
         RequestCallback cb = callbackInfo.callback;
-        if (message.isFailureResponse())
-        {
+        if (message.isFailureResponse()) {
             cb.onFailure(message.from(), (RequestFailureReason) message.payload);
-        }
-        else
-        {
+        } else {
             MessagingService.instance().latencySubscribers.maybeAdd(cb, message.from(), latencyNanos, NANOSECONDS);
             cb.onResponse(message);
         }

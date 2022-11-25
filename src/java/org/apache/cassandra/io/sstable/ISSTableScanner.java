@@ -16,14 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.cassandra.io.sstable;
 
 import java.util.Collection;
 import java.util.Set;
-
 import com.google.common.base.Throwables;
-
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.utils.JVMStabilityInspector;
@@ -32,40 +29,35 @@ import org.apache.cassandra.utils.JVMStabilityInspector;
  * An ISSTableScanner is an abstraction allowing multiple SSTableScanners to be
  * chained together under the hood.  See LeveledCompactionStrategy.getScanners.
  */
-public interface ISSTableScanner extends UnfilteredPartitionIterator
-{
+public interface ISSTableScanner extends UnfilteredPartitionIterator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ISSTableScanner.class);
+
     public long getLengthInBytes();
+
     public long getCompressedLengthInBytes();
+
     public long getCurrentPosition();
+
     public long getBytesScanned();
+
     public Set<SSTableReader> getBackingSSTables();
 
-    public static void closeAllAndPropagate(Collection<ISSTableScanner> scanners, Throwable throwable)
-    {
-        for (ISSTableScanner scanner: scanners)
-        {
-            try
-            {
+    public static void closeAllAndPropagate(Collection<ISSTableScanner> scanners, Throwable throwable) {
+        for (ISSTableScanner scanner : scanners) {
+            try {
                 scanner.close();
-            }
-            catch (Throwable t2)
-            {
+            } catch (Throwable t2) {
                 JVMStabilityInspector.inspectThrowable(t2);
-                if (throwable == null)
-                {
+                if (throwable == null) {
                     throwable = t2;
-                }
-                else
-                {
+                } else {
                     throwable.addSuppressed(t2);
                 }
             }
         }
-
-        if (throwable != null)
-        {
+        if (throwable != null) {
             Throwables.propagate(throwable);
         }
-
     }
 }

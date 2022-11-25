@@ -17,9 +17,11 @@
  */
 package org.apache.cassandra.db.compaction;
 
-public enum OperationType
-{
-    /** Each modification here should be also applied to {@link org.apache.cassandra.tools.nodetool.Stop#compactionType} */
+public enum OperationType {
+
+    /**
+     * Each modification here should be also applied to {@link org.apache.cassandra.tools.nodetool.Stop#compactionType}
+     */
     COMPACTION("Compaction"),
     VALIDATION("Validation"),
     KEY_CACHE_SAVE("Key cache save"),
@@ -29,7 +31,9 @@ public enum OperationType
     SCRUB("Scrub"),
     UPGRADE_SSTABLES("Upgrade sstables"),
     INDEX_BUILD("Secondary index build"),
-    /** Compaction for tombstone removal */
+    /**
+     * Compaction for tombstone removal
+     */
     TOMBSTONE_COMPACTION("Tombstone Compaction"),
     UNKNOWN("Unknown compaction type"),
     ANTICOMPACTION("Anticompaction after repair"),
@@ -43,25 +47,21 @@ public enum OperationType
     GARBAGE_COLLECT("Remove deleted data");
 
     public final String type;
+
     public final String fileName;
 
-    OperationType(String type)
-    {
+    OperationType(String type) {
         this.type = type;
         this.fileName = type.toLowerCase().replace(" ", "");
     }
 
-    public static OperationType fromFileName(String fileName)
-    {
-        for (OperationType opType : OperationType.values())
-            if (opType.fileName.equals(fileName))
-                return opType;
-
+    public static OperationType fromFileName(String fileName) {
+        for (OperationType opType : OperationType.values()) if (opType.fileName.equals(fileName))
+            return opType;
         throw new IllegalArgumentException("Invalid fileName for operation type: " + fileName);
     }
 
-    public String toString()
-    {
+    public String toString() {
         return type;
     }
 }

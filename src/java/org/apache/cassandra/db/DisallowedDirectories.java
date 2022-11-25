@@ -19,53 +19,51 @@ package org.apache.cassandra.db;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.utils.MBeanWrapper;
 
-public class DisallowedDirectories implements DisallowedDirectoriesMBean
-{
-    public static final String DEPRECATED_MBEAN_NAME = "org.apache.cassandra.db:type=BlacklistedDirectories";
-    public static final String MBEAN_NAME = "org.apache.cassandra.db:type=DisallowedDirectories";
-    private static final Logger logger = LoggerFactory.getLogger(DisallowedDirectories.class);
-    private static final DisallowedDirectories instance = new DisallowedDirectories();
+public class DisallowedDirectories implements DisallowedDirectoriesMBean {
 
-    private final Set<File> unreadableDirectories = new CopyOnWriteArraySet<File>();
-    private final Set<File> unwritableDirectories = new CopyOnWriteArraySet<File>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DisallowedDirectories.class);
 
-    private static final AtomicInteger directoriesVersion = new AtomicInteger();
+    public static final transient String DEPRECATED_MBEAN_NAME = "org.apache.cassandra.db:type=BlacklistedDirectories";
 
-    private DisallowedDirectories()
-    {
+    public static final transient String MBEAN_NAME = "org.apache.cassandra.db:type=DisallowedDirectories";
+
+    private static final transient Logger logger = LoggerFactory.getLogger(DisallowedDirectories.class);
+
+    private static final transient DisallowedDirectories instance = new DisallowedDirectories();
+
+    private final transient Set<File> unreadableDirectories = new CopyOnWriteArraySet<File>();
+
+    private final transient Set<File> unwritableDirectories = new CopyOnWriteArraySet<File>();
+
+    private static final transient AtomicInteger directoriesVersion = new AtomicInteger();
+
+    private DisallowedDirectories() {
         // Register this instance with JMX
         MBeanWrapper.instance.registerMBean(this, DEPRECATED_MBEAN_NAME, MBeanWrapper.OnException.LOG);
         MBeanWrapper.instance.registerMBean(this, MBEAN_NAME, MBeanWrapper.OnException.LOG);
     }
 
-    public Set<File> getUnreadableDirectories()
-    {
+    public Set<File> getUnreadableDirectories() {
         return Collections.unmodifiableSet(unreadableDirectories);
     }
 
-    public Set<File> getUnwritableDirectories()
-    {
+    public Set<File> getUnwritableDirectories() {
         return Collections.unmodifiableSet(unwritableDirectories);
     }
 
-    public void markUnreadable(String path)
-    {
+    public void markUnreadable(String path) {
         maybeMarkUnreadable(new File(path));
     }
 
-    public void markUnwritable(String path)
-    {
+    public void markUnwritable(String path) {
         maybeMarkUnwritable(new File(path));
     }
 
@@ -75,11 +73,9 @@ public class DisallowedDirectories implements DisallowedDirectoriesMBean
      *
      * @return the disallowed directory or null if nothing has been added to the list.
      */
-    public static File maybeMarkUnreadable(File path)
-    {
+    public static File maybeMarkUnreadable(File path) {
         File directory = getDirectory(path);
-        if (instance.unreadableDirectories.add(directory))
-        {
+        if (instance.unreadableDirectories.add(directory)) {
             directoriesVersion.incrementAndGet();
             logger.warn("Disallowing {} for reads", directory);
             return directory;
@@ -93,11 +89,9 @@ public class DisallowedDirectories implements DisallowedDirectoriesMBean
      *
      * @return the disallowed directory or null if nothing has been added to the list.
      */
-    public static File maybeMarkUnwritable(File path)
-    {
+    public static File maybeMarkUnwritable(File path) {
         File directory = getDirectory(path);
-        if (instance.unwritableDirectories.add(directory))
-        {
+        if (instance.unwritableDirectories.add(directory)) {
             directoriesVersion.incrementAndGet();
             logger.warn("Disallowing {} for writes", directory);
             return directory;
@@ -105,8 +99,7 @@ public class DisallowedDirectories implements DisallowedDirectoriesMBean
         return null;
     }
 
-    public static int getDirectoriesVersion()
-    {
+    public static int getDirectoriesVersion() {
         return directoriesVersion.get();
     }
 
@@ -115,18 +108,15 @@ public class DisallowedDirectories implements DisallowedDirectoriesMBean
      * Clear the set of unwritable directories.
      */
     @VisibleForTesting
-    public static void clearUnwritableUnsafe()
-    {
+    public static void clearUnwritableUnsafe() {
         instance.unwritableDirectories.clear();
     }
-
 
     /**
      * Tells whether or not the directory is disallowed for reads.
      * @return whether or not the directory is disallowed for reads.
      */
-    public static boolean isUnreadable(File directory)
-    {
+    public static boolean isUnreadable(File directory) {
         return instance.unreadableDirectories.contains(directory);
     }
 
@@ -134,23 +124,18 @@ public class DisallowedDirectories implements DisallowedDirectoriesMBean
      * Tells whether or not the directory is disallowed for writes.
      * @return whether or not the directory is disallowed for reads.
      */
-    public static boolean isUnwritable(File directory)
-    {
+    public static boolean isUnwritable(File directory) {
         return instance.unwritableDirectories.contains(directory);
     }
 
-    private static File getDirectory(File file)
-    {
+    private static File getDirectory(File file) {
         if (file.isDirectory())
             return file;
-
         if (file.isFile())
             return file.getParentFile();
-
         // the file with path cannot be read - try determining the directory manually.
         if (file.getPath().endsWith(".db"))
             return file.getParentFile();
-
         // We may not be able to determine if it's a file or a directory if
         // we were called because we couldn't create the file/directory.
         return file;

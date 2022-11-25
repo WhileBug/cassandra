@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 /**
  * <h2>File transfer</h2>
  *
@@ -48,6 +47,6 @@
  * - send them both over the same socket, but then auto-adjust per each file type.
  *
  * I've opted for the latter to keep socket/channel management simpler and cleaner.
- *
  */
 package org.apache.cassandra.db.streaming;
+

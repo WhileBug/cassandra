@@ -18,13 +18,14 @@
  * under the License.
  *
  */
-
 package org.apache.cassandra.concurrent;
 
 import java.util.concurrent.ExecutorService;
 
-public interface LocalAwareExecutorService extends ExecutorService, ResizableThreadPool
-{
+public interface LocalAwareExecutorService extends ExecutorService, ResizableThreadPool {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LocalAwareExecutorService.class);
+
     // we need a way to inject a TraceState directly into the Executor context without going through
     // the global Tracing sessions; see CASSANDRA-5668
     void execute(Runnable command, ExecutorLocals locals);
@@ -62,13 +63,12 @@ public interface LocalAwareExecutorService extends ExecutorService, ResizableThr
      */
     int getPendingTaskCount();
 
-    default int getMaxTasksQueued()
-    {
+    default int getMaxTasksQueued() {
         return -1;
     }
 
-    interface MaximumPoolSizeListener
-    {
+    interface MaximumPoolSizeListener {
+
         /**
          * Listener to follow changes to the maximum pool size
          */

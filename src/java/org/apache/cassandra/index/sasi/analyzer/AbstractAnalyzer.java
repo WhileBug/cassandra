@@ -21,31 +21,27 @@ import java.nio.ByteBuffer;
 import java.text.Normalizer;
 import java.util.Iterator;
 import java.util.Map;
-
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.schema.ColumnMetadata;
 
-public abstract class AbstractAnalyzer implements Iterator<ByteBuffer>
-{
-    protected ByteBuffer next = null;
+public abstract class AbstractAnalyzer implements Iterator<ByteBuffer> {
 
-    public ByteBuffer next()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractAnalyzer.class);
+
+    protected transient ByteBuffer next = null;
+
+    public ByteBuffer next() {
         return next;
     }
 
-    public void remove()
-    {
+    public void remove() {
         throw new UnsupportedOperationException();
     }
 
-    public void validate(Map<String, String> options, ColumnMetadata cm) throws ConfigurationException
-    {
+    public void validate(Map<String, String> options, ColumnMetadata cm) throws ConfigurationException {
         if (!isCompatibleWith(cm.type))
-            throw new ConfigurationException(String.format("%s does not support type %s",
-                                                           this.getClass().getSimpleName(),
-                                                           cm.type.asCQL3Type()));
+            throw new ConfigurationException(String.format("%s does not support type %s", this.getClass().getSimpleName(), cm.type.asCQL3Type()));
     }
 
     public abstract void init(Map<String, String> options, AbstractType<?> validator);
@@ -63,15 +59,11 @@ public abstract class AbstractAnalyzer implements Iterator<ByteBuffer>
     /**
      * @return true if current analyzer provides text tokenization, false otherwise.
      */
-    public boolean isTokenizing()
-    {
+    public boolean isTokenizing() {
         return false;
     }
 
-    public static String normalize(String original)
-    {
-        return Normalizer.isNormalized(original, Normalizer.Form.NFC)
-                ? original
-                : Normalizer.normalize(original, Normalizer.Form.NFC);
+    public static String normalize(String original) {
+        return Normalizer.isNormalized(original, Normalizer.Form.NFC) ? original : Normalizer.normalize(original, Normalizer.Form.NFC);
     }
 }

@@ -17,8 +17,6 @@
  */
 package org.apache.cassandra.net;
 
-
-
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.Map;
@@ -26,13 +24,16 @@ import java.util.Map;
 /**
  * MBean exposing MessagingService metrics plus allowing to enable/disable back-pressure.
  */
-public interface MessagingServiceMBean
-{
+public interface MessagingServiceMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MessagingServiceMBean.class);
+
     /**
      * Pending tasks for large message TCP Connections
      */
     @Deprecated
     public Map<String, Integer> getLargeMessagePendingTasks();
+
     public Map<String, Integer> getLargeMessagePendingTasksWithPort();
 
     /**
@@ -40,6 +41,7 @@ public interface MessagingServiceMBean
      */
     @Deprecated
     public Map<String, Long> getLargeMessageCompletedTasks();
+
     public Map<String, Long> getLargeMessageCompletedTasksWithPort();
 
     /**
@@ -47,38 +49,39 @@ public interface MessagingServiceMBean
      */
     @Deprecated
     public Map<String, Long> getLargeMessageDroppedTasks();
-    public Map<String, Long> getLargeMessageDroppedTasksWithPort();
 
+    public Map<String, Long> getLargeMessageDroppedTasksWithPort();
 
     /**
      * Pending tasks for small message TCP Connections
      */
     @Deprecated
     public Map<String, Integer> getSmallMessagePendingTasks();
-    public Map<String, Integer> getSmallMessagePendingTasksWithPort();
 
+    public Map<String, Integer> getSmallMessagePendingTasksWithPort();
 
     /**
      * Completed tasks for small message TCP Connections
      */
     @Deprecated
     public Map<String, Long> getSmallMessageCompletedTasks();
-    public Map<String, Long> getSmallMessageCompletedTasksWithPort();
 
+    public Map<String, Long> getSmallMessageCompletedTasksWithPort();
 
     /**
      * Dropped tasks for small message TCP Connections
      */
     @Deprecated
     public Map<String, Long> getSmallMessageDroppedTasks();
-    public Map<String, Long> getSmallMessageDroppedTasksWithPort();
 
+    public Map<String, Long> getSmallMessageDroppedTasksWithPort();
 
     /**
      * Pending tasks for gossip message TCP Connections
      */
     @Deprecated
     public Map<String, Integer> getGossipMessagePendingTasks();
+
     public Map<String, Integer> getGossipMessagePendingTasksWithPort();
 
     /**
@@ -86,6 +89,7 @@ public interface MessagingServiceMBean
      */
     @Deprecated
     public Map<String, Long> getGossipMessageCompletedTasks();
+
     public Map<String, Long> getGossipMessageCompletedTasksWithPort();
 
     /**
@@ -93,6 +97,7 @@ public interface MessagingServiceMBean
      */
     @Deprecated
     public Map<String, Long> getGossipMessageDroppedTasks();
+
     public Map<String, Long> getGossipMessageDroppedTasksWithPort();
 
     /**
@@ -110,6 +115,7 @@ public interface MessagingServiceMBean
      */
     @Deprecated
     public Map<String, Long> getTimeoutsPerHost();
+
     public Map<String, Long> getTimeoutsPerHostWithPort();
 
     /**

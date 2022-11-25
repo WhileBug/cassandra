@@ -15,14 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import java.util.Objects;
 import java.util.Set;
-
 import com.google.common.base.Preconditions;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.utils.FBUtilities;
@@ -43,14 +40,17 @@ import org.apache.cassandra.utils.FBUtilities;
  * and such and what the result is WRT to transientness. Definitely avoid creating fake Replicas with misinformation
  * about endpoints, ranges, or transientness.
  */
-public final class Replica implements Comparable<Replica>
-{
-    private final Range<Token> range;
-    private final InetAddressAndPort endpoint;
-    private final boolean full;
+public final class Replica implements Comparable<Replica> {
 
-    public Replica(InetAddressAndPort endpoint, Range<Token> range, boolean full)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Replica.class);
+
+    private final transient Range<Token> range;
+
+    private final transient InetAddressAndPort endpoint;
+
+    private final transient boolean full;
+
+    public Replica(InetAddressAndPort endpoint, Range<Token> range, boolean full) {
         Preconditions.checkNotNull(endpoint);
         Preconditions.checkNotNull(range);
         this.endpoint = endpoint;
@@ -58,65 +58,55 @@ public final class Replica implements Comparable<Replica>
         this.full = full;
     }
 
-    public Replica(InetAddressAndPort endpoint, Token start, Token end, boolean full)
-    {
+    public Replica(InetAddressAndPort endpoint, Token start, Token end, boolean full) {
         this(endpoint, new Range<>(start, end), full);
     }
 
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         Replica replica = (Replica) o;
-        return full == replica.full &&
-               Objects.equals(endpoint, replica.endpoint) &&
-               Objects.equals(range, replica.range);
+        return full == replica.full && Objects.equals(endpoint, replica.endpoint) && Objects.equals(range, replica.range);
     }
 
     @Override
-    public int compareTo(Replica o)
-    {
+    public int compareTo(Replica o) {
         int c = range.compareTo(o.range);
         if (c == 0)
             c = endpoint.compareTo(o.endpoint);
         if (c == 0)
-            c =  Boolean.compare(full, o.full);
+            c = Boolean.compare(full, o.full);
         return c;
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(endpoint, range, full);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return (full ? "Full" : "Transient") + '(' + endpoint() + ',' + range + ')';
     }
 
-    public final InetAddressAndPort endpoint()
-    {
+    public final InetAddressAndPort endpoint() {
         return endpoint;
     }
 
-    public boolean isSelf()
-    {
+    public boolean isSelf() {
         return endpoint.equals(FBUtilities.getBroadcastAddressAndPort());
     }
 
-    public Range<Token> range()
-    {
+    public Range<Token> range() {
         return range;
     }
 
-    public final boolean isFull()
-    {
+    public final boolean isFull() {
         return full;
     }
 
-    public final boolean isTransient()
-    {
+    public final boolean isTransient() {
         return !isFull();
     }
 
@@ -130,12 +120,10 @@ public final class Replica implements Comparable<Replica>
      * is available fully otherwise a read might treat this replica as full and not read from a full replica that has
      * the data.
      */
-    public RangesAtEndpoint subtractSameReplication(RangesAtEndpoint toSubtract)
-    {
+    public RangesAtEndpoint subtractSameReplication(RangesAtEndpoint toSubtract) {
         Set<Range<Token>> subtractedRanges = range().subtractAll(toSubtract.filter(r -> r.isFull() == isFull()).ranges());
         RangesAtEndpoint.Builder result = RangesAtEndpoint.builder(endpoint, subtractedRanges.size());
-        for (Range<Token> range : subtractedRanges)
-        {
+        for (Range<Token> range : subtractedRanges) {
             result.add(decorateSubrange(range));
         }
         return result.build();
@@ -147,50 +135,39 @@ public final class Replica implements Comparable<Replica>
      * This helper method is used by StorageService.calculateStreamAndFetchRanges to perform subtraction.
      * It ignores transient status because it's already being handled in calculateStreamAndFetchRanges.
      */
-    public RangesAtEndpoint subtractIgnoreTransientStatus(Range<Token> subtract)
-    {
+    public RangesAtEndpoint subtractIgnoreTransientStatus(Range<Token> subtract) {
         Set<Range<Token>> ranges = this.range.subtract(subtract);
         RangesAtEndpoint.Builder result = RangesAtEndpoint.builder(endpoint, ranges.size());
-        for (Range<Token> subrange : ranges)
-            result.add(decorateSubrange(subrange));
+        for (Range<Token> subrange : ranges) result.add(decorateSubrange(subrange));
         return result.build();
     }
 
-    public boolean contains(Range<Token> that)
-    {
+    public boolean contains(Range<Token> that) {
         return range().contains(that);
     }
 
-    public boolean intersectsOnRange(Replica replica)
-    {
+    public boolean intersectsOnRange(Replica replica) {
         return range().intersects(replica.range());
     }
 
-    public Replica decorateSubrange(Range<Token> subrange)
-    {
+    public Replica decorateSubrange(Range<Token> subrange) {
         Preconditions.checkArgument(range.contains(subrange));
         return new Replica(endpoint(), subrange, isFull());
     }
 
-    public static Replica fullReplica(InetAddressAndPort endpoint, Range<Token> range)
-    {
+    public static Replica fullReplica(InetAddressAndPort endpoint, Range<Token> range) {
         return new Replica(endpoint, range, true);
     }
 
-    public static Replica fullReplica(InetAddressAndPort endpoint, Token start, Token end)
-    {
+    public static Replica fullReplica(InetAddressAndPort endpoint, Token start, Token end) {
         return fullReplica(endpoint, new Range<>(start, end));
     }
 
-    public static Replica transientReplica(InetAddressAndPort endpoint, Range<Token> range)
-    {
+    public static Replica transientReplica(InetAddressAndPort endpoint, Range<Token> range) {
         return new Replica(endpoint, range, false);
     }
 
-    public static Replica transientReplica(InetAddressAndPort endpoint, Token start, Token end)
-    {
+    public static Replica transientReplica(InetAddressAndPort endpoint, Token start, Token end) {
         return transientReplica(endpoint, new Range<>(start, end));
     }
-
 }
-

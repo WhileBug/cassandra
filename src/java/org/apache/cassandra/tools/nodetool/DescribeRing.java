@@ -20,33 +20,29 @@ package org.apache.cassandra.tools.nodetool;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
-
 import java.io.IOException;
 import java.io.PrintStream;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "describering", description = "Shows the token ranges info of a given keyspace")
-public class DescribeRing extends NodeToolCmd
-{
+public class DescribeRing extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DescribeRing.class);
+
     @Arguments(description = "The keyspace name", required = true)
-    String keyspace = EMPTY;
+    transient String keyspace = EMPTY;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         PrintStream out = probe.output().out;
         out.println("Schema Version:" + probe.getSchemaVersion());
         out.println("TokenRange: ");
-        try
-        {
-            for (String tokenRangeString : probe.describeRing(keyspace, printPort))
-            {
+        try {
+            for (String tokenRangeString : probe.describeRing(keyspace, printPort)) {
                 out.println("\t" + tokenRangeString);
             }
-        } catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }

@@ -17,8 +17,7 @@
  * This file originates from https://android.googlesource.com/platform/libcore/+/gingerbread/luni/src/main/java/java/util/TimSort.java
  * and has been modified to sort primitive long arrays instead of object arrays.
  */
-//package java.util;
-
+// package java.util;
 package org.apache.cassandra.utils;
 
 import java.util.Arrays;
@@ -55,6 +54,9 @@ import java.util.Arrays;
  * TimSort. Small arrays are sorted in place, using a binary insertion sort.
  */
 public final class LongTimSort {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LongTimSort.class);
+
     /**
      * This is the minimum sized sequence that will be merged.  Shorter
      * sequences will be lengthened by calling binarySort.  If the entire
@@ -72,26 +74,31 @@ public final class LongTimSort {
      * of the minimum stack length required as a function of the length
      * of the array being sorted and the minimum merge sequence length.
      */
-    private static final int MIN_MERGE = 32;
+    private static final transient int MIN_MERGE = 32;
+
     /**
      * The array being sorted.
      */
-    private final long[] a;
+    private final transient long[] a;
+
     /**
      * The comparator for this sort.
      */
-    private final LongComparator c;
+    private final transient LongComparator c;
+
     /**
      * When we get into galloping mode, we stay there until both runs win less
      * often than MIN_GALLOP consecutive times.
      */
-    private static final int  MIN_GALLOP = 7;
+    private static final transient int MIN_GALLOP = 7;
+
     /**
      * This controls when we get *into* galloping mode.  It is initialized
      * to MIN_GALLOP.  The mergeLo and mergeHi methods nudge it higher for
      * random data, and lower for highly structured data.
      */
-    private int minGallop = MIN_GALLOP;
+    private transient int minGallop = MIN_GALLOP;
+
     /**
      * Maximum initial size of tmp array, which is used for merging.  The array
      * can grow to accommodate demand.
@@ -99,11 +106,13 @@ public final class LongTimSort {
      * Unlike Tim's original C version, we do not allocate this much storage
      * when sorting smaller arrays.  This change was required for performance.
      */
-    private static final int INITIAL_TMP_STORAGE_LENGTH = 256;
+    private static final transient int INITIAL_TMP_STORAGE_LENGTH = 256;
+
     /**
      * Temp storage for merges.
      */
-    private long[] tmp;
+    private transient long[] tmp;
+
     /**
      * A stack of pending runs yet to be merged.  Run i starts at
      * address base[i] and extends for len[i] elements.  It's always
@@ -114,15 +123,20 @@ public final class LongTimSort {
      * so we could cut the storage for this, but it's a minor amount,
      * and keeping all the info explicit simplifies the code.
      */
-    private int stackSize = 0;  // Number of pending runs on stack
-    private final int[] runBase;
-    private final int[] runLen;
+    // Number of pending runs on stack
+    private transient int stackSize = 0;
+
+    private final transient int[] runBase;
+
+    private final transient int[] runLen;
+
     /**
      * Asserts have been placed in if-statements for performace. To enable them,
      * set this field to true and enable them in VM with a command line flag.
      * If you modify this class, please do test the asserts!
      */
-    private static final boolean DEBUG = false;
+    private static final transient boolean DEBUG = false;
+
     /**
      * Creates a TimSort instance to maintain the state of an ongoing sort.
      *
@@ -134,9 +148,8 @@ public final class LongTimSort {
         this.c = c;
         // Allocate temp storage (which may be increased later if necessary)
         int len = a.length;
-        @SuppressWarnings({"unchecked", "UnnecessaryLocalVariable"})
-        long[] newArray = new long[len < 2 * INITIAL_TMP_STORAGE_LENGTH ?
-                                   len >>> 1 : INITIAL_TMP_STORAGE_LENGTH];
+        @SuppressWarnings({ "unchecked", "UnnecessaryLocalVariable" })
+        long[] newArray = new long[len < 2 * INITIAL_TMP_STORAGE_LENGTH ? len >>> 1 : INITIAL_TMP_STORAGE_LENGTH];
         tmp = newArray;
         /*
          * Allocate runs-to-be-merged stack (which cannot be expanded).  The
@@ -148,12 +161,11 @@ public final class LongTimSort {
          * computation below must be changed if MIN_MERGE is decreased.  See
          * the MIN_MERGE declaration above for more information.
          */
-        int stackLen = (len <    120  ?  5 :
-                        len <   1542  ? 10 :
-                        len < 119151  ? 19 : 40);
+        int stackLen = (len < 120 ? 5 : len < 1542 ? 10 : len < 119151 ? 19 : 40);
         runBase = new int[stackLen];
         runLen = new int[stackLen];
     }
+
     /*
      * The next two methods (which are package private and static) constitute
      * the entire API of this class.  Each of these methods obeys the contract
@@ -162,15 +174,17 @@ public final class LongTimSort {
     public static void sort(long[] a, LongComparator c) {
         sort(a, 0, a.length, c);
     }
+
     public static void sort(long[] a, int lo, int hi, LongComparator c) {
         if (c == null) {
             Arrays.sort(a, lo, hi);
             return;
         }
         rangeCheck(a.length, lo, hi);
-        int nRemaining  = hi - lo;
+        int nRemaining = hi - lo;
         if (nRemaining < 2)
-            return;  // Arrays of size 0 and 1 are always sorted
+            // Arrays of size 0 and 1 are always sorted
+            return;
         // If array is small, do a "mini-TimSort" with no merges
         if (nRemaining < MIN_MERGE) {
             int initRunLen = countRunAndMakeAscending(a, lo, hi, c);
@@ -201,10 +215,13 @@ public final class LongTimSort {
             nRemaining -= runLen;
         } while (nRemaining != 0);
         // Merge all remaining runs to complete sort
-        if (DEBUG) assert lo == hi;
+        if (DEBUG)
+            assert lo == hi;
         ts.mergeForceCollapse();
-        if (DEBUG) assert ts.stackSize == 1;
+        if (DEBUG)
+            assert ts.stackSize == 1;
     }
+
     /**
      * Sorts the specified portion of the specified array using a binary
      * insertion sort.  This is the best method for sorting small numbers
@@ -224,17 +241,18 @@ public final class LongTimSort {
      * @param c comparator to used for the sort
      */
     @SuppressWarnings("fallthrough")
-    private static void binarySort(long[] a, int lo, int hi, int start,
-                                       LongComparator c) {
-        if (DEBUG) assert lo <= start && start <= hi;
+    private static void binarySort(long[] a, int lo, int hi, int start, LongComparator c) {
+        if (DEBUG)
+            assert lo <= start && start <= hi;
         if (start == lo)
             start++;
-        for ( ; start < hi; start++) {
+        for (; start < hi; start++) {
             long pivot = a[start];
             // Set left (and right) to the index where a[start] (pivot) belongs
             int left = lo;
             int right = start;
-            if (DEBUG) assert left <= right;
+            if (DEBUG)
+                assert left <= right;
             /*
              * Invariants:
              *   pivot >= all in [lo, left).
@@ -247,7 +265,8 @@ public final class LongTimSort {
                 else
                     left = mid + 1;
             }
-            if (DEBUG) assert left == right;
+            if (DEBUG)
+                assert left == right;
             /*
              * The invariants still hold: pivot >= all in [lo, left) and
              * pivot < all in [left, start), so pivot belongs at left.  Note
@@ -255,17 +274,22 @@ public final class LongTimSort {
              * first slot after them -- that's why this sort is stable.
              * Slide elements over to make room to make room for pivot.
              */
-            int n = start - left;  // The number of elements to move
+            // The number of elements to move
+            int n = start - left;
             // Switch is just an optimization for arraycopy in default case
             switch(n) {
-                case 2:  a[left + 2] = a[left + 1];
-                case 1:  a[left + 1] = a[left];
+                case 2:
+                    a[left + 2] = a[left + 1];
+                case 1:
+                    a[left + 1] = a[left];
                     break;
-                default: System.arraycopy(a, left, a, left + 1, n);
+                default:
+                    System.arraycopy(a, left, a, left + 1, n);
             }
             a[left] = pivot;
         }
     }
+
     /**
      * Returns the length of the run beginning at the specified position in
      * the specified array and reverses the run if it is descending (ensuring
@@ -286,28 +310,29 @@ public final class LongTimSort {
      * @param a the array in which a run is to be counted and possibly reversed
      * @param lo index of the first element in the run
      * @param hi index after the last element that may be contained in the run.
-    It is required that @code{lo < hi}.
+     *    It is required that @code{lo < hi}.
      * @param c the comparator to used for the sort
      * @return  the length of the run beginning at the specified position in
      *          the specified array
      */
-    private static int countRunAndMakeAscending(long[] a, int lo, int hi,
-                                                LongComparator c) {
-        if (DEBUG) assert lo < hi;
+    private static int countRunAndMakeAscending(long[] a, int lo, int hi, LongComparator c) {
+        if (DEBUG)
+            assert lo < hi;
         int runHi = lo + 1;
         if (runHi == hi)
             return 1;
         // Find end of run, and reverse range if descending
-        if (c.compare(a[runHi++], a[lo]) < 0) { // Descending
-            while(runHi < hi && c.compare(a[runHi], a[runHi - 1]) < 0)
-                runHi++;
+        if (c.compare(a[runHi++], a[lo]) < 0) {
+            // Descending
+            while (runHi < hi && c.compare(a[runHi], a[runHi - 1]) < 0) runHi++;
             reverseRange(a, lo, runHi);
-        } else {                              // Ascending
-            while (runHi < hi && c.compare(a[runHi], a[runHi - 1]) >= 0)
-                runHi++;
+        } else {
+            // Ascending
+            while (runHi < hi && c.compare(a[runHi], a[runHi - 1]) >= 0) runHi++;
         }
         return runHi - lo;
     }
+
     /**
      * Reverse the specified range of the specified array.
      *
@@ -323,6 +348,7 @@ public final class LongTimSort {
             a[hi--] = t;
         }
     }
+
     /**
      * Returns the minimum acceptable run length for an array of the specified
      * length. Natural runs shorter than this will be extended with
@@ -341,14 +367,17 @@ public final class LongTimSort {
      * @return the length of the minimum run to be merged
      */
     private static int minRunLength(int n) {
-        if (DEBUG) assert n >= 0;
-        int r = 0;      // Becomes 1 if any 1 bits are shifted off
+        if (DEBUG)
+            assert n >= 0;
+        // Becomes 1 if any 1 bits are shifted off
+        int r = 0;
         while (n >= MIN_MERGE) {
             r |= (n & 1);
             n >>= 1;
         }
         return n + r;
     }
+
     /**
      * Pushes the specified run onto the pending-run stack.
      *
@@ -360,6 +389,7 @@ public final class LongTimSort {
         this.runLen[stackSize] = runLen;
         stackSize++;
     }
+
     /**
      * Examines the stack of runs waiting to be merged and merges adjacent runs
      * until the stack invariants are reestablished:
@@ -374,17 +404,19 @@ public final class LongTimSort {
     private void mergeCollapse() {
         while (stackSize > 1) {
             int n = stackSize - 2;
-            if (n > 0 && runLen[n-1] <= runLen[n] + runLen[n+1]) {
+            if (n > 0 && runLen[n - 1] <= runLen[n] + runLen[n + 1]) {
                 if (runLen[n - 1] < runLen[n + 1])
                     n--;
                 mergeAt(n);
             } else if (runLen[n] <= runLen[n + 1]) {
                 mergeAt(n);
             } else {
-                break; // Invariant is established
+                // Invariant is established
+                break;
             }
         }
     }
+
     /**
      * Merges all runs on the stack until only one remains.  This method is
      * called once, to complete the sort.
@@ -397,6 +429,7 @@ public final class LongTimSort {
             mergeAt(n);
         }
     }
+
     /**
      * Merges the two runs at stack indices i and i+1.  Run i must be
      * the penultimate or antepenultimate run on the stack.  In other words,
@@ -405,15 +438,20 @@ public final class LongTimSort {
      * @param i stack index of the first of the two runs to merge
      */
     private void mergeAt(int i) {
-        if (DEBUG) assert stackSize >= 2;
-        if (DEBUG) assert i >= 0;
-        if (DEBUG) assert i == stackSize - 2 || i == stackSize - 3;
+        if (DEBUG)
+            assert stackSize >= 2;
+        if (DEBUG)
+            assert i >= 0;
+        if (DEBUG)
+            assert i == stackSize - 2 || i == stackSize - 3;
         int base1 = runBase[i];
         int len1 = runLen[i];
         int base2 = runBase[i + 1];
         int len2 = runLen[i + 1];
-        if (DEBUG) assert len1 > 0 && len2 > 0;
-        if (DEBUG) assert base1 + len1 == base2;
+        if (DEBUG)
+            assert len1 > 0 && len2 > 0;
+        if (DEBUG)
+            assert base1 + len1 == base2;
         /*
          * Record the length of the combined runs; if i is the 3rd-last
          * run now, also slide over the last run (which isn't involved
@@ -430,7 +468,8 @@ public final class LongTimSort {
          * in run1 can be ignored (because they're already in place).
          */
         int k = gallopRight(a[base2], a, base1, len1, 0, c);
-        if (DEBUG) assert k >= 0;
+        if (DEBUG)
+            assert k >= 0;
         base1 += k;
         len1 -= k;
         if (len1 == 0)
@@ -440,7 +479,8 @@ public final class LongTimSort {
          * in run2 can be ignored (because they're already in place).
          */
         len2 = gallopLeft(a[base1 + len1 - 1], a, base2, len2, len2 - 1, c);
-        if (DEBUG) assert len2 >= 0;
+        if (DEBUG)
+            assert len2 >= 0;
         if (len2 == 0)
             return;
         // Merge remaining runs, using tmp array with min(len1, len2) elements
@@ -449,6 +489,7 @@ public final class LongTimSort {
         else
             mergeHi(base1, len1, base2, len2);
     }
+
     /**
      * Locates the position at which to insert the specified key into the
      * specified sorted range; if the range contains an element equal to key,
@@ -467,9 +508,9 @@ public final class LongTimSort {
      *    the first k elements of a should precede key, and the last n - k
      *    should follow it.
      */
-    private static int gallopLeft(long key, long[] a, int base, int len, int hint,
-                                  LongComparator c) {
-        if (DEBUG) assert len > 0 && hint >= 0 && hint < len;
+    private static int gallopLeft(long key, long[] a, int base, int len, int hint, LongComparator c) {
+        if (DEBUG)
+            assert len > 0 && hint >= 0 && hint < len;
         int lastOfs = 0;
         int ofs = 1;
         if (c.compare(key, a[base + hint]) > 0) {
@@ -478,7 +519,8 @@ public final class LongTimSort {
             while (ofs < maxOfs && c.compare(key, a[base + hint + ofs]) > 0) {
                 lastOfs = ofs;
                 ofs = (ofs << 1) + 1;
-                if (ofs <= 0)   // int overflow
+                if (// int overflow
+                ofs <= 0)
                     ofs = maxOfs;
             }
             if (ofs > maxOfs)
@@ -486,13 +528,15 @@ public final class LongTimSort {
             // Make offsets relative to base
             lastOfs += hint;
             ofs += hint;
-        } else { // key <= a[base + hint]
+        } else {
+            // key <= a[base + hint]
             // Gallop left until a[base+hint-ofs] < key <= a[base+hint-lastOfs]
             final int maxOfs = hint + 1;
             while (ofs < maxOfs && c.compare(key, a[base + hint - ofs]) <= 0) {
                 lastOfs = ofs;
                 ofs = (ofs << 1) + 1;
-                if (ofs <= 0)   // int overflow
+                if (// int overflow
+                ofs <= 0)
                     ofs = maxOfs;
             }
             if (ofs > maxOfs)
@@ -502,7 +546,8 @@ public final class LongTimSort {
             lastOfs = hint - ofs;
             ofs = hint - tmp;
         }
-        if (DEBUG) assert -1 <= lastOfs && lastOfs < ofs && ofs <= len;
+        if (DEBUG)
+            assert -1 <= lastOfs && lastOfs < ofs && ofs <= len;
         /*
          * Now a[base+lastOfs] < key <= a[base+ofs], so key belongs somewhere
          * to the right of lastOfs but no farther right than ofs.  Do a binary
@@ -512,13 +557,18 @@ public final class LongTimSort {
         while (lastOfs < ofs) {
             int m = lastOfs + ((ofs - lastOfs) >>> 1);
             if (c.compare(key, a[base + m]) > 0)
-                lastOfs = m + 1;  // a[base + m] < key
+                // a[base + m] < key
+                lastOfs = m + 1;
             else
-                ofs = m;          // key <= a[base + m]
+                // key <= a[base + m]
+                ofs = m;
         }
-        if (DEBUG) assert lastOfs == ofs;    // so a[base + ofs - 1] < key <= a[base + ofs]
+        // so a[base + ofs - 1] < key <= a[base + ofs]
+        if (DEBUG)
+            assert lastOfs == ofs;
         return ofs;
     }
+
     /**
      * Like gallopLeft, except that if the range contains an element equal to
      * key, gallopRight returns the index after the rightmost equal element.
@@ -532,9 +582,9 @@ public final class LongTimSort {
      * @param c the comparator used to order the range, and to search
      * @return the int k,  0 <= k <= n such that a[b + k - 1] <= key < a[b + k]
      */
-    private static int gallopRight(long key, long[] a, int base, int len,
-                                       int hint, LongComparator c) {
-        if (DEBUG) assert len > 0 && hint >= 0 && hint < len;
+    private static int gallopRight(long key, long[] a, int base, int len, int hint, LongComparator c) {
+        if (DEBUG)
+            assert len > 0 && hint >= 0 && hint < len;
         int ofs = 1;
         int lastOfs = 0;
         if (c.compare(key, a[base + hint]) < 0) {
@@ -543,7 +593,8 @@ public final class LongTimSort {
             while (ofs < maxOfs && c.compare(key, a[base + hint - ofs]) < 0) {
                 lastOfs = ofs;
                 ofs = (ofs << 1) + 1;
-                if (ofs <= 0)   // int overflow
+                if (// int overflow
+                ofs <= 0)
                     ofs = maxOfs;
             }
             if (ofs > maxOfs)
@@ -552,13 +603,15 @@ public final class LongTimSort {
             int tmp = lastOfs;
             lastOfs = hint - ofs;
             ofs = hint - tmp;
-        } else { // a[b + hint] <= key
+        } else {
+            // a[b + hint] <= key
             // Gallop right until a[b+hint + lastOfs] <= key < a[b+hint + ofs]
             int maxOfs = len - hint;
             while (ofs < maxOfs && c.compare(key, a[base + hint + ofs]) >= 0) {
                 lastOfs = ofs;
                 ofs = (ofs << 1) + 1;
-                if (ofs <= 0)   // int overflow
+                if (// int overflow
+                ofs <= 0)
                     ofs = maxOfs;
             }
             if (ofs > maxOfs)
@@ -567,7 +620,8 @@ public final class LongTimSort {
             lastOfs += hint;
             ofs += hint;
         }
-        if (DEBUG) assert -1 <= lastOfs && lastOfs < ofs && ofs <= len;
+        if (DEBUG)
+            assert -1 <= lastOfs && lastOfs < ofs && ofs <= len;
         /*
          * Now a[b + lastOfs] <= key < a[b + ofs], so key belongs somewhere to
          * the right of lastOfs but no farther right than ofs.  Do a binary
@@ -577,13 +631,18 @@ public final class LongTimSort {
         while (lastOfs < ofs) {
             int m = lastOfs + ((ofs - lastOfs) >>> 1);
             if (c.compare(key, a[base + m]) < 0)
-                ofs = m;          // key < a[b + m]
+                // key < a[b + m]
+                ofs = m;
             else
-                lastOfs = m + 1;  // a[b + m] <= key
+                // a[b + m] <= key
+                lastOfs = m + 1;
         }
-        if (DEBUG) assert lastOfs == ofs;    // so a[b + ofs - 1] <= key < a[b + ofs]
+        // so a[b + ofs - 1] <= key < a[b + ofs]
+        if (DEBUG)
+            assert lastOfs == ofs;
         return ofs;
     }
+
     /**
      * Merges two adjacent runs in place, in a stable fashion.  The first
      * element of the first run must be greater than the first element of the
@@ -601,14 +660,19 @@ public final class LongTimSort {
      * @param len2  length of second run to be merged (must be > 0)
      */
     private void mergeLo(int base1, int len1, int base2, int len2) {
-        if (DEBUG) assert len1 > 0 && len2 > 0 && base1 + len1 == base2;
+        if (DEBUG)
+            assert len1 > 0 && len2 > 0 && base1 + len1 == base2;
         // Copy first run into temp array
-        long[] a = this.a; // For performance
+        // For performance
+        long[] a = this.a;
         long[] tmp = ensureCapacity(len1);
         System.arraycopy(a, base1, tmp, 0, len1);
-        int cursor1 = 0;       // Indexes into tmp array
-        int cursor2 = base2;   // Indexes int a
-        int dest = base1;      // Indexes int a
+        // Indexes into tmp array
+        int cursor1 = 0;
+        // Indexes int a
+        int cursor2 = base2;
+        // Indexes int a
+        int dest = base1;
         // Move first element of second run and deal with degenerate cases
         a[dest++] = a[cursor2++];
         if (--len2 == 0) {
@@ -617,21 +681,26 @@ public final class LongTimSort {
         }
         if (len1 == 1) {
             System.arraycopy(a, cursor2, a, dest, len2);
-            a[dest + len2] = tmp[cursor1]; // Last elt of run 1 to end of merge
+            // Last elt of run 1 to end of merge
+            a[dest + len2] = tmp[cursor1];
             return;
         }
-        LongComparator c = this.c;  // Use local variable for performance
-        int minGallop = this.minGallop;    //  "    "       "     "      "
-        outer:
-        while (true) {
-            int count1 = 0; // Number of times in a row that first run won
-            int count2 = 0; // Number of times in a row that second run won
+        // Use local variable for performance
+        LongComparator c = this.c;
+        // "    "       "     "      "
+        int minGallop = this.minGallop;
+        outer: while (true) {
+            // Number of times in a row that first run won
+            int count1 = 0;
+            // Number of times in a row that second run won
+            int count2 = 0;
             /*
              * Do the straightforward thing until (if ever) one run starts
              * winning consistently.
              */
             do {
-                if (DEBUG) assert len1 > 1 && len2 > 0;
+                if (DEBUG)
+                    assert len1 > 1 && len2 > 0;
                 if (c.compare(a[cursor2], tmp[cursor1]) < 0) {
                     a[dest++] = a[cursor2++];
                     count2++;
@@ -652,14 +721,16 @@ public final class LongTimSort {
              * neither run appears to be winning consistently anymore.
              */
             do {
-                if (DEBUG) assert len1 > 1 && len2 > 0;
+                if (DEBUG)
+                    assert len1 > 1 && len2 > 0;
                 count1 = gallopRight(a[cursor2], tmp, cursor1, len1, 0, c);
                 if (count1 != 0) {
                     System.arraycopy(tmp, cursor1, a, dest, count1);
                     dest += count1;
                     cursor1 += count1;
                     len1 -= count1;
-                    if (len1 <= 1) // len1 == 1 || len1 == 0
+                    if (// len1 == 1 || len1 == 0
+                    len1 <= 1)
                         break outer;
                 }
                 a[dest++] = a[cursor2++];
@@ -681,22 +752,29 @@ public final class LongTimSort {
             } while (count1 >= MIN_GALLOP | count2 >= MIN_GALLOP);
             if (minGallop < 0)
                 minGallop = 0;
-            minGallop += 2;  // Penalize for leaving gallop mode
-        }  // End of "outer" loop
-        this.minGallop = minGallop < 1 ? 1 : minGallop;  // Write back to field
+            // Penalize for leaving gallop mode
+            minGallop += 2;
+        }
+        // End of "outer" loop
+        // Write back to field
+        this.minGallop = minGallop < 1 ? 1 : minGallop;
         if (len1 == 1) {
-            if (DEBUG) assert len2 > 0;
+            if (DEBUG)
+                assert len2 > 0;
             System.arraycopy(a, cursor2, a, dest, len2);
-            a[dest + len2] = tmp[cursor1]; //  Last elt of run 1 to end of merge
+            // Last elt of run 1 to end of merge
+            a[dest + len2] = tmp[cursor1];
         } else if (len1 == 0) {
-            throw new IllegalArgumentException(
-                                              "Comparison method violates its general contract!");
+            throw new IllegalArgumentException("Comparison method violates its general contract!");
         } else {
-            if (DEBUG) assert len2 == 0;
-            if (DEBUG) assert len1 > 1;
+            if (DEBUG)
+                assert len2 == 0;
+            if (DEBUG)
+                assert len1 > 1;
             System.arraycopy(tmp, cursor1, a, dest, len1);
         }
     }
+
     /**
      * Like mergeLo, except that this method should be called only if
      * len1 >= len2; mergeLo should be called if len1 <= len2.  (Either method
@@ -709,14 +787,19 @@ public final class LongTimSort {
      * @param len2  length of second run to be merged (must be > 0)
      */
     private void mergeHi(int base1, int len1, int base2, int len2) {
-        if (DEBUG) assert len1 > 0 && len2 > 0 && base1 + len1 == base2;
+        if (DEBUG)
+            assert len1 > 0 && len2 > 0 && base1 + len1 == base2;
         // Copy second run into temp array
-        long[] a = this.a; // For performance
+        // For performance
+        long[] a = this.a;
         long[] tmp = ensureCapacity(len2);
         System.arraycopy(a, base2, tmp, 0, len2);
-        int cursor1 = base1 + len1 - 1;  // Indexes into a
-        int cursor2 = len2 - 1;          // Indexes into tmp array
-        int dest = base2 + len2 - 1;     // Indexes into a
+        // Indexes into a
+        int cursor1 = base1 + len1 - 1;
+        // Indexes into tmp array
+        int cursor2 = len2 - 1;
+        // Indexes into a
+        int dest = base2 + len2 - 1;
         // Move last element of first run and deal with degenerate cases
         a[dest--] = a[cursor1--];
         if (--len1 == 0) {
@@ -730,18 +813,22 @@ public final class LongTimSort {
             a[dest] = tmp[cursor2];
             return;
         }
-        LongComparator c = this.c;  // Use local variable for performance
-        int minGallop = this.minGallop;    //  "    "       "     "      "
-        outer:
-        while (true) {
-            int count1 = 0; // Number of times in a row that first run won
-            int count2 = 0; // Number of times in a row that second run won
+        // Use local variable for performance
+        LongComparator c = this.c;
+        // "    "       "     "      "
+        int minGallop = this.minGallop;
+        outer: while (true) {
+            // Number of times in a row that first run won
+            int count1 = 0;
+            // Number of times in a row that second run won
+            int count2 = 0;
             /*
              * Do the straightforward thing until (if ever) one run
              * appears to win consistently.
              */
             do {
-                if (DEBUG) assert len1 > 0 && len2 > 1;
+                if (DEBUG)
+                    assert len1 > 0 && len2 > 1;
                 if (c.compare(tmp[cursor2], a[cursor1]) < 0) {
                     a[dest--] = a[cursor1--];
                     count1++;
@@ -762,7 +849,8 @@ public final class LongTimSort {
              * neither run appears to be winning consistently anymore.
              */
             do {
-                if (DEBUG) assert len1 > 0 && len2 > 1;
+                if (DEBUG)
+                    assert len1 > 0 && len2 > 1;
                 count1 = len1 - gallopRight(tmp[cursor2], a, base1, len1, len1 - 1, c);
                 if (count1 != 0) {
                     dest -= count1;
@@ -781,7 +869,8 @@ public final class LongTimSort {
                     cursor2 -= count2;
                     len2 -= count2;
                     System.arraycopy(tmp, cursor2 + 1, a, dest + 1, count2);
-                    if (len2 <= 1)  // len2 == 1 || len2 == 0
+                    if (// len2 == 1 || len2 == 0
+                    len2 <= 1)
                         break outer;
                 }
                 a[dest--] = a[cursor1--];
@@ -791,24 +880,31 @@ public final class LongTimSort {
             } while (count1 >= MIN_GALLOP | count2 >= MIN_GALLOP);
             if (minGallop < 0)
                 minGallop = 0;
-            minGallop += 2;  // Penalize for leaving gallop mode
-        }  // End of "outer" loop
-        this.minGallop = minGallop < 1 ? 1 : minGallop;  // Write back to field
+            // Penalize for leaving gallop mode
+            minGallop += 2;
+        }
+        // End of "outer" loop
+        // Write back to field
+        this.minGallop = minGallop < 1 ? 1 : minGallop;
         if (len2 == 1) {
-            if (DEBUG) assert len1 > 0;
+            if (DEBUG)
+                assert len1 > 0;
             dest -= len1;
             cursor1 -= len1;
             System.arraycopy(a, cursor1 + 1, a, dest + 1, len1);
-            a[dest] = tmp[cursor2];  // Move first elt of run2 to front of merge
+            // Move first elt of run2 to front of merge
+            a[dest] = tmp[cursor2];
         } else if (len2 == 0) {
-            throw new IllegalArgumentException(
-                                              "Comparison method violates its general contract!");
+            throw new IllegalArgumentException("Comparison method violates its general contract!");
         } else {
-            if (DEBUG) assert len1 == 0;
-            if (DEBUG) assert len2 > 0;
+            if (DEBUG)
+                assert len1 == 0;
+            if (DEBUG)
+                assert len2 > 0;
             System.arraycopy(tmp, 0, a, dest - (len2 - 1), len2);
         }
     }
+
     /**
      * Ensures that the external array tmp has at least the specified
      * number of elements, increasing its size if necessary.  The size
@@ -827,16 +923,18 @@ public final class LongTimSort {
             newSize |= newSize >> 8;
             newSize |= newSize >> 16;
             newSize++;
-            if (newSize < 0) // Not bloody likely!
+            if (// Not bloody likely!
+            newSize < 0)
                 newSize = minCapacity;
             else
                 newSize = Math.min(newSize, a.length >>> 1);
-            @SuppressWarnings({"unchecked", "UnnecessaryLocalVariable"})
+            @SuppressWarnings({ "unchecked", "UnnecessaryLocalVariable" })
             long[] newArray = new long[newSize];
             tmp = newArray;
         }
         return tmp;
     }
+
     /**
      * Checks that fromIndex and toIndex are in range, and throws an
      * appropriate exception if they aren't.
@@ -850,19 +948,17 @@ public final class LongTimSort {
      */
     private static void rangeCheck(int arrayLen, int fromIndex, int toIndex) {
         if (fromIndex > toIndex)
-            throw new IllegalArgumentException("fromIndex(" + fromIndex +
-                                               ") > toIndex(" + toIndex+")");
+            throw new IllegalArgumentException("fromIndex(" + fromIndex + ") > toIndex(" + toIndex + ")");
         if (fromIndex < 0)
             throw new ArrayIndexOutOfBoundsException(fromIndex);
         if (toIndex > arrayLen)
             throw new ArrayIndexOutOfBoundsException(toIndex);
     }
-    
+
     // addition to original file
-    
     @FunctionalInterface
-    public static interface LongComparator
-    {
+    public static interface LongComparator {
+
         int compare(long o1, long o2);
     }
 }

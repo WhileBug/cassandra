@@ -17,24 +17,25 @@
  */
 package org.apache.cassandra.audit;
 
-public class AuditLogContext
-{
-    public final AuditLogEntryType auditLogEntryType;
-    public final String keyspace;
-    public final String scope;
+public class AuditLogContext {
 
-    public AuditLogContext(AuditLogEntryType auditLogEntryType)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuditLogContext.class);
+
+    public final transient AuditLogEntryType auditLogEntryType;
+
+    public final transient String keyspace;
+
+    public final transient String scope;
+
+    public AuditLogContext(AuditLogEntryType auditLogEntryType) {
         this(auditLogEntryType, null, null);
     }
 
-    public AuditLogContext(AuditLogEntryType auditLogEntryType, String keyspace)
-    {
+    public AuditLogContext(AuditLogEntryType auditLogEntryType, String keyspace) {
         this(auditLogEntryType, keyspace, null);
     }
 
-    public AuditLogContext(AuditLogEntryType auditLogEntryType, String keyspace, String scope)
-    {
+    public AuditLogContext(AuditLogEntryType auditLogEntryType, String keyspace, String scope) {
         this.auditLogEntryType = auditLogEntryType;
         this.keyspace = keyspace;
         this.scope = scope;

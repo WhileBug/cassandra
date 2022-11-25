@@ -16,15 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.cassandra.auth;
 
 import java.net.InetAddress;
-
 import org.apache.cassandra.exceptions.ConfigurationException;
 
-public interface IInternodeAuthenticator
-{
+public interface IInternodeAuthenticator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IInternodeAuthenticator.class);
+
     /**
      * Decides whether or not a peer is allowed to connect to this node.
      * If this method returns false, the socket will be immediately closed.

@@ -20,7 +20,6 @@ package org.apache.cassandra.service;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.locator.IEndpointSnitch;
 import org.apache.cassandra.locator.NetworkTopologyStrategy;
@@ -33,73 +32,54 @@ import org.apache.cassandra.db.WriteType;
 /**
  * This class blocks for a quorum of responses _in all datacenters_ (CL.EACH_QUORUM).
  */
-public class DatacenterSyncWriteResponseHandler<T> extends AbstractWriteResponseHandler<T>
-{
-    private static final IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
+public class DatacenterSyncWriteResponseHandler<T> extends AbstractWriteResponseHandler<T> {
 
-    private final Map<String, AtomicInteger> responses = new HashMap<String, AtomicInteger>();
-    private final AtomicInteger acks = new AtomicInteger(0);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DatacenterSyncWriteResponseHandler.class);
 
-    public DatacenterSyncWriteResponseHandler(ReplicaPlan.ForTokenWrite replicaPlan,
-                                              Runnable callback,
-                                              WriteType writeType,
-                                              long queryStartNanoTime)
-    {
+    private static final transient IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
+
+    private final transient Map<String, AtomicInteger> responses = new HashMap<String, AtomicInteger>();
+
+    private final transient AtomicInteger acks = new AtomicInteger(0);
+
+    public DatacenterSyncWriteResponseHandler(ReplicaPlan.ForTokenWrite replicaPlan, Runnable callback, WriteType writeType, long queryStartNanoTime) {
         // Response is been managed by the map so make it 1 for the superclass.
         super(replicaPlan, callback, writeType, queryStartNanoTime);
         assert replicaPlan.consistencyLevel() == ConsistencyLevel.EACH_QUORUM;
-
-        if (replicaPlan.replicationStrategy() instanceof NetworkTopologyStrategy)
-        {
+        if (replicaPlan.replicationStrategy() instanceof NetworkTopologyStrategy) {
             NetworkTopologyStrategy strategy = (NetworkTopologyStrategy) replicaPlan.replicationStrategy();
-            for (String dc : strategy.getDatacenters())
-            {
+            for (String dc : strategy.getDatacenters()) {
                 int rf = strategy.getReplicationFactor(dc).allReplicas;
                 responses.put(dc, new AtomicInteger((rf / 2) + 1));
             }
-        }
-        else
-        {
+        } else {
             responses.put(DatabaseDescriptor.getLocalDataCenter(), new AtomicInteger(ConsistencyLevel.quorumFor(replicaPlan.replicationStrategy())));
         }
-
         // During bootstrap, we have to include the pending endpoints or we may fail the consistency level
         // guarantees (see #833)
-        for (Replica pending : replicaPlan.pending())
-        {
+        for (Replica pending : replicaPlan.pending()) {
             responses.get(snitch.getDatacenter(pending)).incrementAndGet();
         }
     }
 
-    public void onResponse(Message<T> message)
-    {
-        try
-        {
-            String dataCenter = message == null
-                                ? DatabaseDescriptor.getLocalDataCenter()
-                                : snitch.getDatacenter(message.from());
-
+    public void onResponse(Message<T> message) {
+        try {
+            String dataCenter = message == null ? DatabaseDescriptor.getLocalDataCenter() : snitch.getDatacenter(message.from());
             responses.get(dataCenter).getAndDecrement();
             acks.incrementAndGet();
-
-            for (AtomicInteger i : responses.values())
-            {
+            for (AtomicInteger i : responses.values()) {
                 if (i.get() > 0)
                     return;
             }
-
             // all the quorum conditions are met
             signal();
-        }
-        finally
-        {
-            //Must be last after all subclass processing
+        } finally {
+            // Must be last after all subclass processing
             logResponseToIdealCLDelegate(message);
         }
     }
 
-    protected int ackCount()
-    {
+    protected int ackCount() {
         return acks.get();
     }
 }

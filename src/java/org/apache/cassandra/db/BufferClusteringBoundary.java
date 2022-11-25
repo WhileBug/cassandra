@@ -15,55 +15,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
-
 import com.google.common.base.Preconditions;
-
 import org.apache.cassandra.utils.ObjectSizes;
 import org.apache.cassandra.utils.memory.ByteBufferCloner;
 
-public class BufferClusteringBoundary extends BufferClusteringBoundOrBoundary implements ClusteringBoundary<ByteBuffer>
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new BufferClusteringBoundary(Kind.INCL_START_BOUND, EMPTY_VALUES_ARRAY));
+public class BufferClusteringBoundary extends BufferClusteringBoundOrBoundary implements ClusteringBoundary<ByteBuffer> {
 
-    public BufferClusteringBoundary(Kind kind, ByteBuffer[] values)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BufferClusteringBoundary.class);
+
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new BufferClusteringBoundary(Kind.INCL_START_BOUND, EMPTY_VALUES_ARRAY));
+
+    public BufferClusteringBoundary(Kind kind, ByteBuffer[] values) {
         super(kind, values);
     }
 
-    public long unsharedHeapSize()
-    {
+    public long unsharedHeapSize() {
         return EMPTY_SIZE + ObjectSizes.sizeOnHeapOf(values);
     }
 
-    public static ClusteringBoundary<ByteBuffer> create(Kind kind, ByteBuffer[] values)
-    {
+    public static ClusteringBoundary<ByteBuffer> create(Kind kind, ByteBuffer[] values) {
         Preconditions.checkArgument(kind.isBoundary(), "Expected boundary clustering kind, got %s", kind);
         return new BufferClusteringBoundary(kind, values);
     }
 
     @Override
-    public ClusteringBoundary<ByteBuffer> invert()
-    {
+    public ClusteringBoundary<ByteBuffer> invert() {
         return create(kind().invert(), values);
     }
 
     @Override
-    public ClusteringBoundary<ByteBuffer> clone(ByteBufferCloner cloner)
-    {
+    public ClusteringBoundary<ByteBuffer> clone(ByteBufferCloner cloner) {
         return (ClusteringBoundary<ByteBuffer>) super.clone(cloner);
     }
 
-    public ClusteringBound<ByteBuffer> openBound(boolean reversed)
-    {
+    public ClusteringBound<ByteBuffer> openBound(boolean reversed) {
         return BufferClusteringBound.create(kind.openBoundOfBoundary(reversed), values);
     }
 
-    public ClusteringBound<ByteBuffer> closeBound(boolean reversed)
-    {
+    public ClusteringBound<ByteBuffer> closeBound(boolean reversed) {
         return BufferClusteringBound.create(kind.closeBoundOfBoundary(reversed), values);
     }
 }

@@ -20,35 +20,33 @@ package org.apache.cassandra.cql3;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.cql3.statements.StatementType;
-
 import com.google.common.collect.Iterators;
 
 /**
  * A set of <code>Operation</code>s.
- *
  */
-public final class Operations implements Iterable<Operation>
-{
+public final class Operations implements Iterable<Operation> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Operations.class);
+
     /**
      * The type of statement.
      */
-    private final StatementType type;
+    private final transient StatementType type;
 
     /**
      * The operations on regular columns.
      */
-    private final List<Operation> regularOperations = new ArrayList<>();
+    private final transient List<Operation> regularOperations = new ArrayList<>();
 
     /**
      * The operations on static columns.
      */
-    private final List<Operation> staticOperations = new ArrayList<>();
+    private final transient List<Operation> staticOperations = new ArrayList<>();
 
-    public Operations(StatementType type)
-    {
+    public Operations(StatementType type) {
         this.type = type;
     }
 
@@ -57,8 +55,7 @@ public final class Operations implements Iterable<Operation>
      *
      * @return <code>true</code> if some of the operations apply to static columns, <code>false</code> otherwise.
      */
-    public boolean appliesToStaticColumns()
-    {
+    public boolean appliesToStaticColumns() {
         return !staticOperations.isEmpty();
     }
 
@@ -67,9 +64,8 @@ public final class Operations implements Iterable<Operation>
      *
      * @return <code>true</code> if some of the operations apply to regular columns, <code>false</code> otherwise.
      */
-    public boolean appliesToRegularColumns()
-    {
-     // If we have regular operations, this applies to regular columns.
+    public boolean appliesToRegularColumns() {
+        // If we have regular operations, this applies to regular columns.
         // Otherwise, if the statement is a DELETE and staticOperations is also empty, this means we have no operations,
         // which for a DELETE means a full row deletion. Which means the operation applies to all columns and regular ones in particular.
         return !regularOperations.isEmpty() || (type.isDelete() && staticOperations.isEmpty());
@@ -79,8 +75,7 @@ public final class Operations implements Iterable<Operation>
      * Returns the operation on regular columns.
      * @return the operation on regular columns
      */
-    public List<Operation> regularOperations()
-    {
+    public List<Operation> regularOperations() {
         return regularOperations;
     }
 
@@ -88,8 +83,7 @@ public final class Operations implements Iterable<Operation>
      * Returns the operation on static columns.
      * @return the operation on static columns
      */
-    public List<Operation> staticOperations()
-    {
+    public List<Operation> staticOperations() {
         return staticOperations;
     }
 
@@ -97,8 +91,7 @@ public final class Operations implements Iterable<Operation>
      * Adds the specified <code>Operation</code> to this set of operations.
      * @param operation the operation to add
      */
-    public void add(Operation operation)
-    {
+    public void add(Operation operation) {
         if (operation.column.isStatic())
             staticOperations.add(operation);
         else
@@ -110,13 +103,10 @@ public final class Operations implements Iterable<Operation>
      *
      * @return <code>true</code> if one of the operations requires a read, <code>false</code> otherwise.
      */
-    public boolean requiresRead()
-    {
+    public boolean requiresRead() {
         // Lists SET operation incurs a read.
-        for (Operation operation : this)
-            if (operation.requiresRead())
-                return true;
-
+        for (Operation operation : this) if (operation.requiresRead())
+            return true;
         return false;
     }
 
@@ -124,8 +114,7 @@ public final class Operations implements Iterable<Operation>
      * Checks if this <code>Operations</code> is empty.
      * @return <code>true</code> if this <code>Operations</code> is empty, <code>false</code> otherwise.
      */
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return staticOperations.isEmpty() && regularOperations.isEmpty();
     }
 
@@ -133,13 +122,11 @@ public final class Operations implements Iterable<Operation>
      * {@inheritDoc}
      */
     @Override
-    public Iterator<Operation> iterator()
-    {
+    public Iterator<Operation> iterator() {
         return Iterators.concat(staticOperations.iterator(), regularOperations.iterator());
     }
 
-    public void addFunctionsTo(List<Function> functions)
-    {
+    public void addFunctionsTo(List<Function> functions) {
         regularOperations.forEach(p -> p.addFunctionsTo(functions));
         staticOperations.forEach(p -> p.addFunctionsTo(functions));
     }

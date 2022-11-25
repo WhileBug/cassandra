@@ -15,11 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 @FunctionalInterface
-public interface CheckedFunction<T, R, E extends Exception>
-{
+public interface CheckedFunction<T, R, E extends Exception> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CheckedFunction.class);
+
     R apply(T t) throws E;
 }

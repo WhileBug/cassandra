@@ -24,40 +24,35 @@ import org.apache.cassandra.db.MultiCBuilder;
 /**
  * A single restriction/clause on one or multiple column.
  */
-public interface SingleRestriction extends Restriction
-{
-    public default boolean isSlice()
-    {
+public interface SingleRestriction extends Restriction {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SingleRestriction.class);
+
+    public default boolean isSlice() {
         return false;
     }
 
-    public default boolean isEQ()
-    {
+    public default boolean isEQ() {
         return false;
     }
 
-    public default boolean isLIKE()
-    {
+    public default boolean isLIKE() {
         return false;
     }
 
-    public default boolean isIN()
-    {
+    public default boolean isIN() {
         return false;
     }
 
-    public default boolean isContains()
-    {
+    public default boolean isContains() {
         return false;
     }
 
-    public default boolean isNotNull()
-    {
+    public default boolean isNotNull() {
         return false;
     }
 
-    public default boolean isMultiColumn()
-    {
+    public default boolean isMultiColumn() {
         return false;
     }
 
@@ -66,8 +61,7 @@ public interface SingleRestriction extends Restriction
      * @param b the bound type
      * @return <code>true</code> if the specified bound is set, <code>false</code> otherwise
      */
-    public default boolean hasBound(Bound b)
-    {
+    public default boolean hasBound(Bound b) {
         return true;
     }
 
@@ -76,8 +70,7 @@ public interface SingleRestriction extends Restriction
      * @param b the bound type
      * @return <code>true</code> if the specified bound is inclusive, <code>false</code> otherwise
      */
-    public default boolean isInclusive(Bound b)
-    {
+    public default boolean isInclusive(Bound b) {
         return true;
     }
 
@@ -110,8 +103,7 @@ public interface SingleRestriction extends Restriction
      * @param options the query options
      * @return the <code>MultiCBuilder</code>
      */
-    public default MultiCBuilder appendBoundTo(MultiCBuilder builder, Bound bound, QueryOptions options)
-    {
+    public default MultiCBuilder appendBoundTo(MultiCBuilder builder, Bound bound, QueryOptions options) {
         return appendTo(builder, options);
     }
 }

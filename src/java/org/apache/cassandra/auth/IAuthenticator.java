@@ -20,21 +20,21 @@ package org.apache.cassandra.auth;
 import java.net.InetAddress;
 import java.util.Map;
 import java.util.Set;
-
 import javax.security.cert.X509Certificate;
-
 import org.apache.cassandra.exceptions.AuthenticationException;
 import org.apache.cassandra.exceptions.ConfigurationException;
 
-public interface IAuthenticator
-{
+public interface IAuthenticator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IAuthenticator.class);
+
     /**
      * Whether or not the authenticator requires explicit login.
      * If false will instantiate user with AuthenticatedUser.ANONYMOUS_USER.
      */
     boolean requireAuthentication();
 
-     /**
+    /**
      * Set of resources that should be made inaccessible to users and only accessible internally.
      *
      * @return Keyspaces, column families that will be unmodifiable by users; other resources.
@@ -77,8 +77,7 @@ public interface IAuthenticator
      * @return org.apache.cassandra.auth.IAuthenticator.SaslNegotiator implementation
      * (see {@link org.apache.cassandra.auth.PasswordAuthenticator.PlainTextSaslAuthenticator})
      */
-    default SaslNegotiator newSaslNegotiator(InetAddress clientAddress, X509Certificate[] certificates)
-    {
+    default SaslNegotiator newSaslNegotiator(InetAddress clientAddress, X509Certificate[] certificates) {
         return newSaslNegotiator(clientAddress);
     }
 
@@ -102,8 +101,8 @@ public interface IAuthenticator
      * SASL is stateful, so a new instance should be used for each attempt.
      * Non-trivial implementations may delegate to an instance of {@link javax.security.sasl.SaslServer}
      */
-    public interface SaslNegotiator
-    {
+    public interface SaslNegotiator {
+
         /**
          * Evaluates the client response data and generates a byte[] response which may be a further challenge or purely
          * informational in the case that the negotiation is completed on this round.

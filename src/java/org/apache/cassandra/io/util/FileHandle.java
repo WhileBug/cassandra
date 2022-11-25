@@ -19,11 +19,9 @@ package org.apache.cassandra.io.util;
 
 import java.util.Objects;
 import java.util.Optional;
-
 import com.google.common.util.concurrent.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.cache.ChunkCache;
 import org.apache.cassandra.io.compress.BufferType;
 import org.apache.cassandra.io.compress.CompressionMetadata;
@@ -31,7 +29,6 @@ import org.apache.cassandra.utils.NativeLibrary;
 import org.apache.cassandra.utils.concurrent.Ref;
 import org.apache.cassandra.utils.concurrent.RefCounted;
 import org.apache.cassandra.utils.concurrent.SharedCloseableImpl;
-
 import static org.apache.cassandra.utils.Throwables.maybeFail;
 import org.apache.cassandra.utils.Throwables;
 
@@ -47,30 +44,27 @@ import org.apache.cassandra.utils.Throwables;
  * Therefore, it is important to close the {@link Builder} when it is no longer needed, as well as any {@link FileHandle}
  * instances.
  */
-public class FileHandle extends SharedCloseableImpl
-{
-    private static final Logger logger = LoggerFactory.getLogger(FileHandle.class);
+public class FileHandle extends SharedCloseableImpl {
 
-    public final ChannelProxy channel;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FileHandle.class);
 
-    public final long onDiskLength;
+    private static final transient Logger logger = LoggerFactory.getLogger(FileHandle.class);
+
+    public final transient ChannelProxy channel;
+
+    public final transient long onDiskLength;
 
     /*
      * Rebufferer factory to use when constructing RandomAccessReaders
      */
-    private final RebuffererFactory rebuffererFactory;
+    private final transient RebuffererFactory rebuffererFactory;
 
     /*
      * Optional CompressionMetadata when dealing with compressed file
      */
     private final Optional<CompressionMetadata> compressionMetadata;
 
-    private FileHandle(Cleanup cleanup,
-                       ChannelProxy channel,
-                       RebuffererFactory rebuffererFactory,
-                       CompressionMetadata compressionMetadata,
-                       long onDiskLength)
-    {
+    private FileHandle(Cleanup cleanup, ChannelProxy channel, RebuffererFactory rebuffererFactory, CompressionMetadata compressionMetadata, long onDiskLength) {
         super(cleanup);
         this.rebuffererFactory = rebuffererFactory;
         this.channel = channel;
@@ -78,8 +72,7 @@ public class FileHandle extends SharedCloseableImpl
         this.onDiskLength = onDiskLength;
     }
 
-    private FileHandle(FileHandle copy)
-    {
+    private FileHandle(FileHandle copy) {
         super(copy);
         channel = copy.channel;
         rebuffererFactory = copy.rebuffererFactory;
@@ -90,36 +83,33 @@ public class FileHandle extends SharedCloseableImpl
     /**
      * @return Path to the file this factory is referencing
      */
-    public String path()
-    {
+    public String path() {
         return channel.filePath();
     }
 
-    public long dataLength()
-    {
+    public long dataLength() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.io.util.FileHandle.compressionMetadata]=" + org.json.simple.JSONValue.toJSONString(compressionMetadata).replace("\n", "").replace("\r", ""));
         return compressionMetadata.map(c -> c.dataLength).orElseGet(rebuffererFactory::fileLength);
     }
 
-    public RebuffererFactory rebuffererFactory()
-    {
+    public RebuffererFactory rebuffererFactory() {
         return rebuffererFactory;
     }
 
-    public Optional<CompressionMetadata> compressionMetadata()
-    {
+    public Optional<CompressionMetadata> compressionMetadata() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.io.util.FileHandle.compressionMetadata]=" + org.json.simple.JSONValue.toJSONString(compressionMetadata).replace("\n", "").replace("\r", ""));
         return compressionMetadata;
     }
 
     @Override
-    public void addTo(Ref.IdentityCollection identities)
-    {
+    public void addTo(Ref.IdentityCollection identities) {
         super.addTo(identities);
         compressionMetadata.ifPresent(metadata -> metadata.addTo(identities));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.io.util.FileHandle.compressionMetadata]=" + org.json.simple.JSONValue.toJSONString(compressionMetadata).replace("\n", "").replace("\r", ""));
     }
 
     @Override
-    public FileHandle sharedCopy()
-    {
+    public FileHandle sharedCopy() {
         return new FileHandle(this);
     }
 
@@ -128,8 +118,7 @@ public class FileHandle extends SharedCloseableImpl
      *
      * @return RandomAccessReader for the file
      */
-    public RandomAccessReader createReader()
-    {
+    public RandomAccessReader createReader() {
         return createReader(null);
     }
 
@@ -140,13 +129,11 @@ public class FileHandle extends SharedCloseableImpl
      * @param limiter RateLimiter to use for rate limiting read
      * @return RandomAccessReader for the file
      */
-    public RandomAccessReader createReader(RateLimiter limiter)
-    {
+    public RandomAccessReader createReader(RateLimiter limiter) {
         return new RandomAccessReader(instantiateRebufferer(limiter));
     }
 
-    public FileDataInput createReader(long position)
-    {
+    public FileDataInput createReader(long position) {
         RandomAccessReader reader = createReader();
         reader.seek(position);
         return reader;
@@ -157,21 +144,21 @@ public class FileHandle extends SharedCloseableImpl
      *
      * @param before uncompressed position from start of the file to be dropped from cache. if 0, to end of file.
      */
-    public void dropPageCache(long before)
-    {
+    public void dropPageCache(long before) {
         long position = compressionMetadata.map(metadata -> {
-            if (before >= metadata.dataLength)
+            if (before >= metadata.dataLength) {
+                logger_IC.info("[InconsistencyDetector][org.apache.cassandra.io.util.FileHandle.compressionMetadata]=" + org.json.simple.JSONValue.toJSONString(compressionMetadata).replace("\n", "").replace("\r", ""));
                 return 0L;
-            else
+            } else {
+                logger_IC.info("[InconsistencyDetector][org.apache.cassandra.io.util.FileHandle.compressionMetadata]=" + org.json.simple.JSONValue.toJSONString(compressionMetadata).replace("\n", "").replace("\r", ""));
                 return metadata.chunkFor(before).offset;
+            }
         }).orElse(before);
         NativeLibrary.trySkipCache(channel.getFileDescriptor(), 0, position, path());
     }
 
-    private Rebufferer instantiateRebufferer(RateLimiter limiter)
-    {
+    private Rebufferer instantiateRebufferer(RateLimiter limiter) {
         Rebufferer rebufferer = rebuffererFactory.instantiateRebufferer();
-
         if (limiter != null)
             rebufferer = new LimitingRebufferer(rebufferer, limiter, DiskOptimizationStrategy.MAX_BUFFER_SIZE);
         return rebufferer;
@@ -180,47 +167,37 @@ public class FileHandle extends SharedCloseableImpl
     /**
      * Perform clean up of all resources held by {@link FileHandle}.
      */
-    private static class Cleanup implements RefCounted.Tidy
-    {
-        final ChannelProxy channel;
-        final RebuffererFactory rebufferer;
-        final CompressionMetadata compressionMetadata;
-        final Optional<ChunkCache> chunkCache;
+    private static class Cleanup implements RefCounted.Tidy {
 
-        private Cleanup(ChannelProxy channel,
-                        RebuffererFactory rebufferer,
-                        CompressionMetadata compressionMetadata,
-                        ChunkCache chunkCache)
-        {
+        final transient ChannelProxy channel;
+
+        final transient RebuffererFactory rebufferer;
+
+        final transient CompressionMetadata compressionMetadata;
+
+        final transient Optional<ChunkCache> chunkCache;
+
+        private Cleanup(ChannelProxy channel, RebuffererFactory rebufferer, CompressionMetadata compressionMetadata, ChunkCache chunkCache) {
             this.channel = channel;
             this.rebufferer = rebufferer;
             this.compressionMetadata = compressionMetadata;
             this.chunkCache = Optional.ofNullable(chunkCache);
         }
 
-        public String name()
-        {
+        public String name() {
             return channel.filePath();
         }
 
-        public void tidy()
-        {
+        public void tidy() {
             chunkCache.ifPresent(cache -> cache.invalidateFile(name()));
-            try
-            {
-                if (compressionMetadata != null)
-                {
+            try {
+                if (compressionMetadata != null) {
                     compressionMetadata.close();
                 }
-            }
-            finally
-            {
-                try
-                {
+            } finally {
+                try {
                     channel.close();
-                }
-                finally
-                {
+                } finally {
                     rebufferer.close();
                 }
             }
@@ -230,33 +207,36 @@ public class FileHandle extends SharedCloseableImpl
     /**
      * Configures how the file will be read (compressed, mmapped, use cache etc.)
      */
-    public static class Builder implements AutoCloseable
-    {
-        private final String path;
+    public static class Builder implements AutoCloseable {
 
-        private ChannelProxy channel;
-        private CompressionMetadata compressionMetadata;
-        private MmappedRegions regions;
-        private ChunkCache chunkCache;
-        private int bufferSize = RandomAccessReader.DEFAULT_BUFFER_SIZE;
-        private BufferType bufferType = BufferType.OFF_HEAP;
+        private final transient String path;
 
-        private boolean mmapped = false;
-        private boolean compressed = false;
+        private transient ChannelProxy channel;
 
-        public Builder(String path)
-        {
+        private transient CompressionMetadata compressionMetadata;
+
+        private transient MmappedRegions regions;
+
+        private transient ChunkCache chunkCache;
+
+        private transient int bufferSize = RandomAccessReader.DEFAULT_BUFFER_SIZE;
+
+        private transient BufferType bufferType = BufferType.OFF_HEAP;
+
+        private transient boolean mmapped = false;
+
+        private transient boolean compressed = false;
+
+        public Builder(String path) {
             this.path = path;
         }
 
-        public Builder(ChannelProxy channel)
-        {
+        public Builder(ChannelProxy channel) {
             this.channel = channel;
             this.path = channel.filePath();
         }
 
-        public Builder compressed(boolean compressed)
-        {
+        public Builder compressed(boolean compressed) {
             this.compressed = compressed;
             return this;
         }
@@ -267,8 +247,7 @@ public class FileHandle extends SharedCloseableImpl
          * @param chunkCache ChunkCache object to use for caching
          * @return this object
          */
-        public Builder withChunkCache(ChunkCache chunkCache)
-        {
+        public Builder withChunkCache(ChunkCache chunkCache) {
             this.chunkCache = chunkCache;
             return this;
         }
@@ -279,8 +258,7 @@ public class FileHandle extends SharedCloseableImpl
          * @param metadata CompressionMetadata to use
          * @return this object
          */
-        public Builder withCompressionMetadata(CompressionMetadata metadata)
-        {
+        public Builder withCompressionMetadata(CompressionMetadata metadata) {
             this.compressed = Objects.nonNull(metadata);
             this.compressionMetadata = metadata;
             return this;
@@ -292,8 +270,7 @@ public class FileHandle extends SharedCloseableImpl
          * @param mmapped true if using mmap
          * @return this instance
          */
-        public Builder mmapped(boolean mmapped)
-        {
+        public Builder mmapped(boolean mmapped) {
             this.mmapped = mmapped;
             return this;
         }
@@ -304,8 +281,7 @@ public class FileHandle extends SharedCloseableImpl
          * @param bufferSize Buffer size in bytes
          * @return this instance
          */
-        public Builder bufferSize(int bufferSize)
-        {
+        public Builder bufferSize(int bufferSize) {
             this.bufferSize = bufferSize;
             return this;
         }
@@ -316,8 +292,7 @@ public class FileHandle extends SharedCloseableImpl
          * @param bufferType Buffer type to use
          * @return this instance
          */
-        public Builder bufferType(BufferType bufferType)
-        {
+        public Builder bufferType(BufferType bufferType) {
             this.bufferType = bufferType;
             return this;
         }
@@ -327,8 +302,7 @@ public class FileHandle extends SharedCloseableImpl
          *
          * @see #complete(long)
          */
-        public FileHandle complete()
-        {
+        public FileHandle complete() {
             return complete(-1L);
         }
 
@@ -340,59 +314,40 @@ public class FileHandle extends SharedCloseableImpl
          * @return Built file
          */
         @SuppressWarnings("resource")
-        public FileHandle complete(long overrideLength)
-        {
+        public FileHandle complete(long overrideLength) {
             boolean channelOpened = false;
-            if (channel == null)
-            {
+            if (channel == null) {
                 channel = new ChannelProxy(path);
                 channelOpened = true;
             }
-
             ChannelProxy channelCopy = channel.sharedCopy();
-            try
-            {
+            try {
                 if (compressed && compressionMetadata == null)
                     compressionMetadata = CompressionMetadata.create(channelCopy.filePath());
-
                 long length = overrideLength > 0 ? overrideLength : compressed ? compressionMetadata.compressedFileLength : channelCopy.size();
-
                 RebuffererFactory rebuffererFactory;
-                if (mmapped)
-                {
-                    if (compressed)
-                    {
+                if (mmapped) {
+                    if (compressed) {
                         regions = MmappedRegions.map(channelCopy, compressionMetadata);
-                        rebuffererFactory = maybeCached(new CompressedChunkReader.Mmap(channelCopy, compressionMetadata,
-                                                                                       regions));
-                    }
-                    else
-                    {
+                        rebuffererFactory = maybeCached(new CompressedChunkReader.Mmap(channelCopy, compressionMetadata, regions));
+                    } else {
                         updateRegions(channelCopy, length);
                         rebuffererFactory = new MmapRebufferer(channelCopy, length, regions.sharedCopy());
                     }
-                }
-                else
-                {
+                } else {
                     regions = null;
-                    if (compressed)
-                    {
+                    if (compressed) {
                         rebuffererFactory = maybeCached(new CompressedChunkReader.Standard(channelCopy, compressionMetadata));
-                    }
-                    else
-                    {
+                    } else {
                         int chunkSize = DiskOptimizationStrategy.roundForCaching(bufferSize, ChunkCache.roundUp);
                         rebuffererFactory = maybeCached(new SimpleChunkReader(channelCopy, length, bufferType, chunkSize));
                     }
                 }
                 Cleanup cleanup = new Cleanup(channelCopy, rebuffererFactory, compressionMetadata, chunkCache);
                 return new FileHandle(cleanup, channelCopy, rebuffererFactory, compressionMetadata, length);
-            }
-            catch (Throwable t)
-            {
+            } catch (Throwable t) {
                 channelCopy.close();
-                if (channelOpened)
-                {
+                if (channelOpened) {
                     ChannelProxy c = channel;
                     channel = null;
                     throw Throwables.cleaned(c.close(t));
@@ -401,39 +356,31 @@ public class FileHandle extends SharedCloseableImpl
             }
         }
 
-        public Throwable close(Throwable accumulate)
-        {
+        public Throwable close(Throwable accumulate) {
             if (!compressed && regions != null)
                 accumulate = regions.close(accumulate);
             if (channel != null)
                 return channel.close(accumulate);
-
             return accumulate;
         }
 
-        public void close()
-        {
+        public void close() {
             maybeFail(close(null));
         }
 
-        private RebuffererFactory maybeCached(ChunkReader reader)
-        {
+        private RebuffererFactory maybeCached(ChunkReader reader) {
             if (chunkCache != null && chunkCache.capacity() > 0)
                 return chunkCache.maybeWrap(reader);
             return reader;
         }
 
-        private void updateRegions(ChannelProxy channel, long length)
-        {
-            if (regions != null && !regions.isValid(channel))
-            {
+        private void updateRegions(ChannelProxy channel, long length) {
+            if (regions != null && !regions.isValid(channel)) {
                 Throwable err = regions.close(null);
                 if (err != null)
                     logger.error("Failed to close mapped regions", err);
-
                 regions = null;
             }
-
             if (regions == null)
                 regions = MmappedRegions.map(channel, length);
             else
@@ -442,10 +389,7 @@ public class FileHandle extends SharedCloseableImpl
     }
 
     @Override
-    public String toString()
-    {
-        return getClass().getSimpleName() + "(path='" + path() + '\'' +
-               ", length=" + rebuffererFactory.fileLength() +
-               ')';
+    public String toString() {
+        return getClass().getSimpleName() + "(path='" + path() + '\'' + ", length=" + rebuffererFactory.fileLength() + ')';
     }
 }

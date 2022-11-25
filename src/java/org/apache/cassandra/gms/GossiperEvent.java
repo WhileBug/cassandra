@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.gms;
 
 import java.io.Serializable;
@@ -24,33 +23,42 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-
 import org.apache.cassandra.diag.DiagnosticEvent;
 import org.apache.cassandra.locator.InetAddressAndPort;
 
 /**
  * DiagnosticEvent implementation for {@link Gossiper} activities.
  */
-public final class GossiperEvent extends DiagnosticEvent
-{
-    private final InetAddressAndPort endpoint;
+public final class GossiperEvent extends DiagnosticEvent {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GossiperEvent.class);
+
+    private final transient InetAddressAndPort endpoint;
+
     @Nullable
-    private final Long quarantineExpiration;
+    private final transient Long quarantineExpiration;
+
     @Nullable
-    private final EndpointState localState;
+    private final transient EndpointState localState;
 
-    private final Map<InetAddressAndPort, EndpointState> endpointStateMap;
-    private final boolean inShadowRound;
-    private final Map<InetAddressAndPort, Long> justRemovedEndpoints;
-    private final long lastProcessedMessageAt;
-    private final Set<InetAddressAndPort> liveEndpoints;
-    private final List<String> seeds;
-    private final Set<InetAddressAndPort> seedsInShadowRound;
-    private final Map<InetAddressAndPort, Long> unreachableEndpoints;
+    private final transient Map<InetAddressAndPort, EndpointState> endpointStateMap;
 
+    private final transient boolean inShadowRound;
 
-    public enum GossiperEventType
-    {
+    private final transient Map<InetAddressAndPort, Long> justRemovedEndpoints;
+
+    private final transient long lastProcessedMessageAt;
+
+    private final transient Set<InetAddressAndPort> liveEndpoints;
+
+    private final transient List<String> seeds;
+
+    private final transient Set<InetAddressAndPort> seedsInShadowRound;
+
+    private final transient Map<InetAddressAndPort, Long> unreachableEndpoints;
+
+    public enum GossiperEventType {
+
         MARKED_AS_SHUTDOWN,
         CONVICTED,
         REPLACEMENT_QUARANTINE,
@@ -65,17 +73,13 @@ public final class GossiperEvent extends DiagnosticEvent
         SEND_GOSSIP_DIGEST_SYN
     }
 
-    public GossiperEventType type;
+    public transient GossiperEventType type;
 
-
-    GossiperEvent(GossiperEventType type, Gossiper gossiper, InetAddressAndPort endpoint,
-                  @Nullable Long quarantineExpiration, @Nullable EndpointState localState)
-    {
+    GossiperEvent(GossiperEventType type, Gossiper gossiper, InetAddressAndPort endpoint, @Nullable Long quarantineExpiration, @Nullable EndpointState localState) {
         this.type = type;
         this.endpoint = endpoint;
         this.quarantineExpiration = quarantineExpiration;
         this.localState = localState;
-
         this.endpointStateMap = gossiper.getEndpointStateMap();
         this.inShadowRound = gossiper.isInShadowRound();
         this.justRemovedEndpoints = gossiper.getJustRemovedEndpoints();
@@ -86,16 +90,15 @@ public final class GossiperEvent extends DiagnosticEvent
         this.unreachableEndpoints = gossiper.getUnreachableEndpoints();
     }
 
-    public Enum<GossiperEventType> getType()
-    {
+    public Enum<GossiperEventType> getType() {
         return type;
     }
 
-    public HashMap<String, Serializable> toMap()
-    {
+    public HashMap<String, Serializable> toMap() {
         // be extra defensive against nulls and bugs
         HashMap<String, Serializable> ret = new HashMap<>();
-        if (endpoint != null) ret.put("endpoint", endpoint.getHostAddressAndPort());
+        if (endpoint != null)
+            ret.put("endpoint", endpoint.getHostAddressAndPort());
         ret.put("quarantineExpiration", quarantineExpiration);
         ret.put("localState", String.valueOf(localState));
         ret.put("endpointStateMap", String.valueOf(endpointStateMap));

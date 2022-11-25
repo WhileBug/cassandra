@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.statements;
 
 import java.util.concurrent.TimeoutException;
-
 import org.apache.cassandra.audit.AuditLogContext;
 import org.apache.cassandra.audit.AuditLogEntryType;
 import org.apache.cassandra.auth.Permission;
@@ -35,78 +34,62 @@ import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class TruncateStatement extends QualifiedStatement implements CQLStatement
-{
-    public TruncateStatement(QualifiedName name)
-    {
+public class TruncateStatement extends QualifiedStatement implements CQLStatement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncateStatement.class);
+
+    public TruncateStatement(QualifiedName name) {
         super(name);
     }
 
-    public TruncateStatement prepare(ClientState state)
-    {
+    public TruncateStatement prepare(ClientState state) {
         return this;
     }
 
-    public void authorize(ClientState state) throws InvalidRequestException, UnauthorizedException
-    {
+    public void authorize(ClientState state) throws InvalidRequestException, UnauthorizedException {
         state.ensureTablePermission(keyspace(), name(), Permission.MODIFY);
     }
 
-    public void validate(ClientState state) throws InvalidRequestException
-    {
+    public void validate(ClientState state) throws InvalidRequestException {
         Schema.instance.validateTable(keyspace(), name());
     }
 
-    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime) throws InvalidRequestException, TruncateException
-    {
-        try
-        {
+    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime) throws InvalidRequestException, TruncateException {
+        try {
             TableMetadata metaData = Schema.instance.getTableMetadata(keyspace(), name());
             if (metaData.isView())
                 throw new InvalidRequestException("Cannot TRUNCATE materialized view directly; must truncate base table instead");
-
             if (metaData.isVirtual())
                 throw new InvalidRequestException("Cannot truncate virtual tables");
-
             StorageProxy.truncateBlocking(keyspace(), name());
-        }
-        catch (UnavailableException | TimeoutException e)
-        {
+        } catch (UnavailableException | TimeoutException e) {
             throw new TruncateException(e);
         }
         return null;
     }
 
-    public ResultMessage executeLocally(QueryState state, QueryOptions options)
-    {
-        try
-        {
+    public ResultMessage executeLocally(QueryState state, QueryOptions options) {
+        try {
             TableMetadata metaData = Schema.instance.getTableMetadata(keyspace(), name());
             if (metaData.isView())
                 throw new InvalidRequestException("Cannot TRUNCATE materialized view directly; must truncate base table instead");
-
             if (metaData.isVirtual())
                 throw new InvalidRequestException("Cannot truncate virtual tables");
-
             ColumnFamilyStore cfs = Keyspace.open(keyspace()).getColumnFamilyStore(name());
             cfs.truncateBlocking();
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new TruncateException(e);
         }
         return null;
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.TRUNCATE, keyspace(), name());
     }
 }

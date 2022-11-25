@@ -20,23 +20,21 @@ package org.apache.cassandra.net;
 /**
  * Encapsulates minimum and maximum messaging versions that a node accepts.
  */
-class AcceptVersions
-{
-    final int min, max;
+class AcceptVersions {
 
-    AcceptVersions(int min, int max)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AcceptVersions.class);
+
+    final transient int min, max;
+
+    AcceptVersions(int min, int max) {
         this.min = min;
         this.max = max;
     }
 
     @Override
-    public boolean equals(Object that)
-    {
+    public boolean equals(Object that) {
         if (!(that instanceof AcceptVersions))
             return false;
-
-        return min == ((AcceptVersions) that).min
-            && max == ((AcceptVersions) that).max;
+        return min == ((AcceptVersions) that).min && max == ((AcceptVersions) that).max;
     }
 }

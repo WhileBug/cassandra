@@ -15,57 +15,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.messages;
 
 import java.io.IOException;
 import java.util.UUID;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.utils.UUIDSerializer;
 
-public class FailSession extends RepairMessage
-{
-    public final UUID sessionID;
+public class FailSession extends RepairMessage {
 
-    public FailSession(UUID sessionID)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FailSession.class);
+
+    public final transient UUID sessionID;
+
+    public FailSession(UUID sessionID) {
         super(null);
         assert sessionID != null;
         this.sessionID = sessionID;
     }
 
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         FailSession that = (FailSession) o;
-
         return sessionID.equals(that.sessionID);
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         return sessionID.hashCode();
     }
 
-    public static final IVersionedSerializer<FailSession> serializer = new IVersionedSerializer<FailSession>()
-    {
-        public void serialize(FailSession msg, DataOutputPlus out, int version) throws IOException
-        {
+    public static final transient IVersionedSerializer<FailSession> serializer = new IVersionedSerializer<FailSession>() {
+
+        public void serialize(FailSession msg, DataOutputPlus out, int version) throws IOException {
             UUIDSerializer.serializer.serialize(msg.sessionID, out, version);
         }
 
-        public FailSession deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public FailSession deserialize(DataInputPlus in, int version) throws IOException {
             return new FailSession(UUIDSerializer.serializer.deserialize(in, version));
         }
 
-        public long serializedSize(FailSession msg, int version)
-        {
+        public long serializedSize(FailSession msg, int version) {
             return UUIDSerializer.serializer.serializedSize(msg.sessionID, version);
         }
     };

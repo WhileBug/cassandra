@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.marshal;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.cql3.CQL3Type;
 import org.apache.cassandra.cql3.Constants;
 import org.apache.cassandra.cql3.Duration;
@@ -29,72 +28,62 @@ import org.apache.cassandra.serializers.SimpleDateSerializer;
 import org.apache.cassandra.serializers.TypeSerializer;
 import org.apache.cassandra.transport.ProtocolVersion;
 import org.apache.cassandra.utils.ByteBufferUtil;
-
 import static org.apache.cassandra.cql3.statements.RequestValidations.invalidRequest;
 
-public class SimpleDateType extends TemporalType<Integer>
-{
-    public static final SimpleDateType instance = new SimpleDateType();
+public class SimpleDateType extends TemporalType<Integer> {
 
-    SimpleDateType() {super(ComparisonType.BYTE_ORDER);} // singleton
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SimpleDateType.class);
 
-    public ByteBuffer fromString(String source) throws MarshalException
-    {
+    public static final transient SimpleDateType instance = new SimpleDateType();
+
+    // singleton
+    SimpleDateType() {
+        super(ComparisonType.BYTE_ORDER);
+    }
+
+    public ByteBuffer fromString(String source) throws MarshalException {
         return ByteBufferUtil.bytes(SimpleDateSerializer.dateStringToDays(source));
     }
 
     @Override
-    public ByteBuffer fromTimeInMillis(long millis) throws MarshalException
-    {
+    public ByteBuffer fromTimeInMillis(long millis) throws MarshalException {
         return ByteBufferUtil.bytes(SimpleDateSerializer.timeInMillisToDay(millis));
     }
 
     @Override
-    public long toTimeInMillis(ByteBuffer buffer) throws MarshalException
-    {
+    public long toTimeInMillis(ByteBuffer buffer) throws MarshalException {
         return SimpleDateSerializer.dayToTimeInMillis(ByteBufferUtil.toInt(buffer));
     }
 
     @Override
-    public boolean isValueCompatibleWithInternal(AbstractType<?> otherType)
-    {
+    public boolean isValueCompatibleWithInternal(AbstractType<?> otherType) {
         return this == otherType || otherType == Int32Type.instance;
     }
 
-    public Term fromJSONObject(Object parsed) throws MarshalException
-    {
-        try
-        {
+    public Term fromJSONObject(Object parsed) throws MarshalException {
+        try {
             return new Constants.Value(fromString((String) parsed));
-        }
-        catch (ClassCastException exc)
-        {
-            throw new MarshalException(String.format(
-                    "Expected a string representation of a date value, but got a %s: %s",
-                    parsed.getClass().getSimpleName(), parsed));
+        } catch (ClassCastException exc) {
+            throw new MarshalException(String.format("Expected a string representation of a date value, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
         }
     }
 
     @Override
-    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion)
-    {
+    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion) {
         return '"' + SimpleDateSerializer.instance.toString(SimpleDateSerializer.instance.deserialize(buffer)) + '"';
     }
 
     @Override
-    public CQL3Type asCQL3Type()
-    {
+    public CQL3Type asCQL3Type() {
         return CQL3Type.Native.DATE;
     }
 
-    public TypeSerializer<Integer> getSerializer()
-    {
+    public TypeSerializer<Integer> getSerializer() {
         return SimpleDateSerializer.instance;
     }
 
     @Override
-    protected void validateDuration(Duration duration)
-    {
+    protected void validateDuration(Duration duration) {
         // Checks that the duration has no data below days.
         if (!duration.hasDayPrecision())
             throw invalidRequest("The duration must have a day precision. Was: %s", duration);

@@ -24,9 +24,7 @@ import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.base.Throwables;
-
 import io.netty.util.concurrent.FastThreadLocalThread;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.Row;
@@ -47,23 +45,28 @@ import org.apache.cassandra.utils.JVMStabilityInspector;
  *
  * @see SSTableSimpleWriter
  */
-class SSTableSimpleUnsortedWriter extends AbstractSSTableSimpleWriter
-{
-    private static final Buffer SENTINEL = new Buffer();
+class SSTableSimpleUnsortedWriter extends AbstractSSTableSimpleWriter {
 
-    private Buffer buffer = new Buffer();
-    private final long bufferSize;
-    private long currentSize;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableSimpleUnsortedWriter.class);
+
+    private static final transient Buffer SENTINEL = new Buffer();
+
+    private transient Buffer buffer = new Buffer();
+
+    private final transient long bufferSize;
+
+    private transient long currentSize;
 
     // Used to compute the row serialized size
-    private final SerializationHeader header;
-    private final SerializationHelper helper;
+    private final transient SerializationHeader header;
 
-    private final BlockingQueue<Buffer> writeQueue = new SynchronousQueue<Buffer>();
-    private final DiskWriter diskWriter = new DiskWriter();
+    private final transient SerializationHelper helper;
 
-    SSTableSimpleUnsortedWriter(File directory, TableMetadataRef metadata, RegularAndStaticColumns columns, long bufferSizeInMB)
-    {
+    private final transient BlockingQueue<Buffer> writeQueue = new SynchronousQueue<Buffer>();
+
+    private final transient DiskWriter diskWriter = new DiskWriter();
+
+    SSTableSimpleUnsortedWriter(File directory, TableMetadataRef metadata, RegularAndStaticColumns columns, long bufferSizeInMB) {
         super(directory, metadata, columns);
         this.bufferSize = bufferSizeInMB * 1024L * 1024L;
         this.header = new SerializationHeader(true, metadata.get(), columns, EncodingStats.NO_STATS);
@@ -71,12 +74,10 @@ class SSTableSimpleUnsortedWriter extends AbstractSSTableSimpleWriter
         diskWriter.start();
     }
 
-    PartitionUpdate.Builder getUpdateFor(DecoratedKey key)
-    {
+    PartitionUpdate.Builder getUpdateFor(DecoratedKey key) {
         assert key != null;
         PartitionUpdate.Builder previous = buffer.get(key);
-        if (previous == null)
-        {
+        if (previous == null) {
             // todo: inefficient - we create and serialize a PU just to get its size, then recreate it
             // todo: either allow PartitionUpdateBuilder to have .build() called several times or pre-calculate the size
             currentSize += PartitionUpdate.serializer.serializedSize(createPartitionUpdateBuilder(key).build(), formatType.info.getLatestVersion().correspondingMessagingVersion());
@@ -86,8 +87,7 @@ class SSTableSimpleUnsortedWriter extends AbstractSSTableSimpleWriter
         return previous;
     }
 
-    private void countRow(Row row)
-    {
+    private void countRow(Row row) {
         // Note that the accounting of a row is a bit inaccurate (it doesn't take some of the file format optimization into account)
         // and the maintaining of the bufferSize is in general not perfect. This has always been the case for this class but we should
         // improve that. In particular, what we count is closer to the serialized value, but it's debatable that it's the right thing
@@ -96,28 +96,22 @@ class SSTableSimpleUnsortedWriter extends AbstractSSTableSimpleWriter
         currentSize += UnfilteredSerializer.serializer.serializedSize(row, helper, 0, formatType.info.getLatestVersion().correspondingMessagingVersion());
     }
 
-    private void maybeSync() throws SyncException
-    {
-        try
-        {
+    private void maybeSync() throws SyncException {
+        try {
             if (currentSize > bufferSize)
                 sync();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             // addColumn does not throw IOException but we want to report this to the user,
             // so wrap it in a temporary RuntimeException that we'll catch in rawAddRow above.
             throw new SyncException(e);
         }
     }
 
-    private PartitionUpdate.Builder createPartitionUpdateBuilder(DecoratedKey key)
-    {
-        return new PartitionUpdate.Builder(metadata.get(), key, columns, 4)
-        {
+    private PartitionUpdate.Builder createPartitionUpdateBuilder(DecoratedKey key) {
+        return new PartitionUpdate.Builder(metadata.get(), key, columns, 4) {
+
             @Override
-            public void add(Row row)
-            {
+            public void add(Row row) {
                 super.add(row);
                 countRow(row);
                 maybeSync();
@@ -126,55 +120,41 @@ class SSTableSimpleUnsortedWriter extends AbstractSSTableSimpleWriter
     }
 
     @Override
-    public void close() throws IOException
-    {
+    public void close() throws IOException {
         sync();
         put(SENTINEL);
-        try
-        {
+        try {
             diskWriter.join();
             checkForWriterException();
-        }
-        catch (Throwable e)
-        {
+        } catch (Throwable e) {
             throw new RuntimeException(e);
         }
-
         checkForWriterException();
     }
 
-    protected void sync() throws IOException
-    {
+    protected void sync() throws IOException {
         if (buffer.isEmpty())
             return;
-
         put(buffer);
         buffer = new Buffer();
         currentSize = 0;
     }
 
-    private void put(Buffer buffer) throws IOException
-    {
-        while (true)
-        {
+    private void put(Buffer buffer) throws IOException {
+        while (true) {
             checkForWriterException();
-            try
-            {
+            try {
                 if (writeQueue.offer(buffer, 1, TimeUnit.SECONDS))
                     break;
-            }
-            catch (InterruptedException e)
-            {
+            } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }
     }
 
-    private void checkForWriterException() throws IOException
-    {
+    private void checkForWriterException() throws IOException {
         // slightly lame way to report exception from the writer, but that should be good enough
-        if (diskWriter.exception != null)
-        {
+        if (diskWriter.exception != null) {
             if (diskWriter.exception instanceof IOException)
                 throw (IOException) diskWriter.exception;
             else
@@ -182,40 +162,32 @@ class SSTableSimpleUnsortedWriter extends AbstractSSTableSimpleWriter
         }
     }
 
-    static class SyncException extends RuntimeException
-    {
-        SyncException(IOException ioe)
-        {
+    static class SyncException extends RuntimeException {
+
+        SyncException(IOException ioe) {
             super(ioe);
         }
     }
 
-    //// typedef
-    static class Buffer extends TreeMap<DecoratedKey, PartitionUpdate.Builder> {}
+    // // typedef
+    static class Buffer extends TreeMap<DecoratedKey, PartitionUpdate.Builder> {
+    }
 
-    private class DiskWriter extends FastThreadLocalThread
-    {
-        volatile Throwable exception = null;
+    private class DiskWriter extends FastThreadLocalThread {
 
-        public void run()
-        {
-            while (true)
-            {
-                try
-                {
+        volatile transient Throwable exception = null;
+
+        public void run() {
+            while (true) {
+                try {
                     Buffer b = writeQueue.take();
                     if (b == SENTINEL)
                         return;
-
-                        try (SSTableTxnWriter writer = createWriter())
-                    {
-                        for (Map.Entry<DecoratedKey, PartitionUpdate.Builder> entry : b.entrySet())
-                            writer.append(entry.getValue().build().unfilteredIterator());
+                    try (SSTableTxnWriter writer = createWriter()) {
+                        for (Map.Entry<DecoratedKey, PartitionUpdate.Builder> entry : b.entrySet()) writer.append(entry.getValue().build().unfilteredIterator());
                         writer.finish(false);
                     }
-                }
-                catch (Throwable e)
-                {
+                } catch (Throwable e) {
                     JVMStabilityInspector.inspectThrowable(e);
                     // Keep only the first exception
                     if (exception == null)

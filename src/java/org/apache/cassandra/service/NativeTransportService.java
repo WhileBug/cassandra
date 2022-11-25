@@ -22,12 +22,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
@@ -43,90 +40,72 @@ import org.apache.cassandra.utils.NativeLibrary;
 /**
  * Handles native transport server lifecycle and associated resources. Lazily initialized.
  */
-public class NativeTransportService
-{
+public class NativeTransportService {
 
-    private static final Logger logger = LoggerFactory.getLogger(NativeTransportService.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativeTransportService.class);
 
-    private Collection<Server> servers = Collections.emptyList();
+    private static final transient Logger logger = LoggerFactory.getLogger(NativeTransportService.class);
 
-    private boolean initialized = false;
-    private EventLoopGroup workerGroup;
+    private transient Collection<Server> servers = Collections.emptyList();
+
+    private transient boolean initialized = false;
+
+    private transient EventLoopGroup workerGroup;
 
     /**
      * Creates netty thread pools and event loops.
      */
     @VisibleForTesting
-    synchronized void initialize()
-    {
+    synchronized void initialize() {
         if (initialized)
             return;
-
-        if (useEpoll())
-        {
+        if (useEpoll()) {
             workerGroup = new EpollEventLoopGroup();
             logger.info("Netty using native Epoll event loop");
-        }
-        else
-        {
+        } else {
             workerGroup = new NioEventLoopGroup();
             logger.info("Netty using Java NIO event loop");
         }
-
         int nativePort = DatabaseDescriptor.getNativeTransportPort();
         int nativePortSSL = DatabaseDescriptor.getNativeTransportPortSSL();
         InetAddress nativeAddr = DatabaseDescriptor.getRpcAddress();
-
-        org.apache.cassandra.transport.Server.Builder builder = new org.apache.cassandra.transport.Server.Builder()
-                                                                .withEventLoopGroup(workerGroup)
-                                                                .withHost(nativeAddr);
-
+        org.apache.cassandra.transport.Server.Builder builder = new org.apache.cassandra.transport.Server.Builder().withEventLoopGroup(workerGroup).withHost(nativeAddr);
         EncryptionOptions.TlsEncryptionPolicy encryptionPolicy = DatabaseDescriptor.getNativeProtocolEncryptionOptions().tlsEncryptionPolicy();
         Server regularPortServer;
         Server tlsPortServer = null;
-
         // If an SSL port is separately supplied for the native transport, listen for unencrypted connections on the
         // regular port, and encryption / optionally encrypted connections on the ssl port.
-        if (nativePort != nativePortSSL)
-        {
+        if (nativePort != nativePortSSL) {
             regularPortServer = builder.withTlsEncryptionPolicy(EncryptionOptions.TlsEncryptionPolicy.UNENCRYPTED).withPort(nativePort).build();
-            switch(encryptionPolicy)
-            {
-                case OPTIONAL: // FALLTHRU - encryption is optional on the regular port, but encrypted on the tls port.
+            switch(encryptionPolicy) {
+                // FALLTHRU - encryption is optional on the regular port, but encrypted on the tls port.
+                case OPTIONAL:
                 case ENCRYPTED:
                     tlsPortServer = builder.withTlsEncryptionPolicy(encryptionPolicy).withPort(nativePortSSL).build();
                     break;
-                case UNENCRYPTED: // Should have been caught by DatabaseDescriptor.applySimpleConfig
+                case // Should have been caught by DatabaseDescriptor.applySimpleConfig
+                UNENCRYPTED:
                     throw new IllegalStateException("Encryption must be enabled in client_encryption_options for native_transport_port_ssl");
                 default:
                     throw new IllegalStateException("Unrecognized TLS encryption policy: " + encryptionPolicy);
             }
-        }
-        // Otherwise, if only the regular port is supplied, listen as the encryption policy specifies
-        else
+        } else // Otherwise, if only the regular port is supplied, listen as the encryption policy specifies
         {
             regularPortServer = builder.withTlsEncryptionPolicy(encryptionPolicy).withPort(nativePort).build();
         }
-
-        if (tlsPortServer == null)
-        {
+        if (tlsPortServer == null) {
             servers = Collections.singleton(regularPortServer);
-        }
-        else
-        {
+        } else {
             servers = Collections.unmodifiableList(Arrays.asList(regularPortServer, tlsPortServer));
         }
-
         ClientMetrics.instance.init(servers);
-
         initialized = true;
     }
 
     /**
      * Starts native transport servers.
      */
-    public void start()
-    {
+    public void start() {
         logger.info("Using Netty Version: {}", Version.identify().entrySet());
         initialize();
         servers.forEach(Server::start);
@@ -135,63 +114,51 @@ public class NativeTransportService
     /**
      * Stops currently running native transport servers.
      */
-    public void stop()
-    {
+    public void stop() {
         servers.forEach(Server::stop);
     }
 
     /**
      * Ultimately stops servers and closes all resources.
      */
-    public void destroy()
-    {
+    public void destroy() {
         stop();
         servers = Collections.emptyList();
-
         // shutdown executors used by netty for native transport server
         workerGroup.shutdownGracefully(3, 5, TimeUnit.SECONDS).awaitUninterruptibly();
-
         Dispatcher.shutdown();
     }
 
     /**
      * @return intend to use epoll based event looping
      */
-    public static boolean useEpoll()
-    {
+    public static boolean useEpoll() {
         final boolean enableEpoll = Boolean.parseBoolean(System.getProperty("cassandra.native.epoll.enabled", "true"));
-
         if (enableEpoll && !Epoll.isAvailable() && NativeLibrary.osType == NativeLibrary.OSType.LINUX)
             logger.warn("epoll not available", Epoll.unavailabilityCause());
-
         return enableEpoll && Epoll.isAvailable();
     }
 
     /**
      * @return true in case native transport server is running
      */
-    public boolean isRunning()
-    {
-        for (Server server : servers)
-            if (server.isRunning()) return true;
+    public boolean isRunning() {
+        for (Server server : servers) if (server.isRunning())
+            return true;
         return false;
     }
 
     @VisibleForTesting
-    EventLoopGroup getWorkerGroup()
-    {
+    EventLoopGroup getWorkerGroup() {
         return workerGroup;
     }
 
     @VisibleForTesting
-    Collection<Server> getServers()
-    {
+    Collection<Server> getServers() {
         return servers;
     }
 
-    public void clearConnectionHistory()
-    {
-        for (Server server : servers)
-            server.clearConnectionHistory();
+    public void clearConnectionHistory() {
+        for (Server server : servers) server.clearConnectionHistory();
     }
 }

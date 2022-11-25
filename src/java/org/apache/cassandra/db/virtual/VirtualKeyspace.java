@@ -18,41 +18,37 @@
 package org.apache.cassandra.db.virtual;
 
 import java.util.Collection;
-
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-
 import org.apache.cassandra.schema.KeyspaceMetadata;
 import org.apache.cassandra.schema.Tables;
 
-public class VirtualKeyspace
-{
-    private final String name;
-    private final KeyspaceMetadata metadata;
+public class VirtualKeyspace {
 
-    private final ImmutableCollection<VirtualTable> tables;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VirtualKeyspace.class);
 
-    public VirtualKeyspace(String name, Collection<VirtualTable> tables)
-    {
+    private final transient String name;
+
+    private final transient KeyspaceMetadata metadata;
+
+    private final transient ImmutableCollection<VirtualTable> tables;
+
+    public VirtualKeyspace(String name, Collection<VirtualTable> tables) {
         this.name = name;
         this.tables = ImmutableList.copyOf(tables);
-
         metadata = KeyspaceMetadata.virtual(name, Tables.of(Iterables.transform(tables, VirtualTable::metadata)));
     }
 
-    public String name()
-    {
+    public String name() {
         return name;
     }
 
-    public KeyspaceMetadata metadata()
-    {
+    public KeyspaceMetadata metadata() {
         return metadata;
     }
 
-    public ImmutableCollection<VirtualTable> tables()
-    {
+    public ImmutableCollection<VirtualTable> tables() {
         return tables;
     }
 }

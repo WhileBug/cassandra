@@ -15,43 +15,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class DoubleSerializer extends TypeSerializer<Double>
-{
-    public static final DoubleSerializer instance = new DoubleSerializer();
+public class DoubleSerializer extends TypeSerializer<Double> {
 
-    public <V> Double deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DoubleSerializer.class);
+
+    public static final transient DoubleSerializer instance = new DoubleSerializer();
+
+    public <V> Double deserialize(V value, ValueAccessor<V> accessor) {
         if (accessor.isEmpty(value))
             return null;
         return accessor.toDouble(value);
     }
 
-    public ByteBuffer serialize(Double value)
-    {
+    public ByteBuffer serialize(Double value) {
         return (value == null) ? ByteBufferUtil.EMPTY_BYTE_BUFFER : ByteBufferUtil.bytes(value);
     }
 
-    public <T> void validate(T value, ValueAccessor<T> accessor) throws MarshalException
-    {
+    public <T> void validate(T value, ValueAccessor<T> accessor) throws MarshalException {
         if (accessor.size(value) != 8 && !accessor.isEmpty(value))
             throw new MarshalException(String.format("Expected 8 or 0 byte value for a double (%d)", accessor.size(value)));
     }
 
-    public String toString(Double value)
-    {
+    public String toString(Double value) {
         return value == null ? "" : value.toString();
     }
 
-    public Class<Double> getType()
-    {
+    public Class<Double> getType() {
         return Double.class;
     }
 }

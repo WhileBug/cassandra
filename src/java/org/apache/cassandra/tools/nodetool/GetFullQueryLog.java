@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
@@ -25,16 +24,14 @@ import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 import org.apache.cassandra.tools.nodetool.formatter.TableBuilder;
 
 @Command(name = "getfullquerylog", description = "print configuration of fql if enabled, otherwise the configuration reflected in cassandra.yaml")
-public class GetFullQueryLog extends NodeToolCmd
-{
-    protected void execute(NodeProbe probe)
-    {
+public class GetFullQueryLog extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetFullQueryLog.class);
+
+    protected void execute(NodeProbe probe) {
         final TableBuilder tableBuilder = new TableBuilder();
-
         tableBuilder.add("enabled", Boolean.toString(probe.getStorageService().isFullQueryLogEnabled()));
-
         final FullQueryLoggerOptions options = probe.getFullQueryLoggerOptions();
-
         tableBuilder.add("log_dir", options.log_dir);
         tableBuilder.add("archive_command", options.archive_command);
         tableBuilder.add("roll_cycle", options.roll_cycle);
@@ -42,7 +39,6 @@ public class GetFullQueryLog extends NodeToolCmd
         tableBuilder.add("max_log_size", Long.toString(options.max_log_size));
         tableBuilder.add("max_queue_weight", Integer.toString(options.max_queue_weight));
         tableBuilder.add("max_archive_retries", Long.toString(options.max_archive_retries));
-
         tableBuilder.printTo(probe.output().out);
     }
 }

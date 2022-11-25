@@ -1,21 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.cassandra.utils.binlog;
 
 import java.io.File;
@@ -28,13 +10,11 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue;
 import net.openhft.chronicle.queue.impl.single.SingleChronicleQueueBuilder;
@@ -49,85 +29,70 @@ import org.apache.cassandra.utils.JVMStabilityInspector;
 import org.apache.cassandra.utils.NoSpamLogger;
 import org.apache.cassandra.utils.Throwables;
 import org.apache.cassandra.utils.concurrent.WeightedQueue;
-
 import static java.lang.String.format;
 
-/**
- * Bin log is a is quick and dirty binary log that is kind of a NIH version of binary logging with a traditional logging
- * framework. It's goal is good enough performance, predictable footprint, simplicity in terms of implementation and configuration
- * and most importantly minimal impact on producers of log records.
- *
- * Performance safety is accomplished by feeding items to the binary log using a weighted queue and dropping records if the binary log falls
- * sufficiently far behind.
- *
- * Simplicity and good enough perforamance is achieved by using a single log writing thread as well as Chronicle Queue
- * to handle writing the log, making it available for readers, as well as log rolling.
- *
- */
-public class BinLog implements Runnable
-{
+public class BinLog implements Runnable {
+
     private static final Logger logger = LoggerFactory.getLogger(BinLog.class);
+
     private static final NoSpamLogger noSpamLogger = NoSpamLogger.getLogger(logger, 1, TimeUnit.MINUTES);
+
     private static final NoSpamLogger.NoSpamLogStatement droppedSamplesStatement = noSpamLogger.getStatement("Dropped {} binary log samples", 1, TimeUnit.MINUTES);
 
     public final Path path;
 
     public static final String VERSION = "version";
+
     public static final String TYPE = "type";
 
     private ChronicleQueue queue;
+
     private ExcerptAppender appender;
+
     @VisibleForTesting
     Thread binLogThread = new NamedThreadFactory("Binary Log thread").newThread(this);
+
     final WeightedQueue<ReleaseableWriteMarshallable> sampleQueue;
+
     private final BinLogArchiver archiver;
+
     private final boolean blocking;
 
     private final AtomicLong droppedSamplesSinceLastLog = new AtomicLong();
 
     private BinLogOptions options;
 
-    /*
-    This set contains all the paths we are currently logging to, it is used to make sure
-    we don't start writing audit and full query logs to the same path.
-    */
     private static final Set<Path> currentPaths = Collections.synchronizedSet(new HashSet<>());
 
-    private static final ReleaseableWriteMarshallable NO_OP = new ReleaseableWriteMarshallable()
-    {
+    private static final ReleaseableWriteMarshallable NO_OP = new ReleaseableWriteMarshallable() {
+
         @Override
-        protected long version()
-        {
+        protected long version() {
             return 0;
         }
 
         @Override
-        protected String type()
-        {
+        protected String type() {
             return "no-op";
         }
 
         @Override
-        public void writeMarshallablePayload(WireOut wire)
-        {
+        public void writeMarshallablePayload(WireOut wire) {
         }
 
         @Override
-        public void release()
-        {
+        public void release() {
         }
     };
 
     private volatile boolean shouldContinue = true;
 
-    private BinLog(Path path, BinLogOptions options, BinLogArchiver archiver)
-    {
+    private BinLog(Path path, BinLogOptions options, BinLogArchiver archiver) {
         Preconditions.checkNotNull(path, "path was null");
         Preconditions.checkNotNull(options.roll_cycle, "roll_cycle was null");
         Preconditions.checkArgument(options.max_queue_weight > 0, "max_queue_weight must be > 0");
         SingleChronicleQueueBuilder builder = SingleChronicleQueueBuilder.single(path.toFile());
         builder.rollCycle(RollCycles.valueOf(options.roll_cycle));
-
         sampleQueue = new WeightedQueue<>(options.max_queue_weight);
         this.archiver = archiver;
         builder.storeFileListener(this.archiver);
@@ -135,39 +100,25 @@ public class BinLog implements Runnable
         appender = queue.acquireAppender();
         this.blocking = options.block;
         this.path = path;
-
         this.options = options;
     }
 
-    public BinLogOptions getBinLogOptions()
-    {
+    public BinLogOptions getBinLogOptions() {
         return options;
     }
 
-    /**
-     * Start the consumer thread that writes log records. Can only be done once.
-     */
     @VisibleForTesting
-    void start()
-    {
-        if (!shouldContinue)
-        {
+    void start() {
+        if (!shouldContinue) {
             throw new IllegalStateException("Can't reuse stopped BinLog");
         }
         binLogThread.start();
     }
 
-    /**
-     * Stop the consumer thread that writes log records. Can be called multiple times.
-     * @throws InterruptedException
-     */
-    public synchronized void stop() throws InterruptedException
-    {
-        if (!shouldContinue)
-        {
+    public synchronized void stop() throws InterruptedException {
+        if (!shouldContinue) {
             return;
         }
-
         shouldContinue = false;
         sampleQueue.put(NO_OP);
         binLogThread.join();
@@ -179,168 +130,100 @@ public class BinLog implements Runnable
         currentPaths.remove(path);
     }
 
-    /**
-     * Offer a record to the log. If the in memory queue is full the record will be dropped and offer will return false.
-     * @param record The record to write to the log
-     * @return true if the record was queued and false otherwise
-     */
-    public boolean offer(ReleaseableWriteMarshallable record)
-    {
-        if (!shouldContinue)
-        {
+    public boolean offer(ReleaseableWriteMarshallable record) {
+        if (!shouldContinue) {
             return false;
         }
-
         return sampleQueue.offer(record);
     }
 
-    /**
-     * Put a record into the log. If the in memory queue is full the putting thread will be blocked until there is space or it is interrupted.
-     * @param record The record to write to the log
-     * @throws InterruptedException
-     */
-    public void put(ReleaseableWriteMarshallable record) throws InterruptedException
-    {
-        if (!shouldContinue)
-        {
+    public void put(ReleaseableWriteMarshallable record) throws InterruptedException {
+        if (!shouldContinue) {
             return;
         }
-
-        //Resolve potential deadlock at shutdown when queue is full
-        while (shouldContinue)
-        {
-            if (sampleQueue.offer(record, 1, TimeUnit.SECONDS))
-            {
+        while (shouldContinue) {
+            if (sampleQueue.offer(record, 1, TimeUnit.SECONDS)) {
                 return;
             }
         }
     }
 
-    private void processTasks(List<ReleaseableWriteMarshallable> tasks)
-    {
-        for (int ii = 0; ii < tasks.size(); ii++)
-        {
+    private void processTasks(List<ReleaseableWriteMarshallable> tasks) {
+        for (int ii = 0; ii < tasks.size(); ii++) {
             WriteMarshallable t = tasks.get(ii);
-            //Don't write an empty document
-            if (t == NO_OP)
-            {
+            if (t == NO_OP) {
                 continue;
             }
-
             appender.writeDocument(t);
         }
     }
 
     @Override
-    public void run()
-    {
+    public void run() {
         List<ReleaseableWriteMarshallable> tasks = new ArrayList<>(16);
-        while (shouldContinue)
-        {
-            try
-            {
+        while (shouldContinue) {
+            try {
                 tasks.clear();
                 ReleaseableWriteMarshallable task = sampleQueue.take();
                 tasks.add(task);
                 sampleQueue.drainTo(tasks, 15);
-
                 processTasks(tasks);
-            }
-            catch (Throwable t)
-            {
+            } catch (Throwable t) {
                 logger.error("Unexpected exception in binary log thread", t);
-            }
-            finally
-            {
-                for (int ii = 0; ii < tasks.size(); ii++)
-                {
+            } finally {
+                for (int ii = 0; ii < tasks.size(); ii++) {
                     tasks.get(ii).release();
                 }
             }
         }
-
-        //Clean up the buffers on thread exit, finalization will check again once this
-        //is no longer reachable ensuring there are no stragglers in the queue.
         finalize();
     }
 
-
-    /**
-     * There is a race where we might not release a buffer, going to let finalization
-     * catch it since it shouldn't happen to a lot of buffers. Only test code would run
-     * into it anyways.
-     */
     @Override
-    public void finalize()
-    {
+    public void finalize() {
         ReleaseableWriteMarshallable toRelease;
-        while (((toRelease = sampleQueue.poll()) != null))
-        {
+        while (((toRelease = sampleQueue.poll()) != null)) {
             toRelease.release();
         }
     }
 
-    // todo: refactor to helper class?
-    public void logRecord(ReleaseableWriteMarshallable record)
-    {
+    public void logRecord(ReleaseableWriteMarshallable record) {
         boolean putInQueue = false;
-        try
-        {
-            if (blocking)
-            {
-                try
-                {
+        try {
+            if (blocking) {
+                try {
                     put(record);
                     putInQueue = true;
-                }
-                catch (InterruptedException e)
-                {
+                } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-            }
-            else
-            {
-                if (!offer(record))
-                {
+            } else {
+                if (!offer(record)) {
                     logDroppedSample();
-                }
-                else
-                {
+                } else {
                     putInQueue = true;
                 }
             }
-        }
-        finally
-        {
-            if (!putInQueue)
-            {
-                record.release();
+        } finally {
+            if (!putInQueue) {
+                ???;
             }
         }
     }
 
-    /**
-     * This is potentially lossy, but it's not super critical as we will always generally know
-     * when this is happening and roughly how bad it is.
-     */
-    private void logDroppedSample()
-    {
+    private void logDroppedSample() {
         droppedSamplesSinceLastLog.incrementAndGet();
-        if (droppedSamplesStatement.warn(new Object[] {droppedSamplesSinceLastLog.get()}))
-        {
+        if (droppedSamplesStatement.warn(new Object[] { droppedSamplesSinceLastLog.get() })) {
             droppedSamplesSinceLastLog.set(0);
         }
     }
 
+    public abstract static class ReleaseableWriteMarshallable implements WriteMarshallable {
 
-    public abstract static class ReleaseableWriteMarshallable implements WriteMarshallable
-    {
         @Override
-        public final void writeMarshallable(WireOut wire)
-        {
+        public final void writeMarshallable(WireOut wire) {
             wire.write(VERSION).int16(version());
             wire.write(TYPE).text(type());
-
             writeMarshallablePayload(wire);
         }
 
@@ -353,21 +236,25 @@ public class BinLog implements Runnable
         public abstract void release();
     }
 
-    public static class Builder
-    {
+    public static class Builder {
+
         private Path path;
+
         private String rollCycle;
+
         private int maxQueueWeight;
+
         private long maxLogSize;
+
         private String archiveCommand;
+
         private int maxArchiveRetries;
+
         private boolean blocking;
 
-        public Builder path(Path path)
-        {
+        public Builder path(Path path) {
             Preconditions.checkNotNull(path, "path was null");
             File pathAsFile = path.toFile();
-            //Exists and is a directory or can be created
             Preconditions.checkArgument(!pathAsFile.toString().isEmpty(), "you might have forgotten to specify a directory to save logs");
             Preconditions.checkArgument((pathAsFile.exists() && pathAsFile.isDirectory()) || (!pathAsFile.exists() && pathAsFile.mkdirs()), "path exists and is not a directory or couldn't be created");
             Preconditions.checkArgument(pathAsFile.canRead() && pathAsFile.canWrite() && pathAsFile.canExecute(), "path is not readable, writable, and executable");
@@ -375,8 +262,7 @@ public class BinLog implements Runnable
             return this;
         }
 
-        public Builder rollCycle(String rollCycle)
-        {
+        public Builder rollCycle(String rollCycle) {
             Preconditions.checkNotNull(rollCycle, "rollCycle was null");
             rollCycle = rollCycle.toUpperCase();
             Preconditions.checkNotNull(RollCycles.valueOf(rollCycle), "unrecognized roll cycle");
@@ -384,155 +270,110 @@ public class BinLog implements Runnable
             return this;
         }
 
-        public Builder maxQueueWeight(int maxQueueWeight)
-        {
+        public Builder maxQueueWeight(int maxQueueWeight) {
             Preconditions.checkArgument(maxQueueWeight > 0, "maxQueueWeight must be > 0");
             this.maxQueueWeight = maxQueueWeight;
             return this;
         }
 
-        public Builder maxLogSize(long maxLogSize)
-        {
+        public Builder maxLogSize(long maxLogSize) {
             Preconditions.checkArgument(maxLogSize > 0, "maxLogSize must be > 0");
             this.maxLogSize = maxLogSize;
             return this;
         }
 
-        public Builder archiveCommand(String archiveCommand)
-        {
+        public Builder archiveCommand(String archiveCommand) {
             this.archiveCommand = archiveCommand;
             return this;
         }
 
-        public Builder maxArchiveRetries(int maxArchiveRetries)
-        {
+        public Builder maxArchiveRetries(int maxArchiveRetries) {
             this.maxArchiveRetries = maxArchiveRetries;
             return this;
         }
 
-        public Builder blocking(boolean blocking)
-        {
+        public Builder blocking(boolean blocking) {
             this.blocking = blocking;
             return this;
         }
 
-
-        public BinLog build(boolean cleanDirectory)
-        {
+        public BinLog build(boolean cleanDirectory) {
             logger.info("Attempting to configure bin log: Path: {} Roll cycle: {} Blocking: {} Max queue weight: {} Max log size:{} Archive command: {}", path, rollCycle, blocking, maxQueueWeight, maxLogSize, archiveCommand);
-            synchronized (currentPaths)
-            {
+            synchronized (currentPaths) {
                 if (currentPaths.contains(path))
                     throw new IllegalStateException("Already logging to " + path);
                 currentPaths.add(path);
             }
-            try
-            {
+            try {
                 Throwable sanitationThrowable = cleanEmptyLogFiles(path.toFile(), null);
                 if (sanitationThrowable != null)
-                    throw new RuntimeException(format("Unable to clean up %s directory from empty %s files.",
-                                                      path.toAbsolutePath(), SingleChronicleQueue.SUFFIX),
-                                               sanitationThrowable);
-
-                // create the archiver before cleaning directories - ExternalArchiver will try to archive any existing file.
+                    throw new RuntimeException(format("Unable to clean up %s directory from empty %s files.", path.toAbsolutePath(), SingleChronicleQueue.SUFFIX), sanitationThrowable);
                 BinLogArchiver archiver = Strings.isNullOrEmpty(archiveCommand) ? new DeletingArchiver(maxLogSize) : new ExternalArchiver(archiveCommand, path, maxArchiveRetries);
-                if (cleanDirectory)
-                {
+                if (cleanDirectory) {
                     logger.info("Cleaning directory: {} as requested", path);
-                    if (path.toFile().exists())
-                    {
+                    if (path.toFile().exists()) {
                         Throwable error = cleanDirectory(path.toFile(), null);
-                        if (error != null)
-                        {
+                        if (error != null) {
                             throw new RuntimeException(error);
                         }
                     }
                 }
-
                 final BinLogOptions options = new BinLogOptions();
-
                 options.max_log_size = maxLogSize;
                 options.max_queue_weight = maxQueueWeight;
                 options.block = blocking;
                 options.roll_cycle = rollCycle;
                 options.archive_command = archiveCommand;
                 options.max_archive_retries = maxArchiveRetries;
-
                 BinLog binlog = new BinLog(path, options, archiver);
                 binlog.start();
                 return binlog;
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 currentPaths.remove(path);
                 throw e;
             }
         }
     }
 
-    /**
-     * ChronicleQueue fails to start on cq4 files which are empty. Find such files in log dir and remove them.
-     */
-    private static Throwable cleanEmptyLogFiles(File directory, Throwable accumulate)
-    {
-        return cleanDirectory(directory, accumulate,
-                              (dir) -> dir.listFiles(file -> {
-                                  boolean foundEmptyCq4File = !file.isDirectory()
-                                                              && file.length() == 0
-                                                              && file.getName().endsWith(SingleChronicleQueue.SUFFIX);
-
-                                  if (foundEmptyCq4File)
-                                      logger.warn("Found empty ChronicleQueue file {}. This file wil be deleted as part of BinLog initialization.",
-                                                  file.getAbsolutePath());
-
-                                  return foundEmptyCq4File;
-                              }));
+    private static Throwable cleanEmptyLogFiles(File directory, Throwable accumulate) {
+        return cleanDirectory(directory, accumulate, (dir) -> dir.listFiles(file -> {
+            boolean foundEmptyCq4File = !file.isDirectory() && file.length() == 0 && file.getName().endsWith(SingleChronicleQueue.SUFFIX);
+            if (foundEmptyCq4File)
+                logger.warn("Found empty ChronicleQueue file {}. This file wil be deleted as part of BinLog initialization.", file.getAbsolutePath());
+            return foundEmptyCq4File;
+        }));
     }
 
-    public static Throwable cleanDirectory(File directory, Throwable accumulate)
-    {
+    public static Throwable cleanDirectory(File directory, Throwable accumulate) {
         return cleanDirectory(directory, accumulate, File::listFiles);
     }
 
-    private static Throwable cleanDirectory(File directory, Throwable accumulate, Function<File, File[]> lister)
-    {
+    private static Throwable cleanDirectory(File directory, Throwable accumulate, Function<File, File[]> lister) {
         accumulate = checkDirectory(directory, accumulate);
-
         if (accumulate != null)
             return accumulate;
-
         File[] files = lister.apply(directory);
-
         if (files != null)
-            for (File f : files)
-                accumulate = deleteRecursively(f, accumulate);
-
+            for (File f : files) accumulate = deleteRecursively(f, accumulate);
         if (accumulate instanceof FSError)
             JVMStabilityInspector.inspectThrowable(accumulate);
-
         return accumulate;
     }
 
-    private static Throwable deleteRecursively(File fileOrDirectory, Throwable accumulate)
-    {
-        if (fileOrDirectory.isDirectory())
-        {
+    private static Throwable deleteRecursively(File fileOrDirectory, Throwable accumulate) {
+        if (fileOrDirectory.isDirectory()) {
             File[] files = fileOrDirectory.listFiles();
             if (files != null)
-                for (File f : files)
-                    accumulate = FileUtils.deleteWithConfirm(f, accumulate);
+                for (File f : files) accumulate = FileUtils.deleteWithConfirm(f, accumulate);
         }
         return FileUtils.deleteWithConfirm(fileOrDirectory, accumulate);
     }
 
-    private static Throwable checkDirectory(File directory, Throwable accumulate)
-    {
+    private static Throwable checkDirectory(File directory, Throwable accumulate) {
         if (!directory.exists())
             accumulate = Throwables.merge(accumulate, new RuntimeException(format("%s does not exist", directory)));
-
         if (!directory.isDirectory())
             accumulate = Throwables.merge(accumulate, new RuntimeException(format("%s is not a directory", directory)));
-
         return accumulate;
     }
 }

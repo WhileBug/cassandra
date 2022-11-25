@@ -15,43 +15,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming.messages;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputStreamPlus;
 import org.apache.cassandra.streaming.StreamSession;
 
-public class PrepareAckMessage extends StreamMessage
-{
-    public static Serializer<PrepareAckMessage> serializer = new Serializer<PrepareAckMessage>()
-    {
-        public void serialize(PrepareAckMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException
-        {
-            //nop
+public class PrepareAckMessage extends StreamMessage {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareAckMessage.class);
+
+    public static transient Serializer<PrepareAckMessage> serializer = new Serializer<PrepareAckMessage>() {
+
+        public void serialize(PrepareAckMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException {
+            // nop
         }
 
-        public PrepareAckMessage deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public PrepareAckMessage deserialize(DataInputPlus in, int version) throws IOException {
             return new PrepareAckMessage();
         }
 
-        public long serializedSize(PrepareAckMessage message, int version)
-        {
+        public long serializedSize(PrepareAckMessage message, int version) {
             return 0;
         }
     };
 
-    public PrepareAckMessage()
-    {
+    public PrepareAckMessage() {
         super(Type.PREPARE_ACK);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "Prepare ACK";
     }
 }

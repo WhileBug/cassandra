@@ -15,41 +15,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class ShortSerializer extends TypeSerializer<Short>
-{
-    public static final ShortSerializer instance = new ShortSerializer();
+public class ShortSerializer extends TypeSerializer<Short> {
 
-    public <V> Short deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ShortSerializer.class);
+
+    public static final transient ShortSerializer instance = new ShortSerializer();
+
+    public <V> Short deserialize(V value, ValueAccessor<V> accessor) {
         return accessor.isEmpty(value) ? null : accessor.toShort(value);
     }
 
-    public ByteBuffer serialize(Short value)
-    {
+    public ByteBuffer serialize(Short value) {
         return value == null ? ByteBufferUtil.EMPTY_BYTE_BUFFER : ByteBufferUtil.bytes(value.shortValue());
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (accessor.size(value) != 2)
             throw new MarshalException(String.format("Expected 2 bytes for a smallint (%d)", accessor.size(value)));
     }
 
-    public String toString(Short value)
-    {
+    public String toString(Short value) {
         return value == null ? "" : String.valueOf(value);
     }
 
-    public Class<Short> getType()
-    {
+    public Class<Short> getType() {
         return Short.class;
     }
 }

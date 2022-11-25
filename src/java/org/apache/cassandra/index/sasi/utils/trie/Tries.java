@@ -13,7 +13,6 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-
 /**
  * This class is taken from https://github.com/rkapsi/patricia-trie (v0.6), and slightly modified
  * to correspond to Cassandra code style, as the only Patricia Trie implementation,
@@ -21,35 +20,33 @@
  * on rkapsi/patricia-trie project) only supports String keys)
  * but unfortunately is not deployed to the maven central as a downloadable artifact.
  */
-
 package org.apache.cassandra.index.sasi.utils.trie;
 
 /**
  * A collection of {@link Trie} utilities
  */
-public class Tries
-{
+public class Tries {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Tries.class);
+
     /**
      * Returns true if bitIndex is a {@link KeyAnalyzer#OUT_OF_BOUNDS_BIT_KEY}
      */
-    static boolean isOutOfBoundsIndex(int bitIndex)
-    {
+    static boolean isOutOfBoundsIndex(int bitIndex) {
         return bitIndex == KeyAnalyzer.OUT_OF_BOUNDS_BIT_KEY;
     }
 
     /**
      * Returns true if bitIndex is a {@link KeyAnalyzer#EQUAL_BIT_KEY}
      */
-    static boolean isEqualBitKey(int bitIndex)
-    {
+    static boolean isEqualBitKey(int bitIndex) {
         return bitIndex == KeyAnalyzer.EQUAL_BIT_KEY;
     }
 
     /**
      * Returns true if bitIndex is a {@link KeyAnalyzer#NULL_BIT_KEY}
      */
-    static boolean isNullBitKey(int bitIndex)
-    {
+    static boolean isNullBitKey(int bitIndex) {
         return bitIndex == KeyAnalyzer.NULL_BIT_KEY;
     }
 
@@ -58,16 +55,14 @@ public class Tries
      * are considered valid if they're between 0 and
      * {@link Integer#MAX_VALUE}
      */
-    static boolean isValidBitIndex(int bitIndex)
-    {
+    static boolean isValidBitIndex(int bitIndex) {
         return 0 <= bitIndex;
     }
 
     /**
      * Returns true if both values are either null or equal
      */
-    static boolean areEqual(Object a, Object b)
-    {
+    static boolean areEqual(Object a, Object b) {
         return (a == null ? b == null : a.equals(b));
     }
 
@@ -75,11 +70,9 @@ public class Tries
      * Throws a {@link NullPointerException} with the given message if
      * the argument is null.
      */
-    static <T> T notNull(T o, String message)
-    {
+    static <T> T notNull(T o, String message) {
         if (o == null)
             throw new NullPointerException(message);
-
         return o;
     }
 
@@ -88,8 +81,7 @@ public class Tries
      * cast anything. It's just fooling the compiler!
      */
     @SuppressWarnings("unchecked")
-    static <K> K cast(Object key)
-    {
-        return (K)key;
+    static <K> K cast(Object key) {
+        return (K) key;
     }
 }

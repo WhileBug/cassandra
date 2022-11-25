@@ -20,31 +20,22 @@ package org.apache.cassandra.tools.nodetool;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "getconcurrency", description = "Get maximum concurrency for processing stages")
-public class GetConcurrency extends NodeToolCmd
-{
-    @Arguments(title = "[stage-names]",
-    usage = "[stage-names]",
-    description = "optional list of stage names, otherwise display all stages")
-    private List<String> args = new ArrayList<>();
+public class GetConcurrency extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetConcurrency.class);
+
+    @Arguments(title = "[stage-names]", usage = "[stage-names]", description = "optional list of stage names, otherwise display all stages")
+    private transient List<String> args = new ArrayList<>();
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.output().out.printf("%-25s%16s%16s%n", "Stage", "CorePoolSize", "MaximumPoolSize");
-        probe.getMaximumPoolSizes(args).entrySet().stream()
-             .sorted(Map.Entry.comparingByKey())
-             .forEach(entry ->
-                probe.output().out.printf("%-25s%16d%16d%n",
-                                   entry.getKey(),
-                                   entry.getValue().get(0),
-                                   entry.getValue().get(1)));
-
+        probe.getMaximumPoolSizes(args).entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> probe.output().out.printf("%-25s%16d%16d%n", entry.getKey(), entry.getValue().get(0), entry.getValue().get(1)));
     }
 }

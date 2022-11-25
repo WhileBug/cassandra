@@ -18,13 +18,10 @@
 package org.apache.cassandra.utils;
 
 import javax.management.ObjectName;
-
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.config.CassandraRelevantProperties;
-
 import static org.apache.cassandra.config.CassandraRelevantProperties.MX4JADDRESS;
 import static org.apache.cassandra.config.CassandraRelevantProperties.MX4JPORT;
 
@@ -34,60 +31,50 @@ import static org.apache.cassandra.config.CassandraRelevantProperties.MX4JPORT;
  * The default port is 8081. To override that provide e.g. -Dmx4jport=8082
  * The default listen address is the broadcast_address. To override that provide -Dmx4jaddress=127.0.0.1
  */
-public class Mx4jTool
-{
-    private static final Logger logger = LoggerFactory.getLogger(Mx4jTool.class);
+public class Mx4jTool {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Mx4jTool.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(Mx4jTool.class);
 
     /**
      * Starts a JMX over http interface if and mx4j-tools.jar is in the classpath.
      * @return true if successfully loaded.
      */
-    public static boolean maybeLoad()
-    {
-        try
-        {
+    public static boolean maybeLoad() {
+        try {
             logger.trace("Will try to load mx4j now, if it's in the classpath");
             MBeanWrapper mbs = MBeanWrapper.instance;
             ObjectName processorName = new ObjectName("Server:name=XSLTProcessor");
-
             Class<?> httpAdaptorClass = Class.forName("mx4j.tools.adaptor.http.HttpAdaptor");
             Object httpAdaptor = httpAdaptorClass.newInstance();
             httpAdaptorClass.getMethod("setHost", String.class).invoke(httpAdaptor, getAddress());
             httpAdaptorClass.getMethod("setPort", Integer.TYPE).invoke(httpAdaptor, getPort());
-
             ObjectName httpName = new ObjectName("system:name=http");
             mbs.registerMBean(httpAdaptor, httpName);
-
             Class<?> xsltProcessorClass = Class.forName("mx4j.tools.adaptor.http.XSLTProcessor");
             Object xsltProcessor = xsltProcessorClass.newInstance();
-            httpAdaptorClass.getMethod("setProcessor", Class.forName("mx4j.tools.adaptor.http.ProcessorMBean")).
-                    invoke(httpAdaptor, xsltProcessor);
+            httpAdaptorClass.getMethod("setProcessor", Class.forName("mx4j.tools.adaptor.http.ProcessorMBean")).invoke(httpAdaptor, xsltProcessor);
             mbs.registerMBean(xsltProcessor, processorName);
             httpAdaptorClass.getMethod("start").invoke(httpAdaptor);
             logger.info("mx4j successfuly loaded");
             return true;
-        }
-        catch (ClassNotFoundException e)
-        {
+        } catch (ClassNotFoundException e) {
             logger.trace("Will not load MX4J, mx4j-tools.jar is not in the classpath");
-        }
-        catch(Exception e)
-        {
+        } catch (Exception e) {
             logger.warn("Could not start register mbean in JMX", e);
         }
         return false;
     }
 
-    private static String getAddress()
-    {
+    private static String getAddress() {
         String sAddress = MX4JADDRESS.getString();
         if (StringUtils.isEmpty(sAddress))
             sAddress = FBUtilities.getBroadcastAddressAndPort().address.getHostAddress();
         return sAddress;
     }
 
-    private static int getPort()
-    {
+    private static int getPort() {
         int port = 8081;
         String sPort = MX4JPORT.getString();
         if (StringUtils.isNotEmpty(sPort))

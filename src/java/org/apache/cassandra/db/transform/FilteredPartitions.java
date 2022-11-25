@@ -25,24 +25,23 @@ import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.db.rows.RowIterator;
 
-public final class FilteredPartitions extends BasePartitions<RowIterator, BasePartitionIterator<?>> implements PartitionIterator
-{
+public final class FilteredPartitions extends BasePartitions<RowIterator, BasePartitionIterator<?>> implements PartitionIterator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FilteredPartitions.class);
+
     // wrap basic iterator for transformation
-    FilteredPartitions(PartitionIterator input)
-    {
+    FilteredPartitions(PartitionIterator input) {
         super(input);
     }
 
     // wrap basic unfiltered iterator for transformation, applying filter as first transformation
-    FilteredPartitions(UnfilteredPartitionIterator input, Filter filter)
-    {
+    FilteredPartitions(UnfilteredPartitionIterator input, Filter filter) {
         super(input);
         add(filter);
     }
 
     // copy from an UnfilteredPartitions, applying a filter to convert it
-    FilteredPartitions(Filter filter, UnfilteredPartitions copyFrom)
-    {
+    FilteredPartitions(Filter filter, UnfilteredPartitions copyFrom) {
         super(copyFrom);
         add(filter);
     }
@@ -51,17 +50,13 @@ public final class FilteredPartitions extends BasePartitions<RowIterator, BasePa
      * Filter any RangeTombstoneMarker from the iterator's iterators, transforming it into a PartitionIterator.
      */
     @SuppressWarnings("resource")
-    public static FilteredPartitions filter(UnfilteredPartitionIterator iterator, int nowInSecs)
-    {
+    public static FilteredPartitions filter(UnfilteredPartitionIterator iterator, int nowInSecs) {
         FilteredPartitions filtered = filter(iterator, new Filter(nowInSecs, iterator.metadata().enforceStrictLiveness()));
         return (FilteredPartitions) Transformation.apply(filtered, new EmptyPartitionsDiscarder());
     }
 
     @SuppressWarnings("resource")
-    public static FilteredPartitions filter(UnfilteredPartitionIterator iterator, Filter filter)
-    {
-        return iterator instanceof UnfilteredPartitions
-             ? new FilteredPartitions(filter, (UnfilteredPartitions) iterator)
-             : new FilteredPartitions(iterator, filter);
+    public static FilteredPartitions filter(UnfilteredPartitionIterator iterator, Filter filter) {
+        return iterator instanceof UnfilteredPartitions ? new FilteredPartitions(filter, (UnfilteredPartitions) iterator) : new FilteredPartitions(iterator, filter);
     }
 }

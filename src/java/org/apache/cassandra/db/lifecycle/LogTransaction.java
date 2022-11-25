@@ -27,13 +27,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Runnables;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.ScheduledExecutors;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.Directories;
@@ -88,62 +85,61 @@ import org.apache.cassandra.utils.concurrent.Transactional;
  *
  * See CASSANDRA-7066 for full details.
  */
-class LogTransaction extends Transactional.AbstractTransactional implements Transactional
-{
-    private static final Logger logger = LoggerFactory.getLogger(LogTransaction.class);
+class LogTransaction extends Transactional.AbstractTransactional implements Transactional {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LogTransaction.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(LogTransaction.class);
 
     /**
      * If the format of the lines in the transaction log is wrong or the checksum
      * does not match, then we throw this exception.
      */
-    public static final class CorruptTransactionLogException extends RuntimeException
-    {
-        public final LogFile txnFile;
+    public static final class CorruptTransactionLogException extends RuntimeException {
 
-        public CorruptTransactionLogException(String message, LogFile txnFile)
-        {
+        public final transient LogFile txnFile;
+
+        public CorruptTransactionLogException(String message, LogFile txnFile) {
             super(message);
             this.txnFile = txnFile;
         }
     }
 
-    private final Tracker tracker;
-    private final LogFile txnFile;
+    private final transient Tracker tracker;
+
+    private final transient LogFile txnFile;
+
     // We need an explicit lock because the transaction tidier cannot store a reference to the transaction
-    private final Object lock;
-    private final Ref<LogTransaction> selfRef;
+    private final transient Object lock;
+
+    private final transient Ref<LogTransaction> selfRef;
+
     // Deleting sstables is tricky because the mmapping might not have been finalized yet,
     // and delete will fail (on Windows) until it is (we only force the unmapping on SUN VMs).
     // Additionally, we need to make sure to delete the data file first, so on restart the others
     // will be recognized as GCable.
-    private static final Queue<Runnable> failedDeletions = new ConcurrentLinkedQueue<>();
+    private static final transient Queue<Runnable> failedDeletions = new ConcurrentLinkedQueue<>();
 
-    LogTransaction(OperationType opType)
-    {
+    LogTransaction(OperationType opType) {
         this(opType, null);
     }
 
-    LogTransaction(OperationType opType, Tracker tracker)
-    {
+    LogTransaction(OperationType opType, Tracker tracker) {
         this.tracker = tracker;
         this.txnFile = new LogFile(opType, UUIDGen.getTimeUUID());
         this.lock = new Object();
         this.selfRef = new Ref<>(this, new TransactionTidier(txnFile, lock));
-
         if (logger.isTraceEnabled())
             logger.trace("Created transaction logs with id {}", txnFile.id());
     }
 
     /**
      * Track a reader as new.
-     **/
-    void trackNew(SSTable table)
-    {
-        synchronized (lock)
-        {
+     */
+    void trackNew(SSTable table) {
+        synchronized (lock) {
             if (logger.isTraceEnabled())
                 logger.trace("Track NEW sstable {} in {}", table.getFilename(), txnFile.toString());
-
             txnFile.add(table);
         }
     }
@@ -151,10 +147,8 @@ class LogTransaction extends Transactional.AbstractTransactional implements Tran
     /**
      * Stop tracking a reader as new.
      */
-    void untrackNew(SSTable table)
-    {
-        synchronized (lock)
-        {
+    void untrackNew(SSTable table) {
+        synchronized (lock) {
             txnFile.remove(table);
         }
     }
@@ -163,101 +157,75 @@ class LogTransaction extends Transactional.AbstractTransactional implements Tran
      * helper method for tests, creates the remove records per sstable
      */
     @VisibleForTesting
-    SSTableTidier obsoleted(SSTableReader sstable)
-    {
+    SSTableTidier obsoleted(SSTableReader sstable) {
         return obsoleted(sstable, LogRecord.make(Type.REMOVE, sstable));
     }
 
     /**
      * Schedule a reader for deletion as soon as it is fully unreferenced.
      */
-    SSTableTidier obsoleted(SSTableReader reader, LogRecord logRecord)
-    {
-        synchronized (lock)
-        {
+    SSTableTidier obsoleted(SSTableReader reader, LogRecord logRecord) {
+        synchronized (lock) {
             if (logger.isTraceEnabled())
                 logger.trace("Track OLD sstable {} in {}", reader.getFilename(), txnFile.toString());
-
-            if (txnFile.contains(Type.ADD, reader, logRecord))
-            {
+            if (txnFile.contains(Type.ADD, reader, logRecord)) {
                 if (txnFile.contains(Type.REMOVE, reader, logRecord))
                     throw new IllegalArgumentException();
-
                 return new SSTableTidier(reader, true, this);
             }
-
             txnFile.addRecord(logRecord);
-
             if (tracker != null)
                 tracker.notifyDeleting(reader);
-
             return new SSTableTidier(reader, false, this);
         }
     }
 
-    Map<SSTable, LogRecord> makeRemoveRecords(Iterable<SSTableReader> sstables)
-    {
-        synchronized (lock)
-        {
+    Map<SSTable, LogRecord> makeRemoveRecords(Iterable<SSTableReader> sstables) {
+        synchronized (lock) {
             return txnFile.makeRecords(Type.REMOVE, sstables);
         }
     }
 
-
-    OperationType type()
-    {
+    OperationType type() {
         return txnFile.type();
     }
 
-    UUID id()
-    {
+    UUID id() {
         return txnFile.id();
     }
 
     @VisibleForTesting
-    LogFile txnFile()
-    {
+    LogFile txnFile() {
         return txnFile;
     }
 
     @VisibleForTesting
-    List<File> logFiles()
-    {
+    List<File> logFiles() {
         return txnFile.getFiles();
     }
 
     @VisibleForTesting
-    List<String> logFilePaths()
-    {
+    List<String> logFilePaths() {
         return txnFile.getFilePaths();
     }
 
-    static void delete(File file)
-    {
-        try
-        {
+    static void delete(File file) {
+        try {
             if (!StorageService.instance.isDaemonSetupCompleted())
                 logger.info("Unfinished transaction log, deleting {} ", file);
             else if (logger.isTraceEnabled())
                 logger.trace("Deleting {}", file);
-
             Files.delete(file.toPath());
-        }
-        catch (NoSuchFileException e)
-        {
+        } catch (NoSuchFileException e) {
             logger.error("Unable to delete {} as it does not exist, see debug log file for stack trace", file);
-            if (logger.isDebugEnabled())
-            {
+            if (logger.isDebugEnabled()) {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                try (PrintStream ps = new PrintStream(baos))
-                {
+                try (PrintStream ps = new PrintStream(baos)) {
                     e.printStackTrace(ps);
                 }
                 logger.debug("Unable to delete {} as it does not exist, stack trace:\n {}", file, baos);
             }
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             logger.error("Unable to delete {}", file, e);
             FileUtils.handleFSErrorAndPropagate(new FSWriteError(e, file));
         }
@@ -269,70 +237,57 @@ class LogTransaction extends Transactional.AbstractTransactional implements Tran
      * When the transaction reference is fully released we try to delete all the obsolete files
      * depending on the transaction result, as well as the transaction log file.
      */
-    private static class TransactionTidier implements RefCounted.Tidy, Runnable
-    {
-        private final LogFile data;
-        private final Object lock;
+    private static class TransactionTidier implements RefCounted.Tidy, Runnable {
 
-        TransactionTidier(LogFile data, Object lock)
-        {
+        private final transient LogFile data;
+
+        private final transient Object lock;
+
+        TransactionTidier(LogFile data, Object lock) {
             this.data = data;
             this.lock = lock;
         }
 
-        public void tidy()
-        {
+        public void tidy() {
             run();
         }
 
-        public String name()
-        {
+        public String name() {
             return data.toString();
         }
 
-        public void run()
-        {
-            synchronized (lock)
-            {
+        public void run() {
+            synchronized (lock) {
                 if (logger.isTraceEnabled())
                     logger.trace("Removing files for transaction {}", name());
-
                 // this happens if we forget to close a txn and the garbage collector closes it for us
                 // or if the transaction journal was never properly created in the first place
-                if (!data.completed())
-                {
+                if (!data.completed()) {
                     logger.error("{} was not completed, trying to abort it now", data);
-
                     Throwable err = Throwables.perform((Throwable) null, data::abort);
                     if (err != null)
                         logger.error("Failed to abort {}", data, err);
                 }
-
                 Throwable err = data.removeUnfinishedLeftovers(null);
-
-                if (err != null)
-                {
+                if (err != null) {
                     logger.info("Failed deleting files for transaction {}, we'll retry after GC and on on server restart", name(), err);
                     failedDeletions.add(this);
-                }
-                else
-                {
+                } else {
                     if (logger.isTraceEnabled())
                         logger.trace("Closing file transaction {}", name());
-
                     data.close();
                 }
             }
         }
     }
 
-    static class Obsoletion
-    {
-        final SSTableReader reader;
-        final SSTableTidier tidier;
+    static class Obsoletion {
 
-        Obsoletion(SSTableReader reader, SSTableTidier tidier)
-        {
+        final transient SSTableReader reader;
+
+        final transient SSTableTidier tidier;
+
+        Obsoletion(SSTableReader reader, SSTableTidier tidier) {
             this.reader = reader;
             this.tidier = tidier;
         }
@@ -344,19 +299,24 @@ class LogTransaction extends Transactional.AbstractTransactional implements Tran
      * it when done, so that the final transaction cleanup can run when all obsolete readers
      * are released.
      */
-    public static class SSTableTidier implements Runnable
-    {
-        // must not retain a reference to the SSTableReader, else leak detection cannot kick in
-        private final Descriptor desc;
-        private final long sizeOnDisk;
-        private final Tracker tracker;
-        private final boolean wasNew;
-        private final Object lock;
-        private final Ref<LogTransaction> parentRef;
-        private final UUID txnId;
+    public static class SSTableTidier implements Runnable {
 
-        public SSTableTidier(SSTableReader referent, boolean wasNew, LogTransaction parent)
-        {
+        // must not retain a reference to the SSTableReader, else leak detection cannot kick in
+        private final transient Descriptor desc;
+
+        private final transient long sizeOnDisk;
+
+        private final transient Tracker tracker;
+
+        private final transient boolean wasNew;
+
+        private final transient Object lock;
+
+        private final transient Ref<LogTransaction> parentRef;
+
+        private final transient UUID txnId;
+
+        public SSTableTidier(SSTableReader referent, boolean wasNew, LogTransaction parent) {
             this.desc = referent.descriptor;
             this.sizeOnDisk = referent.bytesOnDisk();
             this.tracker = parent.tracker;
@@ -364,110 +324,82 @@ class LogTransaction extends Transactional.AbstractTransactional implements Tran
             this.lock = parent.lock;
             this.parentRef = parent.selfRef.tryRef();
             this.txnId = parent.id();
-
             if (this.parentRef == null)
                 throw new IllegalStateException("Transaction already completed");
         }
 
-        public void run()
-        {
+        public void run() {
             if (tracker != null && !tracker.isDummy())
                 SystemKeyspace.clearSSTableReadMeter(desc.ksname, desc.cfname, desc.generation);
-
-            synchronized (lock)
-            {
-                try
-                {
+            synchronized (lock) {
+                try {
                     // If we can't successfully delete the DATA component, set the task to be retried later: see TransactionTidier
                     File datafile = new File(desc.filenameFor(Component.DATA));
-
                     if (logger.isTraceEnabled())
                         logger.trace("Tidier running for old sstable {}", desc.baseFilename());
-
                     if (datafile.exists())
                         delete(datafile);
                     else if (!wasNew)
                         logger.error("SSTableTidier ran with no existing data file for an sstable that was not new");
-
                     // let the remainder be cleaned up by delete
                     SSTable.delete(desc, SSTable.discoverComponentsFor(desc));
-                }
-                catch (Throwable t)
-                {
+                } catch (Throwable t) {
                     logger.error("Failed deletion for {}, we'll retry after GC and on server restart", desc);
                     failedDeletions.add(this);
                     return;
                 }
-
                 if (tracker != null && tracker.cfstore != null && !wasNew)
                     tracker.cfstore.metric.totalDiskSpaceUsed.dec(sizeOnDisk);
-
                 // release the referent to the parent so that the all transaction files can be released
                 parentRef.release();
             }
         }
 
-        public void abort()
-        {
-            synchronized (lock)
-            {
+        public void abort() {
+            synchronized (lock) {
                 parentRef.release();
             }
         }
     }
 
-
-    static void rescheduleFailedDeletions()
-    {
+    static void rescheduleFailedDeletions() {
         Runnable task;
-        while ( null != (task = failedDeletions.poll()))
-            ScheduledExecutors.nonPeriodicTasks.submit(task);
-
+        while (null != (task = failedDeletions.poll())) ScheduledExecutors.nonPeriodicTasks.submit(task);
         // On Windows, snapshots cannot be deleted so long as a segment of the root element is memory-mapped in NTFS.
         SnapshotDeletingTask.rescheduleFailedTasks();
     }
 
-    static void waitForDeletions()
-    {
+    static void waitForDeletions() {
         FBUtilities.waitOnFuture(ScheduledExecutors.nonPeriodicTasks.schedule(Runnables.doNothing(), 0, TimeUnit.MILLISECONDS));
     }
 
     @VisibleForTesting
-    Throwable complete(Throwable accumulate)
-    {
+    Throwable complete(Throwable accumulate) {
         if (logger.isTraceEnabled())
-            logger.trace("Completing txn {} with last record {}",
-                         txnFile.toString(), txnFile.getLastRecord());
-
-        try
-        {
+            logger.trace("Completing txn {} with last record {}", txnFile.toString(), txnFile.getLastRecord());
+        try {
             accumulate = selfRef.ensureReleased(accumulate);
             return accumulate;
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             logger.error("Failed to complete file transaction id {}", id(), t);
             return Throwables.merge(accumulate, t);
         }
     }
 
-    protected Throwable doCommit(Throwable accumulate)
-    {
-        synchronized (lock)
-        {
+    protected Throwable doCommit(Throwable accumulate) {
+        synchronized (lock) {
             return complete(Throwables.perform(accumulate, txnFile::commit));
         }
     }
 
-    protected Throwable doAbort(Throwable accumulate)
-    {
-        synchronized (lock)
-        {
+    protected Throwable doAbort(Throwable accumulate) {
+        synchronized (lock) {
             return complete(Throwables.perform(accumulate, txnFile::abort));
         }
     }
 
-    protected void doPrepare() { }
+    protected void doPrepare() {
+    }
 
     /**
      * Removes any leftovers from unifinished transactions as indicated by any transaction log files that
@@ -481,73 +413,54 @@ class LogTransaction extends Transactional.AbstractTransactional implements Tran
      * @see org.apache.cassandra.tools.StandaloneSSTableUtil
      *
      * @return true if the leftovers of all transaction logs found were removed, false otherwise.
-     *
      */
-    static boolean removeUnfinishedLeftovers(TableMetadata metadata)
-    {
+    static boolean removeUnfinishedLeftovers(TableMetadata metadata) {
         return removeUnfinishedLeftovers(new Directories(metadata).getCFDirectories());
     }
 
     @VisibleForTesting
-    static boolean removeUnfinishedLeftovers(List<File> directories)
-    {
+    static boolean removeUnfinishedLeftovers(List<File> directories) {
         LogFilesByName logFiles = new LogFilesByName();
         directories.forEach(logFiles::list);
         return logFiles.removeUnfinishedLeftovers();
     }
 
-    private static final class LogFilesByName
-    {
+    private static final class LogFilesByName {
+
         // This maps a transaction log file name to a list of physical files. Each sstable
         // can have multiple directories and a transaction is trakced by identical transaction log
         // files, one per directory. So for each transaction file name we can have multiple
         // physical files.
-        Map<String, List<File>> files = new HashMap<>();
+        transient Map<String, List<File>> files = new HashMap<>();
 
-        void list(File directory)
-        {
+        void list(File directory) {
             Arrays.stream(directory.listFiles(LogFile::isLogFile)).forEach(this::add);
         }
 
-        void add(File file)
-        {
+        void add(File file) {
             List<File> filesByName = files.get(file.getName());
-            if (filesByName == null)
-            {
+            if (filesByName == null) {
                 filesByName = new ArrayList<>();
                 files.put(file.getName(), filesByName);
             }
-
             filesByName.add(file);
         }
 
-        boolean removeUnfinishedLeftovers()
-        {
-            return files.entrySet()
-                        .stream()
-                        .map(LogFilesByName::removeUnfinishedLeftovers)
-                        .allMatch(Predicate.isEqual(true));
+        boolean removeUnfinishedLeftovers() {
+            return files.entrySet().stream().map(LogFilesByName::removeUnfinishedLeftovers).allMatch(Predicate.isEqual(true));
         }
 
-        static boolean removeUnfinishedLeftovers(Map.Entry<String, List<File>> entry)
-        {
-            try(LogFile txn = LogFile.make(entry.getKey(), entry.getValue()))
-            {
+        static boolean removeUnfinishedLeftovers(Map.Entry<String, List<File>> entry) {
+            try (LogFile txn = LogFile.make(entry.getKey(), entry.getValue())) {
                 logger.info("Verifying logfile transaction {}", txn);
-                if (txn.verify())
-                {
+                if (txn.verify()) {
                     Throwable failure = txn.removeUnfinishedLeftovers(null);
-                    if (failure != null)
-                    {
-                        logger.error("Failed to remove unfinished transaction leftovers for transaction log {}",
-                                     txn.toString(true), failure);
+                    if (failure != null) {
+                        logger.error("Failed to remove unfinished transaction leftovers for transaction log {}", txn.toString(true), failure);
                         return false;
                     }
-
                     return true;
-                }
-                else
-                {
+                } else {
                     logger.error("Unexpected disk state: failed to read transaction log {}", txn.toString(true));
                     return false;
                 }

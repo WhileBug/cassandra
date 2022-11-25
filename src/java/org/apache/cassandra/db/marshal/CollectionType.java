@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.util.List;
 import java.util.Iterator;
-
 import org.apache.cassandra.cql3.CQL3Type;
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.cql3.Lists;
@@ -42,46 +41,46 @@ import org.apache.cassandra.utils.ByteBufferUtil;
  * Please note that this comparator shouldn't be used "manually" (as a custom
  * type for instance).
  */
-public abstract class CollectionType<T> extends AbstractType<T>
-{
-    public static CellPath.Serializer cellPathSerializer = new CollectionPathSerializer();
+public abstract class CollectionType<T> extends AbstractType<T> {
 
-    public enum Kind
-    {
-        MAP
-        {
-            public ColumnSpecification makeCollectionReceiver(ColumnSpecification collection, boolean isKey)
-            {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CollectionType.class);
+
+    public static transient CellPath.Serializer cellPathSerializer = new CollectionPathSerializer();
+
+    public enum Kind {
+
+        MAP {
+
+            public ColumnSpecification makeCollectionReceiver(ColumnSpecification collection, boolean isKey) {
                 return isKey ? Maps.keySpecOf(collection) : Maps.valueSpecOf(collection);
             }
-        },
-        SET
-        {
-            public ColumnSpecification makeCollectionReceiver(ColumnSpecification collection, boolean isKey)
-            {
+        }
+        , SET {
+
+            public ColumnSpecification makeCollectionReceiver(ColumnSpecification collection, boolean isKey) {
                 return Sets.valueSpecOf(collection);
             }
-        },
-        LIST
-        {
-            public ColumnSpecification makeCollectionReceiver(ColumnSpecification collection, boolean isKey)
-            {
+        }
+        , LIST {
+
+            public ColumnSpecification makeCollectionReceiver(ColumnSpecification collection, boolean isKey) {
                 return Lists.valueSpecOf(collection);
             }
-        };
+        }
+        ;
 
         public abstract ColumnSpecification makeCollectionReceiver(ColumnSpecification collection, boolean isKey);
     }
 
-    public final Kind kind;
+    public final transient Kind kind;
 
-    protected CollectionType(ComparisonType comparisonType, Kind kind)
-    {
+    protected CollectionType(ComparisonType comparisonType, Kind kind) {
         super(comparisonType);
         this.kind = kind;
     }
 
     public abstract AbstractType<?> nameComparator();
+
     public abstract AbstractType<?> valueComparator();
 
     protected abstract List<ByteBuffer> serializedValues(Iterator<Cell<?>> cells);
@@ -89,36 +88,28 @@ public abstract class CollectionType<T> extends AbstractType<T>
     @Override
     public abstract CollectionSerializer<T> getSerializer();
 
-    public ColumnSpecification makeCollectionReceiver(ColumnSpecification collection, boolean isKey)
-    {
+    public ColumnSpecification makeCollectionReceiver(ColumnSpecification collection, boolean isKey) {
         return kind.makeCollectionReceiver(collection, isKey);
     }
 
-    public <V> String getString(V value, ValueAccessor<V> accessor)
-    {
+    public <V> String getString(V value, ValueAccessor<V> accessor) {
         return BytesType.instance.getString(value, accessor);
     }
 
-    public ByteBuffer fromString(String source)
-    {
-        try
-        {
+    public ByteBuffer fromString(String source) {
+        try {
             return ByteBufferUtil.hexToBytes(source);
-        }
-        catch (NumberFormatException e)
-        {
+        } catch (NumberFormatException e) {
             throw new MarshalException(String.format("cannot parse '%s' as hex bytes", source), e);
         }
     }
 
-    public boolean isCollection()
-    {
+    public boolean isCollection() {
         return true;
     }
 
     @Override
-    public <V> void validateCellValue(V cellValue, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validateCellValue(V cellValue, ValueAccessor<V> accessor) throws MarshalException {
         if (isMultiCell())
             valueComparator().validateCellValue(cellValue, accessor);
         else
@@ -129,25 +120,21 @@ public abstract class CollectionType<T> extends AbstractType<T>
      * Checks if this collection is Map.
      * @return <code>true</code> if this collection is a Map, <code>false</code> otherwise.
      */
-    public boolean isMap()
-    {
+    public boolean isMap() {
         return kind == Kind.MAP;
     }
 
     @Override
-    public boolean isFreezable()
-    {
+    public boolean isFreezable() {
         return true;
     }
 
     // Overrided by maps
-    protected int collectionSize(List<ByteBuffer> values)
-    {
+    protected int collectionSize(List<ByteBuffer> values) {
         return values.size();
     }
 
-    public ByteBuffer serializeForNativeProtocol(Iterator<Cell<?>> cells, ProtocolVersion version)
-    {
+    public ByteBuffer serializeForNativeProtocol(Iterator<Cell<?>> cells, ProtocolVersion version) {
         assert isMultiCell();
         List<ByteBuffer> values = serializedValues(cells);
         int size = collectionSize(values);
@@ -155,106 +142,87 @@ public abstract class CollectionType<T> extends AbstractType<T>
     }
 
     @Override
-    public boolean isCompatibleWith(AbstractType<?> previous)
-    {
+    public boolean isCompatibleWith(AbstractType<?> previous) {
         if (this == previous)
             return true;
-
         if (!getClass().equals(previous.getClass()))
             return false;
-
         CollectionType tprev = (CollectionType) previous;
         if (this.isMultiCell() != tprev.isMultiCell())
             return false;
-
         // subclasses should handle compatibility checks for frozen collections
         if (!this.isMultiCell())
             return isCompatibleWithFrozen(tprev);
-
         if (!this.nameComparator().isCompatibleWith(tprev.nameComparator()))
             return false;
-
         // the value comparator is only used for Cell values, so sorting doesn't matter
         return this.valueComparator().isValueCompatibleWith(tprev.valueComparator());
     }
 
     @Override
-    public boolean isValueCompatibleWithInternal(AbstractType<?> previous)
-    {
+    public boolean isValueCompatibleWithInternal(AbstractType<?> previous) {
         // for multi-cell collections, compatibility and value-compatibility are the same
         if (this.isMultiCell())
             return isCompatibleWith(previous);
-
         if (this == previous)
             return true;
-
         if (!getClass().equals(previous.getClass()))
             return false;
-
         CollectionType tprev = (CollectionType) previous;
         if (this.isMultiCell() != tprev.isMultiCell())
             return false;
-
         // subclasses should handle compatibility checks for frozen collections
         return isValueCompatibleWithFrozen(tprev);
     }
 
-    /** A version of isCompatibleWith() to deal with non-multicell (frozen) collections */
+    /**
+     * A version of isCompatibleWith() to deal with non-multicell (frozen) collections
+     */
     protected abstract boolean isCompatibleWithFrozen(CollectionType<?> previous);
 
-    /** A version of isValueCompatibleWith() to deal with non-multicell (frozen) collections */
+    /**
+     * A version of isValueCompatibleWith() to deal with non-multicell (frozen) collections
+     */
     protected abstract boolean isValueCompatibleWithFrozen(CollectionType<?> previous);
 
-    public CQL3Type asCQL3Type()
-    {
+    public CQL3Type asCQL3Type() {
         return new CQL3Type.Collection(this);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof CollectionType))
             return false;
-
-        CollectionType other = (CollectionType)o;
-
+        CollectionType other = (CollectionType) o;
         if (kind != other.kind)
             return false;
-
         if (isMultiCell() != other.isMultiCell())
             return false;
-
         return nameComparator().equals(other.nameComparator()) && valueComparator().equals(other.valueComparator());
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return this.toString(false);
     }
 
-    private static class CollectionPathSerializer implements CellPath.Serializer
-    {
-        public void serialize(CellPath path, DataOutputPlus out) throws IOException
-        {
+    private static class CollectionPathSerializer implements CellPath.Serializer {
+
+        public void serialize(CellPath path, DataOutputPlus out) throws IOException {
             ByteBufferUtil.writeWithVIntLength(path.get(0), out);
         }
 
-        public CellPath deserialize(DataInputPlus in) throws IOException
-        {
+        public CellPath deserialize(DataInputPlus in) throws IOException {
             return CellPath.create(ByteBufferUtil.readWithVIntLength(in));
         }
 
-        public long serializedSize(CellPath path)
-        {
+        public long serializedSize(CellPath path) {
             return ByteBufferUtil.serializedSizeWithVIntLength(path.get(0));
         }
 
-        public void skip(DataInputPlus in) throws IOException
-        {
+        public void skip(DataInputPlus in) throws IOException {
             ByteBufferUtil.skipWithVIntLength(in);
         }
     }

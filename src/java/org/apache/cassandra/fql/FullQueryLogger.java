@@ -24,16 +24,12 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import io.netty.buffer.ByteBuf;
 import net.openhft.chronicle.bytes.BytesStore;
 import net.openhft.chronicle.wire.ValueOut;
@@ -51,98 +47,87 @@ import org.apache.cassandra.utils.binlog.BinLog;
 import org.apache.cassandra.utils.binlog.BinLogOptions;
 import org.apache.cassandra.utils.concurrent.WeightedQueue;
 import org.github.jamm.MemoryLayoutSpecification;
-
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * A logger that logs entire query contents after the query finishes (or times out).
  */
-public class FullQueryLogger implements QueryEvents.Listener
-{
-    protected static final Logger logger = LoggerFactory.getLogger(FullQueryLogger.class);
+public class FullQueryLogger implements QueryEvents.Listener {
 
-    public static final long CURRENT_VERSION = 0; // encode a dummy version, to prevent pain in decoding in the future
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FullQueryLogger.class);
 
-    public static final String VERSION = "version";
-    public static final String TYPE = "type";
+    protected static final transient Logger logger = LoggerFactory.getLogger(FullQueryLogger.class);
 
-    public static final String PROTOCOL_VERSION = "protocol-version";
-    public static final String QUERY_OPTIONS = "query-options";
-    public static final String QUERY_START_TIME = "query-start-time";
+    // encode a dummy version, to prevent pain in decoding in the future
+    public static final transient long CURRENT_VERSION = 0;
 
-    public static final String GENERATED_TIMESTAMP = "generated-timestamp";
-    public static final String GENERATED_NOW_IN_SECONDS = "generated-now-in-seconds";
-    public static final String KEYSPACE = "keyspace";
+    public static final transient String VERSION = "version";
 
-    public static final String BATCH = "batch";
-    public static final String SINGLE_QUERY = "single-query";
+    public static final transient String TYPE = "type";
 
-    public static final String QUERY = "query";
-    public static final String BATCH_TYPE = "batch-type";
-    public static final String QUERIES = "queries";
-    public static final String VALUES = "values";
+    public static final transient String PROTOCOL_VERSION = "protocol-version";
 
-    private static final int EMPTY_LIST_SIZE = Ints.checkedCast(ObjectSizes.measureDeep(new ArrayList<>(0)));
-    private static final int EMPTY_BYTEBUF_SIZE;
+    public static final transient String QUERY_OPTIONS = "query-options";
 
-    private static final int OBJECT_HEADER_SIZE = MemoryLayoutSpecification.SPEC.getObjectHeaderSize();
-    private static final int OBJECT_REFERENCE_SIZE = MemoryLayoutSpecification.SPEC.getReferenceSize();
+    public static final transient String QUERY_START_TIME = "query-start-time";
 
-    public static final FullQueryLogger instance = new FullQueryLogger();
+    public static final transient String GENERATED_TIMESTAMP = "generated-timestamp";
 
-    volatile BinLog binLog;
+    public static final transient String GENERATED_NOW_IN_SECONDS = "generated-now-in-seconds";
 
-    public synchronized void enable(Path path, String rollCycle, boolean blocking, int maxQueueWeight, long maxLogSize, String archiveCommand, int maxArchiveRetries)
-    {
+    public static final transient String KEYSPACE = "keyspace";
+
+    public static final transient String BATCH = "batch";
+
+    public static final transient String SINGLE_QUERY = "single-query";
+
+    public static final transient String QUERY = "query";
+
+    public static final transient String BATCH_TYPE = "batch-type";
+
+    public static final transient String QUERIES = "queries";
+
+    public static final transient String VALUES = "values";
+
+    private static final transient int EMPTY_LIST_SIZE = Ints.checkedCast(ObjectSizes.measureDeep(new ArrayList<>(0)));
+
+    private static final transient int EMPTY_BYTEBUF_SIZE;
+
+    private static final transient int OBJECT_HEADER_SIZE = MemoryLayoutSpecification.SPEC.getObjectHeaderSize();
+
+    private static final transient int OBJECT_REFERENCE_SIZE = MemoryLayoutSpecification.SPEC.getReferenceSize();
+
+    public static final transient FullQueryLogger instance = new FullQueryLogger();
+
+    volatile transient BinLog binLog;
+
+    public synchronized void enable(Path path, String rollCycle, boolean blocking, int maxQueueWeight, long maxLogSize, String archiveCommand, int maxArchiveRetries) {
         if (this.binLog != null)
             throw new IllegalStateException("Binlog is already configured");
-        this.binLog = new BinLog.Builder().path(path)
-                                          .rollCycle(rollCycle)
-                                          .blocking(blocking)
-                                          .maxQueueWeight(maxQueueWeight)
-                                          .maxLogSize(maxLogSize)
-                                          .archiveCommand(archiveCommand)
-                                          .maxArchiveRetries(maxArchiveRetries)
-                                          .build(true);
+        this.binLog = new BinLog.Builder().path(path).rollCycle(rollCycle).blocking(blocking).maxQueueWeight(maxQueueWeight).maxLogSize(maxLogSize).archiveCommand(archiveCommand).maxArchiveRetries(maxArchiveRetries).build(true);
         QueryEvents.instance.registerListener(this);
     }
 
-    public synchronized void enableWithoutClean(Path path, String rollCycle, boolean blocking, int maxQueueWeight, long maxLogSize, String archiveCommand, int maxArchiveRetries)
-    {
+    public synchronized void enableWithoutClean(Path path, String rollCycle, boolean blocking, int maxQueueWeight, long maxLogSize, String archiveCommand, int maxArchiveRetries) {
         if (this.binLog != null)
             throw new IllegalStateException("Binlog is already configured");
-        this.binLog = new BinLog.Builder().path(path)
-                                          .rollCycle(rollCycle)
-                                          .blocking(blocking)
-                                          .maxQueueWeight(maxQueueWeight)
-                                          .maxLogSize(maxLogSize)
-                                          .archiveCommand(archiveCommand)
-                                          .maxArchiveRetries(maxArchiveRetries)
-                                          .build(false);
+        this.binLog = new BinLog.Builder().path(path).rollCycle(rollCycle).blocking(blocking).maxQueueWeight(maxQueueWeight).maxLogSize(maxLogSize).archiveCommand(archiveCommand).maxArchiveRetries(maxArchiveRetries).build(false);
         QueryEvents.instance.registerListener(this);
     }
 
-
-    static
-    {
+    static {
         ByteBuf buf = CBUtil.allocator.buffer(0, 0);
-        try
-        {
+        try {
             EMPTY_BYTEBUF_SIZE = Ints.checkedCast(ObjectSizes.measure(buf));
-        }
-        finally
-        {
+        } finally {
             buf.release();
         }
     }
 
-    public FullQueryLoggerOptions getFullQueryLoggerOptions()
-    {
-        if (isEnabled())
-        {
+    public FullQueryLoggerOptions getFullQueryLoggerOptions() {
+        if (isEnabled()) {
             final FullQueryLoggerOptions options = new FullQueryLoggerOptions();
             final BinLogOptions binLogOptions = binLog.getBinLogOptions();
-
             options.archive_command = binLogOptions.archive_command;
             options.roll_cycle = binLogOptions.roll_cycle;
             options.block = binLogOptions.block;
@@ -150,37 +135,25 @@ public class FullQueryLogger implements QueryEvents.Listener
             options.max_queue_weight = binLogOptions.max_queue_weight;
             options.max_log_size = binLogOptions.max_log_size;
             options.log_dir = binLog.path.toString();
-
             return options;
-        }
-        else
-        {
+        } else {
             // otherwise get what database is configured with from cassandra.yaml
             return DatabaseDescriptor.getFullQueryLogOptions();
         }
     }
 
-    public synchronized void stop()
-    {
-        try
-        {
+    public synchronized void stop() {
+        try {
             BinLog binLog = this.binLog;
-            if (binLog != null)
-            {
+            if (binLog != null) {
                 logger.info("Stopping full query logging to {}", binLog.path);
                 binLog.stop();
-            }
-            else
-            {
+            } else {
                 logger.info("Full query log already stopped");
             }
-        }
-        catch (InterruptedException e)
-        {
+        } catch (InterruptedException e) {
             throw new RuntimeException(e);
-        }
-        finally
-        {
+        } finally {
             QueryEvents.instance.unregisterListener(this);
             this.binLog = null;
         }
@@ -191,70 +164,49 @@ public class FullQueryLogger implements QueryEvents.Listener
      * location for retrieving the path to the full query log files, but JMX also allows you to specify a path
      * that isn't persisted anywhere so we have to clean that one as well.
      */
-    public synchronized void reset(String fullQueryLogPath)
-    {
-        try
-        {
+    public synchronized void reset(String fullQueryLogPath) {
+        try {
             Set<File> pathsToClean = Sets.newHashSet();
-
-            //First decide whether to clean the path configured in the YAML
-            if (fullQueryLogPath != null)
-            {
+            // First decide whether to clean the path configured in the YAML
+            if (fullQueryLogPath != null) {
                 File fullQueryLogPathFile = new File(fullQueryLogPath);
-                if (fullQueryLogPathFile.exists())
-                {
+                if (fullQueryLogPathFile.exists()) {
                     pathsToClean.add(fullQueryLogPathFile);
                 }
             }
-
-            //Then decide whether to clean the last used path, possibly configured by JMX
-            if (binLog != null && binLog.path != null)
-            {
+            // Then decide whether to clean the last used path, possibly configured by JMX
+            if (binLog != null && binLog.path != null) {
                 File pathFile = binLog.path.toFile();
-                if (pathFile.exists())
-                {
+                if (pathFile.exists()) {
                     pathsToClean.add(pathFile);
                 }
             }
-
             logger.info("Reset (and deactivation) of full query log requested.");
-            if (binLog != null)
-            {
+            if (binLog != null) {
                 logger.info("Stopping full query log. Cleaning {}.", pathsToClean);
                 binLog.stop();
                 binLog = null;
-            }
-            else
-            {
+            } else {
                 logger.info("Full query log already deactivated. Cleaning {}.", pathsToClean);
             }
-
             Throwable accumulate = null;
-            for (File f : pathsToClean)
-            {
+            for (File f : pathsToClean) {
                 accumulate = BinLog.cleanDirectory(f, accumulate);
             }
-            if (accumulate != null)
-            {
+            if (accumulate != null) {
                 throw new RuntimeException(accumulate);
             }
-        }
-        catch (Exception e)
-        {
-            if (e instanceof RuntimeException)
-            {
-                throw (RuntimeException)e;
+        } catch (Exception e) {
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
             }
             throw new RuntimeException(e);
-        }
-        finally
-        {
+        } finally {
             QueryEvents.instance.unregisterListener(this);
         }
     }
 
-    public boolean isEnabled()
-    {
+    public boolean isEnabled() {
         return this.binLog != null;
     }
 
@@ -269,29 +221,18 @@ public class FullQueryLogger implements QueryEvents.Listener
      * @param batchTimeMillis Approximate time in milliseconds since the epoch since the batch was invoked
      * @param response the response from the batch query
      */
-    public void batchSuccess(BatchStatement.Type type,
-                             List<? extends CQLStatement> statements,
-                             List<String> queries,
-                             List<List<ByteBuffer>> values,
-                             QueryOptions queryOptions,
-                             QueryState queryState,
-                             long batchTimeMillis,
-                             Message.Response response)
-    {
+    public void batchSuccess(BatchStatement.Type type, List<? extends CQLStatement> statements, List<String> queries, List<List<ByteBuffer>> values, QueryOptions queryOptions, QueryState queryState, long batchTimeMillis, Message.Response response) {
         checkNotNull(type, "type was null");
         checkNotNull(queries, "queries was null");
         checkNotNull(values, "value was null");
         checkNotNull(queryOptions, "queryOptions was null");
         checkNotNull(queryState, "queryState was null");
         Preconditions.checkArgument(batchTimeMillis > 0, "batchTimeMillis must be > 0");
-
-        //Don't construct the wrapper if the log is disabled
+        // Don't construct the wrapper if the log is disabled
         BinLog binLog = this.binLog;
-        if (binLog == null)
-        {
+        if (binLog == null) {
             return;
         }
-
         Batch wrappedBatch = new Batch(type, queries, values, queryOptions, queryState, batchTimeMillis);
         binLog.logRecord(wrappedBatch);
     }
@@ -304,162 +245,131 @@ public class FullQueryLogger implements QueryEvents.Listener
      * @param queryTimeMillis Approximate time in milliseconds since the epoch since the batch was invoked
      * @param response the response from this query
      */
-    public void querySuccess(CQLStatement statement,
-                             String query,
-                             QueryOptions queryOptions,
-                             QueryState queryState,
-                             long queryTimeMillis,
-                             Message.Response response)
-    {
+    public void querySuccess(CQLStatement statement, String query, QueryOptions queryOptions, QueryState queryState, long queryTimeMillis, Message.Response response) {
         checkNotNull(query, "query was null");
         checkNotNull(queryOptions, "queryOptions was null");
         checkNotNull(queryState, "queryState was null");
         Preconditions.checkArgument(queryTimeMillis > 0, "queryTimeMillis must be > 0");
-
-        //Don't construct the wrapper if the log is disabled
+        // Don't construct the wrapper if the log is disabled
         BinLog binLog = this.binLog;
         if (binLog == null)
             return;
-
         Query wrappedQuery = new Query(query, queryOptions, queryState, queryTimeMillis);
         binLog.logRecord(wrappedQuery);
     }
 
-    public void executeSuccess(CQLStatement statement, String query, QueryOptions options, QueryState state, long queryTime, Message.Response response)
-    {
+    public void executeSuccess(CQLStatement statement, String query, QueryOptions options, QueryState state, long queryTime, Message.Response response) {
         querySuccess(statement, query, options, state, queryTime, response);
     }
 
-    public static class Query extends AbstractLogEntry
-    {
-        private final String query;
+    public static class Query extends AbstractLogEntry {
 
-        public Query(String query, QueryOptions queryOptions, QueryState queryState, long queryStartTime)
-        {
+        private final transient String query;
+
+        public Query(String query, QueryOptions queryOptions, QueryState queryState, long queryStartTime) {
             super(queryOptions, queryState, queryStartTime);
             this.query = query;
         }
 
         @Override
-        protected String type()
-        {
+        protected String type() {
             return SINGLE_QUERY;
         }
 
         @Override
-        public void writeMarshallablePayload(WireOut wire)
-        {
+        public void writeMarshallablePayload(WireOut wire) {
             super.writeMarshallablePayload(wire);
             wire.write(QUERY).text(query);
         }
 
         @Override
-        public int weight()
-        {
+        public int weight() {
             return Ints.checkedCast(ObjectSizes.sizeOf(query)) + super.weight();
         }
     }
 
-    public static class Batch extends AbstractLogEntry
-    {
-        private final int weight;
-        private final BatchStatement.Type batchType;
-        private final List<String> queries;
-        private final List<List<ByteBuffer>> values;
+    public static class Batch extends AbstractLogEntry {
 
-        public Batch(BatchStatement.Type batchType,
-                     List<String> queries,
-                     List<List<ByteBuffer>> values,
-                     QueryOptions queryOptions,
-                     QueryState queryState,
-                     long batchTimeMillis)
-        {
+        private final transient int weight;
+
+        private final transient BatchStatement.Type batchType;
+
+        private final transient List<String> queries;
+
+        private final transient List<List<ByteBuffer>> values;
+
+        public Batch(BatchStatement.Type batchType, List<String> queries, List<List<ByteBuffer>> values, QueryOptions queryOptions, QueryState queryState, long batchTimeMillis) {
             super(queryOptions, queryState, batchTimeMillis);
-
             this.queries = queries;
             this.values = values;
             this.batchType = batchType;
-
             int weight = super.weight();
-
             // weight, queries, values, batch type
-            weight += Integer.BYTES +            // cached weight
-                      2 * EMPTY_LIST_SIZE +      // queries + values lists
-                      3 * OBJECT_REFERENCE_SIZE; // batchType and two lists references
-
-            for (String query : queries)
-                weight += ObjectSizes.sizeOf(checkNotNull(query)) + OBJECT_REFERENCE_SIZE;
-
-            for (List<ByteBuffer> subValues : values)
-            {
+            weight += // cached weight
+            Integer.BYTES + // queries + values lists
+            2 * EMPTY_LIST_SIZE + // batchType and two lists references
+            3 * OBJECT_REFERENCE_SIZE;
+            for (String query : queries) weight += ObjectSizes.sizeOf(checkNotNull(query)) + OBJECT_REFERENCE_SIZE;
+            for (List<ByteBuffer> subValues : values) {
                 weight += EMPTY_LIST_SIZE + OBJECT_REFERENCE_SIZE;
-
-                for (ByteBuffer value : subValues)
-                    weight += ObjectSizes.sizeOnHeapOf(value) + OBJECT_REFERENCE_SIZE;
+                for (ByteBuffer value : subValues) weight += ObjectSizes.sizeOnHeapOf(value) + OBJECT_REFERENCE_SIZE;
             }
-
             this.weight = weight;
         }
 
         @Override
-        protected String type()
-        {
+        protected String type() {
             return BATCH;
         }
 
         @Override
-        public void writeMarshallablePayload(WireOut wire)
-        {
+        public void writeMarshallablePayload(WireOut wire) {
             super.writeMarshallablePayload(wire);
             wire.write(BATCH_TYPE).text(batchType.name());
             ValueOut valueOut = wire.write(QUERIES);
             valueOut.int32(queries.size());
-            for (String query : queries)
-            {
+            for (String query : queries) {
                 valueOut.text(query);
             }
             valueOut = wire.write(VALUES);
             valueOut.int32(values.size());
-            for (List<ByteBuffer> subValues : values)
-            {
+            for (List<ByteBuffer> subValues : values) {
                 valueOut.int32(subValues.size());
-                for (ByteBuffer value : subValues)
-                {
+                for (ByteBuffer value : subValues) {
                     valueOut.bytes(BytesStore.wrap(value));
                 }
             }
         }
 
         @Override
-        public int weight()
-        {
+        public int weight() {
             return weight;
         }
     }
 
-    private static abstract class AbstractLogEntry extends BinLog.ReleaseableWriteMarshallable implements WeightedQueue.Weighable
-    {
-        private final long queryStartTime;
-        private final int protocolVersion;
-        private final ByteBuf queryOptionsBuffer;
+    private static abstract class AbstractLogEntry extends BinLog.ReleaseableWriteMarshallable implements WeightedQueue.Weighable {
 
-        private final long generatedTimestamp;
-        private final int generatedNowInSeconds;
+        private final transient long queryStartTime;
+
+        private final transient int protocolVersion;
+
+        private final transient ByteBuf queryOptionsBuffer;
+
+        private final transient long generatedTimestamp;
+
+        private final transient int generatedNowInSeconds;
+
         @Nullable
-        private final String keyspace;
+        private final transient String keyspace;
 
-        AbstractLogEntry(QueryOptions queryOptions, QueryState queryState, long queryStartTime)
-        {
+        AbstractLogEntry(QueryOptions queryOptions, QueryState queryState, long queryStartTime) {
             this.queryStartTime = queryStartTime;
-
             this.protocolVersion = queryOptions.getProtocolVersion().asInt();
             int optionsSize = QueryOptions.codec.encodedSize(queryOptions, queryOptions.getProtocolVersion());
             queryOptionsBuffer = CBUtil.allocator.buffer(optionsSize, optionsSize);
-
             this.generatedTimestamp = queryState.generatedTimestamp();
             this.generatedNowInSeconds = queryState.generatedNowInSeconds();
             this.keyspace = queryState.getClientState().getRawKeyspace();
-
             /*
              * Struggled with what tradeoff to make in terms of query options which is potentially large and complicated
              * There is tension between low garbage production (or allocator overhead), small working set size, and CPU overhead reserializing the
@@ -472,53 +382,43 @@ public class FullQueryLogger implements QueryEvents.Listener
              * some scaling.
              *
              */
-            try
-            {
+            try {
                 QueryOptions.codec.encode(queryOptions, queryOptionsBuffer, queryOptions.getProtocolVersion());
-            }
-            catch (Throwable e)
-            {
+            } catch (Throwable e) {
                 queryOptionsBuffer.release();
                 throw e;
             }
         }
 
         @Override
-        protected long version()
-        {
+        protected long version() {
             return CURRENT_VERSION;
         }
 
         @Override
-        public void writeMarshallablePayload(WireOut wire)
-        {
+        public void writeMarshallablePayload(WireOut wire) {
             wire.write(QUERY_START_TIME).int64(queryStartTime);
             wire.write(PROTOCOL_VERSION).int32(protocolVersion);
             wire.write(QUERY_OPTIONS).bytes(BytesStore.wrap(queryOptionsBuffer.nioBuffer()));
-
             wire.write(GENERATED_TIMESTAMP).int64(generatedTimestamp);
             wire.write(GENERATED_NOW_IN_SECONDS).int32(generatedNowInSeconds);
-
             wire.write(KEYSPACE).text(keyspace);
         }
 
         @Override
-        public void release()
-        {
+        public void release() {
             queryOptionsBuffer.release();
         }
 
         @Override
-        public int weight()
-        {
-            return OBJECT_HEADER_SIZE
-                 + Long.BYTES                                                                 // queryStartTime
-                 + Integer.BYTES                                                              // protocolVersion
-                 + OBJECT_REFERENCE_SIZE + EMPTY_BYTEBUF_SIZE + queryOptionsBuffer.capacity() // queryOptionsBuffer
-                 + Long.BYTES                                                                 // generatedTimestamp
-                 + Integer.BYTES                                                              // generatedNowInSeconds
-                 + OBJECT_REFERENCE_SIZE + Ints.checkedCast(ObjectSizes.sizeOf(keyspace));    // keyspace
+        public int weight() {
+            return OBJECT_HEADER_SIZE + // queryStartTime
+            Long.BYTES + // protocolVersion
+            Integer.BYTES + OBJECT_REFERENCE_SIZE + EMPTY_BYTEBUF_SIZE + // queryOptionsBuffer
+            queryOptionsBuffer.capacity() + // generatedTimestamp
+            Long.BYTES + // generatedNowInSeconds
+            Integer.BYTES + OBJECT_REFERENCE_SIZE + // keyspace
+            Ints.checkedCast(ObjectSizes.sizeOf(keyspace));
         }
     }
-
 }

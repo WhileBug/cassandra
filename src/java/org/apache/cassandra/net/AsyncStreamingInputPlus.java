@@ -23,10 +23,8 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
@@ -34,40 +32,37 @@ import io.netty.channel.Channel;
 import org.apache.cassandra.io.util.RebufferingInputStream;
 
 // TODO: rewrite
-public class AsyncStreamingInputPlus extends RebufferingInputStream
-{
-    public static class InputTimeoutException extends IOException
-    {
+public class AsyncStreamingInputPlus extends RebufferingInputStream {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AsyncStreamingInputPlus.class);
+
+    public static class InputTimeoutException extends IOException {
     }
 
-    private static final long DEFAULT_REBUFFER_BLOCK_IN_MILLIS = TimeUnit.MINUTES.toMillis(3);
+    private static final transient long DEFAULT_REBUFFER_BLOCK_IN_MILLIS = TimeUnit.MINUTES.toMillis(3);
 
-    private final Channel channel;
+    private final transient Channel channel;
 
     /**
      * The parent, or owning, buffer of the current buffer being read from ({@link super#buffer}).
      */
-    private ByteBuf currentBuf;
+    private transient ByteBuf currentBuf;
 
-    private final BlockingQueue<ByteBuf> queue;
+    private final transient BlockingQueue<ByteBuf> queue;
 
-    private final long rebufferTimeoutNanos;
+    private final transient long rebufferTimeoutNanos;
 
-    private volatile boolean isClosed;
+    private volatile transient boolean isClosed;
 
-    public AsyncStreamingInputPlus(Channel channel)
-    {
+    public AsyncStreamingInputPlus(Channel channel) {
         this(channel, DEFAULT_REBUFFER_BLOCK_IN_MILLIS, TimeUnit.MILLISECONDS);
     }
 
-    AsyncStreamingInputPlus(Channel channel, long rebufferTimeout, TimeUnit rebufferTimeoutUnit)
-    {
+    AsyncStreamingInputPlus(Channel channel, long rebufferTimeout, TimeUnit rebufferTimeoutUnit) {
         super(Unpooled.EMPTY_BUFFER.nioBuffer());
         currentBuf = Unpooled.EMPTY_BUFFER;
-
         queue = new LinkedBlockingQueue<>();
         rebufferTimeoutNanos = rebufferTimeoutUnit.toNanos(rebufferTimeout);
-
         this.channel = channel;
         channel.config().setAutoRead(false);
     }
@@ -77,20 +72,16 @@ public class AsyncStreamingInputPlus extends RebufferingInputStream
      *
      * Note: it's expected this method is invoked on the netty event loop.
      */
-    public boolean append(ByteBuf buf) throws IllegalStateException
-    {
-        if (isClosed) return false;
-
+    public boolean append(ByteBuf buf) throws IllegalStateException {
+        if (isClosed)
+            return false;
         queue.add(buf);
-
         /*
          * it's possible for append() to race with close(), so we need to ensure
          * that the bytebuf gets released in that scenario
          */
         if (isClosed)
-            while ((buf = queue.poll()) != null)
-                buf.release();
-
+            while ((buf = queue.poll()) != null) buf.release();
         return true;
     }
 
@@ -107,62 +98,47 @@ public class AsyncStreamingInputPlus extends RebufferingInputStream
      * the {@link #rebufferTimeoutNanos} elapses while blocking. It's then not safe to reuse this instance again.
      */
     @Override
-    protected void reBuffer() throws EOFException, InputTimeoutException
-    {
+    protected void reBuffer() throws EOFException, InputTimeoutException {
         if (queue.isEmpty())
             channel.read();
-
         currentBuf.release();
         currentBuf = null;
         buffer = null;
-
         ByteBuf next = null;
-        try
-        {
+        try {
             next = queue.poll(rebufferTimeoutNanos, TimeUnit.NANOSECONDS);
-        }
-        catch (InterruptedException ie)
-        {
+        } catch (InterruptedException ie) {
             // nop
         }
-
         if (null == next)
             throw new InputTimeoutException();
-
-        if (next == Unpooled.EMPTY_BUFFER) // Unpooled.EMPTY_BUFFER is the indicator that the input is closed
+        if (// Unpooled.EMPTY_BUFFER is the indicator that the input is closed
+        next == Unpooled.EMPTY_BUFFER)
             throw new EOFException();
-
         currentBuf = next;
         buffer = next.nioBuffer();
     }
 
-    public interface Consumer
-    {
+    public interface Consumer {
+
         int accept(ByteBuffer buffer) throws IOException;
     }
 
     /**
      * Consumes bytes in the stream until the given length
      */
-    public void consume(Consumer consumer, long length) throws IOException
-    {
-        while (length > 0)
-        {
+    public void consume(Consumer consumer, long length) throws IOException {
+        while (length > 0) {
             if (!buffer.hasRemaining())
                 reBuffer();
-
             final int position = buffer.position();
             final int limit = buffer.limit();
-
             buffer.limit(position + (int) Math.min(length, limit - position));
-            try
-            {
+            try {
                 int copied = consumer.accept(buffer);
                 buffer.position(position + copied);
                 length -= copied;
-            }
-            finally
-            {
+            } finally {
                 buffer.limit(limit);
             }
         }
@@ -174,25 +150,20 @@ public class AsyncStreamingInputPlus extends RebufferingInputStream
      * As long as this method is invoked on the consuming thread the returned value will be accurate.
      */
     @VisibleForTesting
-    public int unsafeAvailable()
-    {
+    public int unsafeAvailable() {
         long count = buffer != null ? buffer.remaining() : 0;
-        for (ByteBuf buf : queue)
-            count += buf.readableBytes();
-
+        for (ByteBuf buf : queue) count += buf.readableBytes();
         return Ints.checkedCast(count);
     }
 
     // TODO:JEB add docs
     // TL;DR if there's no Bufs open anywhere here, issue a channle read to try and grab data.
-    public void maybeIssueRead()
-    {
+    public void maybeIssueRead() {
         if (isEmpty())
             channel.read();
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return queue.isEmpty() && (buffer == null || !buffer.hasRemaining());
     }
 
@@ -202,34 +173,25 @@ public class AsyncStreamingInputPlus extends RebufferingInputStream
      * Note: This should invoked on the consuming thread.
      */
     @Override
-    public void close()
-    {
+    public void close() {
         if (isClosed)
             return;
-
-        if (currentBuf != null)
-        {
+        if (currentBuf != null) {
             currentBuf.release();
             currentBuf = null;
             buffer = null;
         }
-
-        while (true)
-        {
-            try
-            {
+        while (true) {
+            try {
                 ByteBuf buf = queue.poll(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
                 if (buf == Unpooled.EMPTY_BUFFER)
                     break;
                 else
                     buf.release();
-            }
-            catch (InterruptedException e)
-            {
-                //
+            } catch (InterruptedException e) {
+                // 
             }
         }
-
         isClosed = true;
     }
 
@@ -238,14 +200,12 @@ public class AsyncStreamingInputPlus extends RebufferingInputStream
      *
      * Note: this is best to be called from the producer thread.
      */
-    public void requestClosure()
-    {
+    public void requestClosure() {
         queue.add(Unpooled.EMPTY_BUFFER);
     }
 
     // TODO: let's remove this like we did for AsyncChannelOutputPlus
-    public ByteBufAllocator getAllocator()
-    {
+    public ByteBufAllocator getAllocator() {
         return channel.alloc();
     }
 }

@@ -22,7 +22,6 @@ import static org.apache.commons.lang3.StringUtils.join;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -30,55 +29,47 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "snapshot", description = "Take a snapshot of specified keyspaces or a snapshot of the specified table")
-public class Snapshot extends NodeToolCmd
-{
+public class Snapshot extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Snapshot.class);
+
     @Arguments(usage = "[<keyspaces...>]", description = "List of keyspaces. By default, all keyspaces")
-    private List<String> keyspaces = new ArrayList<>();
+    private transient List<String> keyspaces = new ArrayList<>();
 
-    @Option(title = "table", name = {"-cf", "--column-family", "--table"}, description = "The table name (you must specify one and only one keyspace for using this option)")
-    private String table = null;
+    @Option(title = "table", name = { "-cf", "--column-family", "--table" }, description = "The table name (you must specify one and only one keyspace for using this option)")
+    private transient String table = null;
 
-    @Option(title = "tag", name = {"-t", "--tag"}, description = "The name of the snapshot")
-    private String snapshotName = Long.toString(System.currentTimeMillis());
+    @Option(title = "tag", name = { "-t", "--tag" }, description = "The name of the snapshot")
+    private transient String snapshotName = Long.toString(System.currentTimeMillis());
 
     @Option(title = "ktlist", name = { "-kt", "--kt-list", "-kc", "--kc.list" }, description = "The list of Keyspace.table to take snapshot.(you must not specify only keyspace)")
-    private String ktList = null;
+    private transient String ktList = null;
 
-    @Option(title = "skip-flush", name = {"-sf", "--skip-flush"}, description = "Do not flush memtables before snapshotting (snapshot will not contain unflushed data)")
-    private boolean skipFlush = false;
+    @Option(title = "skip-flush", name = { "-sf", "--skip-flush" }, description = "Do not flush memtables before snapshotting (snapshot will not contain unflushed data)")
+    private transient boolean skipFlush = false;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         PrintStream out = probe.output().out;
-        try
-        {
+        try {
             StringBuilder sb = new StringBuilder();
-
             sb.append("Requested creating snapshot(s) for ");
-
-            Map<String, String> options = new HashMap<String,String>();
+            Map<String, String> options = new HashMap<String, String>();
             options.put("skipFlush", Boolean.toString(skipFlush));
-
-            if (!snapshotName.isEmpty() && snapshotName.contains(File.pathSeparator))
-            {
+            if (!snapshotName.isEmpty() && snapshotName.contains(File.pathSeparator)) {
                 throw new IOException("Snapshot name cannot contain " + File.pathSeparatorChar);
             }
             // Create a separate path for kclist to avoid breaking of already existing scripts
-            if (null != ktList && !ktList.isEmpty())
-            {
+            if (null != ktList && !ktList.isEmpty()) {
                 ktList = ktList.replace(" ", "");
                 if (keyspaces.isEmpty() && null == table)
                     sb.append("[").append(ktList).append("]");
-                else
-                {
-                    throw new IOException(
-                            "When specifying the Keyspace table list (using -kt,--kt-list,-kc,--kc.list), you must not also specify keyspaces to snapshot");
+                else {
+                    throw new IOException("When specifying the Keyspace table list (using -kt,--kt-list,-kc,--kc.list), you must not also specify keyspaces to snapshot");
                 }
                 if (!snapshotName.isEmpty())
                     sb.append(" with snapshot name [").append(snapshotName).append("]");
@@ -86,25 +77,19 @@ public class Snapshot extends NodeToolCmd
                 out.println(sb.toString());
                 probe.takeMultipleTableSnapshot(snapshotName, options, ktList.split(","));
                 out.println("Snapshot directory: " + snapshotName);
-            }
-            else
-            {
+            } else {
                 if (keyspaces.isEmpty())
                     sb.append("[all keyspaces]");
                 else
                     sb.append("[").append(join(keyspaces, ", ")).append("]");
-
                 if (!snapshotName.isEmpty())
                     sb.append(" with snapshot name [").append(snapshotName).append("]");
                 sb.append(" and options ").append(options.toString());
                 out.println(sb.toString());
-
                 probe.takeSnapshot(snapshotName, table, options, toArray(keyspaces, String.class));
                 out.println("Snapshot directory: " + snapshotName);
             }
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException("Error during taking a snapshot", e);
         }
     }

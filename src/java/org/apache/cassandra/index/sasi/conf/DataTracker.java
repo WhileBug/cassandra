@@ -24,34 +24,36 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.index.sasi.SSTableIndex;
 import org.apache.cassandra.index.sasi.conf.view.View;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.utils.Pair;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** a pared-down version of DataTracker and DT.View. need one for each index of each column family */
-public class DataTracker
-{
-    private static final Logger logger = LoggerFactory.getLogger(DataTracker.class);
+/**
+ * a pared-down version of DataTracker and DT.View. need one for each index of each column family
+ */
+public class DataTracker {
 
-    private final AbstractType<?> keyValidator;
-    private final ColumnIndex columnIndex;
-    private final AtomicReference<View> view = new AtomicReference<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataTracker.class);
 
-    public DataTracker(AbstractType<?> keyValidator, ColumnIndex index)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(DataTracker.class);
+
+    private final transient AbstractType<?> keyValidator;
+
+    private final transient ColumnIndex columnIndex;
+
+    private final transient AtomicReference<View> view = new AtomicReference<>();
+
+    public DataTracker(AbstractType<?> keyValidator, ColumnIndex index) {
         this.keyValidator = keyValidator;
         this.columnIndex = index;
         this.view.set(new View(index, Collections.<SSTableIndex>emptySet()));
     }
 
-    public View getView()
-    {
+    public View getView() {
         return view.get();
     }
 
@@ -63,114 +65,78 @@ public class DataTracker
      *
      * @return A collection of SSTables which don't have component attached for current index.
      */
-    public Iterable<SSTableReader> update(Collection<SSTableReader> oldSSTables, Collection<SSTableReader> newSSTables)
-    {
+    public Iterable<SSTableReader> update(Collection<SSTableReader> oldSSTables, Collection<SSTableReader> newSSTables) {
         final Pair<Set<SSTableIndex>, Set<SSTableReader>> built = getBuiltIndexes(newSSTables);
         final Set<SSTableIndex> newIndexes = built.left;
         final Set<SSTableReader> indexedSSTables = built.right;
-
         View currentView, newView;
-        do
-        {
+        do {
             currentView = view.get();
             newView = new View(columnIndex, currentView.getIndexes(), oldSSTables, newIndexes);
+        } while (!view.compareAndSet(currentView, newView));
+        for (SSTableReader sstable : indexedSSTables) {
+            sstable.addComponents(Collections.singleton(columnIndex.getComponent()));
         }
-        while (!view.compareAndSet(currentView, newView));
-
-        for (SSTableReader sstable : indexedSSTables)
-        {
-                sstable.addComponents(Collections.singleton(columnIndex.getComponent()));
-        }
-
         return newSSTables.stream().filter(sstable -> !indexedSSTables.contains(sstable)).collect(Collectors.toList());
     }
 
-    public boolean hasSSTable(SSTableReader sstable)
-    {
+    public boolean hasSSTable(SSTableReader sstable) {
         View currentView = view.get();
-        for (SSTableIndex index : currentView)
-        {
+        for (SSTableIndex index : currentView) {
             if (index.getSSTable().equals(sstable))
                 return true;
         }
-
         return false;
     }
 
-    public void dropData(Collection<SSTableReader> sstablesToRebuild)
-    {
+    public void dropData(Collection<SSTableReader> sstablesToRebuild) {
         View currentView = view.get();
         if (currentView == null)
             return;
-
         Set<SSTableReader> toRemove = new HashSet<>(sstablesToRebuild);
-        for (SSTableIndex index : currentView)
-        {
+        for (SSTableIndex index : currentView) {
             SSTableReader sstable = index.getSSTable();
             if (!sstablesToRebuild.contains(sstable))
                 continue;
-
             index.markObsolete();
         }
-
         update(toRemove, Collections.<SSTableReader>emptyList());
     }
 
-    public void dropData(long truncateUntil)
-    {
+    public void dropData(long truncateUntil) {
         View currentView = view.get();
         if (currentView == null)
             return;
-
         Set<SSTableReader> toRemove = new HashSet<>();
-        for (SSTableIndex index : currentView)
-        {
+        for (SSTableIndex index : currentView) {
             SSTableReader sstable = index.getSSTable();
             if (sstable.getMaxTimestamp() > truncateUntil)
                 continue;
-
             index.markObsolete();
             toRemove.add(sstable);
         }
-
         update(toRemove, Collections.<SSTableReader>emptyList());
     }
 
-    private Pair<Set<SSTableIndex>, Set<SSTableReader>> getBuiltIndexes(Collection<SSTableReader> sstables)
-    {
+    private Pair<Set<SSTableIndex>, Set<SSTableReader>> getBuiltIndexes(Collection<SSTableReader> sstables) {
         Set<SSTableIndex> indexes = new HashSet<>(sstables.size());
         Set<SSTableReader> builtSSTables = new HashSet<>(sstables.size());
-        for (SSTableReader sstable : sstables)
-        {
+        for (SSTableReader sstable : sstables) {
             if (sstable.isMarkedCompacted())
                 continue;
-
             File indexFile = new File(sstable.descriptor.filenameFor(columnIndex.getComponent()));
             if (!indexFile.exists())
                 continue;
-
             // if the index file is empty, we have to ignore it to avoid re-building, but it doesn't take
             // a part in query process
-            if (indexFile.length() == 0)
-            {
+            if (indexFile.length() == 0) {
                 builtSSTables.add(sstable);
                 continue;
             }
-
             SSTableIndex index = null;
-
-            try
-            {
+            try {
                 index = new SSTableIndex(columnIndex, indexFile, sstable);
-
-                logger.info("SSTableIndex.open(column: {}, minTerm: {}, maxTerm: {}, minKey: {}, maxKey: {}, sstable: {})",
-                            columnIndex.getColumnName(),
-                            columnIndex.getValidator().getString(index.minTerm()),
-                            columnIndex.getValidator().getString(index.maxTerm()),
-                            keyValidator.getString(index.minKey()),
-                            keyValidator.getString(index.maxKey()),
-                            index.getSSTable());
-
+                logger.info("SSTableIndex.open(column: {}, minTerm: {}, maxTerm: {}, minKey: {}, maxKey: {}, sstable: {})", columnIndex.getColumnName(), columnIndex.getValidator().getString(index.minTerm()), columnIndex.getValidator().getString(index.maxTerm()), keyValidator.getString(index.minKey()), keyValidator.getString(index.maxKey()), index.getSSTable());
                 // Try to add new index to the set, if set already has such index, we'll simply release and move on.
                 // This covers situation when sstable collection has the same sstable multiple
                 // times because we don't know what kind of collection it actually is.
@@ -178,15 +144,12 @@ public class DataTracker
                     builtSSTables.add(sstable);
                 else
                     index.release();
-            }
-            catch (Throwable t)
-            {
+            } catch (Throwable t) {
                 logger.error("Can't open index file at " + indexFile.getAbsolutePath() + ", skipping.", t);
                 if (index != null)
                     index.release();
             }
         }
-
         return Pair.create(indexes, builtSSTables);
     }
 }

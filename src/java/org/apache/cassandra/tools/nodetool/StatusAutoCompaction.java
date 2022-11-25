@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
@@ -30,31 +29,28 @@ import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 import org.apache.cassandra.tools.nodetool.formatter.TableBuilder;
 
 @Command(name = "statusautocompaction", description = "status of autocompaction of the given keyspace and table")
-public class StatusAutoCompaction extends NodeToolCmd
-{
+public class StatusAutoCompaction extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StatusAutoCompaction.class);
+
     @Arguments(usage = "[<keyspace> <tables>...]", description = "The keyspace followed by one or many tables")
-    private List<String> args = new ArrayList<>();
+    private transient List<String> args = new ArrayList<>();
 
     @Option(title = "show_all", name = { "-a", "--all" }, description = "Show auto compaction status for each keyspace/table")
-    private boolean showAll = false;
+    private transient boolean showAll = false;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         List<String> keyspaces = parseOptionalKeyspace(args, probe);
         String[] tableNames = parseOptionalTables(args);
-
         boolean allDisabled = true;
         boolean allEnabled = true;
         TableBuilder table = new TableBuilder();
         table.add("Keyspace", "Table", "Status");
-        try
-        {
-            for (String keyspace : keyspaces)
-            {
+        try {
+            for (String keyspace : keyspaces) {
                 Map<String, Boolean> statuses = probe.getAutoCompactionDisabled(keyspace, tableNames);
-                for (Map.Entry<String, Boolean> status : statuses.entrySet())
-                {
+                for (Map.Entry<String, Boolean> status : statuses.entrySet()) {
                     String tableName = status.getKey();
                     boolean disabled = status.getValue();
                     allDisabled &= disabled;
@@ -65,11 +61,8 @@ public class StatusAutoCompaction extends NodeToolCmd
             if (showAll)
                 table.printTo(probe.output().out);
             else
-                probe.output().out.println(allEnabled ? "running" :
-                                   allDisabled ? "not running" : "partially running");
-        }
-        catch (IOException e)
-        {
+                probe.output().out.println(allEnabled ? "running" : allDisabled ? "not running" : "partially running");
+        } catch (IOException e) {
             throw new RuntimeException("Error occurred during status-auto-compaction", e);
         }
     }

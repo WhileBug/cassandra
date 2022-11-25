@@ -15,14 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.config;
 
-public class ReplicaFilteringProtectionOptions
-{
-    public static final int DEFAULT_WARN_THRESHOLD = 2000;
-    public static final int DEFAULT_FAIL_THRESHOLD = 32000;
+public class ReplicaFilteringProtectionOptions {
 
-    public volatile int cached_rows_warn_threshold = DEFAULT_WARN_THRESHOLD;
-    public volatile int cached_rows_fail_threshold = DEFAULT_FAIL_THRESHOLD;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicaFilteringProtectionOptions.class);
+
+    public static final transient int DEFAULT_WARN_THRESHOLD = 2000;
+
+    public static final transient int DEFAULT_FAIL_THRESHOLD = 32000;
+
+    public volatile transient int cached_rows_warn_threshold = DEFAULT_WARN_THRESHOLD;
+
+    public volatile transient int cached_rows_fail_threshold = DEFAULT_FAIL_THRESHOLD;
 }

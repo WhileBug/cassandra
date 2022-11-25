@@ -20,8 +20,9 @@
  */
 package org.apache.cassandra.cache;
 
-public interface CacheSize
-{
+public interface CacheSize {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CacheSize.class);
 
     long capacity();
 
@@ -30,5 +31,4 @@ public interface CacheSize
     int size();
 
     long weightedSize();
-
 }

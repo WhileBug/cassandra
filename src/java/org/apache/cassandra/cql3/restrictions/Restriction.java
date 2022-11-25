@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.restrictions;
 
 import java.util.List;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.functions.Function;
@@ -28,10 +27,11 @@ import org.apache.cassandra.index.IndexRegistry;
 /**
  * <p>Implementation of this class must be immutable.</p>
  */
-public interface Restriction
-{
-    public default boolean isOnToken()
-    {
+public interface Restriction {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Restriction.class);
+
+    public default boolean isOnToken() {
         return false;
     }
 
@@ -75,7 +75,5 @@ public interface Restriction
      * @param indexRegistry the index registry
      * @param options the query options
      */
-    public void addRowFilterTo(RowFilter filter,
-                               IndexRegistry indexRegistry,
-                               QueryOptions options);
+    public void addRowFilterTo(RowFilter filter, IndexRegistry indexRegistry, QueryOptions options);
 }

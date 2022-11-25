@@ -15,19 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.exceptions;
 
 import org.apache.cassandra.db.ConsistencyLevel;
 
-public class CasWriteUnknownResultException extends RequestExecutionException
-{
-    public final ConsistencyLevel consistency;
-    public final int received;
-    public final int blockFor;
+public class CasWriteUnknownResultException extends RequestExecutionException {
 
-    public CasWriteUnknownResultException(ConsistencyLevel consistency, int received, int blockFor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CasWriteUnknownResultException.class);
+
+    public final transient ConsistencyLevel consistency;
+
+    public final transient int received;
+
+    public final transient int blockFor;
+
+    public CasWriteUnknownResultException(ConsistencyLevel consistency, int received, int blockFor) {
         super(ExceptionCode.CAS_WRITE_UNKNOWN, String.format("CAS operation result is unknown - proposal accepted by %d but not a quorum.", received));
         this.consistency = consistency;
         this.received = received;

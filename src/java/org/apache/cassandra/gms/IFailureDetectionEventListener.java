@@ -24,9 +24,10 @@ import org.apache.cassandra.locator.InetAddressAndPort;
  * based on the PHI calculated by the Failure Detector on the inter-arrival
  * times of the heart beats.
  */
+public interface IFailureDetectionEventListener {
 
-public interface IFailureDetectionEventListener
-{
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IFailureDetectionEventListener.class);
+
     /**
      * Convict the specified endpoint.
      *

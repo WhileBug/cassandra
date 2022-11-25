@@ -15,18 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.net;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
-
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.FileRegion;
@@ -38,7 +35,6 @@ import org.apache.cassandra.net.SharedDefaultFileRegion.SharedFileChannel;
 import org.apache.cassandra.streaming.StreamManager.StreamRateLimiter;
 import org.apache.cassandra.utils.memory.BufferPool;
 import org.apache.cassandra.utils.memory.BufferPools;
-
 import static java.lang.Math.min;
 
 /**
@@ -50,17 +46,19 @@ import static java.lang.Math.min;
  * The correctness of this class depends on the ChannelPromise we create against a Channel always being completed,
  * which appears to be a guarantee provided by Netty so long as the event loop is running.
  */
-public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
-{
-    private static final Logger logger = LoggerFactory.getLogger(AsyncStreamingOutputPlus.class);
+public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus {
 
-    private final BufferPool bufferPool = BufferPools.forNetworking();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AsyncStreamingOutputPlus.class);
 
-    final int defaultLowWaterMark;
-    final int defaultHighWaterMark;
+    private static final transient Logger logger = LoggerFactory.getLogger(AsyncStreamingOutputPlus.class);
 
-    public AsyncStreamingOutputPlus(Channel channel)
-    {
+    private final transient BufferPool bufferPool = BufferPools.forNetworking();
+
+    final transient int defaultLowWaterMark;
+
+    final transient int defaultHighWaterMark;
+
+    public AsyncStreamingOutputPlus(Channel channel) {
         super(channel);
         WriteBufferWaterMark waterMark = channel.config().getWriteBufferWaterMark();
         this.defaultLowWaterMark = waterMark.low();
@@ -68,23 +66,19 @@ public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
         allocateBuffer();
     }
 
-    private void allocateBuffer()
-    {
+    private void allocateBuffer() {
         // this buffer is only used for small quantities of data
         buffer = bufferPool.getAtLeast(8 << 10, BufferType.OFF_HEAP);
     }
 
     @Override
-    protected void doFlush(int count) throws IOException
-    {
+    protected void doFlush(int count) throws IOException {
         if (!channel.isOpen())
             throw new ClosedChannelException();
-
         // flush the current backing write buffer only if there's any pending data
         ByteBuffer flush = buffer;
         if (flush.position() == 0)
             return;
-
         flush.flip();
         int byteCount = flush.limit();
         ChannelPromise promise = beginFlush(byteCount, 0, Integer.MAX_VALUE);
@@ -92,13 +86,12 @@ public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
         allocateBuffer();
     }
 
-    public long position()
-    {
+    public long position() {
         return flushed() + buffer.position();
     }
 
-    public interface BufferSupplier
-    {
+    public interface BufferSupplier {
+
         /**
          * Request a buffer with at least the given capacity.
          * This method may only be invoked once, and the lifetime of buffer it returns will be managed
@@ -107,8 +100,8 @@ public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
         ByteBuffer get(int capacity) throws IOException;
     }
 
-    public interface Write
-    {
+    public interface Write {
+
         /**
          * Write to a buffer, and flush its contents to the channel.
          * <p>
@@ -126,18 +119,16 @@ public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
      * <p>
      * Any exception thrown by the Write will be propagated to the caller, after any buffer is cleaned up.
      */
-    public int writeToChannel(Write write, StreamRateLimiter limiter) throws IOException
-    {
+    public int writeToChannel(Write write, StreamRateLimiter limiter) throws IOException {
         doFlush(0);
-        class Holder
-        {
-            ChannelPromise promise;
-            ByteBuffer buffer;
+        class Holder {
+
+            transient ChannelPromise promise;
+
+            transient ByteBuffer buffer;
         }
         Holder holder = new Holder();
-
-        try
-        {
+        try {
             write.write(size -> {
                 if (holder.buffer != null)
                     throw new IllegalStateException("Can only allocate one ByteBuffer");
@@ -146,9 +137,7 @@ public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
                 holder.buffer = bufferPool.get(size, BufferType.OFF_HEAP);
                 return holder.buffer;
             });
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             // we don't currently support cancelling the flush, but at this point we are recoverable if we want
             if (holder.buffer != null)
                 bufferPool.put(holder.buffer);
@@ -156,10 +145,8 @@ public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
                 holder.promise.tryFailure(t);
             throw t;
         }
-
         ByteBuffer buffer = holder.buffer;
         bufferPool.putUnusedPortion(buffer);
-
         int length = buffer.limit();
         channel.writeAndFlush(GlobalBufferPoolAllocator.wrap(buffer), holder.promise);
         return length;
@@ -175,8 +162,7 @@ public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
      * WARNING: this method blocks only for permission to write to the netty channel; it exits before
      * the {@link FileRegion}(zero-copy) or {@link ByteBuffer}(ssl) is flushed to the network.
      */
-    public long writeFileToChannel(FileChannel file, StreamRateLimiter limiter) throws IOException
-    {
+    public long writeFileToChannel(FileChannel file, StreamRateLimiter limiter) throws IOException {
         if (channel.pipeline().get(SslHandler.class) != null)
             // each batch is loaded into ByteBuffer, 64kb is more BufferPool friendly.
             return writeFileToChannel(file, limiter, 1 << 16);
@@ -187,70 +173,49 @@ public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
     }
 
     @VisibleForTesting
-    long writeFileToChannel(FileChannel fc, StreamRateLimiter limiter, int batchSize) throws IOException
-    {
+    long writeFileToChannel(FileChannel fc, StreamRateLimiter limiter, int batchSize) throws IOException {
         final long length = fc.size();
         long bytesTransferred = 0;
-
-        try
-        {
-            while (bytesTransferred < length)
-            {
+        try {
+            while (bytesTransferred < length) {
                 int toWrite = (int) min(batchSize, length - bytesTransferred);
                 final long position = bytesTransferred;
-
                 writeToChannel(bufferSupplier -> {
                     ByteBuffer outBuffer = bufferSupplier.get(toWrite);
                     long read = fc.read(outBuffer, position);
                     if (read != toWrite)
-                        throw new IOException(String.format("could not read required number of bytes from " +
-                                                            "file to be streamed: read %d bytes, wanted %d bytes",
-                                                            read, toWrite));
+                        throw new IOException(String.format("could not read required number of bytes from " + "file to be streamed: read %d bytes, wanted %d bytes", read, toWrite));
                     outBuffer.flip();
                 }, limiter);
-
                 if (logger.isTraceEnabled())
                     logger.trace("Writing {} bytes at position {} of {}", toWrite, bytesTransferred, length);
                 bytesTransferred += toWrite;
             }
-        }
-        finally
-        {
+        } finally {
             // we don't need to wait until byte buffer is flushed by netty
             fc.close();
         }
-
         return bytesTransferred;
     }
 
     @VisibleForTesting
-    long writeFileToChannelZeroCopy(FileChannel file, StreamRateLimiter limiter, int batchSize, int lowWaterMark, int highWaterMark) throws IOException
-    {
+    long writeFileToChannelZeroCopy(FileChannel file, StreamRateLimiter limiter, int batchSize, int lowWaterMark, int highWaterMark) throws IOException {
         final long length = file.size();
         long bytesTransferred = 0;
-
         final SharedFileChannel sharedFile = SharedDefaultFileRegion.share(file);
-        try
-        {
-            while (bytesTransferred < length)
-            {
+        try {
+            while (bytesTransferred < length) {
                 int toWrite = (int) min(batchSize, length - bytesTransferred);
-
                 limiter.acquire(toWrite);
                 ChannelPromise promise = beginFlush(toWrite, lowWaterMark, highWaterMark);
-
                 SharedDefaultFileRegion fileRegion = new SharedDefaultFileRegion(sharedFile, bytesTransferred, toWrite);
                 channel.writeAndFlush(fileRegion, promise);
-
                 if (logger.isTraceEnabled())
                     logger.trace("Writing {} bytes at position {} of {}", toWrite, bytesTransferred, length);
                 bytesTransferred += toWrite;
             }
-
             return bytesTransferred;
-        }
-        finally
-        {
+        } finally {
             sharedFile.release();
         }
     }
@@ -259,10 +224,8 @@ public class AsyncStreamingOutputPlus extends AsyncChannelOutputPlus
      * Discard any buffered data, and the buffers that contain it.
      * May be invoked instead of {@link #close()} if we terminate exceptionally.
      */
-    public void discard()
-    {
-        if (buffer != null)
-        {
+    public void discard() {
+        if (buffer != null) {
             bufferPool.put(buffer);
             buffer = null;
         }

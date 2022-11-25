@@ -23,37 +23,35 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.zip.CheckedInputStream;
 import java.util.zip.Checksum;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.io.sstable.Component;
 import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.cassandra.utils.ChecksumType;
 import org.apache.cassandra.utils.Throwables;
 
-public class DataIntegrityMetadata
-{
-    public static ChecksumValidator checksumValidator(Descriptor desc) throws IOException
-    {
+public class DataIntegrityMetadata {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataIntegrityMetadata.class);
+
+    public static ChecksumValidator checksumValidator(Descriptor desc) throws IOException {
         return new ChecksumValidator(desc);
     }
 
-    public static class ChecksumValidator implements Closeable
-    {
-        private final ChecksumType checksumType;
-        private final RandomAccessReader reader;
-        public final int chunkSize;
-        private final String dataFilename;
+    public static class ChecksumValidator implements Closeable {
 
-        public ChecksumValidator(Descriptor descriptor) throws IOException
-        {
-            this(ChecksumType.CRC32,
-                 RandomAccessReader.open(new File(descriptor.filenameFor(Component.CRC))),
-                 descriptor.filenameFor(Component.DATA));
+        private final transient ChecksumType checksumType;
+
+        private final transient RandomAccessReader reader;
+
+        public final transient int chunkSize;
+
+        private final transient String dataFilename;
+
+        public ChecksumValidator(Descriptor descriptor) throws IOException {
+            this(ChecksumType.CRC32, RandomAccessReader.open(new File(descriptor.filenameFor(Component.CRC))), descriptor.filenameFor(Component.DATA));
         }
 
-        public ChecksumValidator(ChecksumType checksumType, RandomAccessReader reader, String dataFilename) throws IOException
-        {
+        public ChecksumValidator(ChecksumType checksumType, RandomAccessReader reader, String dataFilename) throws IOException {
             this.checksumType = checksumType;
             this.reader = reader;
             this.dataFilename = dataFilename;
@@ -61,28 +59,25 @@ public class DataIntegrityMetadata
         }
 
         @VisibleForTesting
-        protected ChecksumValidator(ChecksumType checksumType, RandomAccessReader reader, int chunkSize)
-        {
+        protected ChecksumValidator(ChecksumType checksumType, RandomAccessReader reader, int chunkSize) {
             this.checksumType = checksumType;
             this.reader = reader;
             this.dataFilename = null;
             this.chunkSize = chunkSize;
         }
 
-        public void seek(long offset)
-        {
+        public void seek(long offset) {
             long start = chunkStart(offset);
-            reader.seek(((start / chunkSize) * 4L) + 4); // 8 byte checksum per chunk + 4 byte header/chunkLength
+            // 8 byte checksum per chunk + 4 byte header/chunkLength
+            reader.seek(((start / chunkSize) * 4L) + 4);
         }
 
-        public long chunkStart(long offset)
-        {
+        public long chunkStart(long offset) {
             long startChunk = offset / chunkSize;
             return startChunk * chunkSize;
         }
 
-        public void validate(byte[] bytes, int start, int end) throws IOException
-        {
+        public void validate(byte[] bytes, int start, int end) throws IOException {
             int current = (int) checksumType.of(bytes, start, end);
             int actual = reader.readInt();
             if (current != actual)
@@ -95,45 +90,42 @@ public class DataIntegrityMetadata
          * Upon return, the buffer's position will
          * be updated to its limit; its limit will not have been changed.
          */
-        public void validate(ByteBuffer buffer) throws IOException
-        {
+        public void validate(ByteBuffer buffer) throws IOException {
             int current = (int) checksumType.of(buffer);
             int actual = reader.readInt();
             if (current != actual)
                 throw new IOException("Corrupted File : " + dataFilename);
         }
 
-        public void close()
-        {
+        public void close() {
             reader.close();
         }
     }
 
-    public static FileDigestValidator fileDigestValidator(Descriptor desc) throws IOException
-    {
+    public static FileDigestValidator fileDigestValidator(Descriptor desc) throws IOException {
         return new FileDigestValidator(desc);
     }
 
-    public static class FileDigestValidator implements Closeable
-    {
-        private final Checksum checksum;
-        private final RandomAccessReader digestReader;
-        private final RandomAccessReader dataReader;
-        private final Descriptor descriptor;
-        private long storedDigestValue;
+    public static class FileDigestValidator implements Closeable {
 
-        public FileDigestValidator(Descriptor descriptor) throws IOException
-        {
+        private final transient Checksum checksum;
+
+        private final transient RandomAccessReader digestReader;
+
+        private final transient RandomAccessReader dataReader;
+
+        private final transient Descriptor descriptor;
+
+        private transient long storedDigestValue;
+
+        public FileDigestValidator(Descriptor descriptor) throws IOException {
             this.descriptor = descriptor;
             checksum = ChecksumType.CRC32.newInstance();
             digestReader = RandomAccessReader.open(new File(descriptor.filenameFor(Component.DIGEST)));
             dataReader = RandomAccessReader.open(new File(descriptor.filenameFor(Component.DATA)));
-            try
-            {
+            try {
                 storedDigestValue = Long.parseLong(digestReader.readLine());
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 close();
                 // Attempting to create a FileDigestValidator without a DIGEST file will fail
                 throw new IOException("Corrupted SSTable : " + descriptor.filenameFor(Component.DATA));
@@ -141,23 +133,19 @@ public class DataIntegrityMetadata
         }
 
         // Validate the entire file
-        public void validate() throws IOException
-        {
+        public void validate() throws IOException {
             CheckedInputStream checkedInputStream = new CheckedInputStream(dataReader, checksum);
             byte[] chunk = new byte[64 * 1024];
-
-            while( checkedInputStream.read(chunk) > 0 ) { }
+            while (checkedInputStream.read(chunk) > 0) {
+            }
             long calculatedDigestValue = checkedInputStream.getChecksum().getValue();
-            if (storedDigestValue != calculatedDigestValue)
-            {
+            if (storedDigestValue != calculatedDigestValue) {
                 throw new IOException("Corrupted SSTable : " + descriptor.filenameFor(Component.DATA));
             }
         }
 
-        public void close()
-        {
-            Throwables.perform(digestReader::close,
-                               dataReader::close);
+        public void close() {
+            Throwables.perform(digestReader::close, dataReader::close);
         }
     }
 }

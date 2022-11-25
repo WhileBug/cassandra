@@ -19,14 +19,16 @@ package org.apache.cassandra.db.rows;
 
 import org.apache.cassandra.db.context.CounterContext;
 
-public abstract class CounterCells
-{
-    private CounterCells() {}
+public abstract class CounterCells {
 
-    private static final CounterContext contextManager = CounterContext.instance();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CounterCells.class);
 
-    public static <V> boolean hasLegacyShards(Cell<V> cell)
-    {
+    private CounterCells() {
+    }
+
+    private static final transient CounterContext contextManager = CounterContext.instance();
+
+    public static <V> boolean hasLegacyShards(Cell<V> cell) {
         return contextManager.hasLegacyShards(cell.value(), cell.accessor());
     }
 }

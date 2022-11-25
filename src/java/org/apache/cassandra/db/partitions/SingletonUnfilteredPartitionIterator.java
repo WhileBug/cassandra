@@ -18,46 +18,41 @@
 package org.apache.cassandra.db.partitions;
 
 import java.util.NoSuchElementException;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 
-public class SingletonUnfilteredPartitionIterator implements UnfilteredPartitionIterator
-{
-    private final UnfilteredRowIterator iter;
-    private boolean returned;
+public class SingletonUnfilteredPartitionIterator implements UnfilteredPartitionIterator {
 
-    public SingletonUnfilteredPartitionIterator(UnfilteredRowIterator iter)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SingletonUnfilteredPartitionIterator.class);
+
+    private final transient UnfilteredRowIterator iter;
+
+    private transient boolean returned;
+
+    public SingletonUnfilteredPartitionIterator(UnfilteredRowIterator iter) {
         this.iter = iter;
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return iter.metadata();
     }
 
-    public boolean hasNext()
-    {
+    public boolean hasNext() {
         return !returned;
     }
 
-    public UnfilteredRowIterator next()
-    {
+    public UnfilteredRowIterator next() {
         if (returned)
             throw new NoSuchElementException();
-
         returned = true;
         return iter;
     }
 
-    public void remove()
-    {
+    public void remove() {
         throw new UnsupportedOperationException();
     }
 
-    public void close()
-    {
+    public void close() {
         if (!returned)
             iter.close();
     }

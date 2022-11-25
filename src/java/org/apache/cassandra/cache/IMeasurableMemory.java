@@ -1,4 +1,5 @@
 package org.apache.cassandra.cache;
+
 /*
  *
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,10 +20,10 @@ package org.apache.cassandra.cache;
  * under the License.
  *
  */
+public interface IMeasurableMemory {
 
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IMeasurableMemory.class);
 
-public interface IMeasurableMemory
-{
     /**
      * @return the amount of on-heap memory retained by the object that might be reclaimed if the object were reclaimed,
      * i.e. it should try to exclude globally cached data where possible, or counting portions of arrays that are

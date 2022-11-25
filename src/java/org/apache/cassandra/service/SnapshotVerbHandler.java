@@ -19,10 +19,8 @@ package org.apache.cassandra.service;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.SnapshotCommand;
 import org.apache.cassandra.db.Keyspace;
@@ -32,27 +30,23 @@ import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.utils.DiagnosticSnapshotService;
 
-public class SnapshotVerbHandler implements IVerbHandler<SnapshotCommand>
-{
-    public static final SnapshotVerbHandler instance = new SnapshotVerbHandler();
-    private static final Logger logger = LoggerFactory.getLogger(SnapshotVerbHandler.class);
+public class SnapshotVerbHandler implements IVerbHandler<SnapshotCommand> {
 
-    public void doVerb(Message<SnapshotCommand> message)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SnapshotVerbHandler.class);
+
+    public static final transient SnapshotVerbHandler instance = new SnapshotVerbHandler();
+
+    private static final transient Logger logger = LoggerFactory.getLogger(SnapshotVerbHandler.class);
+
+    public void doVerb(Message<SnapshotCommand> message) {
         SnapshotCommand command = message.payload;
-        if (command.clear_snapshot)
-        {
+        if (command.clear_snapshot) {
             Keyspace.clearSnapshot(command.snapshot_name, command.keyspace);
-        }
-        else if (DiagnosticSnapshotService.isDiagnosticSnapshotRequest(command))
-        {
+        } else if (DiagnosticSnapshotService.isDiagnosticSnapshotRequest(command)) {
             DiagnosticSnapshotService.snapshot(command, message.from());
-        }
-        else
-        {
+        } else {
             Keyspace.open(command.keyspace).getColumnFamilyStore(command.column_family).snapshot(command.snapshot_name);
         }
-
         logger.debug("Enqueuing response to snapshot request {} to {}", command.snapshot_name, message.from());
         MessagingService.instance().send(message.emptyResponse(), message.from());
     }

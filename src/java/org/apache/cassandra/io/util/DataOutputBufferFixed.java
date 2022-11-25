@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 
-
 /**
  * An implementation of the DataOutputStream interface using a FastByteArrayOutputStream and exposing
  * its buffer so copies can be avoided. This version does not expand if it runs out of capacity and
@@ -29,26 +28,24 @@ import java.nio.ByteBuffer;
  *
  * This class is completely thread unsafe.
  */
-public class DataOutputBufferFixed extends DataOutputBuffer
-{
-    public DataOutputBufferFixed()
-    {
+public class DataOutputBufferFixed extends DataOutputBuffer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataOutputBufferFixed.class);
+
+    public DataOutputBufferFixed() {
         this(128);
     }
 
-    public DataOutputBufferFixed(int size)
-    {
+    public DataOutputBufferFixed(int size) {
         super(size);
     }
 
-    public DataOutputBufferFixed(ByteBuffer buffer)
-    {
+    public DataOutputBufferFixed(ByteBuffer buffer) {
         super(buffer);
     }
 
     @Override
-    protected void doFlush(int count) throws IOException
-    {
+    protected void doFlush(int count) throws IOException {
         throw new BufferOverflowException();
     }
 
@@ -58,13 +55,11 @@ public class DataOutputBufferFixed extends DataOutputBuffer
      * @see org.apache.cassandra.io.util.DataOutputBuffer#reallocate(long)
      */
     @Override
-    protected void expandToFit(long newSize)
-    {
+    protected void expandToFit(long newSize) {
         throw new BufferOverflowException();
     }
 
-    public void clear()
-    {
+    public void clear() {
         buffer.clear();
     }
 }

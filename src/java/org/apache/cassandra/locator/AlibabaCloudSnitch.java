@@ -38,83 +38,75 @@ import org.slf4j.LoggerFactory;
 
 /**
  *  A snitch that assumes an ECS region is a DC and an ECS availability_zone
- *  is a rack. This information is available in the config for the node. the 
+ *  is a rack. This information is available in the config for the node. the
  *  format of the zone-id is like :cn-hangzhou-a where cn means china, hangzhou
  *  means the hangzhou region, a means the az id. We use cn-hangzhou as the dc,
  *  and f as the zone-id.
  */
-public class AlibabaCloudSnitch extends AbstractNetworkTopologySnitch
-{
-    protected static final Logger logger = LoggerFactory.getLogger(AlibabaCloudSnitch.class);
-    protected static final String ZONE_NAME_QUERY_URL = "http://100.100.100.200/latest/meta-data/zone-id";
-    private static final String DEFAULT_DC = "UNKNOWN-DC";
-    private static final String DEFAULT_RACK = "UNKNOWN-RACK";
-    private Map<InetAddressAndPort, Map<String, String>> savedEndpoints; 
-    protected String ecsZone;
-    protected String ecsRegion;
-    
-    private static final int HTTP_CONNECT_TIMEOUT = 30000;
-    
-    
-    public AlibabaCloudSnitch() throws MalformedURLException, IOException 
-    {
+public class AlibabaCloudSnitch extends AbstractNetworkTopologySnitch {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AlibabaCloudSnitch.class);
+
+    protected static final transient Logger logger = LoggerFactory.getLogger(AlibabaCloudSnitch.class);
+
+    protected static final transient String ZONE_NAME_QUERY_URL = "http://100.100.100.200/latest/meta-data/zone-id";
+
+    private static final transient String DEFAULT_DC = "UNKNOWN-DC";
+
+    private static final transient String DEFAULT_RACK = "UNKNOWN-RACK";
+
+    private transient Map<InetAddressAndPort, Map<String, String>> savedEndpoints;
+
+    protected transient String ecsZone;
+
+    protected transient String ecsRegion;
+
+    private static final transient int HTTP_CONNECT_TIMEOUT = 30000;
+
+    public AlibabaCloudSnitch() throws MalformedURLException, IOException {
         String response = alibabaApiCall(ZONE_NAME_QUERY_URL);
         String[] splits = response.split("/");
         String az = splits[splits.length - 1];
-
         // Split "us-central1-a" or "asia-east1-a" into "us-central1"/"a" and "asia-east1"/"a".
         splits = az.split("-");
         ecsZone = splits[splits.length - 1];
-
         int lastRegionIndex = az.lastIndexOf("-");
         ecsRegion = az.substring(0, lastRegionIndex);
-
         String datacenterSuffix = (new SnitchProperties()).get("dc_suffix", "");
         ecsRegion = ecsRegion.concat(datacenterSuffix);
         logger.info("AlibabaSnitch using region: {}, zone: {}.", ecsRegion, ecsZone);
-    
     }
-    
-    String alibabaApiCall(String url) throws ConfigurationException, IOException, SocketTimeoutException
-    {
+
+    String alibabaApiCall(String url) throws ConfigurationException, IOException, SocketTimeoutException {
         // Populate the region and zone by introspection, fail if 404 on metadata
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         DataInputStream d = null;
-        try
-        {
+        try {
             conn.setConnectTimeout(HTTP_CONNECT_TIMEOUT);
             conn.setRequestMethod("GET");
-            
             int code = conn.getResponseCode();
             if (code != HttpURLConnection.HTTP_OK)
                 throw new ConfigurationException("AlibabaSnitch was unable to execute the API call. Not an ecs node? and the returun code is " + code);
-
             // Read the information. I wish I could say (String) conn.getContent() here...
             int cl = conn.getContentLength();
             byte[] b = new byte[cl];
             d = new DataInputStream((FilterInputStream) conn.getContent());
             d.readFully(b);
             return new String(b, StandardCharsets.UTF_8);
-        }
-        catch (SocketTimeoutException e)
-        {
+        } catch (SocketTimeoutException e) {
             throw new SocketTimeoutException("Timeout occurred reading a response from the Alibaba ECS metadata");
-        }
-        finally
-        {
+        } finally {
             FileUtils.close(d);
             conn.disconnect();
         }
     }
-    
+
     @Override
-    public String getRack(InetAddressAndPort endpoint)
-    {
+    public String getRack(InetAddressAndPort endpoint) {
         if (endpoint.equals(FBUtilities.getBroadcastAddressAndPort()))
             return ecsZone;
         EndpointState state = Gossiper.instance.getEndpointStateForEndpoint(endpoint);
-        if (state == null || state.getApplicationState(ApplicationState.RACK) == null)
-        {
+        if (state == null || state.getApplicationState(ApplicationState.RACK) == null) {
             if (savedEndpoints == null)
                 savedEndpoints = SystemKeyspace.loadDcRackInfo();
             if (savedEndpoints.containsKey(endpoint))
@@ -122,17 +114,14 @@ public class AlibabaCloudSnitch extends AbstractNetworkTopologySnitch
             return DEFAULT_RACK;
         }
         return state.getApplicationState(ApplicationState.RACK).value;
-    
     }
 
     @Override
-    public String getDatacenter(InetAddressAndPort endpoint) 
-    {
+    public String getDatacenter(InetAddressAndPort endpoint) {
         if (endpoint.equals(FBUtilities.getBroadcastAddressAndPort()))
             return ecsRegion;
         EndpointState state = Gossiper.instance.getEndpointStateForEndpoint(endpoint);
-        if (state == null || state.getApplicationState(ApplicationState.DC) == null)
-        {
+        if (state == null || state.getApplicationState(ApplicationState.DC) == null) {
             if (savedEndpoints == null)
                 savedEndpoints = SystemKeyspace.loadDcRackInfo();
             if (savedEndpoints.containsKey(endpoint))
@@ -140,7 +129,5 @@ public class AlibabaCloudSnitch extends AbstractNetworkTopologySnitch
             return DEFAULT_DC;
         }
         return state.getApplicationState(ApplicationState.DC).value;
-    
     }
-
 }

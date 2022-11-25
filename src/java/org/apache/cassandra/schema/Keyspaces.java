@@ -22,53 +22,46 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
-
 import javax.annotation.Nullable;
-
 import com.google.common.collect.*;
-
 import org.apache.cassandra.schema.KeyspaceMetadata.KeyspaceDiff;
 
-public final class Keyspaces implements Iterable<KeyspaceMetadata>
-{
-    private static final Keyspaces NONE = builder().build();
+public final class Keyspaces implements Iterable<KeyspaceMetadata> {
 
-    private final ImmutableMap<String, KeyspaceMetadata> keyspaces;
-    private final ImmutableMap<TableId, TableMetadata> tables;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Keyspaces.class);
 
-    private Keyspaces(Builder builder)
-    {
+    private static final transient Keyspaces NONE = builder().build();
+
+    private final transient ImmutableMap<String, KeyspaceMetadata> keyspaces;
+
+    private final transient ImmutableMap<TableId, TableMetadata> tables;
+
+    private Keyspaces(Builder builder) {
         keyspaces = builder.keyspaces.build();
         tables = builder.tables.build();
     }
 
-    public static Builder builder()
-    {
+    public static Builder builder() {
         return new Builder();
     }
 
-    public static Keyspaces none()
-    {
+    public static Keyspaces none() {
         return NONE;
     }
 
-    public static Keyspaces of(KeyspaceMetadata... keyspaces)
-    {
+    public static Keyspaces of(KeyspaceMetadata... keyspaces) {
         return builder().add(keyspaces).build();
     }
 
-    public Iterator<KeyspaceMetadata> iterator()
-    {
+    public Iterator<KeyspaceMetadata> iterator() {
         return keyspaces.values().iterator();
     }
 
-    public Stream<KeyspaceMetadata> stream()
-    {
+    public Stream<KeyspaceMetadata> stream() {
         return keyspaces.values().stream();
     }
 
-    public Set<String> names()
-    {
+    public Set<String> names() {
         return keyspaces.keySet();
     }
 
@@ -78,35 +71,29 @@ public final class Keyspaces implements Iterable<KeyspaceMetadata>
      * @param name a non-qualified keyspace name
      * @return an empty {@link Optional} if the table name is not found; a non-empty optional of {@link KeyspaceMetadata} otherwise
      */
-    public Optional<KeyspaceMetadata> get(String name)
-    {
+    public Optional<KeyspaceMetadata> get(String name) {
         return Optional.ofNullable(keyspaces.get(name));
     }
 
     @Nullable
-    public KeyspaceMetadata getNullable(String name)
-    {
+    public KeyspaceMetadata getNullable(String name) {
         return keyspaces.get(name);
     }
 
-    public boolean containsKeyspace(String name)
-    {
+    public boolean containsKeyspace(String name) {
         return keyspaces.containsKey(name);
     }
 
     @Nullable
-    public TableMetadata getTableOrViewNullable(TableId id)
-    {
+    public TableMetadata getTableOrViewNullable(TableId id) {
         return tables.get(id);
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return keyspaces.isEmpty();
     }
 
-    public Keyspaces filter(Predicate<KeyspaceMetadata> predicate)
-    {
+    public Keyspaces filter(Predicate<KeyspaceMetadata> predicate) {
         Builder builder = builder();
         stream().filter(predicate).forEach(builder::add);
         return builder.build();
@@ -115,124 +102,102 @@ public final class Keyspaces implements Iterable<KeyspaceMetadata>
     /**
      * Creates a Keyspaces instance with the keyspace with the provided name removed
      */
-    public Keyspaces without(String name)
-    {
+    public Keyspaces without(String name) {
         KeyspaceMetadata keyspace = getNullable(name);
         if (keyspace == null)
             throw new IllegalStateException(String.format("Keyspace %s doesn't exists", name));
-
         return filter(k -> k != keyspace);
     }
 
-    public Keyspaces withAddedOrUpdated(KeyspaceMetadata keyspace)
-    {
-        return builder().add(Iterables.filter(this, k -> !k.name.equals(keyspace.name)))
-                        .add(keyspace)
-                        .build();
+    public Keyspaces withAddedOrUpdated(KeyspaceMetadata keyspace) {
+        return builder().add(Iterables.filter(this, k -> !k.name.equals(keyspace.name))).add(keyspace).build();
     }
 
-    public void validate()
-    {
+    public void validate() {
         keyspaces.values().forEach(KeyspaceMetadata::validate);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         return this == o || (o instanceof Keyspaces && keyspaces.equals(((Keyspaces) o).keyspaces));
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return keyspaces.hashCode();
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return keyspaces.values().toString();
     }
 
-    public static final class Builder
-    {
-        private final ImmutableMap.Builder<String, KeyspaceMetadata> keyspaces = new ImmutableMap.Builder<>();
-        private final ImmutableMap.Builder<TableId, TableMetadata> tables = new ImmutableMap.Builder<>();
+    public static final class Builder {
 
-        private Builder()
-        {
+        private final transient ImmutableMap.Builder<String, KeyspaceMetadata> keyspaces = new ImmutableMap.Builder<>();
+
+        private final transient ImmutableMap.Builder<TableId, TableMetadata> tables = new ImmutableMap.Builder<>();
+
+        private Builder() {
         }
 
-        public Keyspaces build()
-        {
+        public Keyspaces build() {
             return new Keyspaces(this);
         }
 
-        public Builder add(KeyspaceMetadata keyspace)
-        {
+        public Builder add(KeyspaceMetadata keyspace) {
             keyspaces.put(keyspace.name, keyspace);
-
             keyspace.tables.forEach(t -> tables.put(t.id, t));
             keyspace.views.forEach(v -> tables.put(v.metadata.id, v.metadata));
-
             return this;
         }
 
-        public Builder add(KeyspaceMetadata... keyspaces)
-        {
-            for (KeyspaceMetadata keyspace : keyspaces)
-                add(keyspace);
+        public Builder add(KeyspaceMetadata... keyspaces) {
+            for (KeyspaceMetadata keyspace : keyspaces) add(keyspace);
             return this;
         }
 
-        public Builder add(Iterable<KeyspaceMetadata> keyspaces)
-        {
+        public Builder add(Iterable<KeyspaceMetadata> keyspaces) {
             keyspaces.forEach(this::add);
             return this;
         }
     }
 
-    static KeyspacesDiff diff(Keyspaces before, Keyspaces after)
-    {
+    static KeyspacesDiff diff(Keyspaces before, Keyspaces after) {
         return KeyspacesDiff.diff(before, after);
     }
 
-    public static final class KeyspacesDiff
-    {
-        static final KeyspacesDiff NONE = new KeyspacesDiff(Keyspaces.none(), Keyspaces.none(), ImmutableList.of());
+    public static final class KeyspacesDiff {
 
-        public final Keyspaces created;
-        public final Keyspaces dropped;
-        public final ImmutableList<KeyspaceDiff> altered;
+        static final transient KeyspacesDiff NONE = new KeyspacesDiff(Keyspaces.none(), Keyspaces.none(), ImmutableList.of());
 
-        private KeyspacesDiff(Keyspaces created, Keyspaces dropped, ImmutableList<KeyspaceDiff> altered)
-        {
+        public final transient Keyspaces created;
+
+        public final transient Keyspaces dropped;
+
+        public final transient ImmutableList<KeyspaceDiff> altered;
+
+        private KeyspacesDiff(Keyspaces created, Keyspaces dropped, ImmutableList<KeyspaceDiff> altered) {
             this.created = created;
             this.dropped = dropped;
             this.altered = altered;
         }
 
-        private static KeyspacesDiff diff(Keyspaces before, Keyspaces after)
-        {
+        private static KeyspacesDiff diff(Keyspaces before, Keyspaces after) {
             if (before == after)
                 return NONE;
-
             Keyspaces created = after.filter(k -> !before.containsKeyspace(k.name));
             Keyspaces dropped = before.filter(k -> !after.containsKeyspace(k.name));
-
             ImmutableList.Builder<KeyspaceDiff> altered = ImmutableList.builder();
-            before.forEach(keyspaceBefore ->
-            {
+            before.forEach(keyspaceBefore -> {
                 KeyspaceMetadata keyspaceAfter = after.getNullable(keyspaceBefore.name);
                 if (null != keyspaceAfter)
                     KeyspaceMetadata.diff(keyspaceBefore, keyspaceAfter).ifPresent(altered::add);
             });
-
             return new KeyspacesDiff(created, dropped, altered.build());
         }
 
-        public boolean isEmpty()
-        {
+        public boolean isEmpty() {
             return created.isEmpty() && dropped.isEmpty() && altered.isEmpty();
         }
     }

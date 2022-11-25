@@ -25,14 +25,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.CRC32;
-
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.io.util.DataOutputBufferFixed;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.utils.AbstractIterator;
 import org.apache.cassandra.utils.concurrent.OpOrder;
-
 import static org.apache.cassandra.utils.FBUtilities.updateChecksum;
 import static org.apache.cassandra.utils.FBUtilities.updateChecksumInt;
 
@@ -48,128 +46,108 @@ import static org.apache.cassandra.utils.FBUtilities.updateChecksumInt;
  * It's possible to write a single hint for two or more hosts at the same time, in which case the same offset will be put
  * into two or more offset queues.
  */
-final class HintsBuffer
-{
+final class HintsBuffer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintsBuffer.class);
+
     // hint entry overhead in bytes (int length, int length checksum, int body checksum)
-    static final int ENTRY_OVERHEAD_SIZE = 12;
+    static final transient int ENTRY_OVERHEAD_SIZE = 12;
 
-    private final ByteBuffer slab; // the underlying backing ByteBuffer for all the serialized hints
-    private final AtomicLong position; // the position in the slab that we currently allocate from
+    // the underlying backing ByteBuffer for all the serialized hints
+    private final transient ByteBuffer slab;
 
-    private final ConcurrentMap<UUID, Queue<Integer>> offsets;
-    private final OpOrder appendOrder;
+    // the position in the slab that we currently allocate from
+    private final transient AtomicLong position;
 
-    private HintsBuffer(ByteBuffer slab)
-    {
+    private final transient ConcurrentMap<UUID, Queue<Integer>> offsets;
+
+    private final transient OpOrder appendOrder;
+
+    private HintsBuffer(ByteBuffer slab) {
         this.slab = slab;
-
         position = new AtomicLong();
         offsets = new ConcurrentHashMap<>();
         appendOrder = new OpOrder();
     }
 
-    static HintsBuffer create(int slabSize)
-    {
+    static HintsBuffer create(int slabSize) {
         return new HintsBuffer(ByteBuffer.allocateDirect(slabSize));
     }
 
-    boolean isClosed()
-    {
+    boolean isClosed() {
         return position.get() < 0;
     }
 
-    int capacity()
-    {
+    int capacity() {
         return slab.capacity();
     }
 
-    int remaining()
-    {
+    int remaining() {
         long pos = position.get();
         return (int) (pos < 0 ? 0 : Math.max(0, capacity() - pos));
     }
 
-    HintsBuffer recycle()
-    {
+    HintsBuffer recycle() {
         slab.clear();
         return new HintsBuffer(slab);
     }
 
-    void free()
-    {
+    void free() {
         FileUtils.clean(slab);
     }
 
     /**
      * Wait for any appends started before this method was called.
      */
-    void waitForModifications()
-    {
-        appendOrder.awaitNewBarrier(); // issue a barrier and wait for it
+    void waitForModifications() {
+        // issue a barrier and wait for it
+        appendOrder.awaitNewBarrier();
     }
 
-    Set<UUID> hostIds()
-    {
+    Set<UUID> hostIds() {
         return offsets.keySet();
     }
 
     /**
      * Coverts the queue of offsets for the selected host id into an iterator of hints encoded as ByteBuffers.
      */
-    Iterator<ByteBuffer> consumingHintsIterator(UUID hostId)
-    {
+    Iterator<ByteBuffer> consumingHintsIterator(UUID hostId) {
         final Queue<Integer> bufferOffsets = offsets.get(hostId);
-
         if (bufferOffsets == null)
             return Collections.emptyIterator();
+        return new AbstractIterator<ByteBuffer>() {
 
-        return new AbstractIterator<ByteBuffer>()
-        {
             private final ByteBuffer flyweight = slab.duplicate();
 
-            protected ByteBuffer computeNext()
-            {
+            protected ByteBuffer computeNext() {
                 Integer offset = bufferOffsets.poll();
-
                 if (offset == null)
                     return endOfData();
-
                 int totalSize = slab.getInt(offset) + ENTRY_OVERHEAD_SIZE;
-
                 return (ByteBuffer) flyweight.clear().position(offset).limit(offset + totalSize);
             }
         };
     }
 
     @SuppressWarnings("resource")
-    Allocation allocate(int hintSize)
-    {
+    Allocation allocate(int hintSize) {
         int totalSize = hintSize + ENTRY_OVERHEAD_SIZE;
-
-        if (totalSize > slab.capacity() / 2)
-        {
-            throw new IllegalArgumentException(String.format("Hint of %s bytes is too large - the maximum size is %s",
-                                                             hintSize,
-                                                             slab.capacity() / 2));
+        if (totalSize > slab.capacity() / 2) {
+            throw new IllegalArgumentException(String.format("Hint of %s bytes is too large - the maximum size is %s", hintSize, slab.capacity() / 2));
         }
-
-        OpOrder.Group opGroup = appendOrder.start(); // will eventually be closed by the receiver of the allocation
-        try
-        {
+        // will eventually be closed by the receiver of the allocation
+        OpOrder.Group opGroup = appendOrder.start();
+        try {
             return allocate(totalSize, opGroup);
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             opGroup.close();
             throw t;
         }
     }
 
-    private Allocation allocate(int totalSize, OpOrder.Group opGroup)
-    {
+    private Allocation allocate(int totalSize, OpOrder.Group opGroup) {
         int offset = allocateBytes(totalSize);
-        if (offset < 0)
-        {
+        if (offset < 0) {
             opGroup.close();
             return null;
         }
@@ -177,24 +155,20 @@ final class HintsBuffer
     }
 
     // allocate bytes in the slab, or return negative if not enough space
-    private int allocateBytes(int totalSize)
-    {
+    private int allocateBytes(int totalSize) {
         long prev = position.getAndAdd(totalSize);
-
-        if (prev < 0) // the slab has been 'closed'
+        if (// the slab has been 'closed'
+        prev < 0)
             return -1;
-
-        if ((prev + totalSize) > slab.capacity())
-        {
-            position.set(Long.MIN_VALUE); // mark the slab as no longer allocating if we've exceeded its capacity
+        if ((prev + totalSize) > slab.capacity()) {
+            // mark the slab as no longer allocating if we've exceeded its capacity
+            position.set(Long.MIN_VALUE);
             return -1;
         }
-
-        return (int)prev;
+        return (int) prev;
     }
 
-    private void put(UUID hostId, int offset)
-    {
+    private void put(UUID hostId, int offset) {
         // we intentionally don't just return offsets.computeIfAbsent() because it's expensive compared to simple get(),
         // and the method is on a really hot path
         Queue<Integer> queue = offsets.get(hostId);
@@ -206,49 +180,43 @@ final class HintsBuffer
     /**
      * A placeholder for hint serialization. Should always be used in a try-with-resources block.
      */
-    final class Allocation implements AutoCloseable
-    {
-        private final Integer offset;
-        private final int totalSize;
-        private final OpOrder.Group opGroup;
+    final class Allocation implements AutoCloseable {
 
-        Allocation(int offset, int totalSize, OpOrder.Group opGroup)
-        {
+        private final transient Integer offset;
+
+        private final transient int totalSize;
+
+        private final transient OpOrder.Group opGroup;
+
+        Allocation(int offset, int totalSize, OpOrder.Group opGroup) {
             this.offset = offset;
             this.totalSize = totalSize;
             this.opGroup = opGroup;
         }
 
-        void write(Iterable<UUID> hostIds, Hint hint)
-        {
+        void write(Iterable<UUID> hostIds, Hint hint) {
             write(hint);
-            for (UUID hostId : hostIds)
-                put(hostId, offset);
+            for (UUID hostId : hostIds) put(hostId, offset);
         }
 
-        public void close()
-        {
+        public void close() {
             opGroup.close();
         }
 
-        private void write(Hint hint)
-        {
+        private void write(Hint hint) {
             ByteBuffer buffer = (ByteBuffer) slab.duplicate().position(offset).limit(offset + totalSize);
             CRC32 crc = new CRC32();
             int hintSize = totalSize - ENTRY_OVERHEAD_SIZE;
-            try (DataOutputBuffer dop = new DataOutputBufferFixed(buffer))
-            {
+            try (DataOutputBuffer dop = new DataOutputBufferFixed(buffer)) {
                 dop.writeInt(hintSize);
                 updateChecksumInt(crc, hintSize);
                 dop.writeInt((int) crc.getValue());
-
                 Hint.serializer.serialize(hint, dop, MessagingService.current_version);
                 updateChecksum(crc, buffer, buffer.position() - hintSize, hintSize);
                 dop.writeInt((int) crc.getValue());
-            }
-            catch (IOException e)
-            {
-                throw new AssertionError(); // cannot happen
+            } catch (IOException e) {
+                // cannot happen
+                throw new AssertionError();
             }
         }
     }

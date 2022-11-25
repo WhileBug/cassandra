@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3.functions.types;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
@@ -39,19 +38,20 @@ import static com.google.common.base.Preconditions.checkArgument;
  *
  * @since 2.2
  */
-public final class LocalDate
-{
+public final class LocalDate {
 
-    private static final TimeZone UTC = TimeZone.getTimeZone("UTC");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LocalDate.class);
 
-    private final long millisSinceEpoch;
-    private final int daysSinceEpoch;
+    private static final transient TimeZone UTC = TimeZone.getTimeZone("UTC");
+
+    private final transient long millisSinceEpoch;
+
+    private final transient int daysSinceEpoch;
 
     // This gets initialized lazily if we ever need it. Once set, it is effectively immutable.
-    private volatile GregorianCalendar calendar;
+    private volatile transient GregorianCalendar calendar;
 
-    private LocalDate(int daysSinceEpoch)
-    {
+    private LocalDate(int daysSinceEpoch) {
         this.daysSinceEpoch = daysSinceEpoch;
         this.millisSinceEpoch = TimeUnit.DAYS.toMillis(daysSinceEpoch);
     }
@@ -62,8 +62,7 @@ public final class LocalDate
      * @param daysSinceEpoch the number of days.
      * @return the new instance.
      */
-    public static LocalDate fromDaysSinceEpoch(int daysSinceEpoch)
-    {
+    public static LocalDate fromDaysSinceEpoch(int daysSinceEpoch) {
         return new LocalDate(daysSinceEpoch);
     }
 
@@ -76,14 +75,9 @@ public final class LocalDate
      * @throws IllegalArgumentException if the date is not in the range [-5877641-06-23;
      *                                  5881580-07-11].
      */
-    public static LocalDate fromMillisSinceEpoch(long millisSinceEpoch)
-    throws IllegalArgumentException
-    {
+    public static LocalDate fromMillisSinceEpoch(long millisSinceEpoch) throws IllegalArgumentException {
         long daysSinceEpoch = TimeUnit.MILLISECONDS.toDays(millisSinceEpoch);
-        checkArgument(
-        daysSinceEpoch >= Integer.MIN_VALUE && daysSinceEpoch <= Integer.MAX_VALUE,
-        "Date should be in the range [-5877641-06-23; 5881580-07-11]");
-
+        checkArgument(daysSinceEpoch >= Integer.MIN_VALUE && daysSinceEpoch <= Integer.MAX_VALUE, "Date should be in the range [-5877641-06-23; 5881580-07-11]");
         return new LocalDate((int) daysSinceEpoch);
     }
 
@@ -92,8 +86,7 @@ public final class LocalDate
      *
      * @return the number of days.
      */
-    public int getDaysSinceEpoch()
-    {
+    public int getDaysSinceEpoch() {
         return daysSinceEpoch;
     }
 
@@ -102,11 +95,11 @@ public final class LocalDate
      *
      * @return the year.
      */
-    public int getYear()
-    {
+    public int getYear() {
         GregorianCalendar c = getCalendar();
         int year = c.get(Calendar.YEAR);
-        if (c.get(Calendar.ERA) == GregorianCalendar.BC) year = -year + 1;
+        if (c.get(Calendar.ERA) == GregorianCalendar.BC)
+            year = -year + 1;
         return year;
     }
 
@@ -115,8 +108,7 @@ public final class LocalDate
      *
      * @return the month. It is 1-based, e.g. 1 for January.
      */
-    public int getMonth()
-    {
+    public int getMonth() {
         return getCalendar().get(Calendar.MONTH) + 1;
     }
 
@@ -125,8 +117,7 @@ public final class LocalDate
      *
      * @return the day in the month.
      */
-    public int getDay()
-    {
+    public int getDay() {
         return getCalendar().get(Calendar.DAY_OF_MONTH);
     }
 
@@ -146,8 +137,7 @@ public final class LocalDate
      * @throws IllegalArgumentException if the new date is not in the range [-5877641-06-23;
      *                                  5881580-07-11].
      */
-    public LocalDate add(int field, int amount)
-    {
+    public LocalDate add(int field, int amount) {
         GregorianCalendar newCalendar = isoCalendar();
         newCalendar.setTimeInMillis(millisSinceEpoch);
         newCalendar.add(field, amount);
@@ -157,12 +147,10 @@ public final class LocalDate
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-
-        if (o instanceof LocalDate)
-        {
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o instanceof LocalDate) {
             LocalDate that = (LocalDate) o;
             return this.daysSinceEpoch == that.daysSinceEpoch;
         }
@@ -170,41 +158,33 @@ public final class LocalDate
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return daysSinceEpoch;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("%d-%s-%s", getYear(), pad2(getMonth()), pad2(getDay()));
     }
 
-    private static String pad2(int i)
-    {
+    private static String pad2(int i) {
         String s = Integer.toString(i);
         return s.length() == 2 ? s : '0' + s;
     }
 
-    private GregorianCalendar getCalendar()
-    {
+    private GregorianCalendar getCalendar() {
         // Two threads can race and both create a calendar. This is not a problem.
-        if (calendar == null)
-        {
-
+        if (calendar == null) {
             // Use a local variable to only expose after we're done mutating it.
             GregorianCalendar tmp = isoCalendar();
             tmp.setTimeInMillis(millisSinceEpoch);
-
             calendar = tmp;
         }
         return calendar;
     }
 
     // This matches what Cassandra uses server side (from Joda Time's LocalDate)
-    private static GregorianCalendar isoCalendar()
-    {
+    private static GregorianCalendar isoCalendar() {
         GregorianCalendar calendar = new GregorianCalendar(UTC);
         calendar.setGregorianChange(new Date(Long.MIN_VALUE));
         return calendar;

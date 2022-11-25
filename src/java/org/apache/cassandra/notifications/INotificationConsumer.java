@@ -17,7 +17,9 @@
  */
 package org.apache.cassandra.notifications;
 
-public interface INotificationConsumer
-{
+public interface INotificationConsumer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(INotificationConsumer.class);
+
     void handleNotification(INotification notification, Object sender);
 }

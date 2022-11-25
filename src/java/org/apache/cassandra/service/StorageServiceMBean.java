@@ -32,20 +32,23 @@ import javax.management.NotificationEmitter;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.OpenDataException;
 import javax.management.openmbean.TabularData;
-
 import org.apache.cassandra.db.ColumnFamilyStoreMBean;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.locator.InetAddressAndPort;
 
-public interface StorageServiceMBean extends NotificationEmitter
-{
+public interface StorageServiceMBean extends NotificationEmitter {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StorageServiceMBean.class);
+
     /**
      * Retrieve the list of live nodes in the cluster, where "liveness" is
      * determined by the failure detector of the node being queried.
      *
      * @return set of IP addresses, as Strings
      */
-    @Deprecated public List<String> getLiveNodes();
+    @Deprecated
+    public List<String> getLiveNodes();
+
     public List<String> getLiveNodesWithPort();
 
     /**
@@ -54,7 +57,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      *
      * @return set of IP addresses, as Strings
      */
-    @Deprecated public List<String> getUnreachableNodes();
+    @Deprecated
+    public List<String> getUnreachableNodes();
+
     public List<String> getUnreachableNodesWithPort();
 
     /**
@@ -62,7 +67,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      *
      * @return set of IP addresses, as Strings
      */
-    @Deprecated public List<String> getJoiningNodes();
+    @Deprecated
+    public List<String> getJoiningNodes();
+
     public List<String> getJoiningNodesWithPort();
 
     /**
@@ -70,7 +77,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      *
      * @return set of IP addresses, as Strings
      */
-    @Deprecated public List<String> getLeavingNodes();
+    @Deprecated
+    public List<String> getLeavingNodes();
+
     public List<String> getLeavingNodesWithPort();
 
     /**
@@ -78,7 +87,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      *
      * @return set of IP addresses, as Strings
      */
-    @Deprecated public List<String> getMovingNodes();
+    @Deprecated
+    public List<String> getMovingNodes();
+
     public List<String> getMovingNodesWithPort();
 
     /**
@@ -152,7 +163,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      *
      * @return mapping of ranges to end points
      */
-    @Deprecated public Map<List<String>, List<String>> getRangeToEndpointMap(String keyspace);
+    @Deprecated
+    public Map<List<String>, List<String>> getRangeToEndpointMap(String keyspace);
+
     public Map<List<String>, List<String>> getRangeToEndpointWithPortMap(String keyspace);
 
     /**
@@ -161,7 +174,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      *
      * @return mapping of ranges to rpc addresses
      */
-    @Deprecated public Map<List<String>, List<String>> getRangeToRpcaddressMap(String keyspace);
+    @Deprecated
+    public Map<List<String>, List<String>> getRangeToRpcaddressMap(String keyspace);
+
     public Map<List<String>, List<String>> getRangeToNativeaddressWithPortMap(String keyspace);
 
     /**
@@ -171,7 +186,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      *
      * @return a List of TokenRange(s) converted to String for the given keyspace
      */
-    @Deprecated public List <String> describeRingJMX(String keyspace) throws IOException;
+    @Deprecated
+    public List<String> describeRingJMX(String keyspace) throws IOException;
+
     public List<String> describeRingWithPortJMX(String keyspace) throws IOException;
 
     /**
@@ -179,7 +196,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      * @param keyspace the keyspace to get the pending range map for.
      * @return a map of pending ranges to endpoints
      */
-    @Deprecated public Map<List<String>, List<String>> getPendingRangeToEndpointMap(String keyspace);
+    @Deprecated
+    public Map<List<String>, List<String>> getPendingRangeToEndpointMap(String keyspace);
+
     public Map<List<String>, List<String>> getPendingRangeToEndpointWithPortMap(String keyspace);
 
     /**
@@ -188,29 +207,49 @@ public interface StorageServiceMBean extends NotificationEmitter
      *
      * @return a map of tokens to endpoints in ascending order
      */
-    @Deprecated public Map<String, String> getTokenToEndpointMap();
+    @Deprecated
+    public Map<String, String> getTokenToEndpointMap();
+
     public Map<String, String> getTokenToEndpointWithPortMap();
 
-    /** Retrieve this hosts unique ID */
+    /**
+     * Retrieve this hosts unique ID
+     */
     public String getLocalHostId();
 
-    /** {@link StorageServiceMBean#getEndpointToHostId} */
+    /**
+     * {@link StorageServiceMBean#getEndpointToHostId}
+     */
     @Deprecated
     public Map<String, String> getHostIdMap();
 
-    /** Retrieve the mapping of endpoint to host ID */
-    @Deprecated public Map<String, String> getEndpointToHostId();
+    /**
+     * Retrieve the mapping of endpoint to host ID
+     */
+    @Deprecated
+    public Map<String, String> getEndpointToHostId();
+
     public Map<String, String> getEndpointWithPortToHostId();
 
-    /** Retrieve the mapping of host ID to endpoint */
-    @Deprecated public Map<String, String> getHostIdToEndpoint();
+    /**
+     * Retrieve the mapping of host ID to endpoint
+     */
+    @Deprecated
+    public Map<String, String> getHostIdToEndpoint();
+
     public Map<String, String> getHostIdToEndpointWithPort();
 
-    /** Human-readable load value */
+    /**
+     * Human-readable load value
+     */
     public String getLoadString();
 
-    /** Human-readable load value.  Keys are IP addresses. */
-    @Deprecated public Map<String, String> getLoadMap();
+    /**
+     * Human-readable load value.  Keys are IP addresses.
+     */
+    @Deprecated
+    public Map<String, String> getLoadMap();
+
     public Map<String, String> getLoadMapWithPort();
 
     /**
@@ -229,9 +268,14 @@ public interface StorageServiceMBean extends NotificationEmitter
      * @param key - key for which we need to find the endpoint return value -
      * the endpoint responsible for this key
      */
-    @Deprecated public List<InetAddress> getNaturalEndpoints(String keyspaceName, String cf, String key);
+    @Deprecated
+    public List<InetAddress> getNaturalEndpoints(String keyspaceName, String cf, String key);
+
     public List<String> getNaturalEndpointsWithPort(String keyspaceName, String cf, String key);
-    @Deprecated public List<InetAddress> getNaturalEndpoints(String keyspaceName, ByteBuffer key);
+
+    @Deprecated
+    public List<InetAddress> getNaturalEndpoints(String keyspaceName, ByteBuffer key);
+
     public List<String> getNaturalEndpointsWithPort(String keysapceName, ByteBuffer key);
 
     /**
@@ -314,8 +358,9 @@ public interface StorageServiceMBean extends NotificationEmitter
     public void forceKeyspaceCompaction(boolean splitOutput, String keyspaceName, String... tableNames) throws IOException, ExecutionException, InterruptedException;
 
     @Deprecated
-    public int relocateSSTables(String keyspace, String ... cfnames) throws IOException, ExecutionException, InterruptedException;
-    public int relocateSSTables(int jobs, String keyspace, String ... cfnames) throws IOException, ExecutionException, InterruptedException;
+    public int relocateSSTables(String keyspace, String... cfnames) throws IOException, ExecutionException, InterruptedException;
+
+    public int relocateSSTables(int jobs, String keyspace, String... cfnames) throws IOException, ExecutionException, InterruptedException;
 
     /**
      * Forces major compaction of specified token range in a single keyspace.
@@ -332,6 +377,7 @@ public interface StorageServiceMBean extends NotificationEmitter
      */
     @Deprecated
     public int forceKeyspaceCleanup(String keyspaceName, String... tables) throws IOException, ExecutionException, InterruptedException;
+
     public int forceKeyspaceCleanup(int jobs, String keyspaceName, String... tables) throws IOException, ExecutionException, InterruptedException;
 
     /**
@@ -342,8 +388,10 @@ public interface StorageServiceMBean extends NotificationEmitter
      */
     @Deprecated
     public int scrub(boolean disableSnapshot, boolean skipCorrupted, String keyspaceName, String... tableNames) throws IOException, ExecutionException, InterruptedException;
+
     @Deprecated
     public int scrub(boolean disableSnapshot, boolean skipCorrupted, boolean checkData, String keyspaceName, String... tableNames) throws IOException, ExecutionException, InterruptedException;
+
     @Deprecated
     public int scrub(boolean disableSnapshot, boolean skipCorrupted, boolean checkData, int jobs, String keyspaceName, String... columnFamilies) throws IOException, ExecutionException, InterruptedException;
 
@@ -356,6 +404,7 @@ public interface StorageServiceMBean extends NotificationEmitter
      * The entire sstable will be read to ensure each cell validates if extendedVerify is true
      */
     public int verify(boolean extendedVerify, String keyspaceName, String... tableNames) throws IOException, ExecutionException, InterruptedException;
+
     public int verify(boolean extendedVerify, boolean checkVersion, boolean diskFailurePolicy, boolean mutateRepairStatus, boolean checkOwnsTokens, boolean quick, String keyspaceName, String... tableNames) throws IOException, ExecutionException, InterruptedException;
 
     /**
@@ -364,6 +413,7 @@ public interface StorageServiceMBean extends NotificationEmitter
      */
     @Deprecated
     public int upgradeSSTables(String keyspaceName, boolean excludeCurrentVersion, String... tableNames) throws IOException, ExecutionException, InterruptedException;
+
     public int upgradeSSTables(String keyspaceName, boolean excludeCurrentVersion, int jobs, String... tableNames) throws IOException, ExecutionException, InterruptedException;
 
     /**
@@ -430,7 +480,9 @@ public interface StorageServiceMBean extends NotificationEmitter
     /**
      * Get the status of a token removal.
      */
-    @Deprecated public String getRemovalStatus();
+    @Deprecated
+    public String getRemovalStatus();
+
     public String getRemovalStatusWithPort();
 
     /**
@@ -455,19 +507,29 @@ public interface StorageServiceMBean extends NotificationEmitter
      */
     public void setLoggingLevel(String classQualifier, String level) throws Exception;
 
-    /** get the runtime logging levels */
-    public Map<String,String> getLoggingLevels();
+    /**
+     * get the runtime logging levels
+     */
+    public Map<String, String> getLoggingLevels();
 
-    /** get the operational mode (leaving, joining, normal, decommissioned, client) **/
+    /**
+     * get the operational mode (leaving, joining, normal, decommissioned, client) *
+     */
     public String getOperationMode();
 
-    /** Returns whether the storage service is starting or not */
+    /**
+     * Returns whether the storage service is starting or not
+     */
     public boolean isStarting();
 
-    /** get the progress of a drain operation */
+    /**
+     * get the progress of a drain operation
+     */
     public String getDrainProgress();
 
-    /** makes node unavailable for writes, flushes memtables and replays commitlog. */
+    /**
+     * makes node unavailable for writes, flushes memtables and replays commitlog.
+     */
     public void drain() throws IOException, InterruptedException, ExecutionException;
 
     /**
@@ -480,13 +542,15 @@ public interface StorageServiceMBean extends NotificationEmitter
      * @param keyspace The keyspace to delete from
      * @param table The column family to delete data from.
      */
-    public void truncate(String keyspace, String table)throws TimeoutException, IOException;
+    public void truncate(String keyspace, String table) throws TimeoutException, IOException;
 
     /**
      * given a list of tokens (representing the nodes in the cluster), returns
      *   a mapping from {@code "token -> %age of cluster owned by that token"}
      */
-    @Deprecated public Map<InetAddress, Float> getOwnership();
+    @Deprecated
+    public Map<InetAddress, Float> getOwnership();
+
     public Map<String, Float> getOwnershipWithPort();
 
     /**
@@ -496,7 +560,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      * in the cluster have the same replication strategies and if yes then we will
      * use the first else a empty Map is returned.
      */
-    @Deprecated public Map<InetAddress, Float> effectiveOwnership(String keyspace) throws IllegalStateException;
+    @Deprecated
+    public Map<InetAddress, Float> effectiveOwnership(String keyspace) throws IllegalStateException;
+
     public Map<String, Float> effectiveOwnershipWithPort(String keyspace) throws IllegalStateException;
 
     public List<String> getKeyspaces();
@@ -505,7 +571,9 @@ public interface StorageServiceMBean extends NotificationEmitter
 
     public List<String> getNonLocalStrategyKeyspaces();
 
-    @Deprecated public Map<String, String> getViewBuildStatuses(String keyspace, String view);
+    @Deprecated
+    public Map<String, String> getViewBuildStatuses(String keyspace, String view);
+
     public Map<String, String> getViewBuildStatusesWithPort(String keyspace, String view);
 
     /**
@@ -552,24 +620,35 @@ public interface StorageServiceMBean extends NotificationEmitter
     public boolean isInitialized();
 
     public void stopNativeTransport();
+
     public void startNativeTransport();
+
     public boolean isNativeTransportRunning();
+
     public void enableNativeTransportOldProtocolVersions();
+
     public void disableNativeTransportOldProtocolVersions();
 
     // sets limits on number of concurrent requests in flights in number of bytes
     public long getNativeTransportMaxConcurrentRequestsInBytes();
-    public void setNativeTransportMaxConcurrentRequestsInBytes(long newLimit);
-    public long getNativeTransportMaxConcurrentRequestsInBytesPerIp();
-    public void setNativeTransportMaxConcurrentRequestsInBytesPerIp(long newLimit);
 
+    public void setNativeTransportMaxConcurrentRequestsInBytes(long newLimit);
+
+    public long getNativeTransportMaxConcurrentRequestsInBytesPerIp();
+
+    public void setNativeTransportMaxConcurrentRequestsInBytesPerIp(long newLimit);
 
     // allows a node that have been started without joining the ring to join it
     public void joinRing() throws IOException;
+
     public boolean isJoined();
+
     public boolean isDrained();
+
     public boolean isDraining();
-    /** Check if currently bootstrapping.
+
+    /**
+     * Check if currently bootstrapping.
      * Note this becomes false before {@link org.apache.cassandra.db.SystemKeyspace#bootstrapComplete()} is called,
      * as setting bootstrap to complete is called only when the node joins the ring.
      * @return True prior to bootstrap streaming completing. False prior to start of bootstrap and post streaming.
@@ -577,67 +656,89 @@ public interface StorageServiceMBean extends NotificationEmitter
     public boolean isBootstrapMode();
 
     public void setRpcTimeout(long value);
+
     public long getRpcTimeout();
 
     public void setReadRpcTimeout(long value);
+
     public long getReadRpcTimeout();
 
     public void setRangeRpcTimeout(long value);
+
     public long getRangeRpcTimeout();
 
     public void setWriteRpcTimeout(long value);
+
     public long getWriteRpcTimeout();
 
     public void setInternodeTcpConnectTimeoutInMS(int value);
+
     public int getInternodeTcpConnectTimeoutInMS();
 
     public void setInternodeTcpUserTimeoutInMS(int value);
+
     public int getInternodeTcpUserTimeoutInMS();
 
     public void setInternodeStreamingTcpUserTimeoutInMS(int value);
+
     public int getInternodeStreamingTcpUserTimeoutInMS();
 
     public void setCounterWriteRpcTimeout(long value);
+
     public long getCounterWriteRpcTimeout();
 
     public void setCasContentionTimeout(long value);
+
     public long getCasContentionTimeout();
 
     public void setTruncateRpcTimeout(long value);
+
     public long getTruncateRpcTimeout();
 
     public void setStreamThroughputMbPerSec(int value);
+
     public int getStreamThroughputMbPerSec();
 
     public void setInterDCStreamThroughputMbPerSec(int value);
+
     public int getInterDCStreamThroughputMbPerSec();
 
     public int getCompactionThroughputMbPerSec();
+
     public void setCompactionThroughputMbPerSec(int value);
 
     public int getBatchlogReplayThrottleInKB();
+
     public void setBatchlogReplayThrottleInKB(int value);
 
     public int getConcurrentCompactors();
+
     public void setConcurrentCompactors(int value);
 
     public void bypassConcurrentValidatorsLimit();
+
     public void enforceConcurrentValidatorsLimit();
+
     public boolean isConcurrentValidatorsLimitEnforced();
 
     public int getConcurrentValidators();
+
     public void setConcurrentValidators(int value);
 
     public int getSSTablePreemptiveOpenIntervalInMB();
+
     public void setSSTablePreemptiveOpenIntervalInMB(int intervalInMB);
 
     public boolean getMigrateKeycacheOnCompaction();
+
     public void setMigrateKeycacheOnCompaction(boolean invalidateKeyCacheOnCompaction);
 
     public int getConcurrentViewBuilders();
+
     public void setConcurrentViewBuilders(int value);
 
     public boolean isIncrementalBackupsEnabled();
+
     public void setIncrementalBackupsEnabled(boolean value);
 
     /**
@@ -659,7 +760,9 @@ public interface StorageServiceMBean extends NotificationEmitter
      */
     public void rebuild(String sourceDc, String keyspace, String tokens, String specificSources);
 
-    /** Starts a bulk load and blocks until it completes. */
+    /**
+     * Starts a bulk load and blocks until it completes.
+     */
     public void bulkLoad(String directory);
 
     /**
@@ -716,90 +819,143 @@ public interface StorageServiceMBean extends NotificationEmitter
      */
     public double getTraceProbability();
 
-    void disableAutoCompaction(String ks, String ... tables) throws IOException;
-    void enableAutoCompaction(String ks, String ... tables) throws IOException;
+    void disableAutoCompaction(String ks, String... tables) throws IOException;
+
+    void enableAutoCompaction(String ks, String... tables) throws IOException;
+
     Map<String, Boolean> getAutoCompactionStatus(String ks, String... tables) throws IOException;
 
     public void deliverHints(String host) throws UnknownHostException;
 
-    /** Returns the name of the cluster */
+    /**
+     * Returns the name of the cluster
+     */
     public String getClusterName();
-    /** Returns the cluster partitioner */
+
+    /**
+     * Returns the cluster partitioner
+     */
     public String getPartitionerName();
 
-    /** Returns the threshold for warning of queries with many tombstones */
+    /**
+     * Returns the threshold for warning of queries with many tombstones
+     */
     public int getTombstoneWarnThreshold();
-    /** Sets the threshold for warning queries with many tombstones */
+
+    /**
+     * Sets the threshold for warning queries with many tombstones
+     */
     public void setTombstoneWarnThreshold(int tombstoneDebugThreshold);
 
-    /** Returns the threshold for abandoning queries with many tombstones */
+    /**
+     * Returns the threshold for abandoning queries with many tombstones
+     */
     public int getTombstoneFailureThreshold();
-    /** Sets the threshold for abandoning queries with many tombstones */
+
+    /**
+     * Sets the threshold for abandoning queries with many tombstones
+     */
     public void setTombstoneFailureThreshold(int tombstoneDebugThreshold);
 
-    /** Returns the number of rows cached at the coordinator before filtering/index queries log a warning. */
+    /**
+     * Returns the number of rows cached at the coordinator before filtering/index queries log a warning.
+     */
     public int getCachedReplicaRowsWarnThreshold();
 
-    /** Sets the number of rows cached at the coordinator before filtering/index queries log a warning. */
+    /**
+     * Sets the number of rows cached at the coordinator before filtering/index queries log a warning.
+     */
     public void setCachedReplicaRowsWarnThreshold(int threshold);
 
-    /** Returns the number of rows cached at the coordinator before filtering/index queries fail outright. */
+    /**
+     * Returns the number of rows cached at the coordinator before filtering/index queries fail outright.
+     */
     public int getCachedReplicaRowsFailThreshold();
 
-    /** Sets the number of rows cached at the coordinator before filtering/index queries fail outright. */
+    /**
+     * Sets the number of rows cached at the coordinator before filtering/index queries fail outright.
+     */
     public void setCachedReplicaRowsFailThreshold(int threshold);
 
-    /** Returns the threshold for skipping the column index when caching partition info **/
+    /**
+     * Returns the threshold for skipping the column index when caching partition info *
+     */
     public int getColumnIndexCacheSize();
-    /** Sets the threshold for skipping the column index when caching partition info **/
+
+    /**
+     * Sets the threshold for skipping the column index when caching partition info *
+     */
     public void setColumnIndexCacheSize(int cacheSizeInKB);
 
-    /** Returns the threshold for rejecting queries due to a large batch size */
+    /**
+     * Returns the threshold for rejecting queries due to a large batch size
+     */
     public int getBatchSizeFailureThreshold();
-    /** Sets the threshold for rejecting queries due to a large batch size */
+
+    /**
+     * Sets the threshold for rejecting queries due to a large batch size
+     */
     public void setBatchSizeFailureThreshold(int batchSizeDebugThreshold);
 
-    /** Returns the threshold for warning queries due to a large batch size */
+    /**
+     * Returns the threshold for warning queries due to a large batch size
+     */
     public int getBatchSizeWarnThreshold();
-    /** Sets the threshold for warning queries due to a large batch size */
+
+    /**
+     * Sets the threshold for warning queries due to a large batch size
+     */
     public void setBatchSizeWarnThreshold(int batchSizeDebugThreshold);
 
-    /** Sets the hinted handoff throttle in kb per second, per delivery thread. */
+    /**
+     * Sets the hinted handoff throttle in kb per second, per delivery thread.
+     */
     public void setHintedHandoffThrottleInKB(int throttleInKB);
 
     /**
      * Resume bootstrap streaming when there is failed data streaming.
      *
-     *
      * @return true if the node successfully starts resuming. (this does not mean bootstrap streaming was success.)
      */
     public boolean resumeBootstrap();
 
-    /** Gets the concurrency settings for processing stages*/
-    static class StageConcurrency implements Serializable
-    {
-        public final int corePoolSize;
-        public final int maximumPoolSize;
+    /**
+     * Gets the concurrency settings for processing stages
+     */
+    static class StageConcurrency implements Serializable {
 
-        public StageConcurrency(int corePoolSize, int maximumPoolSize)
-        {
+        public final transient int corePoolSize;
+
+        public final transient int maximumPoolSize;
+
+        public StageConcurrency(int corePoolSize, int maximumPoolSize) {
             this.corePoolSize = corePoolSize;
             this.maximumPoolSize = maximumPoolSize;
         }
-
     }
+
     public Map<String, List<Integer>> getConcurrency(List<String> stageNames);
 
-    /** Sets the concurrency setting for processing stages */
+    /**
+     * Sets the concurrency setting for processing stages
+     */
     public void setConcurrency(String threadPoolName, int newCorePoolSize, int newMaximumPoolSize);
 
-    /** Clears the history of clients that have connected in the past **/
+    /**
+     * Clears the history of clients that have connected in the past *
+     */
     void clearConnectionHistory();
+
     public void disableAuditLog();
+
     public void enableAuditLog(String loggerName, Map<String, String> parameters, String includedKeyspaces, String excludedKeyspaces, String includedCategories, String excludedCategories, String includedUsers, String excludedUsers) throws ConfigurationException;
+
     public void enableAuditLog(String loggerName, String includedKeyspaces, String excludedKeyspaces, String includedCategories, String excludedCategories, String includedUsers, String excludedUsers) throws ConfigurationException;
+
     public boolean isAuditLogEnabled();
+
     public String getCorruptedTombstoneStrategy();
+
     public void setCorruptedTombstoneStrategy(String strategy);
 
     /**
@@ -811,7 +967,6 @@ public interface StorageServiceMBean extends NotificationEmitter
      * @param maxLogSize How many bytes of log data to store before dropping segments. Might not be respected if a log file hasn't rolled so it can be deleted.
      * @param archiveCommand executable archiving the rolled log files,
      * @param maxArchiveRetries max number of times to retry a failing archive command
-     *
      */
     public void enableFullQueryLogger(String path, String rollCycle, Boolean blocking, int maxQueueWeight, long maxLogSize, @Nullable String archiveCommand, int maxArchiveRetries);
 
@@ -833,36 +988,56 @@ public interface StorageServiceMBean extends NotificationEmitter
      */
     CompositeData getFullQueryLoggerOptions();
 
-    /** Sets the initial allocation size of backing arrays for new RangeTombstoneList objects */
+    /**
+     * Sets the initial allocation size of backing arrays for new RangeTombstoneList objects
+     */
     public void setInitialRangeTombstoneListAllocationSize(int size);
 
-    /** Returns the initial allocation size of backing arrays for new RangeTombstoneList objects */
+    /**
+     * Returns the initial allocation size of backing arrays for new RangeTombstoneList objects
+     */
     public int getInitialRangeTombstoneListAllocationSize();
 
-    /** Sets the resize factor to use when growing/resizing a RangeTombstoneList */
+    /**
+     * Sets the resize factor to use when growing/resizing a RangeTombstoneList
+     */
     public void setRangeTombstoneListResizeGrowthFactor(double growthFactor);
 
-    /** Returns the resize factor to use when growing/resizing a RangeTombstoneList */
+    /**
+     * Returns the resize factor to use when growing/resizing a RangeTombstoneList
+     */
     public double getRangeTombstoneResizeListGrowthFactor();
 
-    /** Returns a map of schema version -> list of endpoints reporting that version that we need schema updates for */
+    /**
+     * Returns a map of schema version -> list of endpoints reporting that version that we need schema updates for
+     */
     @Deprecated
     public Map<String, Set<InetAddress>> getOutstandingSchemaVersions();
+
     public Map<String, Set<String>> getOutstandingSchemaVersionsWithPort();
 
     // see CASSANDRA-3200
     public boolean autoOptimiseIncRepairStreams();
+
     public void setAutoOptimiseIncRepairStreams(boolean enabled);
+
     public boolean autoOptimiseFullRepairStreams();
+
     public void setAutoOptimiseFullRepairStreams(boolean enabled);
+
     public boolean autoOptimisePreviewRepairStreams();
+
     public void setAutoOptimisePreviewRepairStreams(boolean enabled);
 
     int getTableCountWarnThreshold();
+
     void setTableCountWarnThreshold(int value);
+
     int getKeyspaceCountWarnThreshold();
+
     void setKeyspaceCountWarnThreshold(int value);
 
     public Long getRepairRpcTimeout();
+
     public void setRepairRpcTimeout(Long timeoutInMillis);
 }

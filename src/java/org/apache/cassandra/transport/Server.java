@@ -23,10 +23,8 @@ import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoopGroup;
@@ -49,102 +47,86 @@ import org.apache.cassandra.service.*;
 import org.apache.cassandra.transport.messages.EventMessage;
 import org.apache.cassandra.utils.FBUtilities;
 
-public class Server implements CassandraDaemon.Server
-{
-    static
-    {
+public class Server implements CassandraDaemon.Server {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Server.class);
+
+    static {
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
     }
 
-    private static final Logger logger = LoggerFactory.getLogger(Server.class);
-    private static final boolean useEpoll = NativeTransportService.useEpoll();
+    private static final transient Logger logger = LoggerFactory.getLogger(Server.class);
 
-    private final ConnectionTracker connectionTracker = new ConnectionTracker();
+    private static final transient boolean useEpoll = NativeTransportService.useEpoll();
 
-    private final Connection.Factory connectionFactory = new Connection.Factory()
-    {
-        public Connection newConnection(Channel channel, ProtocolVersion version)
-        {
+    private final transient ConnectionTracker connectionTracker = new ConnectionTracker();
+
+    private final transient Connection.Factory connectionFactory = new Connection.Factory() {
+
+        public Connection newConnection(Channel channel, ProtocolVersion version) {
             return new ServerConnection(channel, version, connectionTracker);
         }
     };
 
-    public final InetSocketAddress socket;
-    public final EncryptionOptions.TlsEncryptionPolicy tlsEncryptionPolicy;
-    private final AtomicBoolean isRunning = new AtomicBoolean(false);
-    private final PipelineConfigurator pipelineConfigurator;
-    private final EventLoopGroup workerGroup;
+    public final transient InetSocketAddress socket;
 
-    private Server (Builder builder)
-    {
+    public final transient EncryptionOptions.TlsEncryptionPolicy tlsEncryptionPolicy;
+
+    private final transient AtomicBoolean isRunning = new AtomicBoolean(false);
+
+    private final transient PipelineConfigurator pipelineConfigurator;
+
+    private final transient EventLoopGroup workerGroup;
+
+    private Server(Builder builder) {
         this.socket = builder.getSocket();
         this.tlsEncryptionPolicy = builder.tlsEncryptionPolicy;
-        if (builder.workerGroup != null)
-        {
+        if (builder.workerGroup != null) {
             workerGroup = builder.workerGroup;
-        }
-        else
-        {
+        } else {
             if (useEpoll)
                 workerGroup = new EpollEventLoopGroup();
             else
                 workerGroup = new NioEventLoopGroup();
         }
-
-        pipelineConfigurator = builder.pipelineConfigurator != null
-                               ? builder.pipelineConfigurator
-                               : new PipelineConfigurator(useEpoll,
-                                                          DatabaseDescriptor.getRpcKeepAlive(),
-                                                          DatabaseDescriptor.useNativeTransportLegacyFlusher(),
-                                                          builder.tlsEncryptionPolicy);
-
+        pipelineConfigurator = builder.pipelineConfigurator != null ? builder.pipelineConfigurator : new PipelineConfigurator(useEpoll, DatabaseDescriptor.getRpcKeepAlive(), DatabaseDescriptor.useNativeTransportLegacyFlusher(), builder.tlsEncryptionPolicy);
         EventNotifier notifier = builder.eventNotifier != null ? builder.eventNotifier : new EventNotifier();
         notifier.registerConnectionTracker(connectionTracker);
         StorageService.instance.register(notifier);
         Schema.instance.registerListener(notifier);
     }
 
-    public void stop()
-    {
+    public void stop() {
         if (isRunning.compareAndSet(true, false))
             close();
     }
 
-    public boolean isRunning()
-    {
+    public boolean isRunning() {
         return isRunning.get();
     }
 
-    public synchronized void start()
-    {
-        if(isRunning())
+    public synchronized void start() {
+        if (isRunning())
             return;
-
         // Configure the server.
         ChannelFuture bindFuture = pipelineConfigurator.initializeChannel(workerGroup, socket, connectionFactory);
         if (!bindFuture.awaitUninterruptibly().isSuccess())
-            throw new IllegalStateException(String.format("Failed to bind port %d on %s.", socket.getPort(), socket.getAddress().getHostAddress()),
-                                            bindFuture.cause());
-
+            throw new IllegalStateException(String.format("Failed to bind port %d on %s.", socket.getPort(), socket.getAddress().getHostAddress()), bindFuture.cause());
         connectionTracker.allChannels.add(bindFuture.channel());
         isRunning.set(true);
     }
 
-    public int countConnectedClients()
-    {
+    public int countConnectedClients() {
         return connectionTracker.countConnectedClients();
     }
 
-    public Map<String, Integer> countConnectedClientsByUser()
-    {
+    public Map<String, Integer> countConnectedClientsByUser() {
         return connectionTracker.countConnectedClientsByUser();
     }
 
-    public List<ConnectedClient> getConnectedClients()
-    {
+    public List<ConnectedClient> getConnectedClients() {
         List<ConnectedClient> result = new ArrayList<>();
-        for (Channel c : connectionTracker.allChannels)
-        {
+        for (Channel c : connectionTracker.allChannels) {
             Connection conn = c.attr(Connection.attributeKey).get();
             if (conn instanceof ServerConnection)
                 result.add(new ConnectedClient((ServerConnection) conn));
@@ -152,84 +134,77 @@ public class Server implements CassandraDaemon.Server
         return result;
     }
 
-    public List<ClientStat> recentClientStats()
-    {
+    public List<ClientStat> recentClientStats() {
         return connectionTracker.protocolVersionTracker.getAll();
     }
 
     @Override
-    public void clearConnectionHistory()
-    {
+    public void clearConnectionHistory() {
         connectionTracker.protocolVersionTracker.clear();
     }
 
-    private void close()
-    {
+    private void close() {
         // Close opened connections
         connectionTracker.closeAll();
-
         logger.info("Stop listening for CQL clients");
     }
 
-    public static class Builder
-    {
-        private EventLoopGroup workerGroup;
-        private EncryptionOptions.TlsEncryptionPolicy tlsEncryptionPolicy = EncryptionOptions.TlsEncryptionPolicy.UNENCRYPTED;
-        private InetAddress hostAddr;
-        private int port = -1;
-        private InetSocketAddress socket;
-        private PipelineConfigurator pipelineConfigurator;
-        private EventNotifier eventNotifier;
+    public static class Builder {
 
-        public Builder withTlsEncryptionPolicy(EncryptionOptions.TlsEncryptionPolicy tlsEncryptionPolicy)
-        {
+        private transient EventLoopGroup workerGroup;
+
+        private transient EncryptionOptions.TlsEncryptionPolicy tlsEncryptionPolicy = EncryptionOptions.TlsEncryptionPolicy.UNENCRYPTED;
+
+        private transient InetAddress hostAddr;
+
+        private transient int port = -1;
+
+        private transient InetSocketAddress socket;
+
+        private transient PipelineConfigurator pipelineConfigurator;
+
+        private transient EventNotifier eventNotifier;
+
+        public Builder withTlsEncryptionPolicy(EncryptionOptions.TlsEncryptionPolicy tlsEncryptionPolicy) {
             this.tlsEncryptionPolicy = tlsEncryptionPolicy;
             return this;
         }
 
-        public Builder withEventLoopGroup(EventLoopGroup eventLoopGroup)
-        {
+        public Builder withEventLoopGroup(EventLoopGroup eventLoopGroup) {
             this.workerGroup = eventLoopGroup;
             return this;
         }
 
-        public Builder withHost(InetAddress host)
-        {
+        public Builder withHost(InetAddress host) {
             this.hostAddr = host;
             this.socket = null;
             return this;
         }
 
-        public Builder withPort(int port)
-        {
+        public Builder withPort(int port) {
             this.port = port;
             this.socket = null;
             return this;
         }
 
-        public Builder withPipelineConfigurator(PipelineConfigurator configurator)
-        {
+        public Builder withPipelineConfigurator(PipelineConfigurator configurator) {
             this.pipelineConfigurator = configurator;
             return this;
         }
 
-        public Builder withEventNotifier(EventNotifier eventNotifier)
-        {
+        public Builder withEventNotifier(EventNotifier eventNotifier) {
             this.eventNotifier = eventNotifier;
             return this;
         }
 
-        public Server build()
-        {
+        public Server build() {
             return new Server(this);
         }
 
-        private InetSocketAddress getSocket()
-        {
+        private InetSocketAddress getSocket() {
             if (this.socket != null)
                 return this.socket;
-            else
-            {
+            else {
                 if (this.port == -1)
                     throw new IllegalStateException("Missing port number");
                 if (this.hostAddr != null)
@@ -241,58 +216,46 @@ public class Server implements CassandraDaemon.Server
         }
     }
 
-    public static class ConnectionTracker implements Connection.Tracker
-    {
-        private static final ChannelMatcher PRE_V5_CHANNEL = channel -> channel.attr(Connection.attributeKey)
-                                                                               .get()
-                                                                               .getVersion()
-                                                                               .isSmallerThan(ProtocolVersion.V5);
+    public static class ConnectionTracker implements Connection.Tracker {
+
+        private static final transient ChannelMatcher PRE_V5_CHANNEL = channel -> channel.attr(Connection.attributeKey).get().getVersion().isSmallerThan(ProtocolVersion.V5);
 
         // TODO: should we be using the GlobalEventExecutor or defining our own?
-        public final ChannelGroup allChannels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
-        private final EnumMap<Event.Type, ChannelGroup> groups = new EnumMap<>(Event.Type.class);
-        private final ProtocolVersionTracker protocolVersionTracker = new ProtocolVersionTracker();
+        public final transient ChannelGroup allChannels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
 
-        public ConnectionTracker()
-        {
-            for (Event.Type type : Event.Type.values())
-                groups.put(type, new DefaultChannelGroup(type.toString(), GlobalEventExecutor.INSTANCE));
+        private final transient EnumMap<Event.Type, ChannelGroup> groups = new EnumMap<>(Event.Type.class);
+
+        private final transient ProtocolVersionTracker protocolVersionTracker = new ProtocolVersionTracker();
+
+        public ConnectionTracker() {
+            for (Event.Type type : Event.Type.values()) groups.put(type, new DefaultChannelGroup(type.toString(), GlobalEventExecutor.INSTANCE));
         }
 
-        public void addConnection(Channel ch, Connection connection)
-        {
+        public void addConnection(Channel ch, Connection connection) {
             allChannels.add(ch);
-
             if (ch.remoteAddress() instanceof InetSocketAddress)
                 protocolVersionTracker.addConnection(((InetSocketAddress) ch.remoteAddress()).getAddress(), connection.getVersion());
         }
 
-        public void register(Event.Type type, Channel ch)
-        {
+        public void register(Event.Type type, Channel ch) {
             groups.get(type).add(ch);
         }
 
-        public void send(Event event)
-        {
+        public void send(Event event) {
             ChannelGroup registered = groups.get(event.type);
             EventMessage message = new EventMessage(event);
-
             // Deliver event to pre-v5 channels
             registered.writeAndFlush(message, PRE_V5_CHANNEL);
-
             // Deliver event to post-v5 channels
-            for (Channel c : registered)
-                if (!PRE_V5_CHANNEL.matches(c))
-                    c.attr(Dispatcher.EVENT_DISPATCHER).get().accept(message);
+            for (Channel c : registered) if (!PRE_V5_CHANNEL.matches(c))
+                c.attr(Dispatcher.EVENT_DISPATCHER).get().accept(message);
         }
 
-        void closeAll()
-        {
+        void closeAll() {
             allChannels.close().awaitUninterruptibly();
         }
 
-        int countConnectedClients()
-        {
+        int countConnectedClients() {
             /*
               - When server is running: allChannels contains all clients' connections (channels)
                 plus one additional channel used for the server's own bootstrap.
@@ -301,14 +264,11 @@ public class Server implements CassandraDaemon.Server
             return allChannels.size() != 0 ? allChannels.size() - 1 : 0;
         }
 
-        Map<String, Integer> countConnectedClientsByUser()
-        {
+        Map<String, Integer> countConnectedClientsByUser() {
             Map<String, Integer> result = new HashMap<>();
-            for (Channel c : allChannels)
-            {
+            for (Channel c : allChannels) {
                 Connection connection = c.attr(Connection.attributeKey).get();
-                if (connection instanceof ServerConnection)
-                {
+                if (connection instanceof ServerConnection) {
                     ServerConnection conn = (ServerConnection) connection;
                     AuthenticatedUser user = conn.getClientState().getUser();
                     String name = (null != user) ? user.getName() : null;
@@ -317,67 +277,53 @@ public class Server implements CassandraDaemon.Server
             }
             return result;
         }
-
     }
 
-    private static class LatestEvent
-    {
-        public final Event.StatusChange.Status status;
-        public final Event.TopologyChange.Change topology;
+    private static class LatestEvent {
 
-        private LatestEvent(Event.StatusChange.Status status, Event.TopologyChange.Change topology)
-        {
+        public final transient Event.StatusChange.Status status;
+
+        public final transient Event.TopologyChange.Change topology;
+
+        private LatestEvent(Event.StatusChange.Status status, Event.TopologyChange.Change topology) {
             this.status = status;
             this.topology = topology;
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return String.format("Status %s, Topology %s", status, topology);
         }
 
-        public static LatestEvent forStatusChange(Event.StatusChange.Status status, LatestEvent prev)
-        {
-            return new LatestEvent(status,
-                                   prev == null ?
-                                           null :
-                                           prev.topology);
+        public static LatestEvent forStatusChange(Event.StatusChange.Status status, LatestEvent prev) {
+            return new LatestEvent(status, prev == null ? null : prev.topology);
         }
 
-        public static LatestEvent forTopologyChange(Event.TopologyChange.Change change, LatestEvent prev)
-        {
-            return new LatestEvent(prev == null ?
-                                           null :
-                                           prev.status,
-                                           change);
+        public static LatestEvent forTopologyChange(Event.TopologyChange.Change change, LatestEvent prev) {
+            return new LatestEvent(prev == null ? null : prev.status, change);
         }
     }
 
-    public static class EventNotifier extends SchemaChangeListener implements IEndpointLifecycleSubscriber
-    {
-        private ConnectionTracker connectionTracker;
+    public static class EventNotifier extends SchemaChangeListener implements IEndpointLifecycleSubscriber {
+
+        private transient ConnectionTracker connectionTracker;
 
         // We keep track of the latest status change events we have sent to avoid sending duplicates
         // since StorageService may send duplicate notifications (CASSANDRA-7816, CASSANDRA-8236, CASSANDRA-9156)
-        private final Map<InetAddressAndPort, LatestEvent> latestEvents = new ConcurrentHashMap<>();
+        private final transient Map<InetAddressAndPort, LatestEvent> latestEvents = new ConcurrentHashMap<>();
+
         // We also want to delay delivering a NEW_NODE notification until the new node has set its RPC ready
         // state. This tracks the endpoints which have joined, but not yet signalled they're ready for clients
-        private final Set<InetAddressAndPort> endpointsPendingJoinedNotification = ConcurrentHashMap.newKeySet();
+        private final transient Set<InetAddressAndPort> endpointsPendingJoinedNotification = ConcurrentHashMap.newKeySet();
 
-        private void registerConnectionTracker(ConnectionTracker connectionTracker)
-        {
+        private void registerConnectionTracker(ConnectionTracker connectionTracker) {
             this.connectionTracker = connectionTracker;
         }
 
-        private InetAddressAndPort getNativeAddress(InetAddressAndPort endpoint)
-        {
-            try
-            {
+        private InetAddressAndPort getNativeAddress(InetAddressAndPort endpoint) {
+            try {
                 return InetAddressAndPort.getByName(StorageService.instance.getNativeaddress(endpoint, true));
-            }
-            catch (UnknownHostException e)
-            {
+            } catch (UnknownHostException e) {
                 // That should not happen, so log an error, but return the
                 // endpoint address since there's a good change this is right
                 logger.error("Problem retrieving RPC address for {}", endpoint, e);
@@ -385,166 +331,128 @@ public class Server implements CassandraDaemon.Server
             }
         }
 
-        private void send(InetAddressAndPort endpoint, Event.NodeEvent event)
-        {
+        private void send(InetAddressAndPort endpoint, Event.NodeEvent event) {
             if (logger.isTraceEnabled())
                 logger.trace("Sending event for endpoint {}, rpc address {}", endpoint, event.nodeAddressAndPort());
-
             // If the endpoint is not the local node, extract the node address
             // and if it is the same as our own RPC broadcast address (which defaults to the rcp address)
             // then don't send the notification. This covers the case of rpc_address set to "localhost",
             // which is not useful to any driver and in fact may cauase serious problems to some drivers,
             // see CASSANDRA-10052
-            if (!endpoint.equals(FBUtilities.getBroadcastAddressAndPort()) &&
-                event.nodeAddressAndPort().equals(FBUtilities.getBroadcastNativeAddressAndPort()))
+            if (!endpoint.equals(FBUtilities.getBroadcastAddressAndPort()) && event.nodeAddressAndPort().equals(FBUtilities.getBroadcastNativeAddressAndPort()))
                 return;
-
             send(event);
         }
 
-        private void send(Event event)
-        {
+        private void send(Event event) {
             connectionTracker.send(event);
         }
 
-        public void onJoinCluster(InetAddressAndPort endpoint)
-        {
+        public void onJoinCluster(InetAddressAndPort endpoint) {
             if (!StorageService.instance.isRpcReady(endpoint))
                 endpointsPendingJoinedNotification.add(endpoint);
             else
                 onTopologyChange(endpoint, Event.TopologyChange.newNode(getNativeAddress(endpoint)));
         }
 
-        public void onLeaveCluster(InetAddressAndPort endpoint)
-        {
+        public void onLeaveCluster(InetAddressAndPort endpoint) {
             onTopologyChange(endpoint, Event.TopologyChange.removedNode(getNativeAddress(endpoint)));
         }
 
-        public void onMove(InetAddressAndPort endpoint)
-        {
+        public void onMove(InetAddressAndPort endpoint) {
             onTopologyChange(endpoint, Event.TopologyChange.movedNode(getNativeAddress(endpoint)));
         }
 
-        public void onUp(InetAddressAndPort endpoint)
-        {
+        public void onUp(InetAddressAndPort endpoint) {
             if (endpointsPendingJoinedNotification.remove(endpoint))
                 onJoinCluster(endpoint);
-
             onStatusChange(endpoint, Event.StatusChange.nodeUp(getNativeAddress(endpoint)));
         }
 
-        public void onDown(InetAddressAndPort endpoint)
-        {
+        public void onDown(InetAddressAndPort endpoint) {
             onStatusChange(endpoint, Event.StatusChange.nodeDown(getNativeAddress(endpoint)));
         }
 
-        private void onTopologyChange(InetAddressAndPort endpoint, Event.TopologyChange event)
-        {
+        private void onTopologyChange(InetAddressAndPort endpoint, Event.TopologyChange event) {
             if (logger.isTraceEnabled())
                 logger.trace("Topology changed event : {}, {}", endpoint, event.change);
-
             LatestEvent prev = latestEvents.get(endpoint);
-            if (prev == null || prev.topology != event.change)
-            {
+            if (prev == null || prev.topology != event.change) {
                 LatestEvent ret = latestEvents.put(endpoint, LatestEvent.forTopologyChange(event.change, prev));
                 if (ret == prev)
                     send(endpoint, event);
             }
         }
 
-        private void onStatusChange(InetAddressAndPort endpoint, Event.StatusChange event)
-        {
+        private void onStatusChange(InetAddressAndPort endpoint, Event.StatusChange event) {
             if (logger.isTraceEnabled())
                 logger.trace("Status changed event : {}, {}", endpoint, event.status);
-
             LatestEvent prev = latestEvents.get(endpoint);
-            if (prev == null || prev.status != event.status)
-            {
+            if (prev == null || prev.status != event.status) {
                 LatestEvent ret = latestEvents.put(endpoint, LatestEvent.forStatusChange(event.status, null));
                 if (ret == prev)
                     send(endpoint, event);
             }
         }
 
-        public void onCreateKeyspace(String ksName)
-        {
+        public void onCreateKeyspace(String ksName) {
             send(new Event.SchemaChange(Event.SchemaChange.Change.CREATED, ksName));
         }
 
-        public void onCreateTable(String ksName, String cfName)
-        {
+        public void onCreateTable(String ksName, String cfName) {
             send(new Event.SchemaChange(Event.SchemaChange.Change.CREATED, Event.SchemaChange.Target.TABLE, ksName, cfName));
         }
 
-        public void onCreateType(String ksName, String typeName)
-        {
+        public void onCreateType(String ksName, String typeName) {
             send(new Event.SchemaChange(Event.SchemaChange.Change.CREATED, Event.SchemaChange.Target.TYPE, ksName, typeName));
         }
 
-        public void onCreateFunction(String ksName, String functionName, List<AbstractType<?>> argTypes)
-        {
-            send(new Event.SchemaChange(Event.SchemaChange.Change.CREATED, Event.SchemaChange.Target.FUNCTION,
-                                        ksName, functionName, AbstractType.asCQLTypeStringList(argTypes)));
+        public void onCreateFunction(String ksName, String functionName, List<AbstractType<?>> argTypes) {
+            send(new Event.SchemaChange(Event.SchemaChange.Change.CREATED, Event.SchemaChange.Target.FUNCTION, ksName, functionName, AbstractType.asCQLTypeStringList(argTypes)));
         }
 
-        public void onCreateAggregate(String ksName, String aggregateName, List<AbstractType<?>> argTypes)
-        {
-            send(new Event.SchemaChange(Event.SchemaChange.Change.CREATED, Event.SchemaChange.Target.AGGREGATE,
-                                        ksName, aggregateName, AbstractType.asCQLTypeStringList(argTypes)));
+        public void onCreateAggregate(String ksName, String aggregateName, List<AbstractType<?>> argTypes) {
+            send(new Event.SchemaChange(Event.SchemaChange.Change.CREATED, Event.SchemaChange.Target.AGGREGATE, ksName, aggregateName, AbstractType.asCQLTypeStringList(argTypes)));
         }
 
-        public void onAlterKeyspace(String ksName)
-        {
+        public void onAlterKeyspace(String ksName) {
             send(new Event.SchemaChange(Event.SchemaChange.Change.UPDATED, ksName));
         }
 
-        public void onAlterTable(String ksName, String cfName, boolean affectsStatements)
-        {
+        public void onAlterTable(String ksName, String cfName, boolean affectsStatements) {
             send(new Event.SchemaChange(Event.SchemaChange.Change.UPDATED, Event.SchemaChange.Target.TABLE, ksName, cfName));
         }
 
-        public void onAlterType(String ksName, String typeName)
-        {
+        public void onAlterType(String ksName, String typeName) {
             send(new Event.SchemaChange(Event.SchemaChange.Change.UPDATED, Event.SchemaChange.Target.TYPE, ksName, typeName));
         }
 
-        public void onAlterFunction(String ksName, String functionName, List<AbstractType<?>> argTypes)
-        {
-            send(new Event.SchemaChange(Event.SchemaChange.Change.UPDATED, Event.SchemaChange.Target.FUNCTION,
-                                        ksName, functionName, AbstractType.asCQLTypeStringList(argTypes)));
+        public void onAlterFunction(String ksName, String functionName, List<AbstractType<?>> argTypes) {
+            send(new Event.SchemaChange(Event.SchemaChange.Change.UPDATED, Event.SchemaChange.Target.FUNCTION, ksName, functionName, AbstractType.asCQLTypeStringList(argTypes)));
         }
 
-        public void onAlterAggregate(String ksName, String aggregateName, List<AbstractType<?>> argTypes)
-        {
-            send(new Event.SchemaChange(Event.SchemaChange.Change.UPDATED, Event.SchemaChange.Target.AGGREGATE,
-                                        ksName, aggregateName, AbstractType.asCQLTypeStringList(argTypes)));
+        public void onAlterAggregate(String ksName, String aggregateName, List<AbstractType<?>> argTypes) {
+            send(new Event.SchemaChange(Event.SchemaChange.Change.UPDATED, Event.SchemaChange.Target.AGGREGATE, ksName, aggregateName, AbstractType.asCQLTypeStringList(argTypes)));
         }
 
-        public void onDropKeyspace(String ksName)
-        {
+        public void onDropKeyspace(String ksName) {
             send(new Event.SchemaChange(Event.SchemaChange.Change.DROPPED, ksName));
         }
 
-        public void onDropTable(String ksName, String cfName)
-        {
+        public void onDropTable(String ksName, String cfName) {
             send(new Event.SchemaChange(Event.SchemaChange.Change.DROPPED, Event.SchemaChange.Target.TABLE, ksName, cfName));
         }
 
-        public void onDropType(String ksName, String typeName)
-        {
+        public void onDropType(String ksName, String typeName) {
             send(new Event.SchemaChange(Event.SchemaChange.Change.DROPPED, Event.SchemaChange.Target.TYPE, ksName, typeName));
         }
 
-        public void onDropFunction(String ksName, String functionName, List<AbstractType<?>> argTypes)
-        {
-            send(new Event.SchemaChange(Event.SchemaChange.Change.DROPPED, Event.SchemaChange.Target.FUNCTION,
-                                        ksName, functionName, AbstractType.asCQLTypeStringList(argTypes)));
+        public void onDropFunction(String ksName, String functionName, List<AbstractType<?>> argTypes) {
+            send(new Event.SchemaChange(Event.SchemaChange.Change.DROPPED, Event.SchemaChange.Target.FUNCTION, ksName, functionName, AbstractType.asCQLTypeStringList(argTypes)));
         }
 
-        public void onDropAggregate(String ksName, String aggregateName, List<AbstractType<?>> argTypes)
-        {
-            send(new Event.SchemaChange(Event.SchemaChange.Change.DROPPED, Event.SchemaChange.Target.AGGREGATE,
-                                        ksName, aggregateName, AbstractType.asCQLTypeStringList(argTypes)));
+        public void onDropAggregate(String ksName, String aggregateName, List<AbstractType<?>> argTypes) {
+            send(new Event.SchemaChange(Event.SchemaChange.Change.DROPPED, Event.SchemaChange.Target.AGGREGATE, ksName, aggregateName, AbstractType.asCQLTypeStringList(argTypes)));
         }
     }
 }

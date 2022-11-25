@@ -15,23 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils.progress.jmx;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import org.apache.cassandra.concurrent.NamedThreadFactory;
 
 /**
  * Holds dedicated executor for JMX event handling. Events will internally queued by ArrayNotificationBuffer,
  * synchronized by an exclusive write lock, which makes a shared single thread executor desirable.
  */
-public final class JMXBroadcastExecutor
-{
+public final class JMXBroadcastExecutor {
 
-    private JMXBroadcastExecutor() { }
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(JMXBroadcastExecutor.class);
 
-    public final static ExecutorService executor = Executors.newSingleThreadExecutor(new NamedThreadFactory("JMX"));
+    private JMXBroadcastExecutor() {
+    }
 
+    public final static transient ExecutorService executor = Executors.newSingleThreadExecutor(new NamedThreadFactory("JMX"));
 }

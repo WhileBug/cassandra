@@ -1,4 +1,5 @@
 package org.apache.cassandra.service.paxos;
+
 /*
  * 
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -23,17 +24,17 @@ import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
 
-public class PrepareVerbHandler implements IVerbHandler<Commit>
-{
-    public static PrepareVerbHandler instance = new PrepareVerbHandler();
+public class PrepareVerbHandler implements IVerbHandler<Commit> {
 
-    public static PrepareResponse doPrepare(Commit toPrepare)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareVerbHandler.class);
+
+    public static transient PrepareVerbHandler instance = new PrepareVerbHandler();
+
+    public static PrepareResponse doPrepare(Commit toPrepare) {
         return PaxosState.prepare(toPrepare);
     }
 
-    public void doVerb(Message<Commit> message)
-    {
+    public void doVerb(Message<Commit> message) {
         Message<PrepareResponse> reply = message.responseWith(doPrepare(message.payload));
         MessagingService.instance().send(reply, message.from());
     }

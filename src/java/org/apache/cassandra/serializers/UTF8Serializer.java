@@ -18,28 +18,27 @@
 package org.apache.cassandra.serializers;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 
-public class UTF8Serializer extends AbstractTextSerializer
-{
-    public static final UTF8Serializer instance = new UTF8Serializer();
+public class UTF8Serializer extends AbstractTextSerializer {
 
-    private UTF8Serializer()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UTF8Serializer.class);
+
+    public static final transient UTF8Serializer instance = new UTF8Serializer();
+
+    private UTF8Serializer() {
         super(StandardCharsets.UTF_8);
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (!UTF8Validator.validate(value, accessor))
             throw new MarshalException("String didn't validate.");
     }
 
-    static class UTF8Validator
-    {
-        enum State
-        {
+    static class UTF8Validator {
+
+        enum State {
+
             START,
             TWO,
             TWO_80,
@@ -47,33 +46,26 @@ public class UTF8Serializer extends AbstractTextSerializer
             THREE_80bf_1,
             THREE_80bf_2,
             FOUR_90bf,
-            FOUR_80bf_3,
-        };
+            FOUR_80bf_3
+        }
 
         // since we're not converting to java strings, we don't need to worry about converting to surrogates.
         // buf has already been sliced/duplicated.
-        static <V> boolean validate(V value, ValueAccessor<V> accessor)
-        {
+        static <V> boolean validate(V value, ValueAccessor<V> accessor) {
             if (value == null)
                 return false;
-
             int b = 0;
             int offset = 0;
             State state = State.START;
-            while (!accessor.isEmptyFromOffset(value, offset))
-            {
+            while (!accessor.isEmptyFromOffset(value, offset)) {
                 b = accessor.getByte(value, offset++);
-                switch (state)
-                {
+                switch(state) {
                     case START:
-                        if (b >= 0)
-                        {
+                        if (b >= 0) {
                             // ascii, state stays start.
                             if (b > 127)
                                 return false;
-                        }
-                        else if ((b >> 5) == -2)
-                        {
+                        } else if ((b >> 5) == -2) {
                             // validate first byte of 2-byte char, 0xc2-0xdf
                             if (b == (byte) 0xc0)
                                 // special case: modified utf8 null is 0xc080.
@@ -82,21 +74,17 @@ public class UTF8Serializer extends AbstractTextSerializer
                                 return false;
                             else
                                 state = State.TWO;
-                        }
-                        else if ((b >> 4) == -2)
-                        {
+                        } else if ((b >> 4) == -2) {
                             // 3 bytes. first byte will be 0xe0 or 0xe1-0xef. handling of second byte will differ.
                             // so 0xe0,0xa0-0xbf,0x80-0xbf or 0xe1-0xef,0x80-0xbf,0x80-0xbf.
-                            if (b == (byte)0xe0)
+                            if (b == (byte) 0xe0)
                                 state = State.THREE_a0bf;
                             else
                                 state = State.THREE_80bf_2;
                             break;
-                        }
-                        else if ((b >> 3) == -2)
-                        {
+                        } else if ((b >> 3) == -2) {
                             // 4 bytes. this is where the fun starts.
-                            if (b == (byte)0xf0)
+                            if (b == (byte) 0xf0)
                                 // 0xf0, 0x90-0xbf, 0x80-0xbf, 0x80-0xbf
                                 state = State.FOUR_90bf;
                             else
@@ -104,9 +92,9 @@ public class UTF8Serializer extends AbstractTextSerializer
                                 // 0xf1-0xf3, 0x80-0xbf, 0x80-0xbf, 0x80-0xbf
                                 state = State.FOUR_80bf_3;
                             break;
-                        }
-                        else
-                            return false; // malformed.
+                        } else
+                            // malformed.
+                            return false;
                         break;
                     case TWO:
                         // validate second byte of 2-byte char, 0x80-0xbf
@@ -115,7 +103,7 @@ public class UTF8Serializer extends AbstractTextSerializer
                         state = State.START;
                         break;
                     case TWO_80:
-                        if (b != (byte)0x80)
+                        if (b != (byte) 0x80)
                             return false;
                         state = State.START;
                         break;
@@ -149,7 +137,8 @@ public class UTF8Serializer extends AbstractTextSerializer
                         state = State.THREE_80bf_2;
                         break;
                     default:
-                        return false; // invalid state.
+                        // invalid state.
+                        return false;
                 }
             }
             // if state != start, we've got underflow. that's an error.

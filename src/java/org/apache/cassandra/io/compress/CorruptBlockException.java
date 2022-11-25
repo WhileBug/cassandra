@@ -19,25 +19,23 @@ package org.apache.cassandra.io.compress;
 
 import java.io.IOException;
 
-public class CorruptBlockException extends IOException
-{
-    public CorruptBlockException(String filePath, CompressionMetadata.Chunk chunk)
-    {
+public class CorruptBlockException extends IOException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CorruptBlockException.class);
+
+    public CorruptBlockException(String filePath, CompressionMetadata.Chunk chunk) {
         this(filePath, chunk, null);
     }
 
-    public CorruptBlockException(String filePath, CompressionMetadata.Chunk chunk, Throwable cause)
-    {
+    public CorruptBlockException(String filePath, CompressionMetadata.Chunk chunk, Throwable cause) {
         this(filePath, chunk.offset, chunk.length, cause);
     }
 
-    public CorruptBlockException(String filePath, long offset, int length)
-    {
+    public CorruptBlockException(String filePath, long offset, int length) {
         this(filePath, offset, length, null);
     }
 
-    public CorruptBlockException(String filePath, long offset, int length, Throwable cause)
-    {
+    public CorruptBlockException(String filePath, long offset, int length, Throwable cause) {
         super(String.format("(%s): corruption detected, chunk at %d of length %d.", filePath, offset, length), cause);
     }
 }

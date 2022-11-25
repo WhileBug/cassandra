@@ -15,46 +15,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.schema;
 
 import java.util.Set;
-
 import org.apache.cassandra.diag.DiagnosticEventService;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.schema.SchemaAnnouncementEvent.SchemaAnnouncementEventType;
 
-final class SchemaAnnouncementDiagnostics
-{
-    private static final DiagnosticEventService service = DiagnosticEventService.instance();
+final class SchemaAnnouncementDiagnostics {
 
-    private SchemaAnnouncementDiagnostics()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaAnnouncementDiagnostics.class);
+
+    private static final transient DiagnosticEventService service = DiagnosticEventService.instance();
+
+    private SchemaAnnouncementDiagnostics() {
     }
 
-    static void schemaMutationsAnnounced(Set<InetAddressAndPort> schemaDestinationEndpoints, Set<InetAddressAndPort> schemaEndpointsIgnored)
-    {
+    static void schemaMutationsAnnounced(Set<InetAddressAndPort> schemaDestinationEndpoints, Set<InetAddressAndPort> schemaEndpointsIgnored) {
         if (isEnabled(SchemaAnnouncementEventType.SCHEMA_MUTATIONS_ANNOUNCED))
-            service.publish(new SchemaAnnouncementEvent(SchemaAnnouncementEventType.SCHEMA_MUTATIONS_ANNOUNCED,
-                                                        schemaDestinationEndpoints, schemaEndpointsIgnored, null, null));
+            service.publish(new SchemaAnnouncementEvent(SchemaAnnouncementEventType.SCHEMA_MUTATIONS_ANNOUNCED, schemaDestinationEndpoints, schemaEndpointsIgnored, null, null));
     }
 
-    public static void schemataMutationsReceived(InetAddressAndPort from)
-    {
+    public static void schemataMutationsReceived(InetAddressAndPort from) {
         if (isEnabled(SchemaAnnouncementEventType.SCHEMA_MUTATIONS_RECEIVED))
-            service.publish(new SchemaAnnouncementEvent(SchemaAnnouncementEventType.SCHEMA_MUTATIONS_RECEIVED,
-                                                        null, null, null, from));
+            service.publish(new SchemaAnnouncementEvent(SchemaAnnouncementEventType.SCHEMA_MUTATIONS_RECEIVED, null, null, null, from));
     }
 
-    static void schemaTransformationAnnounced(Set<InetAddressAndPort> schemaDestinationEndpoints, Set<InetAddressAndPort> schemaEndpointsIgnored, SchemaTransformation transformation)
-    {
+    static void schemaTransformationAnnounced(Set<InetAddressAndPort> schemaDestinationEndpoints, Set<InetAddressAndPort> schemaEndpointsIgnored, SchemaTransformation transformation) {
         if (isEnabled(SchemaAnnouncementEventType.SCHEMA_TRANSFORMATION_ANNOUNCED))
-            service.publish(new SchemaAnnouncementEvent(SchemaAnnouncementEventType.SCHEMA_TRANSFORMATION_ANNOUNCED,
-                                                        schemaDestinationEndpoints, schemaEndpointsIgnored, transformation, null));
+            service.publish(new SchemaAnnouncementEvent(SchemaAnnouncementEventType.SCHEMA_TRANSFORMATION_ANNOUNCED, schemaDestinationEndpoints, schemaEndpointsIgnored, transformation, null));
     }
 
-    private static boolean isEnabled(SchemaAnnouncementEventType type)
-    {
+    private static boolean isEnabled(SchemaAnnouncementEventType type) {
         return service.isEnabled(SchemaAnnouncementEvent.class, type);
     }
 }

@@ -15,75 +15,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.db.partitions.PartitionUpdate;
-
 import static org.apache.cassandra.db.IMutation.MAX_MUTATION_SIZE;
 
-public class MutationExceededMaxSizeException extends RuntimeException
-{
-    public static final int PARTITION_MESSAGE_LIMIT = 1024;
+public class MutationExceededMaxSizeException extends RuntimeException {
 
-    public final long mutationSize;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MutationExceededMaxSizeException.class);
 
-    MutationExceededMaxSizeException(IMutation mutation, int serializationVersion, long totalSize)
-    {
+    public static final transient int PARTITION_MESSAGE_LIMIT = 1024;
+
+    public final transient long mutationSize;
+
+    MutationExceededMaxSizeException(IMutation mutation, int serializationVersion, long totalSize) {
         super(prepareMessage(mutation, serializationVersion, totalSize));
         this.mutationSize = totalSize;
     }
 
-    private static String prepareMessage(IMutation mutation, int version, long totalSize)
-    {
-        List<String> topPartitions = mutation.getPartitionUpdates().stream()
-                                             .sorted((upd1, upd2) ->
-                                                     Long.compare(PartitionUpdate.serializer.serializedSize(upd2, version),
-                                                                  PartitionUpdate.serializer.serializedSize(upd1, version)))
-                                             .map(upd -> String.format("%s.%s",
-                                                                       upd.metadata().name,
-                                                                       upd.metadata().partitionKeyType.getString(upd.partitionKey().getKey())))
-                                             .collect(Collectors.toList());
-
+    private static String prepareMessage(IMutation mutation, int version, long totalSize) {
+        List<String> topPartitions = mutation.getPartitionUpdates().stream().sorted((upd1, upd2) -> Long.compare(PartitionUpdate.serializer.serializedSize(upd2, version), PartitionUpdate.serializer.serializedSize(upd1, version))).map(upd -> String.format("%s.%s", upd.metadata().name, upd.metadata().partitionKeyType.getString(upd.partitionKey().getKey()))).collect(Collectors.toList());
         String topKeys = makeTopKeysString(topPartitions, PARTITION_MESSAGE_LIMIT);
-        return String.format("Encountered an oversized mutation (%d/%d) for keyspace: %s. Top keys are: %s",
-                             totalSize,
-                             MAX_MUTATION_SIZE,
-                             mutation.getKeyspaceName(),
-                             topKeys);
+        return String.format("Encountered an oversized mutation (%d/%d) for keyspace: %s. Top keys are: %s", totalSize, MAX_MUTATION_SIZE, mutation.getKeyspaceName(), topKeys);
     }
 
     @VisibleForTesting
     static String makeTopKeysString(List<String> keys, int maxLength) {
         Iterator<String> iterator = keys.listIterator();
         StringBuilder stringBuilder = new StringBuilder();
-        while (iterator.hasNext())
-        {
+        while (iterator.hasNext()) {
             String key = iterator.next();
-
-            if (stringBuilder.length() == 0)
-            {
-                stringBuilder.append(key); //ensures atleast one key is added
+            if (stringBuilder.length() == 0) {
+                // ensures atleast one key is added
+                stringBuilder.append(key);
                 iterator.remove();
-            }
-            else if (stringBuilder.length() + key.length() + 2 <= maxLength) // 2 for ", "
-            {
+            } else if (// 2 for ", "
+            stringBuilder.length() + key.length() + 2 <= maxLength) {
                 stringBuilder.append(", ").append(key);
                 iterator.remove();
-            }
-            else
+            } else
                 break;
         }
-
         if (keys.size() > 0)
             stringBuilder.append(" and ").append(keys.size()).append(" more.");
-
         return stringBuilder.toString();
     }
 }

@@ -19,29 +19,29 @@ package org.apache.cassandra.utils;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
-
 import org.apache.cassandra.db.SystemKeyspace;
 
-public class CounterId implements Comparable<CounterId>
-{
-    public static final int LENGTH = 16; // we assume a fixed length size for all CounterIds
+public class CounterId implements Comparable<CounterId> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CounterId.class);
+
+    // we assume a fixed length size for all CounterIds
+    public static final transient int LENGTH = 16;
 
     // Lazy holder because this opens the system keyspace and we want to avoid
     // having this triggered during class initialization
-    private static class LocalId
-    {
-        static final LocalCounterIdHolder instance = new LocalCounterIdHolder();
+    private static class LocalId {
+
+        static final transient LocalCounterIdHolder instance = new LocalCounterIdHolder();
     }
 
-    private final ByteBuffer id;
+    private final transient ByteBuffer id;
 
-    private static LocalCounterIdHolder localId()
-    {
+    private static LocalCounterIdHolder localId() {
         return LocalId.instance;
     }
 
-    public static CounterId getLocalId()
-    {
+    public static CounterId getLocalId() {
         return localId().get();
     }
 
@@ -52,8 +52,7 @@ public class CounterId implements Comparable<CounterId>
      *
      * Also used to generate a special ID for special-case update contexts (see CounterContext.createUpdate()).
      */
-    public static CounterId fromInt(int n)
-    {
+    public static CounterId fromInt(int n) {
         long lowBits = 0xC000000000000000L | n;
         return new CounterId(ByteBuffer.allocate(16).putLong(0, 0).putLong(8, lowBits));
     }
@@ -61,29 +60,24 @@ public class CounterId implements Comparable<CounterId>
     /*
      * For performance reasons, this function interns the provided ByteBuffer.
      */
-    public static CounterId wrap(ByteBuffer id)
-    {
+    public static CounterId wrap(ByteBuffer id) {
         return new CounterId(id);
     }
 
-    public static CounterId wrap(ByteBuffer bb, int offset)
-    {
+    public static CounterId wrap(ByteBuffer bb, int offset) {
         ByteBuffer dup = bb.duplicate();
         dup.position(offset);
         dup.limit(dup.position() + LENGTH);
         return wrap(dup);
     }
 
-    private CounterId(ByteBuffer id)
-    {
+    private CounterId(ByteBuffer id) {
         if (id.remaining() != LENGTH)
             throw new IllegalArgumentException("A CounterId representation is exactly " + LENGTH + " bytes");
-
         this.id = id;
     }
 
-    public static CounterId generate()
-    {
+    public static CounterId generate() {
         return new CounterId(ByteBuffer.wrap(UUIDGen.getTimeUUIDBytes()));
     }
 
@@ -91,56 +85,47 @@ public class CounterId implements Comparable<CounterId>
      * For performance reasons, this function returns a reference to the internal ByteBuffer. Clients not modify the
      * result of this function.
      */
-    public ByteBuffer bytes()
-    {
+    public ByteBuffer bytes() {
         return id;
     }
 
-    public boolean isLocalId()
-    {
+    public boolean isLocalId() {
         return equals(getLocalId());
     }
 
-    public int compareTo(CounterId o)
-    {
+    public int compareTo(CounterId o) {
         return ByteBufferUtil.compareSubArrays(id, id.position(), o.id, o.id.position(), CounterId.LENGTH);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return UUIDGen.getUUID(id).toString();
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
         if (o == null || getClass() != o.getClass())
             return false;
-
-        CounterId otherId = (CounterId)o;
+        CounterId otherId = (CounterId) o;
         return id.equals(otherId.id);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return id.hashCode();
     }
 
-    private static class LocalCounterIdHolder
-    {
-        private final AtomicReference<CounterId> current;
+    private static class LocalCounterIdHolder {
 
-        LocalCounterIdHolder()
-        {
+        private final transient AtomicReference<CounterId> current;
+
+        LocalCounterIdHolder() {
             current = new AtomicReference<>(wrap(ByteBufferUtil.bytes(SystemKeyspace.getOrInitializeLocalHostId())));
         }
 
-        CounterId get()
-        {
+        CounterId get() {
             return current.get();
         }
     }

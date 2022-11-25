@@ -17,18 +17,18 @@
  */
 package org.apache.cassandra.streaming;
 
-public class StreamException extends Exception
-{
+public class StreamException extends Exception {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamException.class);
+
     public final StreamState finalState;
 
-    public StreamException(StreamState finalState, String message)
-    {
+    public StreamException(StreamState finalState, String message) {
         super(message);
         this.finalState = finalState;
     }
 
-    public StreamException(StreamState finalState, String message, Throwable cause)
-    {
+    public StreamException(StreamState finalState, String message, Throwable cause) {
         super(message, cause);
         this.finalState = finalState;
     }

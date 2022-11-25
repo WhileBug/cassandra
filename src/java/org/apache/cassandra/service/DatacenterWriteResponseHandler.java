@@ -22,43 +22,35 @@ import org.apache.cassandra.locator.InOurDcTester;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.locator.ReplicaPlan;
 import org.apache.cassandra.net.Message;
-
 import java.util.function.Predicate;
 
 /**
  * This class blocks for a quorum of responses _in the local datacenter only_ (CL.LOCAL_QUORUM).
  */
-public class DatacenterWriteResponseHandler<T> extends WriteResponseHandler<T>
-{
-    private final Predicate<InetAddressAndPort> waitingFor = InOurDcTester.endpoints();
+public class DatacenterWriteResponseHandler<T> extends WriteResponseHandler<T> {
 
-    public DatacenterWriteResponseHandler(ReplicaPlan.ForTokenWrite replicaPlan,
-                                          Runnable callback,
-                                          WriteType writeType,
-                                          long queryStartNanoTime)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DatacenterWriteResponseHandler.class);
+
+    private final transient Predicate<InetAddressAndPort> waitingFor = InOurDcTester.endpoints();
+
+    public DatacenterWriteResponseHandler(ReplicaPlan.ForTokenWrite replicaPlan, Runnable callback, WriteType writeType, long queryStartNanoTime) {
         super(replicaPlan, callback, writeType, queryStartNanoTime);
         assert replicaPlan.consistencyLevel().isDatacenterLocal();
     }
 
     @Override
-    public void onResponse(Message<T> message)
-    {
-        if (message == null || waitingFor(message.from()))
-        {
+    public void onResponse(Message<T> message) {
+        if (message == null || waitingFor(message.from())) {
             super.onResponse(message);
-        }
-        else
-        {
-            //WriteResponseHandler.response will call logResonseToIdealCLDelegate so only do it if not calling WriteResponseHandler.response.
-            //Must be last after all subclass processing
+        } else {
+            // WriteResponseHandler.response will call logResonseToIdealCLDelegate so only do it if not calling WriteResponseHandler.response.
+            // Must be last after all subclass processing
             logResponseToIdealCLDelegate(message);
         }
     }
 
     @Override
-    protected boolean waitingFor(InetAddressAndPort from)
-    {
+    protected boolean waitingFor(InetAddressAndPort from) {
         return waitingFor.test(from);
     }
 }

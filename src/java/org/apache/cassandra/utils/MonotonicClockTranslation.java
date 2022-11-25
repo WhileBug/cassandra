@@ -15,15 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
-public interface MonotonicClockTranslation
-{
-    /** accepts millis since epoch, returns nanoTime in the related clock */
+public interface MonotonicClockTranslation {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MonotonicClockTranslation.class);
+
+    /**
+     * accepts millis since epoch, returns nanoTime in the related clock
+     */
     public long fromMillisSinceEpoch(long currentTimeMillis);
-    /** accepts nanoTime in the related MonotinicClock, returns millis since epoch */
+
+    /**
+     * accepts nanoTime in the related MonotinicClock, returns millis since epoch
+     */
     public long toMillisSinceEpoch(long nanoTime);
-    /** Nanoseconds of probable error in the translation */
+
+    /**
+     * Nanoseconds of probable error in the translation
+     */
     public long error();
 }

@@ -17,7 +17,7 @@
  */
 package org.apache.cassandra.transport;
 
-public enum ConnectionStage
-{
+public enum ConnectionStage {
+
     ESTABLISHED, AUTHENTICATING, READY
 }

@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.rows;
 
 import java.util.*;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.utils.memory.ByteBufferCloner;
 
@@ -27,28 +26,34 @@ import org.apache.cassandra.utils.memory.ByteBufferCloner;
  * <p>
  * There is 2 types of markers: bounds (see {@link RangeTombstoneBoundMarker}) and boundaries (see {@link RangeTombstoneBoundaryMarker}).
  */
-public interface RangeTombstoneMarker extends Unfiltered
-{
+public interface RangeTombstoneMarker extends Unfiltered {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RangeTombstoneMarker.class);
+
     @Override
     public ClusteringBoundOrBoundary<?> clustering();
 
     public boolean isBoundary();
 
     public boolean isOpen(boolean reversed);
+
     public boolean isClose(boolean reversed);
 
     public DeletionTime openDeletionTime(boolean reversed);
+
     public DeletionTime closeDeletionTime(boolean reversed);
+
     public boolean openIsInclusive(boolean reversed);
+
     public boolean closeIsInclusive(boolean reversed);
 
     public ClusteringBound<?> openBound(boolean reversed);
+
     public ClusteringBound<?> closeBound(boolean reversed);
 
     public RangeTombstoneMarker clone(ByteBufferCloner cloner);
 
-    default public boolean isEmpty()
-    {
+    default public boolean isEmpty() {
         // There is no such thing as an empty marker
         return false;
     }
@@ -68,42 +73,40 @@ public interface RangeTombstoneMarker extends Unfiltered
      * deal with open and close markers (in forward order, we'll get open-close, open-close, ..., while in reverse we'll
      * get close-open, close-open, ...).
      */
-    public static class Merger
-    {
-        private final DeletionTime partitionDeletion;
-        private final boolean reversed;
+    public static class Merger {
 
-        private ClusteringBoundOrBoundary<?> bound;
-        private final RangeTombstoneMarker[] markers;
+        private final transient DeletionTime partitionDeletion;
+
+        private final transient boolean reversed;
+
+        private transient ClusteringBoundOrBoundary<?> bound;
+
+        private final transient RangeTombstoneMarker[] markers;
 
         // For each iterator, what is the currently open marker deletion time (or null if there is no open marker on that iterator)
-        private final DeletionTime[] openMarkers;
+        private final transient DeletionTime[] openMarkers;
+
         // The index in openMarkers of the "biggest" marker, the one with the biggest deletion time. Is < 0 iff there is no open
         // marker on any iterator.
-        private int biggestOpenMarker = -1;
+        private transient int biggestOpenMarker = -1;
 
-        public Merger(int size, DeletionTime partitionDeletion, boolean reversed)
-        {
+        public Merger(int size, DeletionTime partitionDeletion, boolean reversed) {
             this.partitionDeletion = partitionDeletion;
             this.reversed = reversed;
-
             this.markers = new RangeTombstoneMarker[size];
             this.openMarkers = new DeletionTime[size];
         }
 
-        public void clear()
-        {
+        public void clear() {
             Arrays.fill(markers, null);
         }
 
-        public void add(int i, RangeTombstoneMarker marker)
-        {
+        public void add(int i, RangeTombstoneMarker marker) {
             bound = marker.clustering();
             markers[i] = marker;
         }
 
-        public RangeTombstoneMarker merge()
-        {
+        public RangeTombstoneMarker merge() {
             /*
              * Merging of range tombstones works this way:
              *   1) We remember what is the currently open marker in the merged stream
@@ -111,65 +114,42 @@ public interface RangeTombstoneMarker extends Unfiltered
              *   3) We compute what should be the state in the merge stream after 2)
              *   4) We return what marker should be issued on the merged stream based on the difference between the state from 1) and 3)
              */
-
             DeletionTime previousDeletionTimeInMerged = currentOpenDeletionTimeInMerged();
-
             updateOpenMarkers();
-
             DeletionTime newDeletionTimeInMerged = currentOpenDeletionTimeInMerged();
             if (previousDeletionTimeInMerged.equals(newDeletionTimeInMerged))
                 return null;
-
             boolean isBeforeClustering = bound.kind().comparedToClustering < 0;
             if (reversed)
                 isBeforeClustering = !isBeforeClustering;
-
             RangeTombstoneMarker merged;
-            if (previousDeletionTimeInMerged.isLive())
-            {
-                merged = isBeforeClustering
-                       ? RangeTombstoneBoundMarker.inclusiveOpen(reversed, bound, newDeletionTimeInMerged)
-                       : RangeTombstoneBoundMarker.exclusiveOpen(reversed, bound, newDeletionTimeInMerged);
+            if (previousDeletionTimeInMerged.isLive()) {
+                merged = isBeforeClustering ? RangeTombstoneBoundMarker.inclusiveOpen(reversed, bound, newDeletionTimeInMerged) : RangeTombstoneBoundMarker.exclusiveOpen(reversed, bound, newDeletionTimeInMerged);
+            } else if (newDeletionTimeInMerged.isLive()) {
+                merged = isBeforeClustering ? RangeTombstoneBoundMarker.exclusiveClose(reversed, bound, previousDeletionTimeInMerged) : RangeTombstoneBoundMarker.inclusiveClose(reversed, bound, previousDeletionTimeInMerged);
+            } else {
+                merged = isBeforeClustering ? RangeTombstoneBoundaryMarker.exclusiveCloseInclusiveOpen(reversed, bound, previousDeletionTimeInMerged, newDeletionTimeInMerged) : RangeTombstoneBoundaryMarker.inclusiveCloseExclusiveOpen(reversed, bound, previousDeletionTimeInMerged, newDeletionTimeInMerged);
             }
-            else if (newDeletionTimeInMerged.isLive())
-            {
-                merged = isBeforeClustering
-                       ? RangeTombstoneBoundMarker.exclusiveClose(reversed, bound, previousDeletionTimeInMerged)
-                       : RangeTombstoneBoundMarker.inclusiveClose(reversed, bound, previousDeletionTimeInMerged);
-            }
-            else
-            {
-                merged = isBeforeClustering
-                       ? RangeTombstoneBoundaryMarker.exclusiveCloseInclusiveOpen(reversed, bound, previousDeletionTimeInMerged, newDeletionTimeInMerged)
-                       : RangeTombstoneBoundaryMarker.inclusiveCloseExclusiveOpen(reversed, bound, previousDeletionTimeInMerged, newDeletionTimeInMerged);
-            }
-
             return merged;
         }
 
-        public RangeTombstoneMarker[] mergedMarkers()
-        {
+        public RangeTombstoneMarker[] mergedMarkers() {
             return markers;
         }
 
-        private DeletionTime currentOpenDeletionTimeInMerged()
-        {
+        private DeletionTime currentOpenDeletionTimeInMerged() {
             if (biggestOpenMarker < 0)
                 return DeletionTime.LIVE;
-
             DeletionTime biggestDeletionTime = openMarkers[biggestOpenMarker];
             // it's only open in the merged iterator if it doesn't supersedes the partition level deletion
             return !biggestDeletionTime.supersedes(partitionDeletion) ? DeletionTime.LIVE : biggestDeletionTime;
         }
 
-        private void updateOpenMarkers()
-        {
-            for (int i = 0; i < markers.length; i++)
-            {
+        private void updateOpenMarkers() {
+            for (int i = 0; i < markers.length; i++) {
                 RangeTombstoneMarker marker = markers[i];
                 if (marker == null)
                     continue;
-
                 // Note that we can have boundaries that are both open and close, but in that case all we care about
                 // is what it the open deletion after the marker, so we favor the opening part in this case.
                 if (marker.isOpen(reversed))
@@ -177,18 +157,15 @@ public interface RangeTombstoneMarker extends Unfiltered
                 else
                     openMarkers[i] = null;
             }
-
             // Recompute what is now the biggest open marker
             biggestOpenMarker = -1;
-            for (int i = 0; i < openMarkers.length; i++)
-            {
+            for (int i = 0; i < openMarkers.length; i++) {
                 if (openMarkers[i] != null && (biggestOpenMarker < 0 || openMarkers[i].supersedes(openMarkers[biggestOpenMarker])))
                     biggestOpenMarker = i;
             }
         }
 
-        public DeletionTime activeDeletion()
-        {
+        public DeletionTime activeDeletion() {
             DeletionTime openMarker = currentOpenDeletionTimeInMerged();
             // We only have an open marker in the merged stream if it's not shadowed by the partition deletion (which can be LIVE itself), so
             // if have an open marker, we know it's the "active" deletion for the merged stream.

@@ -19,28 +19,26 @@ package org.apache.cassandra.cql3;
 
 import java.util.Locale;
 
-public class RoleName
-{
-    private String name;
+public class RoleName {
 
-    public void setName(String name, boolean keepCase)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RoleName.class);
+
+    private transient String name;
+
+    public void setName(String name, boolean keepCase) {
         this.name = keepCase ? name : (name == null ? name : name.toLowerCase(Locale.US));
     }
 
-    public boolean hasName()
-    {
+    public boolean hasName() {
         return name != null;
     }
 
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return name;
     }
 }

@@ -15,33 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool;
 
 import org.apache.cassandra.locator.InetAddressAndPort;
 
-public class HostStatWithPort extends HostStat
-{
-    public final InetAddressAndPort endpointWithPort;
+public class HostStatWithPort extends HostStat {
 
-    public HostStatWithPort(String token, InetAddressAndPort endpoint, boolean resolveIp, Float owns)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HostStatWithPort.class);
+
+    public final transient InetAddressAndPort endpointWithPort;
+
+    public HostStatWithPort(String token, InetAddressAndPort endpoint, boolean resolveIp, Float owns) {
         super(token, endpoint.address, resolveIp, owns);
         this.endpointWithPort = endpoint;
     }
 
-    public String ipOrDns()
-    {
+    public String ipOrDns() {
         return ipOrDns(true);
     }
 
-    public String ipOrDns(boolean withPort)
-    {
+    public String ipOrDns(boolean withPort) {
         if (!withPort)
             return super.ipOrDns();
-
-        return resolveIp ?
-               endpointWithPort.address.getHostName() + ':' + endpointWithPort.port :
-               endpointWithPort.getHostAddressAndPort();
+        return resolveIp ? endpointWithPort.address.getHostName() + ':' + endpointWithPort.port : endpointWithPort.getHostAddressAndPort();
     }
 }

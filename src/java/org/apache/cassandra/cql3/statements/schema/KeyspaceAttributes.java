@@ -18,69 +18,57 @@
 package org.apache.cassandra.cql3.statements.schema;
 
 import java.util.*;
-
 import com.google.common.collect.ImmutableSet;
-
 import org.apache.cassandra.cql3.statements.PropertyDefinitions;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.schema.KeyspaceParams;
 import org.apache.cassandra.schema.KeyspaceParams.Option;
 import org.apache.cassandra.schema.ReplicationParams;
 
-public final class KeyspaceAttributes extends PropertyDefinitions
-{
-    private static final Set<String> validKeywords;
-    private static final Set<String> obsoleteKeywords;
+public final class KeyspaceAttributes extends PropertyDefinitions {
 
-    static
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyspaceAttributes.class);
+
+    private static final transient Set<String> validKeywords;
+
+    private static final transient Set<String> obsoleteKeywords;
+
+    static {
         ImmutableSet.Builder<String> validBuilder = ImmutableSet.builder();
-        for (Option option : Option.values())
-            validBuilder.add(option.toString());
+        for (Option option : Option.values()) validBuilder.add(option.toString());
         validKeywords = validBuilder.build();
         obsoleteKeywords = ImmutableSet.of();
     }
 
-    public void validate()
-    {
+    public void validate() {
         validate(validKeywords, obsoleteKeywords);
-
         Map<String, String> replicationOptions = getAllReplicationOptions();
         if (!replicationOptions.isEmpty() && !replicationOptions.containsKey(ReplicationParams.CLASS))
             throw new ConfigurationException("Missing replication strategy class");
     }
 
-    private String getReplicationStrategyClass()
-    {
+    private String getReplicationStrategyClass() {
         return getAllReplicationOptions().get(ReplicationParams.CLASS);
     }
 
-    private Map<String, String> getAllReplicationOptions()
-    {
+    private Map<String, String> getAllReplicationOptions() {
         Map<String, String> replication = getMap(Option.REPLICATION.toString());
-        return replication == null
-             ? Collections.emptyMap()
-             : replication;
+        return replication == null ? Collections.emptyMap() : replication;
     }
 
-    KeyspaceParams asNewKeyspaceParams()
-    {
+    KeyspaceParams asNewKeyspaceParams() {
         boolean durableWrites = getBoolean(Option.DURABLE_WRITES.toString(), KeyspaceParams.DEFAULT_DURABLE_WRITES);
         return KeyspaceParams.create(durableWrites, getAllReplicationOptions());
     }
 
-    KeyspaceParams asAlteredKeyspaceParams(KeyspaceParams previous)
-    {
+    KeyspaceParams asAlteredKeyspaceParams(KeyspaceParams previous) {
         boolean durableWrites = getBoolean(Option.DURABLE_WRITES.toString(), previous.durableWrites);
         Map<String, String> previousOptions = previous.replication.options;
-        ReplicationParams replication = getReplicationStrategyClass() == null
-                                      ? previous.replication
-                                      : ReplicationParams.fromMapWithDefaults(getAllReplicationOptions(), previousOptions);
+        ReplicationParams replication = getReplicationStrategyClass() == null ? previous.replication : ReplicationParams.fromMapWithDefaults(getAllReplicationOptions(), previousOptions);
         return new KeyspaceParams(durableWrites, replication);
     }
 
-    public boolean hasOption(Option option)
-    {
+    public boolean hasOption(Option option) {
         return hasProperty(option.toString());
     }
 }

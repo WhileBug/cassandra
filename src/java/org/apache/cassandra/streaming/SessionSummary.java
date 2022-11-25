@@ -15,62 +15,65 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.locator.InetAddressAndPort.Serializer;
-
 import static org.apache.cassandra.locator.InetAddressAndPort.Serializer.inetAddressAndPortSerializer;
 
-public class SessionSummary
-{
-    public final InetAddressAndPort coordinator;
-    public final InetAddressAndPort peer;
-    /** Immutable collection of receiving summaries */
-    public final Collection<StreamSummary> receivingSummaries;
-    /** Immutable collection of sending summaries*/
-    public final Collection<StreamSummary> sendingSummaries;
+public class SessionSummary {
 
-    public SessionSummary(InetAddressAndPort coordinator, InetAddressAndPort peer,
-                          Collection<StreamSummary> receivingSummaries,
-                          Collection<StreamSummary> sendingSummaries)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SessionSummary.class);
+
+    public final transient InetAddressAndPort coordinator;
+
+    public final transient InetAddressAndPort peer;
+
+    /**
+     * Immutable collection of receiving summaries
+     */
+    public final transient Collection<StreamSummary> receivingSummaries;
+
+    /**
+     * Immutable collection of sending summaries
+     */
+    public final transient Collection<StreamSummary> sendingSummaries;
+
+    public SessionSummary(InetAddressAndPort coordinator, InetAddressAndPort peer, Collection<StreamSummary> receivingSummaries, Collection<StreamSummary> sendingSummaries) {
         assert coordinator != null;
         assert peer != null;
         assert receivingSummaries != null;
         assert sendingSummaries != null;
-
         this.coordinator = coordinator;
         this.peer = peer;
         this.receivingSummaries = receivingSummaries;
         this.sendingSummaries = sendingSummaries;
     }
 
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         SessionSummary summary = (SessionSummary) o;
-
-        if (!coordinator.equals(summary.coordinator)) return false;
-        if (!peer.equals(summary.peer)) return false;
-        if (!receivingSummaries.equals(summary.receivingSummaries)) return false;
+        if (!coordinator.equals(summary.coordinator))
+            return false;
+        if (!peer.equals(summary.peer))
+            return false;
+        if (!receivingSummaries.equals(summary.receivingSummaries))
+            return false;
         return sendingSummaries.equals(summary.sendingSummaries);
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         int result = coordinator.hashCode();
         result = 31 * result + peer.hashCode();
         result = 31 * result + receivingSummaries.hashCode();
@@ -78,62 +81,47 @@ public class SessionSummary
         return result;
     }
 
-    public static IVersionedSerializer<SessionSummary> serializer = new IVersionedSerializer<SessionSummary>()
-    {
-        public void serialize(SessionSummary summary, DataOutputPlus out, int version) throws IOException
-        {
+    public static transient IVersionedSerializer<SessionSummary> serializer = new IVersionedSerializer<SessionSummary>() {
+
+        public void serialize(SessionSummary summary, DataOutputPlus out, int version) throws IOException {
             inetAddressAndPortSerializer.serialize(summary.coordinator, out, version);
             inetAddressAndPortSerializer.serialize(summary.peer, out, version);
-
             out.writeInt(summary.receivingSummaries.size());
-            for (StreamSummary streamSummary: summary.receivingSummaries)
-            {
+            for (StreamSummary streamSummary : summary.receivingSummaries) {
                 StreamSummary.serializer.serialize(streamSummary, out, version);
             }
-
             out.writeInt(summary.sendingSummaries.size());
-            for (StreamSummary streamSummary: summary.sendingSummaries)
-            {
+            for (StreamSummary streamSummary : summary.sendingSummaries) {
                 StreamSummary.serializer.serialize(streamSummary, out, version);
             }
         }
 
-        public SessionSummary deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public SessionSummary deserialize(DataInputPlus in, int version) throws IOException {
             InetAddressAndPort coordinator = inetAddressAndPortSerializer.deserialize(in, version);
             InetAddressAndPort peer = inetAddressAndPortSerializer.deserialize(in, version);
-
             int numRcvd = in.readInt();
             List<StreamSummary> receivingSummaries = new ArrayList<>(numRcvd);
-            for (int i=0; i<numRcvd; i++)
-            {
+            for (int i = 0; i < numRcvd; i++) {
                 receivingSummaries.add(StreamSummary.serializer.deserialize(in, version));
             }
-
             int numSent = in.readInt();
             List<StreamSummary> sendingSummaries = new ArrayList<>(numRcvd);
-            for (int i=0; i<numSent; i++)
-            {
+            for (int i = 0; i < numSent; i++) {
                 sendingSummaries.add(StreamSummary.serializer.deserialize(in, version));
             }
-
             return new SessionSummary(coordinator, peer, receivingSummaries, sendingSummaries);
         }
 
-        public long serializedSize(SessionSummary summary, int version)
-        {
+        public long serializedSize(SessionSummary summary, int version) {
             long size = 0;
             size += inetAddressAndPortSerializer.serializedSize(summary.coordinator, version);
             size += inetAddressAndPortSerializer.serializedSize(summary.peer, version);
-
             size += TypeSizes.sizeof(summary.receivingSummaries.size());
-            for (StreamSummary streamSummary: summary.receivingSummaries)
-            {
+            for (StreamSummary streamSummary : summary.receivingSummaries) {
                 size += StreamSummary.serializer.serializedSize(streamSummary, version);
             }
             size += TypeSizes.sizeof(summary.sendingSummaries.size());
-            for (StreamSummary streamSummary: summary.sendingSummaries)
-            {
+            for (StreamSummary streamSummary : summary.sendingSummaries) {
                 size += StreamSummary.serializer.serializedSize(streamSummary, version);
             }
             return size;

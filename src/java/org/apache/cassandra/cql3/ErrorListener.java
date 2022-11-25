@@ -23,8 +23,10 @@ import org.antlr.runtime.RecognitionException;
 /**
  * Listener used to collect the syntax errors emitted by the Lexer and Parser.
  */
-public interface ErrorListener
-{
+public interface ErrorListener {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ErrorListener.class);
+
     /**
      * Invoked when a syntax error occurs.
      *

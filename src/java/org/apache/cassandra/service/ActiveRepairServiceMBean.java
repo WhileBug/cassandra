@@ -15,31 +15,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service;
 
 import java.util.List;
 import java.util.Map;
 import javax.management.openmbean.CompositeData;
 
-public interface ActiveRepairServiceMBean
-{
-    public static final String MBEAN_NAME = "org.apache.cassandra.db:type=RepairService";
+public interface ActiveRepairServiceMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ActiveRepairServiceMBean.class);
+
+    public static final transient String MBEAN_NAME = "org.apache.cassandra.db:type=RepairService";
 
     public List<Map<String, String>> getSessions(boolean all, String rangesStr);
+
     public void failSession(String session, boolean force);
 
     public void setRepairSessionSpaceInMegabytes(int sizeInMegabytes);
+
     public int getRepairSessionSpaceInMegabytes();
 
     public boolean getUseOffheapMerkleTrees();
+
     public void setUseOffheapMerkleTrees(boolean value);
 
     public int getRepairPendingCompactionRejectThreshold();
+
     public void setRepairPendingCompactionRejectThreshold(int value);
 
     public List<CompositeData> getRepairStats(List<String> schemaArgs, String rangeString);
+
     public List<CompositeData> getPendingStats(List<String> schemaArgs, String rangeString);
+
     public List<CompositeData> cleanupPending(List<String> schemaArgs, String rangeString, boolean force);
 
     /**

@@ -19,52 +19,44 @@ package org.apache.cassandra.schema;
 
 import java.util.Iterator;
 import java.util.Optional;
-
 import com.google.common.collect.ImmutableMap;
-
 import static com.google.common.collect.Iterables.filter;
 
-public final class Triggers implements Iterable<TriggerMetadata>
-{
-    private final ImmutableMap<String, TriggerMetadata> triggers;
+public final class Triggers implements Iterable<TriggerMetadata> {
 
-    private Triggers(Builder builder)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Triggers.class);
+
+    private final transient ImmutableMap<String, TriggerMetadata> triggers;
+
+    private Triggers(Builder builder) {
         triggers = builder.triggers.build();
     }
 
-    public static Builder builder()
-    {
+    public static Builder builder() {
         return new Builder();
     }
 
-    public static Triggers none()
-    {
+    public static Triggers none() {
         return builder().build();
     }
 
-    public static Triggers of(TriggerMetadata... triggers)
-    {
+    public static Triggers of(TriggerMetadata... triggers) {
         return builder().add(triggers).build();
     }
 
-    public static Triggers of(Iterable<TriggerMetadata> triggers)
-    {
+    public static Triggers of(Iterable<TriggerMetadata> triggers) {
         return builder().add(triggers).build();
     }
 
-    public Iterator<TriggerMetadata> iterator()
-    {
+    public Iterator<TriggerMetadata> iterator() {
         return triggers.values().iterator();
     }
 
-    public int size()
-    {
+    public int size() {
         return triggers.size();
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return triggers.isEmpty();
     }
 
@@ -74,79 +66,64 @@ public final class Triggers implements Iterable<TriggerMetadata>
      * @param name a non-qualified trigger name
      * @return an empty {@link Optional} if the trigger name is not found; a non-empty optional of {@link TriggerMetadata} otherwise
      */
-    public Optional<TriggerMetadata> get(String name)
-    {
+    public Optional<TriggerMetadata> get(String name) {
         return Optional.ofNullable(triggers.get(name));
     }
 
     /**
      * Create a Triggers instance with the provided trigger added
      */
-    public Triggers with(TriggerMetadata trigger)
-    {
+    public Triggers with(TriggerMetadata trigger) {
         if (get(trigger.name).isPresent())
             throw new IllegalStateException(String.format("Trigger %s already exists", trigger.name));
-
         return builder().add(this).add(trigger).build();
     }
 
     /**
      * Creates a Triggers instance with the trigger with the provided name removed
      */
-    public Triggers without(String name)
-    {
-        TriggerMetadata trigger =
-            get(name).orElseThrow(() -> new IllegalStateException(String.format("Trigger %s doesn't exists", name)));
-
+    public Triggers without(String name) {
+        TriggerMetadata trigger = get(name).orElseThrow(() -> new IllegalStateException(String.format("Trigger %s doesn't exists", name)));
         return builder().add(filter(this, t -> t != trigger)).build();
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         return this == o || (o instanceof Triggers && triggers.equals(((Triggers) o).triggers));
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return triggers.hashCode();
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return triggers.values().toString();
     }
 
-    public static final class Builder
-    {
-        final ImmutableMap.Builder<String, TriggerMetadata> triggers = new ImmutableMap.Builder<>();
+    public static final class Builder {
 
-        private Builder()
-        {
+        final transient ImmutableMap.Builder<String, TriggerMetadata> triggers = new ImmutableMap.Builder<>();
+
+        private Builder() {
         }
 
-        public Triggers build()
-        {
+        public Triggers build() {
             return new Triggers(this);
         }
 
-        public Builder add(TriggerMetadata trigger)
-        {
+        public Builder add(TriggerMetadata trigger) {
             triggers.put(trigger.name, trigger);
             return this;
         }
 
-        public Builder add(TriggerMetadata... triggers)
-        {
-            for (TriggerMetadata trigger : triggers)
-                add(trigger);
+        public Builder add(TriggerMetadata... triggers) {
+            for (TriggerMetadata trigger : triggers) add(trigger);
             return this;
         }
 
-        public Builder add(Iterable<TriggerMetadata> triggers)
-        {
+        public Builder add(Iterable<TriggerMetadata> triggers) {
             triggers.forEach(this::add);
             return this;
         }

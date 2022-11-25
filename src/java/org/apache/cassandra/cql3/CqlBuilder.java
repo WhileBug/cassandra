@@ -21,147 +21,123 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
-
 import org.apache.cassandra.cql3.functions.FunctionName;
 import org.apache.cassandra.db.marshal.AbstractType;
 
 /**
  * Utility class to facilitate the creation of the CQL representation of {@code SchemaElements}.
  */
-public final class CqlBuilder
-{
+public final class CqlBuilder {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CqlBuilder.class);
+
     @FunctionalInterface
-    public static interface Appender<T>
-    {
+    public static interface Appender<T> {
+
         public void appendTo(CqlBuilder builder, T obj);
     }
 
     /**
      * The new line character
      */
-    private static final char NEW_LINE = '\n';
+    private static final transient char NEW_LINE = '\n';
 
-    private static final String INDENTATION = "    ";
+    private static final transient String INDENTATION = "    ";
 
-    private final StringBuilder builder;
+    private final transient StringBuilder builder;
 
-    private int indent;
+    private transient int indent;
 
-    private boolean isNewLine = false;
+    private transient boolean isNewLine = false;
 
-    public CqlBuilder()
-    {
+    public CqlBuilder() {
         this(64);
     }
 
-    public CqlBuilder(int capacity)
-    {
+    public CqlBuilder(int capacity) {
         builder = new StringBuilder(capacity);
     }
 
-    public CqlBuilder append(String str)
-    {
+    public CqlBuilder append(String str) {
         indentIfNeeded();
         builder.append(str);
         return this;
     }
 
-    public CqlBuilder appendQuotingIfNeeded(String str)
-    {
+    public CqlBuilder appendQuotingIfNeeded(String str) {
         return append(ColumnIdentifier.maybeQuote(str));
     }
 
-    public CqlBuilder appendWithSingleQuotes(String str)
-    {
+    public CqlBuilder appendWithSingleQuotes(String str) {
         indentIfNeeded();
-
-        builder.append('\'')
-               .append(str.replaceAll("'", "''"))
-               .append('\'');
-
+        builder.append('\'').append(str.replaceAll("'", "''")).append('\'');
         return this;
     }
 
-    public CqlBuilder append(char c)
-    {
+    public CqlBuilder append(char c) {
         indentIfNeeded();
         builder.append(c);
         return this;
     }
 
-    public CqlBuilder append(boolean b)
-    {
+    public CqlBuilder append(boolean b) {
         indentIfNeeded();
         builder.append(b);
         return this;
     }
 
-    public CqlBuilder append(int i)
-    {
+    public CqlBuilder append(int i) {
         indentIfNeeded();
         builder.append(i);
         return this;
     }
 
-    public CqlBuilder append(long l)
-    {
+    public CqlBuilder append(long l) {
         indentIfNeeded();
         builder.append(l);
         return this;
     }
 
-    public CqlBuilder append(float f)
-    {
+    public CqlBuilder append(float f) {
         indentIfNeeded();
         builder.append(f);
         return this;
     }
 
-    public CqlBuilder append(double d)
-    {
+    public CqlBuilder append(double d) {
         indentIfNeeded();
         builder.append(d);
         return this;
     }
 
-    public CqlBuilder newLine()
-    {
+    public CqlBuilder newLine() {
         builder.append(NEW_LINE);
         isNewLine = true;
         return this;
     }
 
-    public CqlBuilder append(AbstractType<?> type)
-    {
+    public CqlBuilder append(AbstractType<?> type) {
         return append(type.asCQL3Type().toString());
     }
 
-    public CqlBuilder append(ColumnIdentifier column)
-    {
+    public CqlBuilder append(ColumnIdentifier column) {
         return append(column.toCQLString());
     }
 
-    public CqlBuilder append(FunctionName name)
-    {
+    public CqlBuilder append(FunctionName name) {
         name.appendCqlTo(this);
         return this;
     }
 
-    public CqlBuilder append(Map<String, String> map)
-    {
+    public CqlBuilder append(Map<String, String> map) {
         return append(map, true);
     }
 
-    public CqlBuilder append(Map<String, String> map, boolean quoteValue)
-    {
+    public CqlBuilder append(Map<String, String> map, boolean quoteValue) {
         indentIfNeeded();
-
         builder.append('{');
-
-        Iterator<Entry<String, String>> iter = new TreeMap<>(map).entrySet()
-                                                                 .iterator();
-        while(iter.hasNext())
-        {
+        Iterator<Entry<String, String>> iter = new TreeMap<>(map).entrySet().iterator();
+        while (iter.hasNext()) {
             Entry<String, String> e = iter.next();
             appendWithSingleQuotes(e.getKey());
             builder.append(": ");
@@ -169,7 +145,6 @@ public final class CqlBuilder
                 appendWithSingleQuotes(e.getValue());
             else
                 builder.append(e.getValue());
-
             if (iter.hasNext())
                 builder.append(", ");
         }
@@ -177,50 +152,39 @@ public final class CqlBuilder
         return this;
     }
 
-    public <T> CqlBuilder appendWithSeparators(Iterable<T> iterable, Appender<T> appender, String separator)
-    {
+    public <T> CqlBuilder appendWithSeparators(Iterable<T> iterable, Appender<T> appender, String separator) {
         return appendWithSeparators(iterable.iterator(), appender, separator);
     }
 
-    public <T> CqlBuilder appendWithSeparators(Iterator<T> iter, Appender<T> appender, String separator)
-    {
-        while (iter.hasNext())
-        {
+    public <T> CqlBuilder appendWithSeparators(Iterator<T> iter, Appender<T> appender, String separator) {
+        while (iter.hasNext()) {
             appender.appendTo(this, iter.next());
-            if (iter.hasNext())
-            {
+            if (iter.hasNext()) {
                 append(separator);
             }
         }
         return this;
     }
 
-    public CqlBuilder increaseIndent()
-    {
+    public CqlBuilder increaseIndent() {
         indent++;
         return this;
     }
 
-    public CqlBuilder decreaseIndent()
-    {
+    public CqlBuilder decreaseIndent() {
         if (indent > 0)
             indent--;
-
         return this;
     }
 
-    private void indentIfNeeded()
-    {
-        if (isNewLine)
-        {
-            for (int i = 0; i < indent; i++)
-                builder.append(INDENTATION);
+    private void indentIfNeeded() {
+        if (isNewLine) {
+            for (int i = 0; i < indent; i++) builder.append(INDENTATION);
             isNewLine = false;
         }
     }
 
-    public String toString()
-    {
+    public String toString() {
         return builder.toString();
     }
 }

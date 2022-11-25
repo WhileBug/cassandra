@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3.selection;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.Tuples;
 import org.apache.cassandra.db.filter.ColumnFilter.Builder;
@@ -30,78 +29,65 @@ import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
  * <code>Selector</code> for literal tuples (e.g. (min(value), max(value), count(value))).
- *
  */
-final class TupleSelector extends Selector
-{
+final class TupleSelector extends Selector {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TupleSelector.class);
+
     /**
      * The tuple type.
      */
-    private final AbstractType<?> type;
+    private final transient AbstractType<?> type;
 
     /**
      * The tuple elements
      */
-    private final List<Selector> elements;
+    private final transient List<Selector> elements;
 
-    public static Factory newFactory(final AbstractType<?> type, final SelectorFactories factories)
-    {
-        return new CollectionFactory(type, factories)
-        {
-            protected String getColumnName()
-            {
+    public static Factory newFactory(final AbstractType<?> type, final SelectorFactories factories) {
+        return new CollectionFactory(type, factories) {
+
+            protected String getColumnName() {
                 return Tuples.tupleToString(factories, Factory::getColumnName);
             }
 
-            public Selector newInstance(final QueryOptions options)
-            {
+            public Selector newInstance(final QueryOptions options) {
                 return new TupleSelector(type, factories.newInstances(options));
             }
         };
     }
 
     @Override
-    public void addFetchedColumns(Builder builder)
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-            elements.get(i).addFetchedColumns(builder);
+    public void addFetchedColumns(Builder builder) {
+        for (int i = 0, m = elements.size(); i < m; i++) elements.get(i).addFetchedColumns(builder);
     }
 
-    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-            elements.get(i).addInput(protocolVersion, rs);
+    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException {
+        for (int i = 0, m = elements.size(); i < m; i++) elements.get(i).addInput(protocolVersion, rs);
     }
 
-    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException
-    {
+    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException {
         ByteBuffer[] buffers = new ByteBuffer[elements.size()];
-        for (int i = 0, m = elements.size(); i < m; i++)
-        {
+        for (int i = 0, m = elements.size(); i < m; i++) {
             buffers[i] = elements.get(i).getOutput(protocolVersion);
         }
         return TupleType.buildValue(buffers);
     }
 
-    public void reset()
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-            elements.get(i).reset();
+    public void reset() {
+        for (int i = 0, m = elements.size(); i < m; i++) elements.get(i).reset();
     }
 
-    public AbstractType<?> getType()
-    {
+    public AbstractType<?> getType() {
         return type;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return Tuples.tupleToString(elements);
     }
 
-    private TupleSelector(AbstractType<?> type, List<Selector> elements)
-    {
+    private TupleSelector(AbstractType<?> type, List<Selector> elements) {
         this.type = type;
         this.elements = elements;
     }

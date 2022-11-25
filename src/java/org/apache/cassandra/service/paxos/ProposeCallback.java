@@ -1,4 +1,5 @@
 package org.apache.cassandra.service.paxos;
+
 /*
  * 
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,14 +20,10 @@ package org.apache.cassandra.service.paxos;
  * under the License.
  * 
  */
-
-
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.net.Message;
 
 /**
@@ -42,50 +39,44 @@ import org.apache.cassandra.net.Message;
  * replay its value; in the latter we don't, so we must timeout in case another
  * leader replays it before we can; see CASSANDRA-6013
  */
-public class ProposeCallback extends AbstractPaxosCallback<Boolean>
-{
-    private static final Logger logger = LoggerFactory.getLogger(ProposeCallback.class);
+public class ProposeCallback extends AbstractPaxosCallback<Boolean> {
 
-    private final AtomicInteger accepts = new AtomicInteger(0);
-    private final int requiredAccepts;
-    private final boolean failFast;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProposeCallback.class);
 
-    public ProposeCallback(int totalTargets, int requiredTargets, boolean failFast, ConsistencyLevel consistency, long queryStartNanoTime)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(ProposeCallback.class);
+
+    private final transient AtomicInteger accepts = new AtomicInteger(0);
+
+    private final transient int requiredAccepts;
+
+    private final transient boolean failFast;
+
+    public ProposeCallback(int totalTargets, int requiredTargets, boolean failFast, ConsistencyLevel consistency, long queryStartNanoTime) {
         super(totalTargets, consistency, queryStartNanoTime);
         this.requiredAccepts = requiredTargets;
         this.failFast = failFast;
     }
 
-    public void onResponse(Message<Boolean> msg)
-    {
+    public void onResponse(Message<Boolean> msg) {
         logger.trace("Propose response {} from {}", msg.payload, msg.from());
-
         if (msg.payload)
             accepts.incrementAndGet();
-
         latch.countDown();
-
-        if (isSuccessful() || (failFast && (latch.getCount() + accepts.get() < requiredAccepts)))
-        {
-            while (latch.getCount() > 0)
-                latch.countDown();
+        if (isSuccessful() || (failFast && (latch.getCount() + accepts.get() < requiredAccepts))) {
+            while (latch.getCount() > 0) latch.countDown();
         }
     }
 
-    public int getAcceptCount()
-    {
+    public int getAcceptCount() {
         return accepts.get();
     }
 
-    public boolean isSuccessful()
-    {
+    public boolean isSuccessful() {
         return accepts.get() >= requiredAccepts;
     }
 
     // Note: this is only reliable if !failFast
-    public boolean isFullyRefused()
-    {
+    public boolean isFullyRefused() {
         // We need to check the latch first to avoid racing with a late arrival
         // between the latch check and the accepts one
         return latch.getCount() == 0 && accepts.get() == 0;

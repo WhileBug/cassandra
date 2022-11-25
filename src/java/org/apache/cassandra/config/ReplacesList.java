@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.config;
 
 import java.lang.annotation.ElementType;
@@ -27,8 +26,8 @@ import java.lang.annotation.Target;
  * Contatining annotation type for the repeatable annotation {@link Replaces}
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ ElementType.FIELD})
-public @interface ReplacesList
-{
+@Target({ ElementType.FIELD })
+public @interface ReplacesList {
+
     Replaces[] value();
 }

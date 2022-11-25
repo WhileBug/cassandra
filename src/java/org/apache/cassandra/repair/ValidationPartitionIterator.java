@@ -15,19 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair;
 
 import java.io.IOException;
 import java.util.Map;
-
 import org.apache.cassandra.db.partitions.AbstractUnfilteredPartitionIterator;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 
-public abstract class ValidationPartitionIterator extends AbstractUnfilteredPartitionIterator
-{
+public abstract class ValidationPartitionIterator extends AbstractUnfilteredPartitionIterator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ValidationPartitionIterator.class);
+
     public abstract long getEstimatedBytes();
+
     public abstract long estimatedPartitions();
+
     public abstract Map<Range<Token>, Long> getRangePartitionCounts();
 }

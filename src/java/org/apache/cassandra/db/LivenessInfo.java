@@ -18,7 +18,6 @@
 package org.apache.cassandra.db;
 
 import java.util.Objects;
-
 import org.apache.cassandra.cache.IMeasurableMemory;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.serializers.MarshalException;
@@ -37,51 +36,50 @@ import org.apache.cassandra.utils.ObjectSizes;
  * unaffected (of course, the rest of said row data might be ttl'ed on its own but this is
  * separate).
  */
-public class LivenessInfo implements IMeasurableMemory
-{
-    public static final long NO_TIMESTAMP = Long.MIN_VALUE;
-    public static final int NO_TTL = Cell.NO_TTL;
+public class LivenessInfo implements IMeasurableMemory {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LivenessInfo.class);
+
+    public static final transient long NO_TIMESTAMP = Long.MIN_VALUE;
+
+    public static final transient int NO_TTL = Cell.NO_TTL;
+
     /**
      * Used as flag for representing an expired liveness.
      *
      * TTL per request is at most 20 yrs, so this shouldn't conflict
      * (See {@link org.apache.cassandra.cql3.Attributes#MAX_TTL})
      */
-    public static final int EXPIRED_LIVENESS_TTL = Integer.MAX_VALUE;
-    public static final int NO_EXPIRATION_TIME = Cell.NO_DELETION_TIME;
+    public static final transient int EXPIRED_LIVENESS_TTL = Integer.MAX_VALUE;
 
-    public static final LivenessInfo EMPTY = new LivenessInfo(NO_TIMESTAMP);
-    private static final long UNSHARED_HEAP_SIZE = ObjectSizes.measure(EMPTY);
+    public static final transient int NO_EXPIRATION_TIME = Cell.NO_DELETION_TIME;
 
-    protected final long timestamp;
+    public static final transient LivenessInfo EMPTY = new LivenessInfo(NO_TIMESTAMP);
 
-    protected LivenessInfo(long timestamp)
-    {
+    private static final transient long UNSHARED_HEAP_SIZE = ObjectSizes.measure(EMPTY);
+
+    protected final transient long timestamp;
+
+    protected LivenessInfo(long timestamp) {
         this.timestamp = timestamp;
     }
 
-    public static LivenessInfo create(long timestamp, int nowInSec)
-    {
+    public static LivenessInfo create(long timestamp, int nowInSec) {
         return new LivenessInfo(timestamp);
     }
 
-    public static LivenessInfo expiring(long timestamp, int ttl, int nowInSec)
-    {
+    public static LivenessInfo expiring(long timestamp, int ttl, int nowInSec) {
         assert ttl != EXPIRED_LIVENESS_TTL;
         return new ExpiringLivenessInfo(timestamp, ttl, ExpirationDateOverflowHandling.computeLocalExpirationTime(nowInSec, ttl));
     }
 
-    public static LivenessInfo create(long timestamp, int ttl, int nowInSec)
-    {
-        return ttl == NO_TTL
-             ? create(timestamp, nowInSec)
-             : expiring(timestamp, ttl, nowInSec);
+    public static LivenessInfo create(long timestamp, int ttl, int nowInSec) {
+        return ttl == NO_TTL ? create(timestamp, nowInSec) : expiring(timestamp, ttl, nowInSec);
     }
 
     // Note that this ctor takes the expiration time, not the current time.
     // Use when you know that's what you want.
-    public static LivenessInfo withExpirationTime(long timestamp, int ttl, int localExpirationTime)
-    {
+    public static LivenessInfo withExpirationTime(long timestamp, int ttl, int localExpirationTime) {
         if (ttl == EXPIRED_LIVENESS_TTL)
             return new ExpiredLivenessInfo(timestamp, ttl, localExpirationTime);
         return ttl == NO_TTL ? new LivenessInfo(timestamp) : new ExpiringLivenessInfo(timestamp, ttl, localExpirationTime);
@@ -92,8 +90,7 @@ public class LivenessInfo implements IMeasurableMemory
      *
      * @return whether this liveness info is empty or not.
      */
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return timestamp == NO_TIMESTAMP;
     }
 
@@ -102,16 +99,14 @@ public class LivenessInfo implements IMeasurableMemory
      *
      * @return the liveness info timestamp (or {@link #NO_TIMESTAMP} if the info is empty).
      */
-    public long timestamp()
-    {
+    public long timestamp() {
         return timestamp;
     }
 
     /**
      * Whether the info has a ttl.
      */
-    public boolean isExpiring()
-    {
+    public boolean isExpiring() {
         return false;
     }
 
@@ -122,17 +117,14 @@ public class LivenessInfo implements IMeasurableMemory
      * Please note that this value is the TTL that was set originally and is thus not
      * changing.
      */
-    public int ttl()
-    {
+    public int ttl() {
         return NO_TTL;
     }
 
     /**
      * The expiration time (in seconds) if the info is expiring ({@link #NO_EXPIRATION_TIME} otherwise).
-     *
      */
-    public int localExpirationTime()
-    {
+    public int localExpirationTime() {
         return NO_EXPIRATION_TIME;
     }
 
@@ -145,8 +137,7 @@ public class LivenessInfo implements IMeasurableMemory
      * @param nowInSec the current time in seconds.
      * @return whether this liveness info is live or not.
      */
-    public boolean isLive(int nowInSec)
-    {
+    public boolean isLive(int nowInSec) {
         return !isEmpty();
     }
 
@@ -155,8 +146,7 @@ public class LivenessInfo implements IMeasurableMemory
      *
      * @param digest the digest to add this liveness information to.
      */
-    public void digest(Digest digest)
-    {
+    public void digest(Digest digest) {
         digest.updateWithLong(timestamp());
     }
 
@@ -165,8 +155,7 @@ public class LivenessInfo implements IMeasurableMemory
      *
      * @throws MarshalException if some of the data is corrupted.
      */
-    public void validate()
-    {
+    public void validate() {
     }
 
     /**
@@ -174,8 +163,7 @@ public class LivenessInfo implements IMeasurableMemory
      *
      * @return the size of the data this liveness information contains.
      */
-    public int dataSize()
-    {
+    public int dataSize() {
         return TypeSizes.sizeof(timestamp());
     }
 
@@ -200,8 +188,7 @@ public class LivenessInfo implements IMeasurableMemory
      *
      * @return whether this {@code LivenessInfo} supersedes {@code other}.
      */
-    public boolean supersedes(LivenessInfo other)
-    {
+    public boolean supersedes(LivenessInfo other) {
         if (timestamp != other.timestamp)
             return timestamp > other.timestamp;
         if (isExpired() ^ other.isExpired())
@@ -211,8 +198,7 @@ public class LivenessInfo implements IMeasurableMemory
         return isExpiring();
     }
 
-    protected boolean isExpired()
-    {
+    protected boolean isExpired() {
         return false;
     }
 
@@ -224,42 +210,33 @@ public class LivenessInfo implements IMeasurableMemory
      * as timestamp. If it has no timestamp however, this liveness info is returned
      * unchanged.
      */
-    public LivenessInfo withUpdatedTimestamp(long newTimestamp)
-    {
+    public LivenessInfo withUpdatedTimestamp(long newTimestamp) {
         return new LivenessInfo(newTimestamp);
     }
 
-    public LivenessInfo withUpdatedTimestampAndLocalDeletionTime(long newTimestamp, int newLocalDeletionTime)
-    {
+    public LivenessInfo withUpdatedTimestampAndLocalDeletionTime(long newTimestamp, int newLocalDeletionTime) {
         return LivenessInfo.create(newTimestamp, ttl(), newLocalDeletionTime);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("[ts=%d]", timestamp);
     }
 
     @Override
-    public boolean equals(Object other)
-    {
-        if(!(other instanceof LivenessInfo))
+    public boolean equals(Object other) {
+        if (!(other instanceof LivenessInfo))
             return false;
-
-        LivenessInfo that = (LivenessInfo)other;
-        return this.timestamp() == that.timestamp()
-            && this.ttl() == that.ttl()
-            && this.localExpirationTime() == that.localExpirationTime();
+        LivenessInfo that = (LivenessInfo) other;
+        return this.timestamp() == that.timestamp() && this.ttl() == that.ttl() && this.localExpirationTime() == that.localExpirationTime();
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(timestamp(), ttl(), localExpirationTime());
     }
 
-    public long unsharedHeapSize()
-    {
+    public long unsharedHeapSize() {
         return this == EMPTY ? 0 : UNSHARED_HEAP_SIZE;
     }
 
@@ -269,43 +246,40 @@ public class LivenessInfo implements IMeasurableMemory
      *
      * See {@link org.apache.cassandra.db.view.ViewUpdateGenerator#deleteOldEntryInternal}.
      */
-    private static class ExpiredLivenessInfo extends ExpiringLivenessInfo
-    {
-        private ExpiredLivenessInfo(long timestamp, int ttl, int localExpirationTime)
-        {
+    private static class ExpiredLivenessInfo extends ExpiringLivenessInfo {
+
+        private ExpiredLivenessInfo(long timestamp, int ttl, int localExpirationTime) {
             super(timestamp, ttl, localExpirationTime);
             assert ttl == EXPIRED_LIVENESS_TTL;
             assert timestamp != NO_TIMESTAMP;
         }
 
         @Override
-        public boolean isExpired()
-        {
+        public boolean isExpired() {
             return true;
         }
 
         @Override
-        public boolean isLive(int nowInSec)
-        {
+        public boolean isLive(int nowInSec) {
             // used as tombstone to shadow entire PK
             return false;
         }
 
         @Override
-        public LivenessInfo withUpdatedTimestamp(long newTimestamp)
-        {
+        public LivenessInfo withUpdatedTimestamp(long newTimestamp) {
             return new ExpiredLivenessInfo(newTimestamp, ttl(), localExpirationTime());
         }
     }
 
-    private static class ExpiringLivenessInfo extends LivenessInfo
-    {
-        private final int ttl;
-        private final int localExpirationTime;
-        private static final long UNSHARED_HEAP_SIZE = ObjectSizes.measure(new ExpiringLivenessInfo(-1, -1, -1));
+    private static class ExpiringLivenessInfo extends LivenessInfo {
 
-        private ExpiringLivenessInfo(long timestamp, int ttl, int localExpirationTime)
-        {
+        private final transient int ttl;
+
+        private final transient int localExpirationTime;
+
+        private static final transient long UNSHARED_HEAP_SIZE = ObjectSizes.measure(new ExpiringLivenessInfo(-1, -1, -1));
+
+        private ExpiringLivenessInfo(long timestamp, int ttl, int localExpirationTime) {
             super(timestamp);
             assert ttl != NO_TTL && localExpirationTime != NO_EXPIRATION_TIME;
             this.ttl = ttl;
@@ -313,40 +287,33 @@ public class LivenessInfo implements IMeasurableMemory
         }
 
         @Override
-        public int ttl()
-        {
+        public int ttl() {
             return ttl;
         }
 
         @Override
-        public int localExpirationTime()
-        {
+        public int localExpirationTime() {
             return localExpirationTime;
         }
 
         @Override
-        public boolean isExpiring()
-        {
+        public boolean isExpiring() {
             return true;
         }
 
         @Override
-        public boolean isLive(int nowInSec)
-        {
+        public boolean isLive(int nowInSec) {
             return nowInSec < localExpirationTime;
         }
 
         @Override
-        public void digest(Digest digest)
-        {
+        public void digest(Digest digest) {
             super.digest(digest);
-            digest.updateWithInt(localExpirationTime)
-                  .updateWithInt(ttl);
+            digest.updateWithInt(localExpirationTime).updateWithInt(ttl);
         }
 
         @Override
-        public void validate()
-        {
+        public void validate() {
             if (ttl < 0)
                 throw new MarshalException("A TTL should not be negative");
             if (localExpirationTime < 0)
@@ -354,28 +321,21 @@ public class LivenessInfo implements IMeasurableMemory
         }
 
         @Override
-        public int dataSize()
-        {
-            return super.dataSize()
-                 + TypeSizes.sizeof(ttl)
-                 + TypeSizes.sizeof(localExpirationTime);
-
+        public int dataSize() {
+            return super.dataSize() + TypeSizes.sizeof(ttl) + TypeSizes.sizeof(localExpirationTime);
         }
 
         @Override
-        public LivenessInfo withUpdatedTimestamp(long newTimestamp)
-        {
+        public LivenessInfo withUpdatedTimestamp(long newTimestamp) {
             return new ExpiringLivenessInfo(newTimestamp, ttl, localExpirationTime);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return String.format("[ts=%d ttl=%d, let=%d]", timestamp, ttl, localExpirationTime);
         }
 
-        public long unsharedHeapSize()
-        {
+        public long unsharedHeapSize() {
             return UNSHARED_HEAP_SIZE;
         }
     }

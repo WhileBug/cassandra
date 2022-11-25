@@ -29,88 +29,68 @@ import org.apache.cassandra.transport.Event.SchemaChange;
 import org.apache.cassandra.transport.Event.SchemaChange.Change;
 import org.apache.cassandra.transport.Event.SchemaChange.Target;
 
-public final class AlterViewStatement extends AlterSchemaStatement
-{
-    private final String viewName;
-    private final TableAttributes attrs;
+public final class AlterViewStatement extends AlterSchemaStatement {
 
-    public AlterViewStatement(String keyspaceName, String viewName, TableAttributes attrs)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AlterViewStatement.class);
+
+    private final transient String viewName;
+
+    private final transient TableAttributes attrs;
+
+    public AlterViewStatement(String keyspaceName, String viewName, TableAttributes attrs) {
         super(keyspaceName);
         this.viewName = viewName;
         this.attrs = attrs;
     }
 
-    public Keyspaces apply(Keyspaces schema)
-    {
+    public Keyspaces apply(Keyspaces schema) {
         KeyspaceMetadata keyspace = schema.getNullable(keyspaceName);
-
-        ViewMetadata view = null == keyspace
-                          ? null
-                          : keyspace.views.getNullable(viewName);
-
+        ViewMetadata view = null == keyspace ? null : keyspace.views.getNullable(viewName);
         if (null == view)
             throw ire("Materialized view '%s.%s' doesn't exist", keyspaceName, viewName);
-
         attrs.validate();
-
         TableParams params = attrs.asAlteredTableParams(view.metadata.params);
-
-        if (params.gcGraceSeconds == 0)
-        {
-            throw ire("Cannot alter gc_grace_seconds of a materialized view to 0, since this " +
-                      "value is used to TTL undelivered updates. Setting gc_grace_seconds too " +
-                      "low might cause undelivered updates to expire before being replayed.");
+        if (params.gcGraceSeconds == 0) {
+            throw ire("Cannot alter gc_grace_seconds of a materialized view to 0, since this " + "value is used to TTL undelivered updates. Setting gc_grace_seconds too " + "low might cause undelivered updates to expire before being replayed.");
         }
-
-        if (params.defaultTimeToLive > 0)
-        {
-            throw ire("Forbidden default_time_to_live detected for a materialized view. " +
-                      "Data in a materialized view always expire at the same time than " +
-                      "the corresponding data in the parent table. default_time_to_live " +
-                      "must be set to zero, see CASSANDRA-12868 for more information");
+        if (params.defaultTimeToLive > 0) {
+            throw ire("Forbidden default_time_to_live detected for a materialized view. " + "Data in a materialized view always expire at the same time than " + "the corresponding data in the parent table. default_time_to_live " + "must be set to zero, see CASSANDRA-12868 for more information");
         }
-
         ViewMetadata newView = view.copy(view.metadata.withSwapped(params));
         return schema.withAddedOrUpdated(keyspace.withSwapped(keyspace.views.withSwapped(newView)));
     }
 
-    SchemaChange schemaChangeEvent(KeyspacesDiff diff)
-    {
+    SchemaChange schemaChangeEvent(KeyspacesDiff diff) {
         return new SchemaChange(Change.UPDATED, Target.TABLE, keyspaceName, viewName);
     }
 
-    public void authorize(ClientState client)
-    {
+    public void authorize(ClientState client) {
         ViewMetadata view = Schema.instance.getView(keyspaceName, viewName);
         if (null != view)
             client.ensureTablePermission(keyspaceName, view.baseTableName, Permission.ALTER);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.ALTER_VIEW, keyspaceName, viewName);
     }
 
-    public String toString()
-    {
+    public String toString() {
         return String.format("%s (%s, %s)", getClass().getSimpleName(), keyspaceName, viewName);
     }
 
-    public static final class Raw extends CQLStatement.Raw
-    {
-        private final QualifiedName name;
-        private final TableAttributes attrs;
+    public static final class Raw extends CQLStatement.Raw {
 
-        public Raw(QualifiedName name, TableAttributes attrs)
-        {
+        private final transient QualifiedName name;
+
+        private final transient TableAttributes attrs;
+
+        public Raw(QualifiedName name, TableAttributes attrs) {
             this.name = name;
             this.attrs = attrs;
         }
 
-        public AlterViewStatement prepare(ClientState state)
-        {
+        public AlterViewStatement prepare(ClientState state) {
             String keyspaceName = name.hasKeyspace() ? name.getKeyspace() : state.getKeyspace();
             return new AlterViewStatement(keyspaceName, name.getName(), attrs);
         }

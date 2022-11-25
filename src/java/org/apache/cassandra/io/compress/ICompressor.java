@@ -21,11 +21,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.EnumSet;
 import java.util.Set;
-
 import com.google.common.collect.ImmutableSet;
 
-public interface ICompressor
-{
+public interface ICompressor {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ICompressor.class);
+
     /**
      * Ways that a particular instance of ICompressor should be used internally in Cassandra.
      *
@@ -33,8 +34,8 @@ public interface ICompressor
      * FAST_COMPRESSION: Suitable for use in particularly latency sensitive compression situations (flushes).
      */
     enum Uses {
-        GENERAL,
-        FAST_COMPRESSION
+
+        GENERAL, FAST_COMPRESSION
     }
 
     public int initialCompressedBufferLength(int chunkLength);
@@ -79,8 +80,7 @@ public interface ICompressor
      *
      * Note that Cassandra may ignore these recommendations, it is not a strict contract.
      */
-    default Set<Uses> recommendedUses()
-    {
+    default Set<Uses> recommendedUses() {
         return ImmutableSet.copyOf(EnumSet.allOf(Uses.class));
     }
 }

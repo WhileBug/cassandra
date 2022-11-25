@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair;
 
 import java.io.IOException;
@@ -23,15 +22,16 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 
 /**
  * Table level hook for repair
  */
-public interface TableRepairManager
-{
+public interface TableRepairManager {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableRepairManager.class);
+
     /**
      * Return a validation iterator for the given parameters. If isIncremental is true, the iterator must only include
      * data previously isolated for repair with the given parentId. nowInSec should determine whether tombstones shouldn

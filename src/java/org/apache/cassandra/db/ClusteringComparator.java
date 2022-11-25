@@ -21,15 +21,12 @@ import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.serializers.MarshalException;
-
 import org.apache.cassandra.io.sstable.IndexInfo;
 
 /**
@@ -39,41 +36,38 @@ import org.apache.cassandra.io.sstable.IndexInfo;
  * clustering prefixes in lexicographical order, with each component being compared based on
  * the type of the clustering column this is a value of.
  */
-public class ClusteringComparator implements Comparator<Clusterable>
-{
-    private final List<AbstractType<?>> clusteringTypes;
+public class ClusteringComparator implements Comparator<Clusterable> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringComparator.class);
+
+    private final transient List<AbstractType<?>> clusteringTypes;
 
     private final Comparator<IndexInfo> indexComparator;
+
     private final Comparator<IndexInfo> indexReverseComparator;
-    private final Comparator<Clusterable> reverseComparator;
 
-    private final Comparator<Row> rowComparator = (r1, r2) -> compare((ClusteringPrefix<?>) r1.clustering(),
-                                                                      (ClusteringPrefix<?>) r2.clustering());
+    private final transient Comparator<Clusterable> reverseComparator;
 
-    public ClusteringComparator(AbstractType<?>... clusteringTypes)
-    {
+    private final Comparator<Row> rowComparator = (r1, r2) -> compare((ClusteringPrefix<?>) r1.clustering(), (ClusteringPrefix<?>) r2.clustering());
+
+    public ClusteringComparator(AbstractType<?>... clusteringTypes) {
         this(ImmutableList.copyOf(clusteringTypes));
     }
 
-    public ClusteringComparator(Iterable<AbstractType<?>> clusteringTypes)
-    {
+    public ClusteringComparator(Iterable<AbstractType<?>> clusteringTypes) {
         // copy the list to ensure despatch is monomorphic
         this.clusteringTypes = ImmutableList.copyOf(clusteringTypes);
-
-        this.indexComparator = (o1, o2) -> ClusteringComparator.this.compare((ClusteringPrefix<?>) o1.lastName,
-                                                                             (ClusteringPrefix<?>) o2.lastName);
-        this.indexReverseComparator = (o1, o2) -> ClusteringComparator.this.compare((ClusteringPrefix<?>) o1.firstName,
-                                                                                    (ClusteringPrefix<?>) o2.firstName);
+        this.indexComparator = (o1, o2) -> ClusteringComparator.this.compare((ClusteringPrefix<?>) o1.lastName, (ClusteringPrefix<?>) o2.lastName);
+        this.indexReverseComparator = (o1, o2) -> ClusteringComparator.this.compare((ClusteringPrefix<?>) o1.firstName, (ClusteringPrefix<?>) o2.firstName);
         this.reverseComparator = (c1, c2) -> ClusteringComparator.this.compare(c2, c1);
-        for (AbstractType<?> type : clusteringTypes)
-            type.checkComparable(); // this should already be enforced by TableMetadata.Builder.addColumn, but we check again for other constructors
+        for (AbstractType<?> type : clusteringTypes) // this should already be enforced by TableMetadata.Builder.addColumn, but we check again for other constructors
+        type.checkComparable();
     }
 
     /**
      * The number of clustering columns for the table this is the comparator of.
      */
-    public int size()
-    {
+    public int size() {
         return clusteringTypes.size();
     }
 
@@ -81,16 +75,14 @@ public class ClusteringComparator implements Comparator<Clusterable>
      * The "subtypes" of this clustering comparator, that is the types of the clustering
      * columns for the table this is a comparator of.
      */
-    public List<AbstractType<?>> subtypes()
-    {
+    public List<AbstractType<?>> subtypes() {
         return clusteringTypes;
     }
 
     /**
      * Returns the type of the ith clustering column of the table.
      */
-    public AbstractType<?> subtype(int i)
-    {
+    public AbstractType<?> subtype(int i) {
         return clusteringTypes.get(i);
     }
 
@@ -106,14 +98,11 @@ public class ClusteringComparator implements Comparator<Clusterable>
      *
      * @return the newly created clustering.
      */
-    public Clustering<?> make(Object... values)
-    {
+    public Clustering<?> make(Object... values) {
         if (values.length != size())
             throw new IllegalArgumentException(String.format("Invalid number of components, expecting %d but got %d", size(), values.length));
-
         CBuilder builder = CBuilder.create(this);
-        for (Object val : values)
-        {
+        for (Object val : values) {
             if (val instanceof ByteBuffer)
                 builder.add((ByteBuffer) val);
             else
@@ -122,32 +111,25 @@ public class ClusteringComparator implements Comparator<Clusterable>
         return builder.build();
     }
 
-    public int compare(Clusterable c1, Clusterable c2)
-    {
+    public int compare(Clusterable c1, Clusterable c2) {
         return compare((ClusteringPrefix<?>) c1.clustering(), (ClusteringPrefix<?>) c2.clustering());
     }
 
-    public <V1, V2> int compare(ClusteringPrefix<V1> c1, ClusteringPrefix<V2> c2)
-    {
+    public <V1, V2> int compare(ClusteringPrefix<V1> c1, ClusteringPrefix<V2> c2) {
         int s1 = c1.size();
         int s2 = c2.size();
         int minSize = Math.min(s1, s2);
-
-        for (int i = 0; i < minSize; i++)
-        {
+        for (int i = 0; i < minSize; i++) {
             int cmp = compareComponent(i, c1.get(i), c1.accessor(), c2.get(i), c2.accessor());
             if (cmp != 0)
                 return cmp;
         }
-
         if (s1 == s2)
             return ClusteringPrefix.Kind.compare(c1.kind(), c2.kind());
-
         return s1 < s2 ? c1.kind().comparedToClustering : -c2.kind().comparedToClustering;
     }
 
-    public <V1, V2> int compare(Clustering<V1> c1, Clustering<V2> c2)
-    {
+    public <V1, V2> int compare(Clustering<V1> c1, Clustering<V2> c2) {
         return compare(c1, c2, size());
     }
 
@@ -160,10 +142,8 @@ public class ClusteringComparator implements Comparator<Clusterable>
      * @return a negative integer, zero, or a positive integer as the first argument is less than,
      * equal to, or greater than the second.
      */
-    public <V1, V2> int compare(Clustering<V1> c1, Clustering<V2> c2, int size)
-    {
-        for (int i = 0; i < size; i++)
-        {
+    public <V1, V2> int compare(Clustering<V1> c1, Clustering<V2> c2, int size) {
+        for (int i = 0; i < size; i++) {
             int cmp = compareComponent(i, c1.get(i), c1.accessor(), c2.get(i), c2.accessor());
             if (cmp != 0)
                 return cmp;
@@ -171,18 +151,15 @@ public class ClusteringComparator implements Comparator<Clusterable>
         return 0;
     }
 
-    public <V1, V2> int compareComponent(int i, V1 v1, ValueAccessor<V1> accessor1, V2 v2, ValueAccessor<V2> accessor2)
-    {
+    public <V1, V2> int compareComponent(int i, V1 v1, ValueAccessor<V1> accessor1, V2 v2, ValueAccessor<V2> accessor2) {
         if (v1 == null)
             return v2 == null ? 0 : -1;
         if (v2 == null)
             return 1;
-
         return clusteringTypes.get(i).compare(v1, accessor1, v2, accessor2);
     }
 
-    public <V1, V2> int compareComponent(int i, ClusteringPrefix<V1> v1, ClusteringPrefix<V2> v2)
-    {
+    public <V1, V2> int compareComponent(int i, ClusteringPrefix<V1> v1, ClusteringPrefix<V2> v2) {
         return compareComponent(i, v1.get(i), v1.accessor(), v2.get(i), v2.accessor());
     }
 
@@ -195,17 +172,13 @@ public class ClusteringComparator implements Comparator<Clusterable>
      *
      * @return whether {@code previous} can be safely replaced by this comparator.
      */
-    public boolean isCompatibleWith(ClusteringComparator previous)
-    {
+    public boolean isCompatibleWith(ClusteringComparator previous) {
         if (this == previous)
             return true;
-
         // Extending with new components is fine, shrinking is not
         if (size() < previous.size())
             return false;
-
-        for (int i = 0; i < previous.size(); i++)
-        {
+        for (int i = 0; i < previous.size(); i++) {
             AbstractType<?> tprev = previous.subtype(i);
             AbstractType<?> tnew = subtype(i);
             if (!tnew.isCompatibleWith(tprev))
@@ -221,11 +194,9 @@ public class ClusteringComparator implements Comparator<Clusterable>
      *
      * @throws MarshalException if {@code clustering} contains some invalid data.
      */
-    public <T> void validate(ClusteringPrefix<T> clustering)
-    {
+    public <T> void validate(ClusteringPrefix<T> clustering) {
         ValueAccessor<T> accessor = clustering.accessor();
-        for (int i = 0; i < clustering.size(); i++)
-        {
+        for (int i = 0; i < clustering.size(); i++) {
             T value = clustering.get(i);
             if (value != null)
                 subtype(i).validate(value, accessor);
@@ -240,43 +211,38 @@ public class ClusteringComparator implements Comparator<Clusterable>
      * general), this is a little faster because by knowing we compare {@code Clustering} objects,
      * we know that 1) they all have the same size and 2) they all have the same kind.
      */
-    public Comparator<Row> rowComparator()
-    {
+    public Comparator<Row> rowComparator() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.db.ClusteringComparator.rowComparator]=" + org.json.simple.JSONValue.toJSONString(rowComparator).replace("\n", "").replace("\r", ""));
         return rowComparator;
     }
 
-    public Comparator<IndexInfo> indexComparator(boolean reversed)
-    {
+    public Comparator<IndexInfo> indexComparator(boolean reversed) {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.db.ClusteringComparator.indexReverseComparator]=" + org.json.simple.JSONValue.toJSONString(indexReverseComparator).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.db.ClusteringComparator.indexComparator]=" + org.json.simple.JSONValue.toJSONString(indexComparator).replace("\n", "").replace("\r", ""));
         return reversed ? indexReverseComparator : indexComparator;
     }
 
-    public Comparator<Clusterable> reversed()
-    {
+    public Comparator<Clusterable> reversed() {
         return reverseComparator;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("comparator(%s)", Joiner.on(", ").join(clusteringTypes));
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof ClusteringComparator))
             return false;
-
-        ClusteringComparator that = (ClusteringComparator)o;
+        ClusteringComparator that = (ClusteringComparator) o;
         return this.clusteringTypes.equals(that.clusteringTypes);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(clusteringTypes);
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.selection;
 
 import java.util.List;
-
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.cql3.selection.Selector.Factory;
@@ -29,74 +28,65 @@ import org.apache.cassandra.schema.ColumnMetadata;
 /**
  * A base <code>Selector.Factory</code> for collections or tuples.
  */
-abstract class CollectionFactory extends Factory
-{
+abstract class CollectionFactory extends Factory {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CollectionFactory.class);
+
     /**
      * The collection or tuple type.
      */
-    private final AbstractType<?> type;
+    private final transient AbstractType<?> type;
 
     /**
      * The collection or tuple element factories.
      */
-    private final SelectorFactories factories;
+    private final transient SelectorFactories factories;
 
-    public CollectionFactory(AbstractType<?> type, SelectorFactories factories)
-    {
+    public CollectionFactory(AbstractType<?> type, SelectorFactories factories) {
         this.type = type;
         this.factories = factories;
     }
 
-    protected final AbstractType<?> getReturnType()
-    {
+    protected final AbstractType<?> getReturnType() {
         return type;
     }
 
     @Override
-    public final void addFunctionsTo(List<Function> functions)
-    {
+    public final void addFunctionsTo(List<Function> functions) {
         factories.addFunctionsTo(functions);
     }
 
     @Override
-    public final boolean isAggregateSelectorFactory()
-    {
+    public final boolean isAggregateSelectorFactory() {
         return factories.doesAggregation();
     }
 
     @Override
-    public final boolean isWritetimeSelectorFactory()
-    {
+    public final boolean isWritetimeSelectorFactory() {
         return factories.containsWritetimeSelectorFactory();
     }
 
     @Override
-    public final boolean isTTLSelectorFactory()
-    {
+    public final boolean isTTLSelectorFactory() {
         return factories.containsTTLSelectorFactory();
     }
 
     @Override
-    boolean areAllFetchedColumnsKnown()
-    {
+    boolean areAllFetchedColumnsKnown() {
         return factories.areAllFetchedColumnsKnown();
     }
 
     @Override
-    void addFetchedColumns(Builder builder)
-    {
+    void addFetchedColumns(Builder builder) {
         factories.addFetchedColumns(builder);
     }
 
-    protected final void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn)
-    {
+    protected final void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn) {
         SelectionColumnMapping tmpMapping = SelectionColumnMapping.newMapping();
-        for (Factory factory : factories)
-           factory.addColumnMapping(tmpMapping, resultsColumn);
-
+        for (Factory factory : factories) factory.addColumnMapping(tmpMapping, resultsColumn);
         if (tmpMapping.getMappings().get(resultsColumn).isEmpty())
             // add a null mapping for cases where the collection is empty
-            mapping.addMapping(resultsColumn, (ColumnMetadata)null);
+            mapping.addMapping(resultsColumn, (ColumnMetadata) null);
         else
             // collate the mapped columns from the child factories & add those
             mapping.addMapping(resultsColumn, tmpMapping.getMappings().values());

@@ -18,7 +18,6 @@
 package org.apache.cassandra.repair.messages;
 
 import java.io.IOException;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -30,56 +29,50 @@ import org.apache.cassandra.repair.RepairJobDesc;
  *
  * @since 2.0
  */
-public class ValidationRequest extends RepairMessage
-{
-    public final int nowInSec;
+public class ValidationRequest extends RepairMessage {
 
-    public ValidationRequest(RepairJobDesc desc, int nowInSec)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ValidationRequest.class);
+
+    public final transient int nowInSec;
+
+    public ValidationRequest(RepairJobDesc desc, int nowInSec) {
         super(desc);
         this.nowInSec = nowInSec;
     }
 
     @Override
-    public String toString()
-    {
-        return "ValidationRequest{" +
-               "nowInSec=" + nowInSec +
-               "} " + super.toString();
+    public String toString() {
+        return "ValidationRequest{" + "nowInSec=" + nowInSec + "} " + super.toString();
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         ValidationRequest that = (ValidationRequest) o;
         return nowInSec == that.nowInSec;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return nowInSec;
     }
 
-    public static final IVersionedSerializer<ValidationRequest> serializer = new IVersionedSerializer<ValidationRequest>()
-    {
-        public void serialize(ValidationRequest message, DataOutputPlus out, int version) throws IOException
-        {
+    public static final transient IVersionedSerializer<ValidationRequest> serializer = new IVersionedSerializer<ValidationRequest>() {
+
+        public void serialize(ValidationRequest message, DataOutputPlus out, int version) throws IOException {
             RepairJobDesc.serializer.serialize(message.desc, out, version);
             out.writeInt(message.nowInSec);
         }
 
-        public ValidationRequest deserialize(DataInputPlus dis, int version) throws IOException
-        {
+        public ValidationRequest deserialize(DataInputPlus dis, int version) throws IOException {
             RepairJobDesc desc = RepairJobDesc.serializer.deserialize(dis, version);
             return new ValidationRequest(desc, dis.readInt());
         }
 
-        public long serializedSize(ValidationRequest message, int version)
-        {
+        public long serializedSize(ValidationRequest message, int version) {
             long size = RepairJobDesc.serializer.serializedSize(message.desc, version);
             size += TypeSizes.sizeof(message.nowInSec);
             return size;

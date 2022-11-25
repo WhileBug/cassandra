@@ -18,42 +18,40 @@
 package org.apache.cassandra.utils;
 
 import com.google.common.annotations.VisibleForTesting;
-
 import io.netty.util.concurrent.FastThreadLocal;
 import net.nicoulaj.compilecommand.annotations.Inline;
 import org.apache.cassandra.utils.concurrent.Ref;
 import org.apache.cassandra.utils.concurrent.WrappedSharedCloseable;
 import org.apache.cassandra.utils.obs.IBitSet;
 
-public class BloomFilter extends WrappedSharedCloseable implements IFilter
-{
-    private final static FastThreadLocal<long[]> reusableIndexes = new FastThreadLocal<long[]>()
-    {
-        protected long[] initialValue()
-        {
+public class BloomFilter extends WrappedSharedCloseable implements IFilter {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BloomFilter.class);
+
+    private final static transient FastThreadLocal<long[]> reusableIndexes = new FastThreadLocal<long[]>() {
+
+        protected long[] initialValue() {
             return new long[21];
         }
     };
 
-    public final IBitSet bitset;
-    public final int hashCount;
+    public final transient IBitSet bitset;
 
-    BloomFilter(int hashCount, IBitSet bitset)
-    {
+    public final transient int hashCount;
+
+    BloomFilter(int hashCount, IBitSet bitset) {
         super(bitset);
         this.hashCount = hashCount;
         this.bitset = bitset;
     }
 
-    private BloomFilter(BloomFilter copy)
-    {
+    private BloomFilter(BloomFilter copy) {
         super(copy);
         this.hashCount = copy.hashCount;
         this.bitset = copy.bitset;
     }
 
-    public long serializedSize()
-    {
+    public long serializedSize() {
         return BloomFilterSerializer.serializedSize(this);
     }
 
@@ -62,12 +60,10 @@ public class BloomFilter extends WrappedSharedCloseable implements IFilter
     // https://www.eecs.harvard.edu/~michaelm/postscripts/tr-02-05.pdf
     // does prove to work in actual tests, and is obviously faster
     // than performing further iterations of murmur.
-
     // tests ask for ridiculous numbers of hashes so here is a special case for them
     // rather than using the threadLocal like we do in production
     @VisibleForTesting
-    public long[] getHashBuckets(FilterKey key, int hashCount, long max)
-    {
+    public long[] getHashBuckets(FilterKey key, int hashCount, long max) {
         long[] hash = new long[2];
         key.filterHash(hash);
         long[] indexes = new long[hashCount];
@@ -80,72 +76,58 @@ public class BloomFilter extends WrappedSharedCloseable implements IFilter
     // (CASSANDRA-6609).  it returns the array so that the caller does not need to perform
     // a second threadlocal lookup.
     @Inline
-    private long[] indexes(FilterKey key)
-    {
+    private long[] indexes(FilterKey key) {
         // we use the same array both for storing the hash result, and for storing the indexes we return,
         // so that we do not need to allocate two arrays.
         long[] indexes = reusableIndexes.get();
-
         key.filterHash(indexes);
         setIndexes(indexes[1], indexes[0], hashCount, bitset.capacity(), indexes);
         return indexes;
     }
 
     @Inline
-    private void setIndexes(long base, long inc, int count, long max, long[] results)
-    {
-        for (int i = 0; i < count; i++)
-        {
+    private void setIndexes(long base, long inc, int count, long max, long[] results) {
+        for (int i = 0; i < count; i++) {
             results[i] = FBUtilities.abs(base % max);
             base += inc;
         }
     }
 
-    public void add(FilterKey key)
-    {
+    public void add(FilterKey key) {
         long[] indexes = indexes(key);
-        for (int i = 0; i < hashCount; i++)
-        {
+        for (int i = 0; i < hashCount; i++) {
             bitset.set(indexes[i]);
         }
     }
 
-    public final boolean isPresent(FilterKey key)
-    {
+    public final boolean isPresent(FilterKey key) {
         long[] indexes = indexes(key);
-        for (int i = 0; i < hashCount; i++)
-        {
-            if (!bitset.get(indexes[i]))
-            {
+        for (int i = 0; i < hashCount; i++) {
+            if (!bitset.get(indexes[i])) {
                 return false;
             }
         }
         return true;
     }
 
-    public void clear()
-    {
+    public void clear() {
         bitset.clear();
     }
 
-    public IFilter sharedCopy()
-    {
+    public IFilter sharedCopy() {
         return new BloomFilter(this);
     }
 
     @Override
-    public long offHeapSize()
-    {
+    public long offHeapSize() {
         return bitset.offHeapSize();
     }
 
-    public String toString()
-    {
+    public String toString() {
         return "BloomFilter[hashCount=" + hashCount + ";capacity=" + bitset.capacity() + ']';
     }
 
-    public void addTo(Ref.IdentityCollection identities)
-    {
+    public void addTo(Ref.IdentityCollection identities) {
         super.addTo(identities);
         bitset.addTo(identities);
     }

@@ -18,7 +18,6 @@
 package org.apache.cassandra.auth;
 
 import java.util.Set;
-
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.exceptions.RequestExecutionException;
 import org.apache.cassandra.exceptions.RequestValidationException;
@@ -26,14 +25,15 @@ import org.apache.cassandra.exceptions.RequestValidationException;
 /**
  * Primary Cassandra authorization interface.
  */
-public interface IAuthorizer
-{
+public interface IAuthorizer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IAuthorizer.class);
+
     /**
      * Whether or not the authorizer will attempt authorization.
      * If false the authorizer will not be called for authorization of resources.
      */
-    default boolean requireAuthorization()
-    {
+    default boolean requireAuthorization() {
         return true;
     }
 
@@ -66,8 +66,7 @@ public interface IAuthorizer
      * @throws RequestExecutionException
      * @throws java.lang.UnsupportedOperationException
      */
-    void grant(AuthenticatedUser performer, Set<Permission> permissions, IResource resource, RoleResource grantee)
-    throws RequestValidationException, RequestExecutionException;
+    void grant(AuthenticatedUser performer, Set<Permission> permissions, IResource resource, RoleResource grantee) throws RequestValidationException, RequestExecutionException;
 
     /**
      * Revokes a set of permissions on a resource from a user.
@@ -84,8 +83,7 @@ public interface IAuthorizer
      * @throws RequestExecutionException
      * @throws java.lang.UnsupportedOperationException
      */
-    void revoke(AuthenticatedUser performer, Set<Permission> permissions, IResource resource, RoleResource revokee)
-    throws RequestValidationException, RequestExecutionException;
+    void revoke(AuthenticatedUser performer, Set<Permission> permissions, IResource resource, RoleResource revokee) throws RequestValidationException, RequestExecutionException;
 
     /**
      * Returns a list of permissions on a resource granted to a role.
@@ -106,8 +104,7 @@ public interface IAuthorizer
      * @throws RequestExecutionException
      * @throws java.lang.UnsupportedOperationException
      */
-    Set<PermissionDetails> list(AuthenticatedUser performer, Set<Permission> permissions, IResource resource, RoleResource grantee)
-    throws RequestValidationException, RequestExecutionException;
+    Set<PermissionDetails> list(AuthenticatedUser performer, Set<Permission> permissions, IResource resource, RoleResource grantee) throws RequestValidationException, RequestExecutionException;
 
     /**
      * Called before deleting a role with DROP ROLE statement (or the alias provided for compatibility,

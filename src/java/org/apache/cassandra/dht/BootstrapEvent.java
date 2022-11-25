@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.dht;
 
 import java.io.Serializable;
@@ -23,9 +22,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
-
 import com.google.common.collect.ImmutableCollection;
-
 import org.apache.cassandra.diag.DiagnosticEvent;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.locator.TokenMetadata;
@@ -33,23 +30,28 @@ import org.apache.cassandra.locator.TokenMetadata;
 /**
  * DiagnosticEvent implementation for bootstrap related activities.
  */
-final class BootstrapEvent extends DiagnosticEvent
-{
+final class BootstrapEvent extends DiagnosticEvent {
 
-    private final BootstrapEventType type;
-    @Nullable
-    private final TokenMetadata tokenMetadata;
-    private final InetAddressAndPort address;
-    @Nullable
-    private final String allocationKeyspace;
-    @Nullable
-    private final Integer rf;
-    private final Integer numTokens;
-    private final Collection<Token> tokens;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BootstrapEvent.class);
 
-    BootstrapEvent(BootstrapEventType type, InetAddressAndPort address, @Nullable TokenMetadata tokenMetadata,
-                   @Nullable String allocationKeyspace, @Nullable Integer rf, int numTokens, ImmutableCollection<Token> tokens)
-    {
+    private final transient BootstrapEventType type;
+
+    @Nullable
+    private final transient TokenMetadata tokenMetadata;
+
+    private final transient InetAddressAndPort address;
+
+    @Nullable
+    private final transient String allocationKeyspace;
+
+    @Nullable
+    private final transient Integer rf;
+
+    private final transient Integer numTokens;
+
+    private final transient Collection<Token> tokens;
+
+    BootstrapEvent(BootstrapEventType type, InetAddressAndPort address, @Nullable TokenMetadata tokenMetadata, @Nullable String allocationKeyspace, @Nullable Integer rf, int numTokens, ImmutableCollection<Token> tokens) {
         this.type = type;
         this.address = address;
         this.tokenMetadata = tokenMetadata;
@@ -59,21 +61,16 @@ final class BootstrapEvent extends DiagnosticEvent
         this.tokens = tokens;
     }
 
-    enum BootstrapEventType
-    {
-        BOOTSTRAP_USING_SPECIFIED_TOKENS,
-        BOOTSTRAP_USING_RANDOM_TOKENS,
-        TOKENS_ALLOCATED
+    enum BootstrapEventType {
+
+        BOOTSTRAP_USING_SPECIFIED_TOKENS, BOOTSTRAP_USING_RANDOM_TOKENS, TOKENS_ALLOCATED
     }
 
-
-    public BootstrapEventType getType()
-    {
+    public BootstrapEventType getType() {
         return type;
     }
 
-    public Map<String, Serializable> toMap()
-    {
+    public Map<String, Serializable> toMap() {
         // be extra defensive against nulls and bugs
         HashMap<String, Serializable> ret = new HashMap<>();
         ret.put("tokenMetadata", String.valueOf(tokenMetadata));

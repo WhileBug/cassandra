@@ -18,51 +18,44 @@
 package org.apache.cassandra.service;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-
 import org.apache.cassandra.locator.ReplicaPlan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.db.WriteType;
 
 /**
  * Handles blocking writes for ONE, ANY, TWO, THREE, QUORUM, and ALL consistency levels.
  */
-public class WriteResponseHandler<T> extends AbstractWriteResponseHandler<T>
-{
-    protected static final Logger logger = LoggerFactory.getLogger(WriteResponseHandler.class);
+public class WriteResponseHandler<T> extends AbstractWriteResponseHandler<T> {
 
-    protected volatile int responses;
-    private static final AtomicIntegerFieldUpdater<WriteResponseHandler> responsesUpdater
-            = AtomicIntegerFieldUpdater.newUpdater(WriteResponseHandler.class, "responses");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WriteResponseHandler.class);
 
-    public WriteResponseHandler(ReplicaPlan.ForTokenWrite replicaPlan,
-                                Runnable callback,
-                                WriteType writeType,
-                                long queryStartNanoTime)
-    {
+    protected static final transient Logger logger = LoggerFactory.getLogger(WriteResponseHandler.class);
+
+    protected volatile transient int responses;
+
+    private static final transient AtomicIntegerFieldUpdater<WriteResponseHandler> responsesUpdater = AtomicIntegerFieldUpdater.newUpdater(WriteResponseHandler.class, "responses");
+
+    public WriteResponseHandler(ReplicaPlan.ForTokenWrite replicaPlan, Runnable callback, WriteType writeType, long queryStartNanoTime) {
         super(replicaPlan, callback, writeType, queryStartNanoTime);
         responses = blockFor();
     }
 
-    public WriteResponseHandler(ReplicaPlan.ForTokenWrite replicaPlan, WriteType writeType, long queryStartNanoTime)
-    {
+    public WriteResponseHandler(ReplicaPlan.ForTokenWrite replicaPlan, WriteType writeType, long queryStartNanoTime) {
         this(replicaPlan, null, writeType, queryStartNanoTime);
     }
 
-    public void onResponse(Message<T> m)
-    {
+    public void onResponse(Message<T> m) {
         if (responsesUpdater.decrementAndGet(this) == 0)
             signal();
-        //Must be last after all subclass processing
-        //The two current subclasses both assume logResponseToIdealCLDelegate is called
-        //here.
+        // Must be last after all subclass processing
+        // The two current subclasses both assume logResponseToIdealCLDelegate is called
+        // here.
         logResponseToIdealCLDelegate(m);
     }
 
-    protected int ackCount()
-    {
+    protected int ackCount() {
         return blockFor() - responses;
     }
 }

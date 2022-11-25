@@ -15,103 +15,81 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.consistent.admin;
 
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.schema.Schema;
 import org.apache.cassandra.utils.AbstractIterator;
 
-public class SchemaArgsParser implements Iterable<ColumnFamilyStore>
-{
+public class SchemaArgsParser implements Iterable<ColumnFamilyStore> {
 
-    private final List<String> schemaArgs;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaArgsParser.class);
 
-    private SchemaArgsParser(List<String> schemaArgs)
-    {
+    private final transient List<String> schemaArgs;
+
+    private SchemaArgsParser(List<String> schemaArgs) {
         this.schemaArgs = schemaArgs;
     }
 
-    private static class TableIterator extends AbstractIterator<ColumnFamilyStore>
-    {
-        private final Iterator<ColumnFamilyStore> tables;
+    private static class TableIterator extends AbstractIterator<ColumnFamilyStore> {
 
-        public TableIterator(String ksName, List<String> tableNames)
-        {
+        private final transient Iterator<ColumnFamilyStore> tables;
+
+        public TableIterator(String ksName, List<String> tableNames) {
             Preconditions.checkArgument(Schema.instance.getKeyspaceMetadata(ksName) != null);
             Keyspace keyspace = Keyspace.open(ksName);
-
-            if (tableNames.isEmpty())
-            {
+            if (tableNames.isEmpty()) {
                 tables = keyspace.getColumnFamilyStores().iterator();
-            }
-            else
-            {
+            } else {
                 tables = Lists.newArrayList(Iterables.transform(tableNames, tn -> keyspace.getColumnFamilyStore(tn))).iterator();
             }
         }
 
         @Override
-        protected ColumnFamilyStore computeNext()
-        {
+        protected ColumnFamilyStore computeNext() {
             return tables.hasNext() ? tables.next() : endOfData();
         }
     }
 
     @Override
-    public Iterator<ColumnFamilyStore> iterator()
-    {
-        if (schemaArgs.isEmpty())
-        {
+    public Iterator<ColumnFamilyStore> iterator() {
+        if (schemaArgs.isEmpty()) {
             // iterate over everything
             Iterator<String> ksNames = Schema.instance.getNonLocalStrategyKeyspaces().iterator();
+            return new AbstractIterator<ColumnFamilyStore>() {
 
-            return new AbstractIterator<ColumnFamilyStore>()
-            {
                 TableIterator current = null;
-                protected ColumnFamilyStore computeNext()
-                {
-                    for (;;)
-                    {
-                        if (current != null && current.hasNext())
-                        {
+
+                protected ColumnFamilyStore computeNext() {
+                    for (; ; ) {
+                        if (current != null && current.hasNext()) {
                             return current.next();
                         }
-
-                        if (ksNames.hasNext())
-                        {
+                        if (ksNames.hasNext()) {
                             current = new TableIterator(ksNames.next(), Collections.emptyList());
                             continue;
                         }
-
                         return endOfData();
                     }
                 }
             };
-
-        }
-        else
-        {
+        } else {
             return new TableIterator(schemaArgs.get(0), schemaArgs.subList(1, schemaArgs.size()));
         }
     }
 
-    public static Iterable<ColumnFamilyStore> parse(List<String> schemaArgs)
-    {
+    public static Iterable<ColumnFamilyStore> parse(List<String> schemaArgs) {
         return new SchemaArgsParser(schemaArgs);
     }
 
-    public static Iterable<ColumnFamilyStore> parse(String... schemaArgs)
-    {
+    public static Iterable<ColumnFamilyStore> parse(String... schemaArgs) {
         return parse(Lists.newArrayList(schemaArgs));
     }
 }

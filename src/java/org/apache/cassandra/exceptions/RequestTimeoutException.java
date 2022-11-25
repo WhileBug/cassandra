@@ -19,22 +19,24 @@ package org.apache.cassandra.exceptions;
 
 import org.apache.cassandra.db.ConsistencyLevel;
 
-public class RequestTimeoutException extends RequestExecutionException
-{
-    public final ConsistencyLevel consistency;
-    public final int received;
-    public final int blockFor;
+public class RequestTimeoutException extends RequestExecutionException {
 
-    protected RequestTimeoutException(ExceptionCode code, ConsistencyLevel consistency, int received, int blockFor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RequestTimeoutException.class);
+
+    public final transient ConsistencyLevel consistency;
+
+    public final transient int received;
+
+    public final transient int blockFor;
+
+    protected RequestTimeoutException(ExceptionCode code, ConsistencyLevel consistency, int received, int blockFor) {
         super(code, String.format("Operation timed out - received only %d responses.", received));
         this.consistency = consistency;
         this.received = received;
         this.blockFor = blockFor;
     }
 
-    protected RequestTimeoutException(ExceptionCode code, ConsistencyLevel consistency, int received, int blockFor, String msg)
-    {
+    protected RequestTimeoutException(ExceptionCode code, ConsistencyLevel consistency, int received, int blockFor, String msg) {
         super(code, msg);
         this.consistency = consistency;
         this.received = received;

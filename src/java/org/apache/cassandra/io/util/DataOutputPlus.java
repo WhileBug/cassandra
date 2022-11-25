@@ -20,26 +20,24 @@ package org.apache.cassandra.io.util;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.utils.vint.VIntCoding;
 
 /**
  * Extension to DataOutput that provides for writing ByteBuffer and Memory, potentially with an efficient
  * implementation that is zero copy or at least has reduced bounds checking overhead.
  */
-public interface DataOutputPlus extends DataOutput
-{
+public interface DataOutputPlus extends DataOutput {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataOutputPlus.class);
+
     // write the buffer without modifying its position
     void write(ByteBuffer buffer) throws IOException;
 
-    default void write(Memory memory, long offset, long length) throws IOException
-    {
-        for (ByteBuffer buffer : memory.asByteBuffers(offset, length))
-            write(buffer);
+    default void write(Memory memory, long offset, long length) throws IOException {
+        for (ByteBuffer buffer : memory.asByteBuffers(offset, length)) write(buffer);
     }
 
-    default void writeVInt(long i) throws IOException
-    {
+    default void writeVInt(long i) throws IOException {
         VIntCoding.writeVInt(i, this);
     }
 
@@ -50,8 +48,7 @@ public interface DataOutputPlus extends DataOutput
      * So this method doesn't forbid e.g. negative sentinel values in future, if they need to be snuck in.
      * A protocol version bump can then be introduced to improve efficiency.
      */
-    default void writeUnsignedVInt(long i) throws IOException
-    {
+    default void writeUnsignedVInt(long i) throws IOException {
         VIntCoding.writeUnsignedVInt(i, this);
     }
 
@@ -64,8 +61,7 @@ public interface DataOutputPlus extends DataOutput
      * @throws UnsupportedOperationException if the implementation does not support
      *                                       position
      */
-    default long position()
-    {
+    default long position() {
         throw new UnsupportedOperationException();
     }
 
@@ -73,8 +69,7 @@ public interface DataOutputPlus extends DataOutput
      * If the implementation supports providing a position, this method returns
      * {@code true}, otherwise {@code false}.
      */
-    default boolean hasPosition()
-    {
+    default boolean hasPosition() {
         return false;
     }
 }

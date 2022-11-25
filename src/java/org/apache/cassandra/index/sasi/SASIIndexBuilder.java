@@ -23,7 +23,6 @@ package org.apache.cassandra.index.sasi;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.DecoratedKey;
@@ -44,109 +43,82 @@ import org.apache.cassandra.io.util.RandomAccessReader;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.UUIDGen;
 
-class SASIIndexBuilder extends SecondaryIndexBuilder
-{
-    private final ColumnFamilyStore cfs;
-    private final UUID compactionId = UUIDGen.getTimeUUID();
+class SASIIndexBuilder extends SecondaryIndexBuilder {
 
-    private final SortedMap<SSTableReader, Map<ColumnMetadata, ColumnIndex>> sstables;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SASIIndexBuilder.class);
 
-    private long bytesProcessed = 0;
-    private final long totalSizeInBytes;
+    private final transient ColumnFamilyStore cfs;
 
-    public SASIIndexBuilder(ColumnFamilyStore cfs, SortedMap<SSTableReader, Map<ColumnMetadata, ColumnIndex>> sstables)
-    {
+    private final transient UUID compactionId = UUIDGen.getTimeUUID();
+
+    private final transient SortedMap<SSTableReader, Map<ColumnMetadata, ColumnIndex>> sstables;
+
+    private transient long bytesProcessed = 0;
+
+    private final transient long totalSizeInBytes;
+
+    public SASIIndexBuilder(ColumnFamilyStore cfs, SortedMap<SSTableReader, Map<ColumnMetadata, ColumnIndex>> sstables) {
         long totalIndexBytes = 0;
-        for (SSTableReader sstable : sstables.keySet())
-            totalIndexBytes += getPrimaryIndexLength(sstable);
-
+        for (SSTableReader sstable : sstables.keySet()) totalIndexBytes += getPrimaryIndexLength(sstable);
         this.cfs = cfs;
         this.sstables = sstables;
         this.totalSizeInBytes = totalIndexBytes;
     }
 
-    public void build()
-    {
+    public void build() {
         AbstractType<?> keyValidator = cfs.metadata().partitionKeyType;
-        for (Map.Entry<SSTableReader, Map<ColumnMetadata, ColumnIndex>> e : sstables.entrySet())
-        {
+        for (Map.Entry<SSTableReader, Map<ColumnMetadata, ColumnIndex>> e : sstables.entrySet()) {
             SSTableReader sstable = e.getKey();
             Map<ColumnMetadata, ColumnIndex> indexes = e.getValue();
-
-            try (RandomAccessReader dataFile = sstable.openDataReader())
-            {
+            try (RandomAccessReader dataFile = sstable.openDataReader()) {
                 PerSSTableIndexWriter indexWriter = SASIIndex.newWriter(keyValidator, sstable.descriptor, indexes, OperationType.COMPACTION);
-
                 long previousKeyPosition = 0;
-                try (KeyIterator keys = new KeyIterator(sstable.descriptor, cfs.metadata()))
-                {
-                    while (keys.hasNext())
-                    {
+                try (KeyIterator keys = new KeyIterator(sstable.descriptor, cfs.metadata())) {
+                    while (keys.hasNext()) {
                         if (isStopRequested())
                             throw new CompactionInterruptedException(getCompactionInfo());
-
                         final DecoratedKey key = keys.next();
                         final long keyPosition = keys.getKeyPosition();
-
                         indexWriter.startPartition(key, keyPosition);
-
-                        try
-                        {
+                        try {
                             RowIndexEntry indexEntry = sstable.getPosition(key, SSTableReader.Operator.EQ);
                             dataFile.seek(indexEntry.position);
-                            ByteBufferUtil.readWithShortLength(dataFile); // key
-
-                            try (SSTableIdentityIterator partition = SSTableIdentityIterator.create(sstable, dataFile, key))
-                            {
+                            // key
+                            ByteBufferUtil.readWithShortLength(dataFile);
+                            try (SSTableIdentityIterator partition = SSTableIdentityIterator.create(sstable, dataFile, key)) {
                                 // if the row has statics attached, it has to be indexed separately
                                 if (cfs.metadata().hasStaticColumns())
                                     indexWriter.nextUnfilteredCluster(partition.staticRow());
-
-                                while (partition.hasNext())
-                                    indexWriter.nextUnfilteredCluster(partition.next());
+                                while (partition.hasNext()) indexWriter.nextUnfilteredCluster(partition.next());
                             }
-                        }
-                        catch (IOException ex)
-                        {
+                        } catch (IOException ex) {
                             throw new FSReadError(ex, sstable.getFilename());
                         }
-
                         bytesProcessed += keyPosition - previousKeyPosition;
                         previousKeyPosition = keyPosition;
                     }
-
                     completeSSTable(indexWriter, sstable, indexes.values());
                 }
             }
         }
     }
 
-    public CompactionInfo getCompactionInfo()
-    {
-        return new CompactionInfo(cfs.metadata(),
-                                  OperationType.INDEX_BUILD,
-                                  bytesProcessed,
-                                  totalSizeInBytes,
-                                  compactionId,
-                                  sstables.keySet());
+    public CompactionInfo getCompactionInfo() {
+        return new CompactionInfo(cfs.metadata(), OperationType.INDEX_BUILD, bytesProcessed, totalSizeInBytes, compactionId, sstables.keySet());
     }
 
-    private long getPrimaryIndexLength(SSTable sstable)
-    {
+    private long getPrimaryIndexLength(SSTable sstable) {
         File primaryIndex = new File(sstable.getIndexFilename());
         return primaryIndex.exists() ? primaryIndex.length() : 0;
     }
 
-    private void completeSSTable(PerSSTableIndexWriter indexWriter, SSTableReader sstable, Collection<ColumnIndex> indexes)
-    {
+    private void completeSSTable(PerSSTableIndexWriter indexWriter, SSTableReader sstable, Collection<ColumnIndex> indexes) {
         indexWriter.complete();
-
-        for (ColumnIndex index : indexes)
-        {
+        for (ColumnIndex index : indexes) {
             File tmpIndex = new File(sstable.descriptor.filenameFor(index.getComponent()));
-            if (!tmpIndex.exists()) // no data was inserted into the index for given sstable
+            if (// no data was inserted into the index for given sstable
+            !tmpIndex.exists())
                 continue;
-
             index.update(Collections.<SSTableReader>emptyList(), Collections.singletonList(sstable));
         }
     }

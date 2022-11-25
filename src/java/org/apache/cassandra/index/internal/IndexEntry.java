@@ -21,7 +21,6 @@
 package org.apache.cassandra.index.internal;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.Clustering;
 import org.apache.cassandra.db.DecoratedKey;
 
@@ -30,21 +29,21 @@ import org.apache.cassandra.db.DecoratedKey;
  * can be encapsulated as IndexedEntry instances. These are not used when dealing
  * with indexes on static/compact tables (i.e. KEYS indexes).
  */
-public final class IndexEntry
-{
-    public final DecoratedKey indexValue;
-    public final Clustering<?> indexClustering;
-    public final long timestamp;
+public final class IndexEntry {
 
-    public final ByteBuffer indexedKey;
-    public final Clustering<?> indexedEntryClustering;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexEntry.class);
 
-    public IndexEntry(DecoratedKey indexValue,
-                      Clustering<?> indexClustering,
-                      long timestamp,
-                      ByteBuffer indexedKey,
-                      Clustering<?> indexedEntryClustering)
-    {
+    public final transient DecoratedKey indexValue;
+
+    public final transient Clustering<?> indexClustering;
+
+    public final transient long timestamp;
+
+    public final transient ByteBuffer indexedKey;
+
+    public final transient Clustering<?> indexedEntryClustering;
+
+    public IndexEntry(DecoratedKey indexValue, Clustering<?> indexClustering, long timestamp, ByteBuffer indexedKey, Clustering<?> indexedEntryClustering) {
         this.indexValue = indexValue;
         this.indexClustering = indexClustering;
         this.timestamp = timestamp;

@@ -21,16 +21,12 @@ import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-
 import com.google.common.util.concurrent.MoreExecutors;
-
 import org.tartarus.snowball.SnowballStemmer;
 import org.tartarus.snowball.ext.*;
-
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,31 +34,27 @@ import org.slf4j.LoggerFactory;
  * Returns a SnowballStemmer instance appropriate for
  * a given language
  */
-public class StemmerFactory
-{
-    private static final Logger logger = LoggerFactory.getLogger(StemmerFactory.class);
-    private static final LoadingCache<Class, Constructor<?>> STEMMER_CONSTRUCTOR_CACHE = Caffeine.newBuilder()
-            .executor(MoreExecutors.directExecutor())
-            .build(new CacheLoader<Class, Constructor<?>>()
-            {
-                public Constructor<?> load(Class aClass) throws Exception
-                {
-                    try
-                    {
-                        return aClass.getConstructor();
-                    }
-                    catch (Exception e) 
-                    {
-                        logger.error("Failed to get stemmer constructor", e);
-                    }
-                    return null;
-                }
-            });
+public class StemmerFactory {
 
-    private static final Map<String, Class> SUPPORTED_LANGUAGES;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StemmerFactory.class);
 
-    static
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(StemmerFactory.class);
+
+    private static final transient LoadingCache<Class, Constructor<?>> STEMMER_CONSTRUCTOR_CACHE = Caffeine.newBuilder().executor(MoreExecutors.directExecutor()).build(new CacheLoader<Class, Constructor<?>>() {
+
+        public Constructor<?> load(Class aClass) throws Exception {
+            try {
+                return aClass.getConstructor();
+            } catch (Exception e) {
+                logger.error("Failed to get stemmer constructor", e);
+            }
+            return null;
+        }
+    });
+
+    private static final transient Map<String, Class> SUPPORTED_LANGUAGES;
+
+    static {
         SUPPORTED_LANGUAGES = new HashMap<>();
         SUPPORTED_LANGUAGES.put("de", germanStemmer.class);
         SUPPORTED_LANGUAGES.put("da", danishStemmer.class);
@@ -81,24 +73,18 @@ public class StemmerFactory
         SUPPORTED_LANGUAGES.put("tr", turkishStemmer.class);
     }
 
-    public static SnowballStemmer getStemmer(Locale locale)
-    {
+    public static SnowballStemmer getStemmer(Locale locale) {
         if (locale == null)
             return null;
-
         String rootLang = locale.getLanguage().substring(0, 2);
-        try
-        {
+        try {
             Class clazz = SUPPORTED_LANGUAGES.get(rootLang);
-            if(clazz == null)
+            if (clazz == null)
                 return null;
             Constructor<?> ctor = STEMMER_CONSTRUCTOR_CACHE.get(clazz);
             return (SnowballStemmer) ctor.newInstance();
-        }
-        catch (Exception e)
-        {
-            logger.debug("Failed to create new SnowballStemmer instance " +
-                    "for language [{}]", locale.getLanguage(), e);
+        } catch (Exception e) {
+            logger.debug("Failed to create new SnowballStemmer instance " + "for language [{}]", locale.getLanguage(), e);
         }
         return null;
     }

@@ -15,10 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
-public interface BiLongAccumulator<T, A>
-{
+public interface BiLongAccumulator<T, A> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BiLongAccumulator.class);
+
     long apply(T obj, A arguemnt, long v);
 }

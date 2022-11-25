@@ -18,7 +18,6 @@
 package org.apache.cassandra.index.internal.composites;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.CellPath;
 import org.apache.cassandra.db.rows.Row;
@@ -41,49 +40,34 @@ import org.apache.cassandra.schema.IndexMetadata;
  *   - the row key is determined by subclasses of this type.
  *   - the cell name will be 'rk ck_0 ... ck_n' where rk is the row key of the initial cell.
  */
-public abstract class CollectionKeyIndexBase extends CassandraIndex
-{
-    public CollectionKeyIndexBase(ColumnFamilyStore baseCfs, IndexMetadata indexDef)
-    {
+public abstract class CollectionKeyIndexBase extends CassandraIndex {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CollectionKeyIndexBase.class);
+
+    public CollectionKeyIndexBase(ColumnFamilyStore baseCfs, IndexMetadata indexDef) {
         super(baseCfs, indexDef);
     }
 
-    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey,
-                                                   ClusteringPrefix<T> prefix,
-                                                   CellPath path)
-    {
+    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey, ClusteringPrefix<T> prefix, CellPath path) {
         CBuilder builder = CBuilder.create(getIndexComparator());
         builder.add(partitionKey);
-
         // When indexing a static column, prefix will be empty but only the
         // partition key is needed at query time.
-        for (int i = 0; i < prefix.size(); i++)
-            builder.add(prefix.get(i), prefix.accessor());
-
+        for (int i = 0; i < prefix.size(); i++) builder.add(prefix.get(i), prefix.accessor());
         return builder;
     }
 
-    public IndexEntry decodeEntry(DecoratedKey indexedValue,
-                                  Row indexEntry)
-    {
+    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry) {
         Clustering<?> clustering = indexEntry.clustering();
-
         Clustering<?> indexedEntryClustering = null;
         if (getIndexedColumn().isStatic())
             indexedEntryClustering = Clustering.STATIC_CLUSTERING;
-        else
-        {
+        else {
             int count = 1 + baseCfs.metadata().clusteringColumns().size();
             CBuilder builder = CBuilder.create(baseCfs.getComparator());
-            for (int i = 0; i < count - 1; i++)
-                builder.add(clustering, i + 1);
+            for (int i = 0; i < count - 1; i++) builder.add(clustering, i + 1);
             indexedEntryClustering = builder.build();
         }
-
-        return new IndexEntry(indexedValue,
-                              clustering,
-                              indexEntry.primaryKeyLivenessInfo().timestamp(),
-                              clustering.bufferAt(0),
-                              indexedEntryClustering);
+        return new IndexEntry(indexedValue, clustering, indexEntry.primaryKeyLivenessInfo().timestamp(), clustering.bufferAt(0), indexedEntryClustering);
     }
 }

@@ -17,6 +17,7 @@
  */
 package org.apache.cassandra.concurrent;
 
-public interface SEPExecutorMBean extends ResizableThreadPool
-{
+public interface SEPExecutorMBean extends ResizableThreadPool {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SEPExecutorMBean.class);
 }

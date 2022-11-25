@@ -19,30 +19,24 @@ package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "decommission", description = "Decommission the *node I am connecting to*")
-public class Decommission extends NodeToolCmd
-{
+public class Decommission extends NodeToolCmd {
 
-    @Option(title = "force",
-    name = {"-f", "--force"},
-    description = "Force decommission of this node even when it reduces the number of replicas to below configured RF")
-    private boolean force = false;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Decommission.class);
+
+    @Option(title = "force", name = { "-f", "--force" }, description = "Force decommission of this node even when it reduces the number of replicas to below configured RF")
+    private transient boolean force = false;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
-        try
-        {
+    public void execute(NodeProbe probe) {
+        try {
             probe.decommission(force);
-        } catch (InterruptedException e)
-        {
+        } catch (InterruptedException e) {
             throw new RuntimeException("Error decommissioning node", e);
-        } catch (UnsupportedOperationException e)
-        {
+        } catch (UnsupportedOperationException e) {
             throw new IllegalStateException("Unsupported operation: " + e.getMessage(), e);
         }
     }

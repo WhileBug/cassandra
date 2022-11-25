@@ -15,13 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair;
 
-public class PreviewRepairConflictWithIncrementalRepairException extends IllegalStateException
-{
-    public PreviewRepairConflictWithIncrementalRepairException(String s)
-    {
+public class PreviewRepairConflictWithIncrementalRepairException extends IllegalStateException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PreviewRepairConflictWithIncrementalRepairException.class);
+
+    public PreviewRepairConflictWithIncrementalRepairException(String s) {
         super(s);
     }
 }

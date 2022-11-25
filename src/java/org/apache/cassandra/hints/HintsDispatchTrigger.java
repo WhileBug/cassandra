@@ -18,11 +18,9 @@
 package org.apache.cassandra.hints;
 
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.apache.cassandra.gms.ApplicationState;
 import org.apache.cassandra.gms.Gossiper;
 import org.apache.cassandra.schema.Schema;
-
 import static org.apache.cassandra.utils.FBUtilities.getBroadcastAddressAndPort;
 
 /**
@@ -38,48 +36,39 @@ import static org.apache.cassandra.utils.FBUtilities.getBroadcastAddressAndPort;
  * - If there are existing hint files, it means submitting them for dispatch;
  * - If there is an active writer, closing it, for the next run to pick it up.
  */
-final class HintsDispatchTrigger implements Runnable
-{
-    private final HintsCatalog catalog;
-    private final HintsWriteExecutor writeExecutor;
-    private final HintsDispatchExecutor dispatchExecutor;
-    private final AtomicBoolean isPaused;
+final class HintsDispatchTrigger implements Runnable {
 
-    HintsDispatchTrigger(HintsCatalog catalog,
-                         HintsWriteExecutor writeExecutor,
-                         HintsDispatchExecutor dispatchExecutor,
-                         AtomicBoolean isPaused)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintsDispatchTrigger.class);
+
+    private final transient HintsCatalog catalog;
+
+    private final transient HintsWriteExecutor writeExecutor;
+
+    private final transient HintsDispatchExecutor dispatchExecutor;
+
+    private final transient AtomicBoolean isPaused;
+
+    HintsDispatchTrigger(HintsCatalog catalog, HintsWriteExecutor writeExecutor, HintsDispatchExecutor dispatchExecutor, AtomicBoolean isPaused) {
         this.catalog = catalog;
         this.writeExecutor = writeExecutor;
         this.dispatchExecutor = dispatchExecutor;
         this.isPaused = isPaused;
     }
 
-    public void run()
-    {
+    public void run() {
         if (isPaused.get())
             return;
-
-        catalog.stores()
-               .filter(store -> !isScheduled(store))
-               .filter(HintsStore::isLive)
-               .filter(store -> store.isWriting() || store.hasFiles())
-               .filter(store -> Schema.instance.isSameVersion(Gossiper.instance.getSchemaVersion(store.address())))
-               .forEach(this::schedule);
+        catalog.stores().filter(store -> !isScheduled(store)).filter(HintsStore::isLive).filter(store -> store.isWriting() || store.hasFiles()).filter(store -> Schema.instance.isSameVersion(Gossiper.instance.getSchemaVersion(store.address()))).forEach(this::schedule);
     }
 
-    private void schedule(HintsStore store)
-    {
+    private void schedule(HintsStore store) {
         if (store.hasFiles())
             dispatchExecutor.dispatch(store);
-
         if (store.isWriting())
             writeExecutor.closeWriter(store);
     }
 
-    private boolean isScheduled(HintsStore store)
-    {
+    private boolean isScheduled(HintsStore store) {
         return dispatchExecutor.isScheduled(store);
     }
 }

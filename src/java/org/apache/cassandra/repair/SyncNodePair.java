@@ -18,14 +18,11 @@
 package org.apache.cassandra.repair;
 
 import java.io.IOException;
-
 import com.google.common.base.Objects;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.locator.InetAddressAndPort;
-
 import static org.apache.cassandra.locator.InetAddressAndPort.Serializer.inetAddressAndPortSerializer;
 
 /**
@@ -33,60 +30,56 @@ import static org.apache.cassandra.locator.InetAddressAndPort.Serializer.inetAdd
  *
  * @since 2.0
  */
-public class SyncNodePair
-{
-    public static IVersionedSerializer<SyncNodePair> serializer = new NodePairSerializer();
+public class SyncNodePair {
 
-    public final InetAddressAndPort coordinator;
-    public final InetAddressAndPort peer;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SyncNodePair.class);
 
-    public SyncNodePair(InetAddressAndPort coordinator, InetAddressAndPort peer)
-    {
+    public static transient IVersionedSerializer<SyncNodePair> serializer = new NodePairSerializer();
+
+    public final transient InetAddressAndPort coordinator;
+
+    public final transient InetAddressAndPort peer;
+
+    public SyncNodePair(InetAddressAndPort coordinator, InetAddressAndPort peer) {
         this.coordinator = coordinator;
         this.peer = peer;
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         SyncNodePair nodePair = (SyncNodePair) o;
         return coordinator.equals(nodePair.coordinator) && peer.equals(nodePair.peer);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return coordinator.toString() + " - " + peer.toString();
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(coordinator, peer);
     }
 
-    public static class NodePairSerializer implements IVersionedSerializer<SyncNodePair>
-    {
-        public void serialize(SyncNodePair nodePair, DataOutputPlus out, int version) throws IOException
-        {
+    public static class NodePairSerializer implements IVersionedSerializer<SyncNodePair> {
+
+        public void serialize(SyncNodePair nodePair, DataOutputPlus out, int version) throws IOException {
             inetAddressAndPortSerializer.serialize(nodePair.coordinator, out, version);
             inetAddressAndPortSerializer.serialize(nodePair.peer, out, version);
         }
 
-        public SyncNodePair deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public SyncNodePair deserialize(DataInputPlus in, int version) throws IOException {
             InetAddressAndPort ep1 = inetAddressAndPortSerializer.deserialize(in, version);
             InetAddressAndPort ep2 = inetAddressAndPortSerializer.deserialize(in, version);
             return new SyncNodePair(ep1, ep2);
         }
 
-        public long serializedSize(SyncNodePair nodePair, int version)
-        {
-            return inetAddressAndPortSerializer.serializedSize(nodePair.coordinator, version)
-                   + inetAddressAndPortSerializer.serializedSize(nodePair.peer, version);
+        public long serializedSize(SyncNodePair nodePair, int version) {
+            return inetAddressAndPortSerializer.serializedSize(nodePair.coordinator, version) + inetAddressAndPortSerializer.serializedSize(nodePair.peer, version);
         }
     }
 }

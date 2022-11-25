@@ -15,44 +15,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import java.io.Serializable;
 import java.util.HashMap;
-
 import org.apache.cassandra.diag.DiagnosticEvent;
 
 /**
  * Events related to {@link TokenMetadata} changes.
  */
-public final class TokenMetadataEvent extends DiagnosticEvent
-{
+public final class TokenMetadataEvent extends DiagnosticEvent {
 
-    public enum TokenMetadataEventType
-    {
-        PENDING_RANGE_CALCULATION_STARTED,
-        PENDING_RANGE_CALCULATION_COMPLETED,
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenMetadataEvent.class);
+
+    public enum TokenMetadataEventType {
+
+        PENDING_RANGE_CALCULATION_STARTED, PENDING_RANGE_CALCULATION_COMPLETED
     }
 
-    private final TokenMetadataEventType type;
-    private final TokenMetadata tokenMetadata;
-    private final String keyspace;
+    private final transient TokenMetadataEventType type;
 
-    TokenMetadataEvent(TokenMetadataEventType type, TokenMetadata tokenMetadata, String keyspace)
-    {
+    private final transient TokenMetadata tokenMetadata;
+
+    private final transient String keyspace;
+
+    TokenMetadataEvent(TokenMetadataEventType type, TokenMetadata tokenMetadata, String keyspace) {
         this.type = type;
         this.tokenMetadata = tokenMetadata;
         this.keyspace = keyspace;
     }
 
-    public TokenMetadataEventType getType()
-    {
+    public TokenMetadataEventType getType() {
         return type;
     }
 
-    public HashMap<String, Serializable> toMap()
-    {
+    public HashMap<String, Serializable> toMap() {
         // be extra defensive against nulls and bugs
         HashMap<String, Serializable> ret = new HashMap<>();
         ret.put("keyspace", keyspace);

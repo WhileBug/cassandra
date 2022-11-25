@@ -15,63 +15,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.compress.BufferType;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-class ChecksummedRebufferer extends BufferManagingRebufferer
-{
-    private final DataIntegrityMetadata.ChecksumValidator validator;
+class ChecksummedRebufferer extends BufferManagingRebufferer {
 
-    @SuppressWarnings("resource") // chunk reader is closed by super::close()
-    ChecksummedRebufferer(ChannelProxy channel, DataIntegrityMetadata.ChecksumValidator validator)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ChecksummedRebufferer.class);
+
+    private final transient DataIntegrityMetadata.ChecksumValidator validator;
+
+    // chunk reader is closed by super::close()
+    @SuppressWarnings("resource")
+    ChecksummedRebufferer(ChannelProxy channel, DataIntegrityMetadata.ChecksumValidator validator) {
         super(new SimpleChunkReader(channel, channel.size(), BufferType.ON_HEAP, validator.chunkSize));
         this.validator = validator;
     }
 
     @Override
-    public BufferHolder rebuffer(long desiredPosition)
-    {
+    public BufferHolder rebuffer(long desiredPosition) {
         if (desiredPosition != offset + buffer.position())
             validator.seek(desiredPosition);
-
         // align with buffer size, as checksums were computed in chunks of buffer size each.
         offset = alignedPosition(desiredPosition);
         source.readChunk(offset, buffer);
-
-        try
-        {
+        try {
             validator.validate(ByteBufferUtil.getArray(buffer), 0, buffer.remaining());
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new CorruptFileException(e, channel().filePath());
         }
-
         return this;
     }
 
     @Override
-    public void close()
-    {
-        try
-        {
+    public void close() {
+        try {
             source.close();
-        }
-        finally
-        {
+        } finally {
             validator.close();
         }
     }
 
     @Override
-    long alignedPosition(long desiredPosition)
-    {
+    long alignedPosition(long desiredPosition) {
         return (desiredPosition / buffer.capacity()) * buffer.capacity();
     }
 }

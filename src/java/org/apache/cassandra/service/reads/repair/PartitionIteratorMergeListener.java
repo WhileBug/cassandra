@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads.repair;
 
 import java.util.List;
-
 import org.apache.cassandra.db.Columns;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.DecoratedKey;
@@ -31,34 +29,32 @@ import org.apache.cassandra.db.rows.UnfilteredRowIterators;
 import org.apache.cassandra.locator.Endpoints;
 import org.apache.cassandra.locator.ReplicaPlan;
 
-public class PartitionIteratorMergeListener<E extends Endpoints<E>>
-        implements UnfilteredPartitionIterators.MergeListener
-{
-    private final ReplicaPlan.ForRead<E> replicaPlan;
-    private final ReadCommand command;
-    private final ReadRepair readRepair;
+public class PartitionIteratorMergeListener<E extends Endpoints<E>> implements UnfilteredPartitionIterators.MergeListener {
 
-    public PartitionIteratorMergeListener(ReplicaPlan.ForRead<E> replicaPlan, ReadCommand command, ReadRepair readRepair)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionIteratorMergeListener.class);
+
+    private final transient ReplicaPlan.ForRead<E> replicaPlan;
+
+    private final transient ReadCommand command;
+
+    private final transient ReadRepair readRepair;
+
+    public PartitionIteratorMergeListener(ReplicaPlan.ForRead<E> replicaPlan, ReadCommand command, ReadRepair readRepair) {
         this.replicaPlan = replicaPlan;
         this.command = command;
         this.readRepair = readRepair;
     }
 
-    public UnfilteredRowIterators.MergeListener getRowMergeListener(DecoratedKey partitionKey, List<UnfilteredRowIterator> versions)
-    {
+    public UnfilteredRowIterators.MergeListener getRowMergeListener(DecoratedKey partitionKey, List<UnfilteredRowIterator> versions) {
         return new RowIteratorMergeListener<>(partitionKey, columns(versions), isReversed(versions), replicaPlan, command, readRepair);
     }
 
-    protected RegularAndStaticColumns columns(List<UnfilteredRowIterator> versions)
-    {
+    protected RegularAndStaticColumns columns(List<UnfilteredRowIterator> versions) {
         Columns statics = Columns.NONE;
         Columns regulars = Columns.NONE;
-        for (UnfilteredRowIterator iter : versions)
-        {
+        for (UnfilteredRowIterator iter : versions) {
             if (iter == null)
                 continue;
-
             RegularAndStaticColumns cols = iter.columns();
             statics = statics.mergeTo(cols.statics);
             regulars = regulars.mergeTo(cols.regulars);
@@ -66,23 +62,17 @@ public class PartitionIteratorMergeListener<E extends Endpoints<E>>
         return new RegularAndStaticColumns(statics, regulars);
     }
 
-    protected boolean isReversed(List<UnfilteredRowIterator> versions)
-    {
-        for (UnfilteredRowIterator iter : versions)
-        {
+    protected boolean isReversed(List<UnfilteredRowIterator> versions) {
+        for (UnfilteredRowIterator iter : versions) {
             if (iter == null)
                 continue;
-
             // Everything will be in the same order
             return iter.isReverseOrder();
         }
-
         assert false : "Expected at least one iterator";
         return false;
     }
 
-    public void close()
-    {
+    public void close() {
     }
 }
-

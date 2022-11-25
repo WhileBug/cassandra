@@ -18,7 +18,6 @@
 package org.apache.cassandra.io.sstable;
 
 import java.io.*;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.*;
@@ -27,19 +26,23 @@ import org.apache.cassandra.io.util.FileDataInput;
 import org.apache.cassandra.io.util.RandomAccessReader;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class SSTableIdentityIterator implements Comparable<SSTableIdentityIterator>, UnfilteredRowIterator
-{
-    private final SSTableReader sstable;
-    private final DecoratedKey key;
-    private final DeletionTime partitionLevelDeletion;
-    private final String filename;
+public class SSTableIdentityIterator implements Comparable<SSTableIdentityIterator>, UnfilteredRowIterator {
 
-    protected final SSTableSimpleIterator iterator;
-    private final Row staticRow;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableIdentityIterator.class);
 
-    public SSTableIdentityIterator(SSTableReader sstable, DecoratedKey key, DeletionTime partitionLevelDeletion,
-            String filename, SSTableSimpleIterator iterator) throws IOException
-    {
+    private final transient SSTableReader sstable;
+
+    private final transient DecoratedKey key;
+
+    private final transient DeletionTime partitionLevelDeletion;
+
+    private final transient String filename;
+
+    protected final transient SSTableSimpleIterator iterator;
+
+    private final transient Row staticRow;
+
+    public SSTableIdentityIterator(SSTableReader sstable, DecoratedKey key, DeletionTime partitionLevelDeletion, String filename, SSTableSimpleIterator iterator) throws IOException {
         super();
         this.sstable = sstable;
         this.key = key;
@@ -50,151 +53,113 @@ public class SSTableIdentityIterator implements Comparable<SSTableIdentityIterat
     }
 
     @SuppressWarnings("resource")
-    public static SSTableIdentityIterator create(SSTableReader sstable, RandomAccessReader file, DecoratedKey key)
-    {
-        try
-        {
+    public static SSTableIdentityIterator create(SSTableReader sstable, RandomAccessReader file, DecoratedKey key) {
+        try {
             DeletionTime partitionLevelDeletion = DeletionTime.serializer.deserialize(file);
             if (!partitionLevelDeletion.validate())
-                UnfilteredValidation.handleInvalid(sstable.metadata(), key, sstable, "partitionLevelDeletion="+partitionLevelDeletion.toString());
+                UnfilteredValidation.handleInvalid(sstable.metadata(), key, sstable, "partitionLevelDeletion=" + partitionLevelDeletion.toString());
             DeserializationHelper helper = new DeserializationHelper(sstable.metadata(), sstable.descriptor.version.correspondingMessagingVersion(), DeserializationHelper.Flag.LOCAL);
             SSTableSimpleIterator iterator = SSTableSimpleIterator.create(sstable.metadata(), file, sstable.header, helper, partitionLevelDeletion);
             return new SSTableIdentityIterator(sstable, key, partitionLevelDeletion, file.getPath(), iterator);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             sstable.markSuspect();
             throw new CorruptSSTableException(e, file.getPath());
         }
     }
 
     @SuppressWarnings("resource")
-    public static SSTableIdentityIterator create(SSTableReader sstable, FileDataInput dfile, RowIndexEntry<?> indexEntry, DecoratedKey key, boolean tombstoneOnly)
-    {
-        try
-        {
+    public static SSTableIdentityIterator create(SSTableReader sstable, FileDataInput dfile, RowIndexEntry<?> indexEntry, DecoratedKey key, boolean tombstoneOnly) {
+        try {
             dfile.seek(indexEntry.position);
-            ByteBufferUtil.skipShortLength(dfile); // Skip partition key
+            // Skip partition key
+            ByteBufferUtil.skipShortLength(dfile);
             DeletionTime partitionLevelDeletion = DeletionTime.serializer.deserialize(dfile);
             DeserializationHelper helper = new DeserializationHelper(sstable.metadata(), sstable.descriptor.version.correspondingMessagingVersion(), DeserializationHelper.Flag.LOCAL);
-            SSTableSimpleIterator iterator = tombstoneOnly
-                    ? SSTableSimpleIterator.createTombstoneOnly(sstable.metadata(), dfile, sstable.header, helper, partitionLevelDeletion)
-                    : SSTableSimpleIterator.create(sstable.metadata(), dfile, sstable.header, helper, partitionLevelDeletion);
+            SSTableSimpleIterator iterator = tombstoneOnly ? SSTableSimpleIterator.createTombstoneOnly(sstable.metadata(), dfile, sstable.header, helper, partitionLevelDeletion) : SSTableSimpleIterator.create(sstable.metadata(), dfile, sstable.header, helper, partitionLevelDeletion);
             return new SSTableIdentityIterator(sstable, key, partitionLevelDeletion, dfile.getPath(), iterator);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             sstable.markSuspect();
             throw new CorruptSSTableException(e, dfile.getPath());
         }
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return iterator.metadata;
     }
 
-    public RegularAndStaticColumns columns()
-    {
+    public RegularAndStaticColumns columns() {
         return metadata().regularAndStaticColumns();
     }
 
-    public boolean isReverseOrder()
-    {
+    public boolean isReverseOrder() {
         return false;
     }
 
-    public DecoratedKey partitionKey()
-    {
+    public DecoratedKey partitionKey() {
         return key;
     }
 
-    public DeletionTime partitionLevelDeletion()
-    {
+    public DeletionTime partitionLevelDeletion() {
         return partitionLevelDeletion;
     }
 
-    public Row staticRow()
-    {
+    public Row staticRow() {
         return staticRow;
     }
 
-    public boolean hasNext()
-    {
-        try
-        {
+    public boolean hasNext() {
+        try {
             return iterator.hasNext();
-        }
-        catch (IndexOutOfBoundsException e)
-        {
+        } catch (IndexOutOfBoundsException e) {
             sstable.markSuspect();
             throw new CorruptSSTableException(e, filename);
-        }
-        catch (IOError e)
-        {
-            if (e.getCause() instanceof IOException)
-            {
+        } catch (IOError e) {
+            if (e.getCause() instanceof IOException) {
                 sstable.markSuspect();
-                throw new CorruptSSTableException((Exception)e.getCause(), filename);
-            }
-            else
-            {
+                throw new CorruptSSTableException((Exception) e.getCause(), filename);
+            } else {
                 throw e;
             }
         }
     }
 
-    public Unfiltered next()
-    {
-        try
-        {
+    public Unfiltered next() {
+        try {
             return doCompute();
-        }
-        catch (IndexOutOfBoundsException e)
-        {
+        } catch (IndexOutOfBoundsException e) {
             sstable.markSuspect();
             throw new CorruptSSTableException(e, filename);
-        }
-        catch (IOError e)
-        {
-            if (e.getCause() instanceof IOException)
-            {
+        } catch (IOError e) {
+            if (e.getCause() instanceof IOException) {
                 sstable.markSuspect();
-                throw new CorruptSSTableException((Exception)e.getCause(), filename);
-            }
-            else
-            {
+                throw new CorruptSSTableException((Exception) e.getCause(), filename);
+            } else {
                 throw e;
             }
         }
     }
 
-    protected Unfiltered doCompute()
-    {
+    protected Unfiltered doCompute() {
         Unfiltered unfiltered = iterator.next();
         UnfilteredValidation.maybeValidateUnfiltered(unfiltered, metadata(), key, sstable);
         return unfiltered;
     }
 
-    public void close()
-    {
+    public void close() {
         // creator is responsible for closing file when finished
     }
 
-    public String getPath()
-    {
+    public String getPath() {
         return filename;
     }
 
-    public EncodingStats stats()
-    {
+    public EncodingStats stats() {
         // We could return sstable.header.stats(), but this may not be as accurate than the actual sstable stats (see
         // SerializationHeader.make() for details) so we use the latter instead.
         return sstable.stats();
     }
 
-    public int compareTo(SSTableIdentityIterator o)
-    {
+    public int compareTo(SSTableIdentityIterator o) {
         return key.compareTo(o.key);
     }
 }

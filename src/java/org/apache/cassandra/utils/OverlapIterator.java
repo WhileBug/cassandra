@@ -31,19 +31,25 @@ import java.util.*;
  * with the set of intervals in the min-ordered list being added to our set of overlaps,
  * and those in the max-ordered list being removed.
  */
-public class OverlapIterator<I extends Comparable<? super I>, V>
-{
-    // indexing into sortedByMin, tracks the next interval to include
-    int nextToInclude;
-    final List<Interval<I, V>> sortedByMin;
-    // indexing into sortedByMax, tracks the next interval to exclude
-    int nextToExclude;
-    final List<Interval<I, V>> sortedByMax;
-    final Set<V> overlaps = new HashSet<>();
-    final Set<V> accessible = Collections.unmodifiableSet(overlaps);
+public class OverlapIterator<I extends Comparable<? super I>, V> {
 
-    public OverlapIterator(Collection<Interval<I, V>> intervals)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OverlapIterator.class);
+
+    // indexing into sortedByMin, tracks the next interval to include
+    transient int nextToInclude;
+
+    final transient List<Interval<I, V>> sortedByMin;
+
+    // indexing into sortedByMax, tracks the next interval to exclude
+    transient int nextToExclude;
+
+    final transient List<Interval<I, V>> sortedByMax;
+
+    final transient Set<V> overlaps = new HashSet<>();
+
+    final transient Set<V> accessible = Collections.unmodifiableSet(overlaps);
+
+    public OverlapIterator(Collection<Interval<I, V>> intervals) {
         sortedByMax = new ArrayList<>(intervals);
         Collections.sort(sortedByMax, Interval.<I, V>maxOrdering());
         // we clone after first sorting by max;  this is quite likely to make sort cheaper, since a.max < b.max
@@ -55,20 +61,15 @@ public class OverlapIterator<I extends Comparable<? super I>, V>
     }
 
     // move the iterator forwards to the overlaps matching point
-    public void update(I point)
-    {
+    public void update(I point) {
         // we don't use binary search here since we expect points to be a superset of the min/max values
-
         // add those we are now after the start of
-        while (nextToInclude < sortedByMin.size() && sortedByMin.get(nextToInclude).min.compareTo(point) <= 0)
-            overlaps.add(sortedByMin.get(nextToInclude++).data);
+        while (nextToInclude < sortedByMin.size() && sortedByMin.get(nextToInclude).min.compareTo(point) <= 0) overlaps.add(sortedByMin.get(nextToInclude++).data);
         // remove those we are now after the end of
-        while (nextToExclude < sortedByMax.size() && sortedByMax.get(nextToExclude).max.compareTo(point) < 0)
-            overlaps.remove(sortedByMax.get(nextToExclude++).data);
+        while (nextToExclude < sortedByMax.size() && sortedByMax.get(nextToExclude).max.compareTo(point) < 0) overlaps.remove(sortedByMax.get(nextToExclude++).data);
     }
 
-    public Set<V> overlaps()
-    {
+    public Set<V> overlaps() {
         return accessible;
     }
 }

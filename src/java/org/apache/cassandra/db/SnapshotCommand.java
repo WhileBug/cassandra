@@ -18,24 +18,27 @@
 package org.apache.cassandra.db;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.Verb;
 
-public class SnapshotCommand
-{
-    public static final SnapshotCommandSerializer serializer = new SnapshotCommandSerializer();
+public class SnapshotCommand {
 
-    public final String keyspace;
-    public final String column_family;
-    public final String snapshot_name;
-    public final boolean clear_snapshot;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SnapshotCommand.class);
 
-    public SnapshotCommand(String keyspace, String columnFamily, String snapshotName, boolean clearSnapshot)
-    {
+    public static final transient SnapshotCommandSerializer serializer = new SnapshotCommandSerializer();
+
+    public final transient String keyspace;
+
+    public final transient String column_family;
+
+    public final transient String snapshot_name;
+
+    public final transient boolean clear_snapshot;
+
+    public SnapshotCommand(String keyspace, String columnFamily, String snapshotName, boolean clearSnapshot) {
         this.keyspace = keyspace;
         this.column_family = columnFamily;
         this.snapshot_name = snapshotName;
@@ -43,27 +46,23 @@ public class SnapshotCommand
     }
 
     @Override
-    public String toString()
-    {
-        return "SnapshotCommand{" + "keyspace='" + keyspace + '\'' +
-                                  ", column_family='" + column_family + '\'' +
-                                  ", snapshot_name=" + snapshot_name +
-                                  ", clear_snapshot=" + clear_snapshot + '}';
+    public String toString() {
+        return "SnapshotCommand{" + "keyspace='" + keyspace + '\'' + ", column_family='" + column_family + '\'' + ", snapshot_name=" + snapshot_name + ", clear_snapshot=" + clear_snapshot + '}';
     }
 }
 
-class SnapshotCommandSerializer implements IVersionedSerializer<SnapshotCommand>
-{
-    public void serialize(SnapshotCommand snapshot_command, DataOutputPlus out, int version) throws IOException
-    {
+class SnapshotCommandSerializer implements IVersionedSerializer<SnapshotCommand> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SnapshotCommandSerializer.class);
+
+    public void serialize(SnapshotCommand snapshot_command, DataOutputPlus out, int version) throws IOException {
         out.writeUTF(snapshot_command.keyspace);
         out.writeUTF(snapshot_command.column_family);
         out.writeUTF(snapshot_command.snapshot_name);
         out.writeBoolean(snapshot_command.clear_snapshot);
     }
 
-    public SnapshotCommand deserialize(DataInputPlus in, int version) throws IOException
-    {
+    public SnapshotCommand deserialize(DataInputPlus in, int version) throws IOException {
         String keyspace = in.readUTF();
         String column_family = in.readUTF();
         String snapshot_name = in.readUTF();
@@ -71,11 +70,7 @@ class SnapshotCommandSerializer implements IVersionedSerializer<SnapshotCommand>
         return new SnapshotCommand(keyspace, column_family, snapshot_name, clear_snapshot);
     }
 
-    public long serializedSize(SnapshotCommand sc, int version)
-    {
-        return TypeSizes.sizeof(sc.keyspace)
-             + TypeSizes.sizeof(sc.column_family)
-             + TypeSizes.sizeof(sc.snapshot_name)
-             + TypeSizes.sizeof(sc.clear_snapshot);
+    public long serializedSize(SnapshotCommand sc, int version) {
+        return TypeSizes.sizeof(sc.keyspace) + TypeSizes.sizeof(sc.column_family) + TypeSizes.sizeof(sc.snapshot_name) + TypeSizes.sizeof(sc.clear_snapshot);
     }
 }

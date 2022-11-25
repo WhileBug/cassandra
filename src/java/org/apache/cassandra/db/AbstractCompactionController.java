@@ -15,25 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import java.util.function.LongPredicate;
-
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.schema.CompactionParams;
 
 /**
  * AbstractCompactionController allows custom implementations of the CompactionController for use in tooling, without being tied to the SSTableReader and local filesystem
  */
-public abstract class AbstractCompactionController implements AutoCloseable
-{
-    public final ColumnFamilyStore cfs;
-    public final int gcBefore;
-    public final CompactionParams.TombstoneOption tombstoneOption;
+public abstract class AbstractCompactionController implements AutoCloseable {
 
-    public AbstractCompactionController(final ColumnFamilyStore cfs, final int gcBefore, CompactionParams.TombstoneOption tombstoneOption)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractCompactionController.class);
+
+    public final transient ColumnFamilyStore cfs;
+
+    public final transient int gcBefore;
+
+    public final transient CompactionParams.TombstoneOption tombstoneOption;
+
+    public AbstractCompactionController(final ColumnFamilyStore cfs, final int gcBefore, CompactionParams.TombstoneOption tombstoneOption) {
         assert cfs != null;
         this.cfs = cfs;
         this.gcBefore = gcBefore;
@@ -42,18 +43,15 @@ public abstract class AbstractCompactionController implements AutoCloseable
 
     public abstract boolean compactingRepaired();
 
-    public String getKeyspace()
-    {
+    public String getKeyspace() {
         return cfs.keyspace.getName();
     }
 
-    public String getColumnFamily()
-    {
+    public String getColumnFamily() {
         return cfs.name;
     }
 
-    public Iterable<UnfilteredRowIterator> shadowSources(DecoratedKey key, boolean tombstoneOnly)
-    {
+    public Iterable<UnfilteredRowIterator> shadowSources(DecoratedKey key, boolean tombstoneOnly) {
         return null;
     }
 

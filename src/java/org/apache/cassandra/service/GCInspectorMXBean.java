@@ -18,15 +18,22 @@
 */
 package org.apache.cassandra.service;
 
-public interface GCInspectorMXBean
-{
+public interface GCInspectorMXBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GCInspectorMXBean.class);
+
     /* @returns { interval (ms), max(gc real time (ms)), sum(gc real time (ms)), sum((gc real time (ms))^2), sum(gc bytes), count(gc) }
      * 
      */
     double[] getAndResetStats();
+
     void setGcWarnThresholdInMs(long threshold);
+
     long getGcWarnThresholdInMs();
+
     void setGcLogThresholdInMs(long threshold);
+
     long getGcLogThresholdInMs();
+
     long getStatusThresholdInMs();
 }

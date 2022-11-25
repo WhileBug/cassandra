@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.compaction.writers;
 
 import java.util.Set;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.Directories;
 import org.apache.cassandra.db.RowIndexEntry;
@@ -30,35 +29,34 @@ import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.sstable.format.SSTableWriter;
 import org.apache.cassandra.io.sstable.metadata.MetadataCollector;
 
-public class MajorLeveledCompactionWriter extends CompactionAwareWriter
-{
-    private final long maxSSTableSize;
-    private int currentLevel = 1;
-    private long averageEstimatedKeysPerSSTable;
-    private long partitionsWritten = 0;
-    private long totalWrittenInLevel = 0;
-    private int sstablesWritten = 0;
-    private final long keysPerSSTable;
-    private Directories.DataDirectory sstableDirectory;
-    private final int levelFanoutSize;
+public class MajorLeveledCompactionWriter extends CompactionAwareWriter {
 
-    public MajorLeveledCompactionWriter(ColumnFamilyStore cfs,
-                                        Directories directories,
-                                        LifecycleTransaction txn,
-                                        Set<SSTableReader> nonExpiredSSTables,
-                                        long maxSSTableSize)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MajorLeveledCompactionWriter.class);
+
+    private final transient long maxSSTableSize;
+
+    private transient int currentLevel = 1;
+
+    private transient long averageEstimatedKeysPerSSTable;
+
+    private transient long partitionsWritten = 0;
+
+    private transient long totalWrittenInLevel = 0;
+
+    private transient int sstablesWritten = 0;
+
+    private final transient long keysPerSSTable;
+
+    private transient Directories.DataDirectory sstableDirectory;
+
+    private final transient int levelFanoutSize;
+
+    public MajorLeveledCompactionWriter(ColumnFamilyStore cfs, Directories directories, LifecycleTransaction txn, Set<SSTableReader> nonExpiredSSTables, long maxSSTableSize) {
         this(cfs, directories, txn, nonExpiredSSTables, maxSSTableSize, false);
     }
 
     @SuppressWarnings("resource")
-    public MajorLeveledCompactionWriter(ColumnFamilyStore cfs,
-                                        Directories directories,
-                                        LifecycleTransaction txn,
-                                        Set<SSTableReader> nonExpiredSSTables,
-                                        long maxSSTableSize,
-                                        boolean keepOriginals)
-    {
+    public MajorLeveledCompactionWriter(ColumnFamilyStore cfs, Directories directories, LifecycleTransaction txn, Set<SSTableReader> nonExpiredSSTables, long maxSSTableSize, boolean keepOriginals) {
         super(cfs, directories, txn, nonExpiredSSTables, keepOriginals);
         this.maxSSTableSize = maxSSTableSize;
         this.levelFanoutSize = cfs.getLevelFanoutSize();
@@ -68,47 +66,32 @@ public class MajorLeveledCompactionWriter extends CompactionAwareWriter
 
     @Override
     @SuppressWarnings("resource")
-    public boolean realAppend(UnfilteredRowIterator partition)
-    {
+    public boolean realAppend(UnfilteredRowIterator partition) {
         RowIndexEntry rie = sstableWriter.append(partition);
         partitionsWritten++;
         long totalWrittenInCurrentWriter = sstableWriter.currentWriter().getEstimatedOnDiskBytesWritten();
-        if (totalWrittenInCurrentWriter > maxSSTableSize)
-        {
+        if (totalWrittenInCurrentWriter > maxSSTableSize) {
             totalWrittenInLevel += totalWrittenInCurrentWriter;
-            if (totalWrittenInLevel > LeveledManifest.maxBytesForLevel(currentLevel, levelFanoutSize, maxSSTableSize))
-            {
+            if (totalWrittenInLevel > LeveledManifest.maxBytesForLevel(currentLevel, levelFanoutSize, maxSSTableSize)) {
                 totalWrittenInLevel = 0;
                 currentLevel++;
             }
             switchCompactionLocation(sstableDirectory);
         }
         return rie != null;
-
     }
 
     @Override
-    public void switchCompactionLocation(Directories.DataDirectory location)
-    {
+    public void switchCompactionLocation(Directories.DataDirectory location) {
         this.sstableDirectory = location;
         averageEstimatedKeysPerSSTable = Math.round(((double) averageEstimatedKeysPerSSTable * sstablesWritten + partitionsWritten) / (sstablesWritten + 1));
-        sstableWriter.switchWriter(SSTableWriter.create(cfs.newSSTableDescriptor(getDirectories().getLocationForDisk(sstableDirectory)),
-                keysPerSSTable,
-                minRepairedAt,
-                pendingRepair,
-                isTransient,
-                cfs.metadata,
-                new MetadataCollector(txn.originals(), cfs.metadata().comparator, currentLevel),
-                SerializationHeader.make(cfs.metadata(), txn.originals()),
-                cfs.indexManager.listIndexes(),
-                txn));
+        sstableWriter.switchWriter(SSTableWriter.create(cfs.newSSTableDescriptor(getDirectories().getLocationForDisk(sstableDirectory)), keysPerSSTable, minRepairedAt, pendingRepair, isTransient, cfs.metadata, new MetadataCollector(txn.originals(), cfs.metadata().comparator, currentLevel), SerializationHeader.make(cfs.metadata(), txn.originals()), cfs.indexManager.listIndexes(), txn));
         partitionsWritten = 0;
         sstablesWritten = 0;
     }
 
     @Override
-    protected long getExpectedWriteSize()
-    {
+    protected long getExpectedWriteSize() {
         return Math.min(maxSSTableSize, super.getExpectedWriteSize());
     }
 }

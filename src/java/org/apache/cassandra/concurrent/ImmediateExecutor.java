@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.concurrent;
 
 import java.util.Collections;
@@ -23,38 +22,71 @@ import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class ImmediateExecutor extends AbstractExecutorService implements LocalAwareExecutorService
-{
-    public static final ImmediateExecutor INSTANCE = new ImmediateExecutor();
+public class ImmediateExecutor extends AbstractExecutorService implements LocalAwareExecutorService {
 
-    private ImmediateExecutor() {}
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ImmediateExecutor.class);
 
-    public void execute(Runnable command, ExecutorLocals locals)
-    {
+    public static final transient ImmediateExecutor INSTANCE = new ImmediateExecutor();
+
+    private ImmediateExecutor() {
+    }
+
+    public void execute(Runnable command, ExecutorLocals locals) {
         command.run();
     }
 
-    public void maybeExecuteImmediately(Runnable command)
-    {
+    public void maybeExecuteImmediately(Runnable command) {
         command.run();
     }
 
-    public void execute(Runnable command)
-    {
+    public void execute(Runnable command) {
         command.run();
     }
 
-    public int  getActiveTaskCount()    { return 0; }
-    public long getCompletedTaskCount() { return 0; }
-    public int  getPendingTaskCount()   { return 0; }
-    public int  getCorePoolSize()       { return 0; }
-    public int  getMaximumPoolSize()    { return 0; }
-    public void setCorePoolSize(int newCorePoolSize) { throw new IllegalArgumentException("Cannot resize ImmediateExecutor"); }
-    public void setMaximumPoolSize(int newMaximumPoolSize) { throw new IllegalArgumentException("Cannot resize ImmediateExecutor"); }
+    public int getActiveTaskCount() {
+        return 0;
+    }
 
-    public void shutdown() { }
-    public List<Runnable> shutdownNow() { return Collections.emptyList(); }
-    public boolean isShutdown() { return false; }
-    public boolean isTerminated() { return false; }
-    public boolean awaitTermination(long timeout, TimeUnit unit) { return true; }
+    public long getCompletedTaskCount() {
+        return 0;
+    }
+
+    public int getPendingTaskCount() {
+        return 0;
+    }
+
+    public int getCorePoolSize() {
+        return 0;
+    }
+
+    public int getMaximumPoolSize() {
+        return 0;
+    }
+
+    public void setCorePoolSize(int newCorePoolSize) {
+        throw new IllegalArgumentException("Cannot resize ImmediateExecutor");
+    }
+
+    public void setMaximumPoolSize(int newMaximumPoolSize) {
+        throw new IllegalArgumentException("Cannot resize ImmediateExecutor");
+    }
+
+    public void shutdown() {
+    }
+
+    public List<Runnable> shutdownNow() {
+        return Collections.emptyList();
+    }
+
+    public boolean isShutdown() {
+        return false;
+    }
+
+    public boolean isTerminated() {
+        return false;
+    }
+
+    public boolean awaitTermination(long timeout, TimeUnit unit) {
+        return true;
+    }
 }

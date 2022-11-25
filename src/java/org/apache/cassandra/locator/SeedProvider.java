@@ -19,7 +19,9 @@ package org.apache.cassandra.locator;
 
 import java.util.List;
 
-public interface SeedProvider
-{
+public interface SeedProvider {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SeedProvider.class);
+
     List<InetAddressAndPort> getSeeds();
 }

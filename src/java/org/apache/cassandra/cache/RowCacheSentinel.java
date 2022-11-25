@@ -18,40 +18,37 @@
 package org.apache.cassandra.cache;
 
 import java.util.concurrent.atomic.AtomicLong;
-
 import com.google.common.base.Objects;
 
 /**
  * A sentinel object for row caches.  See comments to getThroughCache and CASSANDRA-3862.
  */
-public class RowCacheSentinel implements IRowCacheEntry
-{
-    private static final AtomicLong generator = new AtomicLong();
+public class RowCacheSentinel implements IRowCacheEntry {
 
-    final long sentinelId;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RowCacheSentinel.class);
 
-    public RowCacheSentinel()
-    {
+    private static final transient AtomicLong generator = new AtomicLong();
+
+    final transient long sentinelId;
+
+    public RowCacheSentinel() {
         sentinelId = generator.getAndIncrement();
     }
 
-    RowCacheSentinel(long sentinelId)
-    {
+    RowCacheSentinel(long sentinelId) {
         this.sentinelId = sentinelId;
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (!(o instanceof RowCacheSentinel)) return false;
-
+    public boolean equals(Object o) {
+        if (!(o instanceof RowCacheSentinel))
+            return false;
         RowCacheSentinel other = (RowCacheSentinel) o;
         return this.sentinelId == other.sentinelId;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(sentinelId);
     }
 }

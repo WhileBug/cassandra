@@ -15,86 +15,80 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 import java.util.Iterator;
-
 import org.apache.cassandra.utils.caching.TinyThreadLocalPool;
 
-public interface BulkIterator<V> extends AutoCloseable
-{
+public interface BulkIterator<V> extends AutoCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BulkIterator.class);
+
     void fetch(Object[] into, int offset, int count);
+
     V next();
-    default void close() {};
 
-    public static class FromArray<V> implements BulkIterator<V>, AutoCloseable
-    {
-        private static final TinyThreadLocalPool<FromArray> POOL = new TinyThreadLocalPool<>();
+    default void close() {
+    }
 
-        private Object[] from;
-        private int i;
-        private TinyThreadLocalPool.TinyPool<FromArray> pool;
+    public static class FromArray<V> implements BulkIterator<V>, AutoCloseable {
 
-        private void init(Object[] from, int offset)
-        {
+        private static final transient TinyThreadLocalPool<FromArray> POOL = new TinyThreadLocalPool<>();
+
+        private transient Object[] from;
+
+        private transient int i;
+
+        private transient TinyThreadLocalPool.TinyPool<FromArray> pool;
+
+        private void init(Object[] from, int offset) {
             this.from = from;
             this.i = offset;
         }
 
-        public void close()
-        {
+        public void close() {
             pool.offer(this);
             from = null;
             pool = null;
         }
 
-        public void fetch(Object[] into, int offset, int count)
-        {
+        public void fetch(Object[] into, int offset, int count) {
             System.arraycopy(from, i, into, offset, count);
             i += count;
         }
 
-        public V next()
-        {
+        public V next() {
             return (V) from[i++];
         }
     }
 
-    public static class Adapter<V> implements BulkIterator<V>
-    {
-        final Iterator<V> adapt;
+    public static class Adapter<V> implements BulkIterator<V> {
 
-        private Adapter(Iterator<V> adapt)
-        {
+        final transient Iterator<V> adapt;
+
+        private Adapter(Iterator<V> adapt) {
             this.adapt = adapt;
         }
 
-        public void fetch(Object[] into, int offset, int count)
-        {
+        public void fetch(Object[] into, int offset, int count) {
             count += offset;
-            while (offset < count && adapt.hasNext())
-                into[offset++] = adapt.next();
+            while (offset < count && adapt.hasNext()) into[offset++] = adapt.next();
         }
 
-        public boolean hasNext()
-        {
+        public boolean hasNext() {
             return adapt.hasNext();
         }
 
-        public V next()
-        {
+        public V next() {
             return adapt.next();
         }
     }
 
-    public static <V> FromArray<V> of(Object[] from)
-    {
+    public static <V> FromArray<V> of(Object[] from) {
         return of(from, 0);
     }
 
-    public static <V> FromArray<V> of(Object[] from, int offset)
-    {
+    public static <V> FromArray<V> of(Object[] from, int offset) {
         TinyThreadLocalPool.TinyPool<FromArray> pool = FromArray.POOL.get();
         FromArray<V> result = pool.poll();
         if (result == null)
@@ -104,9 +98,7 @@ public interface BulkIterator<V> extends AutoCloseable
         return result;
     }
 
-    public static <V> Adapter<V> of(Iterator<V> from)
-    {
+    public static <V> Adapter<V> of(Iterator<V> from) {
         return new Adapter<>(from);
     }
 }
-

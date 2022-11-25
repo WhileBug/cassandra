@@ -18,10 +18,8 @@
 package org.apache.cassandra.schema;
 
 import java.util.Collection;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.net.IVerbHandler;
@@ -33,16 +31,16 @@ import org.apache.cassandra.net.Message;
  * (which is going to act as coordinator) and that node sends (pushes) it's updated schema state
  * (in form of mutations) to all the alive nodes in the cluster.
  */
-public final class SchemaPushVerbHandler implements IVerbHandler<Collection<Mutation>>
-{
-    public static final SchemaPushVerbHandler instance = new SchemaPushVerbHandler();
+public final class SchemaPushVerbHandler implements IVerbHandler<Collection<Mutation>> {
 
-    private static final Logger logger = LoggerFactory.getLogger(SchemaPushVerbHandler.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaPushVerbHandler.class);
 
-    public void doVerb(final Message<Collection<Mutation>> message)
-    {
+    public static final transient SchemaPushVerbHandler instance = new SchemaPushVerbHandler();
+
+    private static final transient Logger logger = LoggerFactory.getLogger(SchemaPushVerbHandler.class);
+
+    public void doVerb(final Message<Collection<Mutation>> message) {
         logger.trace("Received schema push request from {}", message.from());
-
         SchemaAnnouncementDiagnostics.schemataMutationsReceived(message.from());
         Stage.MIGRATION.submit(() -> Schema.instance.mergeAndAnnounceVersion(message.payload));
     }

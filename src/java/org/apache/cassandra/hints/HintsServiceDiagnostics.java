@@ -15,9 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.hints;
-
 
 import org.apache.cassandra.diag.DiagnosticEventService;
 import org.apache.cassandra.hints.HintsServiceEvent.HintsServiceEventType;
@@ -25,41 +23,36 @@ import org.apache.cassandra.hints.HintsServiceEvent.HintsServiceEventType;
 /**
  * Utility methods for DiagnosticEvents around the HintService.
  */
-final class HintsServiceDiagnostics
-{
-    private static final DiagnosticEventService service = DiagnosticEventService.instance();
+final class HintsServiceDiagnostics {
 
-    private HintsServiceDiagnostics()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintsServiceDiagnostics.class);
+
+    private static final transient DiagnosticEventService service = DiagnosticEventService.instance();
+
+    private HintsServiceDiagnostics() {
     }
-    
-    static void dispatchingStarted(HintsService hintsService)
-    {
+
+    static void dispatchingStarted(HintsService hintsService) {
         if (isEnabled(HintsServiceEventType.DISPATCHING_STARTED))
             service.publish(new HintsServiceEvent(HintsServiceEventType.DISPATCHING_STARTED, hintsService));
     }
 
-    static void dispatchingShutdown(HintsService hintsService)
-    {
+    static void dispatchingShutdown(HintsService hintsService) {
         if (isEnabled(HintsServiceEventType.DISPATCHING_SHUTDOWN))
             service.publish(new HintsServiceEvent(HintsServiceEventType.DISPATCHING_SHUTDOWN, hintsService));
     }
 
-    static void dispatchingPaused(HintsService hintsService)
-    {
+    static void dispatchingPaused(HintsService hintsService) {
         if (isEnabled(HintsServiceEventType.DISPATCHING_PAUSED))
             service.publish(new HintsServiceEvent(HintsServiceEventType.DISPATCHING_PAUSED, hintsService));
     }
 
-    static void dispatchingResumed(HintsService hintsService)
-    {
+    static void dispatchingResumed(HintsService hintsService) {
         if (isEnabled(HintsServiceEventType.DISPATCHING_RESUMED))
             service.publish(new HintsServiceEvent(HintsServiceEventType.DISPATCHING_RESUMED, hintsService));
     }
 
-    private static boolean isEnabled(HintsServiceEventType type)
-    {
+    private static boolean isEnabled(HintsServiceEventType type) {
         return service.isEnabled(HintsServiceEvent.class, type);
     }
-
 }

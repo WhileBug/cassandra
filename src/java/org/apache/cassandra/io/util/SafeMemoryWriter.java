@@ -21,99 +21,83 @@ package org.apache.cassandra.io.util;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public class SafeMemoryWriter extends DataOutputBuffer
-{
-    private SafeMemory memory;
+public class SafeMemoryWriter extends DataOutputBuffer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SafeMemoryWriter.class);
+
+    private transient SafeMemory memory;
 
     @SuppressWarnings("resource")
-    public SafeMemoryWriter(long initialCapacity)
-    {
+    public SafeMemoryWriter(long initialCapacity) {
         this(new SafeMemory(initialCapacity));
     }
 
-    private SafeMemoryWriter(SafeMemory memory)
-    {
+    private SafeMemoryWriter(SafeMemory memory) {
         super(tailBuffer(memory).order(ByteOrder.BIG_ENDIAN));
         this.memory = memory;
     }
 
-    public SafeMemory currentBuffer()
-    {
+    public SafeMemory currentBuffer() {
         return memory;
     }
 
     @Override
-    protected void expandToFit(long count)
-    {
+    protected void expandToFit(long count) {
         resizeTo(calculateNewSize(count));
     }
 
-    private void resizeTo(long newCapacity)
-    {
-        if (newCapacity != capacity())
-        {
+    private void resizeTo(long newCapacity) {
+        if (newCapacity != capacity()) {
             long position = length();
             ByteOrder order = buffer.order();
-
             SafeMemory oldBuffer = memory;
             memory = this.memory.copy(newCapacity);
             buffer = tailBuffer(memory);
-
             int newPosition = (int) (position - tailOffset(memory));
             buffer.position(newPosition);
             buffer.order(order);
-
             oldBuffer.free();
         }
     }
 
-    public void trim()
-    {
+    public void trim() {
         resizeTo(length());
     }
 
-    public void close()
-    {
+    public void close() {
         memory.close();
     }
 
-    public Throwable close(Throwable accumulate)
-    {
+    public Throwable close(Throwable accumulate) {
         return memory.close(accumulate);
     }
 
-    public long length()
-    {
-        return tailOffset(memory) +  buffer.position();
+    public long length() {
+        return tailOffset(memory) + buffer.position();
     }
 
-    public long capacity()
-    {
+    public long capacity() {
         return memory.size();
     }
 
     @Override
-    public SafeMemoryWriter order(ByteOrder order)
-    {
+    public SafeMemoryWriter order(ByteOrder order) {
         super.order(order);
         return this;
     }
 
     @Override
-    public long validateReallocation(long newSize)
-    {
+    public long validateReallocation(long newSize) {
         // Make sure size does not grow by more than the max buffer size, otherwise we'll hit an exception
         // when setting up the buffer position.
         return Math.min(newSize, length() + Integer.MAX_VALUE);
     }
 
-    private static long tailOffset(Memory memory)
-    {
+    private static long tailOffset(Memory memory) {
         return Math.max(0, memory.size - Integer.MAX_VALUE);
     }
 
-    private static ByteBuffer tailBuffer(Memory memory)
-    {
+    private static ByteBuffer tailBuffer(Memory memory) {
         return memory.asByteBuffer(tailOffset(memory), (int) Math.min(memory.size, Integer.MAX_VALUE));
     }
 }

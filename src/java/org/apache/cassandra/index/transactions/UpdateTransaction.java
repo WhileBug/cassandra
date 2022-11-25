@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.index.transactions;
 
 import org.apache.cassandra.db.DeletionTime;
@@ -58,20 +57,36 @@ import org.apache.cassandra.db.rows.Row;
  *                                  rows.
  * commit()                      -- finally, finish is called when the new Partition is swapped into the Memtable
  */
-public interface UpdateTransaction extends IndexTransaction
-{
+public interface UpdateTransaction extends IndexTransaction {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UpdateTransaction.class);
+
     void onPartitionDeletion(DeletionTime deletionTime);
+
     void onRangeTombstone(RangeTombstone rangeTombstone);
+
     void onInserted(Row row);
+
     void onUpdated(Row existing, Row updated);
 
-    UpdateTransaction NO_OP = new UpdateTransaction()
-    {
-        public void start(){}
-        public void onPartitionDeletion(DeletionTime deletionTime){}
-        public void onRangeTombstone(RangeTombstone rangeTombstone){}
-        public void onInserted(Row row){}
-        public void onUpdated(Row existing, Row updated){}
-        public void commit(){}
+    transient UpdateTransaction NO_OP = new UpdateTransaction() {
+
+        public void start() {
+        }
+
+        public void onPartitionDeletion(DeletionTime deletionTime) {
+        }
+
+        public void onRangeTombstone(RangeTombstone rangeTombstone) {
+        }
+
+        public void onInserted(Row row) {
+        }
+
+        public void onUpdated(Row existing, Row updated) {
+        }
+
+        public void commit() {
+        }
     };
 }

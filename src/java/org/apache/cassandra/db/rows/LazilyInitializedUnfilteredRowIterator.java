@@ -19,7 +19,6 @@ package org.apache.cassandra.db.rows;
 
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.AbstractIterator;
-
 import org.apache.cassandra.db.*;
 
 /**
@@ -29,79 +28,69 @@ import org.apache.cassandra.db.*;
  * to defer the initialization of the rest of the UnfilteredRowIterator until we need those informations.
  * See {@link org.apache.cassandra.io.sstable.format.big.BigTableScanner.KeyScanningIterator} for instance.
  */
-public abstract class LazilyInitializedUnfilteredRowIterator extends AbstractIterator<Unfiltered> implements UnfilteredRowIterator
-{
-    private final DecoratedKey partitionKey;
+public abstract class LazilyInitializedUnfilteredRowIterator extends AbstractIterator<Unfiltered> implements UnfilteredRowIterator {
 
-    private UnfilteredRowIterator iterator;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LazilyInitializedUnfilteredRowIterator.class);
 
-    public LazilyInitializedUnfilteredRowIterator(DecoratedKey partitionKey)
-    {
+    private final transient DecoratedKey partitionKey;
+
+    private transient UnfilteredRowIterator iterator;
+
+    public LazilyInitializedUnfilteredRowIterator(DecoratedKey partitionKey) {
         this.partitionKey = partitionKey;
     }
 
     protected abstract UnfilteredRowIterator initializeIterator();
 
-    protected void maybeInit()
-    {
+    protected void maybeInit() {
         if (iterator == null)
             iterator = initializeIterator();
     }
 
-    public boolean initialized()
-    {
+    public boolean initialized() {
         return iterator != null;
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         maybeInit();
         return iterator.metadata();
     }
 
-    public RegularAndStaticColumns columns()
-    {
+    public RegularAndStaticColumns columns() {
         maybeInit();
         return iterator.columns();
     }
 
-    public boolean isReverseOrder()
-    {
+    public boolean isReverseOrder() {
         maybeInit();
         return iterator.isReverseOrder();
     }
 
-    public DecoratedKey partitionKey()
-    {
+    public DecoratedKey partitionKey() {
         return partitionKey;
     }
 
-    public DeletionTime partitionLevelDeletion()
-    {
+    public DeletionTime partitionLevelDeletion() {
         maybeInit();
         return iterator.partitionLevelDeletion();
     }
 
-    public Row staticRow()
-    {
+    public Row staticRow() {
         maybeInit();
         return iterator.staticRow();
     }
 
-    public EncodingStats stats()
-    {
+    public EncodingStats stats() {
         maybeInit();
         return iterator.stats();
     }
 
-    protected Unfiltered computeNext()
-    {
+    protected Unfiltered computeNext() {
         maybeInit();
         return iterator.hasNext() ? iterator.next() : endOfData();
     }
 
-    public void close()
-    {
+    public void close() {
         if (iterator != null)
             iterator.close();
     }

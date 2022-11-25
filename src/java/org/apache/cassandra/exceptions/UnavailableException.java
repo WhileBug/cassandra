@@ -19,36 +19,36 @@ package org.apache.cassandra.exceptions;
 
 import org.apache.cassandra.db.ConsistencyLevel;
 
-public class UnavailableException extends RequestExecutionException
-{
-    public final ConsistencyLevel consistency;
-    public final int required;
-    public final int alive;
+public class UnavailableException extends RequestExecutionException {
 
-    public static UnavailableException create(ConsistencyLevel consistency, int required, int alive)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnavailableException.class);
+
+    public final transient ConsistencyLevel consistency;
+
+    public final transient int required;
+
+    public final transient int alive;
+
+    public static UnavailableException create(ConsistencyLevel consistency, int required, int alive) {
         assert alive < required;
         return create(consistency, required, 0, alive, 0);
     }
 
-    public static UnavailableException create(ConsistencyLevel consistency, int required, int requiredFull, int alive, int aliveFull)
-    {
+    public static UnavailableException create(ConsistencyLevel consistency, int required, int requiredFull, int alive, int aliveFull) {
         if (required > alive)
             return new UnavailableException("Cannot achieve consistency level " + consistency, consistency, required, alive);
         assert requiredFull < aliveFull;
         return new UnavailableException("Insufficient full replicas", consistency, required, alive);
     }
 
-    public static UnavailableException create(ConsistencyLevel consistency, String dc, int required, int requiredFull, int alive, int aliveFull)
-    {
+    public static UnavailableException create(ConsistencyLevel consistency, String dc, int required, int requiredFull, int alive, int aliveFull) {
         if (required > alive)
             return new UnavailableException("Cannot achieve consistency level " + consistency + " in DC " + dc, consistency, required, alive);
         assert requiredFull < aliveFull;
         return new UnavailableException("Insufficient full replicas in DC " + dc, consistency, required, alive);
     }
 
-    public UnavailableException(String msg, ConsistencyLevel consistency, int required, int alive)
-    {
+    public UnavailableException(String msg, ConsistencyLevel consistency, int required, int alive) {
         super(ExceptionCode.UNAVAILABLE, msg);
         this.consistency = consistency;
         this.required = required;

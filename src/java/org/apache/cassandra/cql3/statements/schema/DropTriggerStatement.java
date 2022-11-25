@@ -28,80 +28,68 @@ import org.apache.cassandra.transport.Event.SchemaChange;
 import org.apache.cassandra.transport.Event.SchemaChange.Change;
 import org.apache.cassandra.transport.Event.SchemaChange.Target;
 
-public final class DropTriggerStatement extends AlterSchemaStatement
-{
-    private final String tableName;
-    private final String triggerName;
-    private final boolean ifExists;
+public final class DropTriggerStatement extends AlterSchemaStatement {
 
-    public DropTriggerStatement(String keyspaceName, String tableName, String triggerName, boolean ifExists)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropTriggerStatement.class);
+
+    private final transient String tableName;
+
+    private final transient String triggerName;
+
+    private final transient boolean ifExists;
+
+    public DropTriggerStatement(String keyspaceName, String tableName, String triggerName, boolean ifExists) {
         super(keyspaceName);
         this.tableName = tableName;
         this.triggerName = triggerName;
         this.ifExists = ifExists;
     }
 
-    public Keyspaces apply(Keyspaces schema)
-    {
+    public Keyspaces apply(Keyspaces schema) {
         KeyspaceMetadata keyspace = schema.getNullable(keyspaceName);
-
-        TableMetadata table = null == keyspace
-                            ? null
-                            : keyspace.tables.getNullable(tableName);
-
-        TriggerMetadata trigger = null == table
-                                ? null
-                                : table.triggers.get(triggerName).orElse(null);
-
-        if (null == trigger)
-        {
+        TableMetadata table = null == keyspace ? null : keyspace.tables.getNullable(tableName);
+        TriggerMetadata trigger = null == table ? null : table.triggers.get(triggerName).orElse(null);
+        if (null == trigger) {
             if (ifExists)
                 return schema;
-
             throw ire("Trigger '%s' on '%s.%s' doesn't exist", triggerName, keyspaceName, tableName);
         }
-
         TableMetadata newTable = table.withSwapped(table.triggers.without(triggerName));
         return schema.withAddedOrUpdated(keyspace.withSwapped(keyspace.tables.withSwapped(newTable)));
     }
 
-    SchemaChange schemaChangeEvent(KeyspacesDiff diff)
-    {
+    SchemaChange schemaChangeEvent(KeyspacesDiff diff) {
         return new SchemaChange(Change.UPDATED, Target.TABLE, keyspaceName, tableName);
     }
 
-    public void authorize(ClientState client)
-    {
+    public void authorize(ClientState client) {
         client.ensureIsSuperuser("Only superusers are allowed to perfrom DROP TRIGGER queries");
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.DROP_TRIGGER, keyspaceName, triggerName);
     }
 
-    public String toString()
-    {
+    public String toString() {
         return String.format("%s (%s, %s)", getClass().getSimpleName(), keyspaceName, triggerName);
     }
 
-    public static final class Raw extends CQLStatement.Raw
-    {
-        private final QualifiedName tableName;
-        private final String triggerName;
-        private final boolean ifExists;
+    public static final class Raw extends CQLStatement.Raw {
 
-        public Raw(QualifiedName tableName, String triggerName, boolean ifExists)
-        {
+        private final transient QualifiedName tableName;
+
+        private final transient String triggerName;
+
+        private final transient boolean ifExists;
+
+        public Raw(QualifiedName tableName, String triggerName, boolean ifExists) {
             this.tableName = tableName;
             this.triggerName = triggerName;
             this.ifExists = ifExists;
         }
 
-        public DropTriggerStatement prepare(ClientState state)
-        {
+        public DropTriggerStatement prepare(ClientState state) {
             String keyspaceName = tableName.hasKeyspace() ? tableName.getKeyspace() : state.getKeyspace();
             return new DropTriggerStatement(keyspaceName, tableName.getName(), triggerName, ifExists);
         }

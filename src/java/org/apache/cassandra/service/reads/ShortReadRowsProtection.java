@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads;
 
 import java.util.function.Function;
-
 import org.apache.cassandra.db.Clustering;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.DecoratedKey;
@@ -37,26 +35,39 @@ import org.apache.cassandra.locator.Replica;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.tracing.Tracing;
 
-class ShortReadRowsProtection extends Transformation implements MoreRows<UnfilteredRowIterator>
-{
-    private final ReadCommand command;
-    private final Replica source;
-    private final DataLimits.Counter singleResultCounter; // unmerged per-source counter
-    private final DataLimits.Counter mergedResultCounter; // merged end-result counter
-    private final Function<ReadCommand, UnfilteredPartitionIterator> commandExecutor;
-    private final TableMetadata metadata;
-    private final DecoratedKey partitionKey;
+class ShortReadRowsProtection extends Transformation implements MoreRows<UnfilteredRowIterator> {
 
-    private Clustering<?> lastClustering; // clustering of the last observed row
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ShortReadRowsProtection.class);
 
-    private int lastCounted = 0; // last seen recorded # before attempting to fetch more rows
-    private int lastFetched = 0; // # rows returned by last attempt to get more (or by the original read command)
-    private int lastQueried = 0; // # extra rows requested from the replica last time
+    private final transient ReadCommand command;
 
-    ShortReadRowsProtection(DecoratedKey partitionKey, ReadCommand command, Replica source,
-                            Function<ReadCommand, UnfilteredPartitionIterator> commandExecutor,
-                            DataLimits.Counter singleResultCounter, DataLimits.Counter mergedResultCounter)
-    {
+    private final transient Replica source;
+
+    // unmerged per-source counter
+    private final transient DataLimits.Counter singleResultCounter;
+
+    // merged end-result counter
+    private final transient DataLimits.Counter mergedResultCounter;
+
+    private final transient Function<ReadCommand, UnfilteredPartitionIterator> commandExecutor;
+
+    private final transient TableMetadata metadata;
+
+    private final transient DecoratedKey partitionKey;
+
+    // clustering of the last observed row
+    private transient Clustering<?> lastClustering;
+
+    // last seen recorded # before attempting to fetch more rows
+    private transient int lastCounted = 0;
+
+    // # rows returned by last attempt to get more (or by the original read command)
+    private transient int lastFetched = 0;
+
+    // # extra rows requested from the replica last time
+    private transient int lastQueried = 0;
+
+    ShortReadRowsProtection(DecoratedKey partitionKey, ReadCommand command, Replica source, Function<ReadCommand, UnfilteredPartitionIterator> commandExecutor, DataLimits.Counter singleResultCounter, DataLimits.Counter mergedResultCounter) {
         this.command = command;
         this.source = source;
         this.commandExecutor = commandExecutor;
@@ -67,8 +78,7 @@ class ShortReadRowsProtection extends Transformation implements MoreRows<Unfilte
     }
 
     @Override
-    public Row applyToRow(Row row)
-    {
+    public Row applyToRow(Row row) {
         lastClustering = row.clustering();
         return row;
     }
@@ -78,14 +88,11 @@ class ShortReadRowsProtection extends Transformation implements MoreRows<Unfilte
      * had returned the requested number of rows but we still get here, then some results were skipped
      * during reconciliation.
      */
-    public UnfilteredRowIterator moreContents()
-    {
+    public UnfilteredRowIterator moreContents() {
         // never try to request additional rows from replicas if our reconciled partition is already filled to the limit
         assert !mergedResultCounter.isDoneForPartition();
-
         // we do not apply short read protection when we have no limits at all
         assert !command.limits().isUnlimited();
-
         /*
          * If the returned partition doesn't have enough rows to satisfy even the original limit, don't ask for more.
          *
@@ -94,7 +101,6 @@ class ShortReadRowsProtection extends Transformation implements MoreRows<Unfilte
          */
         if (command.limits().isExhausted(singleResultCounter) && command.limits().perPartitionCount() == DataLimits.NO_LIMIT)
             return null;
-
         /*
          * If the replica has no live rows in the partition, don't try to fetch more.
          *
@@ -113,21 +119,17 @@ class ShortReadRowsProtection extends Transformation implements MoreRows<Unfilte
          */
         if (singleResultCounter.rowsCountedInCurrentPartition() == 0)
             return null;
-
         /*
          * This is a table with no clustering columns, and has at most one row per partition - with EMPTY clustering.
          * We already have the row, so there is no point in asking for more from the partition.
          */
         if (lastClustering != null && lastClustering.isEmpty())
             return null;
-
         lastFetched = singleResultCounter.rowsCountedInCurrentPartition() - lastCounted;
         lastCounted = singleResultCounter.rowsCountedInCurrentPartition();
-
         // getting back fewer rows than we asked for means the partition on the replica has been fully consumed
         if (lastQueried > 0 && lastFetched < lastQueried)
             return null;
-
         /*
          * At this point we know that:
          *     1. the replica returned [repeatedly?] as many rows as we asked for and potentially has more
@@ -163,27 +165,16 @@ class ShortReadRowsProtection extends Transformation implements MoreRows<Unfilte
          * See CASSANDRA-13794 for more details.
          */
         lastQueried = Math.min(command.limits().count(), command.limits().perPartitionCount());
-
         ColumnFamilyStore.metricsFor(metadata.id).shortReadProtectionRequests.mark();
         Tracing.trace("Requesting {} extra rows from {} for short read protection", lastQueried, source);
-
         SinglePartitionReadCommand cmd = makeFetchAdditionalRowsReadCommand(lastQueried);
         return UnfilteredPartitionIterators.getOnlyElement(commandExecutor.apply(cmd), cmd);
     }
 
-    private SinglePartitionReadCommand makeFetchAdditionalRowsReadCommand(int toQuery)
-    {
+    private SinglePartitionReadCommand makeFetchAdditionalRowsReadCommand(int toQuery) {
         ClusteringIndexFilter filter = command.clusteringIndexFilter(partitionKey);
         if (null != lastClustering)
             filter = filter.forPaging(metadata.comparator, lastClustering, false);
-
-        return SinglePartitionReadCommand.create(command.metadata(),
-                                                 command.nowInSec(),
-                                                 command.columnFilter(),
-                                                 command.rowFilter(),
-                                                 command.limits().forShortReadRetry(toQuery),
-                                                 partitionKey,
-                                                 filter,
-                                                 command.indexMetadata());
+        return SinglePartitionReadCommand.create(command.metadata(), command.nowInSec(), command.columnFilter(), command.rowFilter(), command.limits().forShortReadRetry(toQuery), partitionKey, filter, command.indexMetadata());
     }
 }

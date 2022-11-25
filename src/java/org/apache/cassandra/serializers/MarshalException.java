@@ -15,18 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
-public class MarshalException extends RuntimeException
-{
-    public MarshalException(String message)
-    {
+public class MarshalException extends RuntimeException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MarshalException.class);
+
+    public MarshalException(String message) {
         super(message);
     }
 
-    public MarshalException(String message, Throwable cause)
-    {
+    public MarshalException(String message, Throwable cause) {
         super(message, cause);
     }
 }

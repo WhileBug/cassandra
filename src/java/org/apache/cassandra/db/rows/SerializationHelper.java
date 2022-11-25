@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.rows;
 
 import org.apache.cassandra.db.SerializationHeader;
@@ -23,33 +22,33 @@ import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.utils.SearchIterator;
 import org.apache.cassandra.utils.btree.BTreeSearchIterator;
 
-public class SerializationHelper
-{
-    public final SerializationHeader header;
-    private BTreeSearchIterator<ColumnMetadata, ColumnMetadata> statics = null;
-    private BTreeSearchIterator<ColumnMetadata, ColumnMetadata> regulars = null;
+public class SerializationHelper {
 
-    public SerializationHelper(SerializationHeader header)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SerializationHelper.class);
+
+    public final transient SerializationHeader header;
+
+    private transient BTreeSearchIterator<ColumnMetadata, ColumnMetadata> statics = null;
+
+    private transient BTreeSearchIterator<ColumnMetadata, ColumnMetadata> regulars = null;
+
+    public SerializationHelper(SerializationHeader header) {
         this.header = header;
     }
 
-    private BTreeSearchIterator<ColumnMetadata, ColumnMetadata> statics()
-    {
+    private BTreeSearchIterator<ColumnMetadata, ColumnMetadata> statics() {
         if (statics == null)
             statics = header.columns().statics.iterator();
         return statics;
     }
 
-    private BTreeSearchIterator<ColumnMetadata, ColumnMetadata> regulars()
-    {
+    private BTreeSearchIterator<ColumnMetadata, ColumnMetadata> regulars() {
         if (regulars == null)
             regulars = header.columns().regulars.iterator();
         return regulars;
     }
 
-    public SearchIterator<ColumnMetadata, ColumnMetadata> iterator(boolean isStatic)
-    {
+    public SearchIterator<ColumnMetadata, ColumnMetadata> iterator(boolean isStatic) {
         BTreeSearchIterator<ColumnMetadata, ColumnMetadata> iterator = isStatic ? statics() : regulars();
         iterator.rewind();
         return iterator;

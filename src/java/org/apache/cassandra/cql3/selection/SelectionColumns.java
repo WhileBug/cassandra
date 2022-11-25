@@ -21,9 +21,7 @@
 package org.apache.cassandra.cql3.selection;
 
 import java.util.List;
-
 import com.google.common.collect.Multimap;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.ColumnSpecification;
 
@@ -31,8 +29,11 @@ import org.apache.cassandra.cql3.ColumnSpecification;
  * Represents a mapping between the actual columns used to satisfy a Selection
  * and the column definitions included in the resultset metadata for the query.
  */
-public interface SelectionColumns
-{
+public interface SelectionColumns {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SelectionColumns.class);
+
     List<ColumnSpecification> getColumnSpecifications();
+
     Multimap<ColumnSpecification, ColumnMetadata> getMappings();
 }

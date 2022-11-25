@@ -28,15 +28,16 @@ import org.apache.cassandra.schema.TableMetadata;
 /**
  * A system view used to expose system information.
  */
-public interface VirtualTable
-{
+public interface VirtualTable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VirtualTable.class);
+
     /**
      * Returns the view name.
      *
      * @return the view name.
      */
-    default String name()
-    {
+    default String name() {
         return metadata().name;
     }
 

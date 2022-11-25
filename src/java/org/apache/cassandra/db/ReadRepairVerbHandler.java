@@ -21,12 +21,13 @@ import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
 
-public class ReadRepairVerbHandler implements IVerbHandler<Mutation>
-{
-    public static final ReadRepairVerbHandler instance = new ReadRepairVerbHandler();
+public class ReadRepairVerbHandler implements IVerbHandler<Mutation> {
 
-    public void doVerb(Message<Mutation> message)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadRepairVerbHandler.class);
+
+    public static final transient ReadRepairVerbHandler instance = new ReadRepairVerbHandler();
+
+    public void doVerb(Message<Mutation> message) {
         message.payload.apply();
         MessagingService.instance().send(message.emptyResponse(), message.from());
     }

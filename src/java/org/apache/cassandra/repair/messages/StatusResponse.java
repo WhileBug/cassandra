@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.messages;
 
 import java.io.IOException;
 import java.util.UUID;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -28,13 +26,15 @@ import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.repair.consistent.ConsistentSession;
 import org.apache.cassandra.utils.UUIDSerializer;
 
-public class StatusResponse extends RepairMessage
-{
-    public final UUID sessionID;
-    public final ConsistentSession.State state;
+public class StatusResponse extends RepairMessage {
 
-    public StatusResponse(UUID sessionID, ConsistentSession.State state)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StatusResponse.class);
+
+    public final transient UUID sessionID;
+
+    public final transient ConsistentSession.State state;
+
+    public StatusResponse(UUID sessionID, ConsistentSession.State state) {
         super(null);
         assert sessionID != null;
         assert state != null;
@@ -42,50 +42,40 @@ public class StatusResponse extends RepairMessage
         this.state = state;
     }
 
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         StatusResponse that = (StatusResponse) o;
-
-        if (!sessionID.equals(that.sessionID)) return false;
+        if (!sessionID.equals(that.sessionID))
+            return false;
         return state == that.state;
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         int result = sessionID.hashCode();
         result = 31 * result + state.hashCode();
         return result;
     }
 
-    public String toString()
-    {
-        return "StatusResponse{" +
-               "sessionID=" + sessionID +
-               ", state=" + state +
-               '}';
+    public String toString() {
+        return "StatusResponse{" + "sessionID=" + sessionID + ", state=" + state + '}';
     }
 
-    public static final IVersionedSerializer<StatusResponse> serializer = new IVersionedSerializer<StatusResponse>()
-    {
-        public void serialize(StatusResponse msg, DataOutputPlus out, int version) throws IOException
-        {
+    public static final transient IVersionedSerializer<StatusResponse> serializer = new IVersionedSerializer<StatusResponse>() {
+
+        public void serialize(StatusResponse msg, DataOutputPlus out, int version) throws IOException {
             UUIDSerializer.serializer.serialize(msg.sessionID, out, version);
             out.writeInt(msg.state.ordinal());
         }
 
-        public StatusResponse deserialize(DataInputPlus in, int version) throws IOException
-        {
-            return new StatusResponse(UUIDSerializer.serializer.deserialize(in, version),
-                                      ConsistentSession.State.valueOf(in.readInt()));
+        public StatusResponse deserialize(DataInputPlus in, int version) throws IOException {
+            return new StatusResponse(UUIDSerializer.serializer.deserialize(in, version), ConsistentSession.State.valueOf(in.readInt()));
         }
 
-        public long serializedSize(StatusResponse msg, int version)
-        {
-            return UUIDSerializer.serializer.serializedSize(msg.sessionID, version)
-                   + TypeSizes.sizeof(msg.state.ordinal());
+        public long serializedSize(StatusResponse msg, int version) {
+            return UUIDSerializer.serializer.serializedSize(msg.sessionID, version) + TypeSizes.sizeof(msg.state.ordinal());
         }
     };
 }

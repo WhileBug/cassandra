@@ -18,28 +18,25 @@
 package org.apache.cassandra.gms;
 
 import java.util.Map;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.Message;
 
-public class GossipDigestAck2VerbHandler extends GossipVerbHandler<GossipDigestAck2>
-{
-    public static final GossipDigestAck2VerbHandler instance = new GossipDigestAck2VerbHandler();
+public class GossipDigestAck2VerbHandler extends GossipVerbHandler<GossipDigestAck2> {
 
-    private static final Logger logger = LoggerFactory.getLogger(GossipDigestAck2VerbHandler.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GossipDigestAck2VerbHandler.class);
 
-    public void doVerb(Message<GossipDigestAck2> message)
-    {
-        if (logger.isTraceEnabled())
-        {
+    public static final transient GossipDigestAck2VerbHandler instance = new GossipDigestAck2VerbHandler();
+
+    private static final transient Logger logger = LoggerFactory.getLogger(GossipDigestAck2VerbHandler.class);
+
+    public void doVerb(Message<GossipDigestAck2> message) {
+        if (logger.isTraceEnabled()) {
             InetAddressAndPort from = message.from();
             logger.trace("Received a GossipDigestAck2Message from {}", from);
         }
-        if (!Gossiper.instance.isEnabled())
-        {
+        if (!Gossiper.instance.isEnabled()) {
             if (logger.isTraceEnabled())
                 logger.trace("Ignoring GossipDigestAck2Message because gossip is disabled");
             return;
@@ -48,7 +45,6 @@ public class GossipDigestAck2VerbHandler extends GossipVerbHandler<GossipDigestA
         /* Notify the Failure Detector */
         Gossiper.instance.notifyFailureDetector(remoteEpStateMap);
         Gossiper.instance.applyStateLocally(remoteEpStateMap);
-
         super.doVerb(message);
     }
 }

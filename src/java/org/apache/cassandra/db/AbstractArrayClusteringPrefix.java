@@ -15,42 +15,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
-
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ByteArrayAccessor;
 import org.apache.cassandra.db.marshal.ValueAccessor;
 
-public abstract class AbstractArrayClusteringPrefix extends AbstractOnHeapClusteringPrefix<byte[]>
-{
-    public static final byte[][] EMPTY_VALUES_ARRAY = new byte[0][];
+public abstract class AbstractArrayClusteringPrefix extends AbstractOnHeapClusteringPrefix<byte[]> {
 
-    public AbstractArrayClusteringPrefix(Kind kind, byte[][] values)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractArrayClusteringPrefix.class);
+
+    public static final transient byte[][] EMPTY_VALUES_ARRAY = new byte[0][];
+
+    public AbstractArrayClusteringPrefix(Kind kind, byte[][] values) {
         super(kind, values);
     }
 
-    public ValueAccessor<byte[]> accessor()
-    {
+    public ValueAccessor<byte[]> accessor() {
         return ByteArrayAccessor.instance;
     }
 
-    public ByteBuffer[] getBufferArray()
-    {
+    public ByteBuffer[] getBufferArray() {
         ByteBuffer[] out = new ByteBuffer[values.length];
-        for (int i = 0; i < values.length; i++)
-        {
-            // Compact tables allowed null clustering elements, so take those into account: 
+        for (int i = 0; i < values.length; i++) {
+            // Compact tables allowed null clustering elements, so take those into account:
             out[i] = values[i] == null ? null : ByteBuffer.wrap(values[i]);
         }
         return out;
     }
 
-    public ClusteringPrefix<byte[]> minimize()
-    {
+    public ClusteringPrefix<byte[]> minimize() {
         return this;
     }
 }

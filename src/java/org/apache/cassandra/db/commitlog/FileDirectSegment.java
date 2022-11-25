@@ -19,7 +19,6 @@ package org.apache.cassandra.db.commitlog;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.io.FSWriteError;
 import org.apache.cassandra.utils.SyncUtil;
 
@@ -27,53 +26,42 @@ import org.apache.cassandra.utils.SyncUtil;
  * Writes to the backing commit log file only on sync, allowing transformations of the mutations,
  * such as compression or encryption, before writing out to disk.
  */
-public abstract class FileDirectSegment extends CommitLogSegment
-{
-    volatile long lastWrittenPos = 0;
+public abstract class FileDirectSegment extends CommitLogSegment {
 
-    FileDirectSegment(CommitLog commitLog, AbstractCommitLogSegmentManager manager)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FileDirectSegment.class);
+
+    volatile transient long lastWrittenPos = 0;
+
+    FileDirectSegment(CommitLog commitLog, AbstractCommitLogSegmentManager manager) {
         super(commitLog, manager);
     }
 
     @Override
-    void writeLogHeader()
-    {
+    void writeLogHeader() {
         super.writeLogHeader();
-        try
-        {
+        try {
             channel.write((ByteBuffer) buffer.duplicate().flip());
             manager.addSize(lastWrittenPos = buffer.position());
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new FSWriteError(e, getPath());
         }
     }
 
     @Override
-    protected void internalClose()
-    {
-        try
-        {
+    protected void internalClose() {
+        try {
             manager.getBufferPool().releaseBuffer(buffer);
             super.internalClose();
-        }
-        finally
-        {
+        } finally {
             manager.notifyBufferFreed();
         }
     }
 
     @Override
-    protected void flush(int startMarker, int nextMarker)
-    {
-        try
-        {
+    protected void flush(int startMarker, int nextMarker) {
+        try {
             SyncUtil.force(channel, true);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new FSWriteError(e, getPath());
         }
     }

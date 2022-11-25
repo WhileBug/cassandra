@@ -23,45 +23,40 @@ package org.apache.cassandra.db.transform;
 import org.apache.cassandra.db.DeletionPurger;
 import org.apache.cassandra.db.rows.*;
 
-public final class Filter extends Transformation
-{
-    private final int nowInSec;
-    private final boolean enforceStrictLiveness;
+public final class Filter extends Transformation {
 
-    public Filter(int nowInSec, boolean enforceStrictLiveness)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Filter.class);
+
+    private final transient int nowInSec;
+
+    private final transient boolean enforceStrictLiveness;
+
+    public Filter(int nowInSec, boolean enforceStrictLiveness) {
         this.nowInSec = nowInSec;
         this.enforceStrictLiveness = enforceStrictLiveness;
     }
 
     @Override
     @SuppressWarnings("resource")
-    protected RowIterator applyToPartition(BaseRowIterator iterator)
-    {
-        return iterator instanceof UnfilteredRows
-             ? new FilteredRows(this, (UnfilteredRows) iterator)
-             : new FilteredRows((UnfilteredRowIterator) iterator, this);
+    protected RowIterator applyToPartition(BaseRowIterator iterator) {
+        return iterator instanceof UnfilteredRows ? new FilteredRows(this, (UnfilteredRows) iterator) : new FilteredRows((UnfilteredRowIterator) iterator, this);
     }
 
     @Override
-    protected Row applyToStatic(Row row)
-    {
+    protected Row applyToStatic(Row row) {
         if (row.isEmpty())
             return Rows.EMPTY_STATIC_ROW;
-
         row = row.purge(DeletionPurger.PURGE_ALL, nowInSec, enforceStrictLiveness);
         return row == null ? Rows.EMPTY_STATIC_ROW : row;
     }
 
     @Override
-    protected Row applyToRow(Row row)
-    {
+    protected Row applyToRow(Row row) {
         return row.purge(DeletionPurger.PURGE_ALL, nowInSec, enforceStrictLiveness);
     }
 
     @Override
-    protected RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker)
-    {
+    protected RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker) {
         return null;
     }
 }

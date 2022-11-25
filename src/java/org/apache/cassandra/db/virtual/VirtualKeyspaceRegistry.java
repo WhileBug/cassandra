@@ -20,58 +20,52 @@ package org.apache.cassandra.db.virtual;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
-
 import com.google.common.collect.Iterables;
-
 import org.apache.cassandra.schema.KeyspaceMetadata;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.schema.TableMetadata;
 
-public final class VirtualKeyspaceRegistry
-{
-    public static final VirtualKeyspaceRegistry instance = new VirtualKeyspaceRegistry();
+public final class VirtualKeyspaceRegistry {
 
-    private final Map<String, VirtualKeyspace> virtualKeyspaces = new ConcurrentHashMap<>();
-    private final Map<TableId, VirtualTable> virtualTables = new ConcurrentHashMap<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VirtualKeyspaceRegistry.class);
 
-    private VirtualKeyspaceRegistry()
-    {
+    public static final transient VirtualKeyspaceRegistry instance = new VirtualKeyspaceRegistry();
+
+    private final transient Map<String, VirtualKeyspace> virtualKeyspaces = new ConcurrentHashMap<>();
+
+    private final transient Map<TableId, VirtualTable> virtualTables = new ConcurrentHashMap<>();
+
+    private VirtualKeyspaceRegistry() {
     }
 
-    public void register(VirtualKeyspace keyspace)
-    {
+    public void register(VirtualKeyspace keyspace) {
         virtualKeyspaces.put(keyspace.name(), keyspace);
         keyspace.tables().forEach(t -> virtualTables.put(t.metadata().id, t));
     }
 
     @Nullable
-    public VirtualKeyspace getKeyspaceNullable(String name)
-    {
+    public VirtualKeyspace getKeyspaceNullable(String name) {
         return virtualKeyspaces.get(name);
     }
 
     @Nullable
-    public VirtualTable getTableNullable(TableId id)
-    {
+    public VirtualTable getTableNullable(TableId id) {
         return virtualTables.get(id);
     }
 
     @Nullable
-    public KeyspaceMetadata getKeyspaceMetadataNullable(String name)
-    {
+    public KeyspaceMetadata getKeyspaceMetadataNullable(String name) {
         VirtualKeyspace keyspace = virtualKeyspaces.get(name);
         return null != keyspace ? keyspace.metadata() : null;
     }
 
     @Nullable
-    public TableMetadata getTableMetadataNullable(TableId id)
-    {
+    public TableMetadata getTableMetadataNullable(TableId id) {
         VirtualTable table = virtualTables.get(id);
         return null != table ? table.metadata() : null;
     }
 
-    public Iterable<KeyspaceMetadata> virtualKeyspacesMetadata()
-    {
+    public Iterable<KeyspaceMetadata> virtualKeyspacesMetadata() {
         return Iterables.transform(virtualKeyspaces.values(), VirtualKeyspace::metadata);
     }
 }

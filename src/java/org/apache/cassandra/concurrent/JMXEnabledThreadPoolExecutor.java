@@ -22,7 +22,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.cassandra.metrics.ThreadPoolMetrics;
 import org.apache.cassandra.utils.MBeanWrapper;
 
@@ -31,161 +30,121 @@ import org.apache.cassandra.utils.MBeanWrapper;
  * for the <i>afterExecute()</i> found in the <i>ThreadPoolExecutor</i> class to log any unexpected
  * Runtime Exceptions.
  */
+public class JMXEnabledThreadPoolExecutor extends DebuggableThreadPoolExecutor implements JMXEnabledThreadPoolExecutorMBean {
 
-public class JMXEnabledThreadPoolExecutor extends DebuggableThreadPoolExecutor implements JMXEnabledThreadPoolExecutorMBean
-{
-    private final String mbeanName;
-    public final ThreadPoolMetrics metrics;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(JMXEnabledThreadPoolExecutor.class);
 
-    public JMXEnabledThreadPoolExecutor(String threadPoolName)
-    {
+    private final transient String mbeanName;
+
+    public final transient ThreadPoolMetrics metrics;
+
+    public JMXEnabledThreadPoolExecutor(String threadPoolName) {
         this(1, Integer.MAX_VALUE, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(threadPoolName), "internal");
     }
 
-    public JMXEnabledThreadPoolExecutor(String threadPoolName, String jmxPath)
-    {
+    public JMXEnabledThreadPoolExecutor(String threadPoolName, String jmxPath) {
         this(1, Integer.MAX_VALUE, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(threadPoolName), jmxPath);
     }
 
-    public JMXEnabledThreadPoolExecutor(String threadPoolName, int priority)
-    {
+    public JMXEnabledThreadPoolExecutor(String threadPoolName, int priority) {
         this(1, Integer.MAX_VALUE, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(threadPoolName, priority), "internal");
     }
 
-    public JMXEnabledThreadPoolExecutor(NamedThreadFactory threadFactory, String jmxPath)
-    {
+    public JMXEnabledThreadPoolExecutor(NamedThreadFactory threadFactory, String jmxPath) {
         this(1, Integer.MAX_VALUE, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), threadFactory, jmxPath);
     }
 
-    public JMXEnabledThreadPoolExecutor(int corePoolSize,
-            long keepAliveTime,
-            TimeUnit unit,
-            BlockingQueue<Runnable> workQueue,
-            NamedThreadFactory threadFactory,
-            String jmxPath)
-    {
+    public JMXEnabledThreadPoolExecutor(int corePoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, NamedThreadFactory threadFactory, String jmxPath) {
         this(corePoolSize, corePoolSize, keepAliveTime, unit, workQueue, threadFactory, jmxPath);
     }
 
-    public JMXEnabledThreadPoolExecutor(int corePoolSize,
-                                        int maxPoolSize,
-                                        long keepAliveTime,
-                                        TimeUnit unit,
-                                        BlockingQueue<Runnable> workQueue,
-                                        NamedThreadFactory threadFactory,
-                                        String jmxPath)
-    {
+    public JMXEnabledThreadPoolExecutor(int corePoolSize, int maxPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, NamedThreadFactory threadFactory, String jmxPath) {
         super(corePoolSize, maxPoolSize, keepAliveTime, unit, workQueue, threadFactory);
         super.prestartAllCoreThreads();
         metrics = new ThreadPoolMetrics(this, jmxPath, threadFactory.id).register();
-
         mbeanName = "org.apache.cassandra." + jmxPath + ":type=" + threadFactory.id;
         MBeanWrapper.instance.registerMBean(this, mbeanName);
     }
 
-    public JMXEnabledThreadPoolExecutor(int corePoolSize,
-                                        int maxPoolSize,
-                                        long keepAliveTime,
-                                        TimeUnit unit,
-                                        BlockingQueue<Runnable> workQueue,
-                                        NamedThreadFactory threadFactory,
-                                        String jmxPath,
-                                        RejectedExecutionHandler rejectedExecutionHandler)
-    {
+    public JMXEnabledThreadPoolExecutor(int corePoolSize, int maxPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, NamedThreadFactory threadFactory, String jmxPath, RejectedExecutionHandler rejectedExecutionHandler) {
         this(corePoolSize, maxPoolSize, keepAliveTime, unit, workQueue, threadFactory, jmxPath);
         setRejectedExecutionHandler(rejectedExecutionHandler);
     }
 
-    private void unregisterMBean()
-    {
+    private void unregisterMBean() {
         MBeanWrapper.instance.unregisterMBean(mbeanName);
-
         // release metrics
         metrics.release();
     }
 
     @Override
-    public synchronized void shutdown()
-    {
+    public synchronized void shutdown() {
         // synchronized, because there is no way to access super.mainLock, which would be
         // the preferred way to make this threadsafe
-        if (!isShutdown())
-        {
+        if (!isShutdown()) {
             unregisterMBean();
         }
         super.shutdown();
     }
 
     @Override
-    public synchronized List<Runnable> shutdownNow()
-    {
+    public synchronized List<Runnable> shutdownNow() {
         // synchronized, because there is no way to access super.mainLock, which would be
         // the preferred way to make this threadsafe
-        if (!isShutdown())
-        {
+        if (!isShutdown()) {
             unregisterMBean();
         }
         return super.shutdownNow();
     }
 
-    public int getTotalBlockedTasks()
-    {
+    public int getTotalBlockedTasks() {
         return (int) metrics.totalBlocked.getCount();
     }
 
-    public int getCurrentlyBlockedTasks()
-    {
+    public int getCurrentlyBlockedTasks() {
         return (int) metrics.currentBlocked.getCount();
     }
 
     @Deprecated
-    public int getCoreThreads()
-    {
+    public int getCoreThreads() {
         return getCorePoolSize();
     }
 
     @Deprecated
-    public void setCoreThreads(int number)
-    {
+    public void setCoreThreads(int number) {
         setCorePoolSize(number);
     }
 
     @Deprecated
-    public int getMaximumThreads()
-    {
+    public int getMaximumThreads() {
         return getMaximumPoolSize();
     }
 
     @Deprecated
-    public void setMaximumThreads(int number)
-    {
+    public void setMaximumThreads(int number) {
         setMaximumPoolSize(number);
     }
 
     @Override
-    public void setMaximumPoolSize(int newMaximumPoolSize)
-    {
+    public void setMaximumPoolSize(int newMaximumPoolSize) {
         if (newMaximumPoolSize < getCorePoolSize())
             throw new IllegalArgumentException("maximum pool size cannot be less than core pool size");
         super.setMaximumPoolSize(newMaximumPoolSize);
     }
 
     @Override
-    protected void onInitialRejection(Runnable task)
-    {
+    protected void onInitialRejection(Runnable task) {
         metrics.totalBlocked.inc();
         metrics.currentBlocked.inc();
     }
 
     @Override
-    protected void onFinalAccept(Runnable task)
-    {
+    protected void onFinalAccept(Runnable task) {
         metrics.currentBlocked.dec();
     }
 
     @Override
-    protected void onFinalRejection(Runnable task)
-    {
+    protected void onFinalRejection(Runnable task) {
         metrics.currentBlocked.dec();
     }
 }

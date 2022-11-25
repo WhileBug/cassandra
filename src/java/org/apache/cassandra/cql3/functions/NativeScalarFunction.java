@@ -22,20 +22,19 @@ import org.apache.cassandra.db.marshal.AbstractType;
 /**
  * Base class for the <code>ScalarFunction</code> native classes.
  */
-public abstract class NativeScalarFunction extends NativeFunction implements ScalarFunction
-{
-    protected NativeScalarFunction(String name, AbstractType<?> returnType, AbstractType<?>... argsType)
-    {
+public abstract class NativeScalarFunction extends NativeFunction implements ScalarFunction {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativeScalarFunction.class);
+
+    protected NativeScalarFunction(String name, AbstractType<?> returnType, AbstractType<?>... argsType) {
         super(name, returnType, argsType);
     }
 
-    public boolean isCalledOnNullInput()
-    {
+    public boolean isCalledOnNullInput() {
         return true;
     }
 
-    public final boolean isAggregate()
-    {
+    public final boolean isAggregate() {
         return false;
     }
 }

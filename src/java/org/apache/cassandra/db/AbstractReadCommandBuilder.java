@@ -15,14 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import com.google.common.collect.Sets;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -33,114 +30,103 @@ import org.apache.cassandra.db.marshal.CollectionType;
 import org.apache.cassandra.dht.*;
 import org.apache.cassandra.utils.FBUtilities;
 
-public abstract class AbstractReadCommandBuilder
-{
-    protected final ColumnFamilyStore cfs;
-    protected int nowInSeconds;
+public abstract class AbstractReadCommandBuilder {
 
-    private int cqlLimit = -1;
-    private int pagingLimit = -1;
-    protected boolean reversed = false;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractReadCommandBuilder.class);
 
-    protected Set<ColumnIdentifier> columns;
-    protected final RowFilter filter = RowFilter.create();
+    protected final transient ColumnFamilyStore cfs;
 
-    private ClusteringBound<?> lowerClusteringBound;
-    private ClusteringBound<?> upperClusteringBound;
+    protected transient int nowInSeconds;
 
-    private NavigableSet<Clustering<?>> clusterings;
+    private transient int cqlLimit = -1;
+
+    private transient int pagingLimit = -1;
+
+    protected transient boolean reversed = false;
+
+    protected transient Set<ColumnIdentifier> columns;
+
+    protected final transient RowFilter filter = RowFilter.create();
+
+    private transient ClusteringBound<?> lowerClusteringBound;
+
+    private transient ClusteringBound<?> upperClusteringBound;
+
+    private transient NavigableSet<Clustering<?>> clusterings;
 
     // Use Util.cmd() instead of this ctor directly
-    AbstractReadCommandBuilder(ColumnFamilyStore cfs)
-    {
+    AbstractReadCommandBuilder(ColumnFamilyStore cfs) {
         this.cfs = cfs;
         this.nowInSeconds = FBUtilities.nowInSeconds();
     }
 
-    public AbstractReadCommandBuilder withNowInSeconds(int nowInSec)
-    {
+    public AbstractReadCommandBuilder withNowInSeconds(int nowInSec) {
         this.nowInSeconds = nowInSec;
         return this;
     }
 
-    public AbstractReadCommandBuilder fromIncl(Object... values)
-    {
+    public AbstractReadCommandBuilder fromIncl(Object... values) {
         assert lowerClusteringBound == null && clusterings == null;
         this.lowerClusteringBound = ClusteringBound.create(cfs.metadata().comparator, true, true, values);
         return this;
     }
 
-    public AbstractReadCommandBuilder fromExcl(Object... values)
-    {
+    public AbstractReadCommandBuilder fromExcl(Object... values) {
         assert lowerClusteringBound == null && clusterings == null;
         this.lowerClusteringBound = ClusteringBound.create(cfs.metadata().comparator, true, false, values);
         return this;
     }
 
-    public AbstractReadCommandBuilder toIncl(Object... values)
-    {
+    public AbstractReadCommandBuilder toIncl(Object... values) {
         assert upperClusteringBound == null && clusterings == null;
         this.upperClusteringBound = ClusteringBound.create(cfs.metadata().comparator, false, true, values);
         return this;
     }
 
-    public AbstractReadCommandBuilder toExcl(Object... values)
-    {
+    public AbstractReadCommandBuilder toExcl(Object... values) {
         assert upperClusteringBound == null && clusterings == null;
         this.upperClusteringBound = ClusteringBound.create(cfs.metadata().comparator, false, false, values);
         return this;
     }
 
-    public AbstractReadCommandBuilder includeRow(Object... values)
-    {
+    public AbstractReadCommandBuilder includeRow(Object... values) {
         assert lowerClusteringBound == null && upperClusteringBound == null;
-
         if (this.clusterings == null)
             this.clusterings = new TreeSet<>(cfs.metadata().comparator);
-
         this.clusterings.add(cfs.metadata().comparator.make(values));
         return this;
     }
 
-    public AbstractReadCommandBuilder reverse()
-    {
+    public AbstractReadCommandBuilder reverse() {
         this.reversed = true;
         return this;
     }
 
-    public AbstractReadCommandBuilder withLimit(int newLimit)
-    {
+    public AbstractReadCommandBuilder withLimit(int newLimit) {
         this.cqlLimit = newLimit;
         return this;
     }
 
-    public AbstractReadCommandBuilder withPagingLimit(int newLimit)
-    {
+    public AbstractReadCommandBuilder withPagingLimit(int newLimit) {
         this.pagingLimit = newLimit;
         return this;
     }
 
-    public AbstractReadCommandBuilder columns(String... columns)
-    {
+    public AbstractReadCommandBuilder columns(String... columns) {
         if (this.columns == null)
             this.columns = Sets.newHashSetWithExpectedSize(columns.length);
-
-        for (String column : columns)
-            this.columns.add(ColumnIdentifier.getInterned(column, true));
+        for (String column : columns) this.columns.add(ColumnIdentifier.getInterned(column, true));
         return this;
     }
 
-    private ByteBuffer bb(Object value, AbstractType<?> type)
-    {
-        return value instanceof ByteBuffer ? (ByteBuffer)value : ((AbstractType)type).decompose(value);
+    private ByteBuffer bb(Object value, AbstractType<?> type) {
+        return value instanceof ByteBuffer ? (ByteBuffer) value : ((AbstractType) type).decompose(value);
     }
 
-    private AbstractType<?> forValues(AbstractType<?> collectionType)
-    {
+    private AbstractType<?> forValues(AbstractType<?> collectionType) {
         assert collectionType instanceof CollectionType;
-        CollectionType ct = (CollectionType)collectionType;
-        switch (ct.kind)
-        {
+        CollectionType ct = (CollectionType) collectionType;
+        switch(ct.kind) {
             case LIST:
             case MAP:
                 return ct.valueComparator();
@@ -150,12 +136,10 @@ public abstract class AbstractReadCommandBuilder
         throw new AssertionError();
     }
 
-    private AbstractType<?> forKeys(AbstractType<?> collectionType)
-    {
+    private AbstractType<?> forKeys(AbstractType<?> collectionType) {
         assert collectionType instanceof CollectionType;
-        CollectionType ct = (CollectionType)collectionType;
-        switch (ct.kind)
-        {
+        CollectionType ct = (CollectionType) collectionType;
+        switch(ct.kind) {
             case LIST:
             case MAP:
                 return ct.nameComparator();
@@ -163,55 +147,42 @@ public abstract class AbstractReadCommandBuilder
         throw new AssertionError();
     }
 
-    public AbstractReadCommandBuilder filterOn(String column, Operator op, Object value)
-    {
+    public AbstractReadCommandBuilder filterOn(String column, Operator op, Object value) {
         ColumnMetadata def = cfs.metadata().getColumn(ColumnIdentifier.getInterned(column, true));
         assert def != null;
-
         AbstractType<?> type = def.type;
         if (op == Operator.CONTAINS)
             type = forValues(type);
         else if (op == Operator.CONTAINS_KEY)
             type = forKeys(type);
-
         this.filter.add(def, op, bb(value, type));
         return this;
     }
 
-    protected ColumnFilter makeColumnFilter()
-    {
+    protected ColumnFilter makeColumnFilter() {
         if (columns == null || columns.isEmpty())
             return ColumnFilter.all(cfs.metadata());
-
         ColumnFilter.Builder filter = ColumnFilter.selectionBuilder();
-        for (ColumnIdentifier column : columns)
-            filter.add(cfs.metadata().getColumn(column));
+        for (ColumnIdentifier column : columns) filter.add(cfs.metadata().getColumn(column));
         return filter.build();
     }
 
-    protected ClusteringIndexFilter makeFilter()
-    {
+    protected ClusteringIndexFilter makeFilter() {
         // StatementRestrictions.isColumnRange() returns false for static compact tables, which means
         // SelectStatement.makeClusteringIndexFilter uses a names filter with no clusterings for static
         // compact tables, here we reproduce this behavior (CASSANDRA-11223). Note that this code is only
         // called by tests.
         if (cfs.metadata().isStaticCompactTable())
             return new ClusteringIndexNamesFilter(new TreeSet<>(cfs.metadata().comparator), reversed);
-
-        if (clusterings != null)
-        {
+        if (clusterings != null) {
             return new ClusteringIndexNamesFilter(clusterings, reversed);
-        }
-        else
-        {
-            Slice slice = Slice.make(lowerClusteringBound == null ? BufferClusteringBound.BOTTOM : lowerClusteringBound,
-                                     upperClusteringBound == null ? BufferClusteringBound.TOP : upperClusteringBound);
+        } else {
+            Slice slice = Slice.make(lowerClusteringBound == null ? BufferClusteringBound.BOTTOM : lowerClusteringBound, upperClusteringBound == null ? BufferClusteringBound.TOP : upperClusteringBound);
             return new ClusteringIndexSliceFilter(Slices.with(cfs.metadata().comparator, slice), reversed);
         }
     }
 
-    protected DataLimits makeLimits()
-    {
+    protected DataLimits makeLimits() {
         DataLimits limits = cqlLimit < 0 ? DataLimits.NONE : DataLimits.cqlLimits(cqlLimit);
         if (pagingLimit >= 0)
             limits = limits.forPaging(pagingLimit);
@@ -220,61 +191,57 @@ public abstract class AbstractReadCommandBuilder
 
     public abstract ReadCommand build();
 
-    public static class SinglePartitionBuilder extends AbstractReadCommandBuilder
-    {
-        private final DecoratedKey partitionKey;
+    public static class SinglePartitionBuilder extends AbstractReadCommandBuilder {
 
-        public SinglePartitionBuilder(ColumnFamilyStore cfs, DecoratedKey key)
-        {
+        private final transient DecoratedKey partitionKey;
+
+        public SinglePartitionBuilder(ColumnFamilyStore cfs, DecoratedKey key) {
             super(cfs);
             this.partitionKey = key;
         }
 
         @Override
-        public ReadCommand build()
-        {
+        public ReadCommand build() {
             return SinglePartitionReadCommand.create(cfs.metadata(), nowInSeconds, makeColumnFilter(), filter, makeLimits(), partitionKey, makeFilter());
         }
     }
 
-    public static class PartitionRangeBuilder extends AbstractReadCommandBuilder
-    {
-        private DecoratedKey startKey;
-        private boolean startInclusive;
-        private DecoratedKey endKey;
-        private boolean endInclusive;
+    public static class PartitionRangeBuilder extends AbstractReadCommandBuilder {
 
-        public PartitionRangeBuilder(ColumnFamilyStore cfs)
-        {
+        private transient DecoratedKey startKey;
+
+        private transient boolean startInclusive;
+
+        private transient DecoratedKey endKey;
+
+        private transient boolean endInclusive;
+
+        public PartitionRangeBuilder(ColumnFamilyStore cfs) {
             super(cfs);
         }
 
-        public PartitionRangeBuilder fromKeyIncl(Object... values)
-        {
+        public PartitionRangeBuilder fromKeyIncl(Object... values) {
             assert startKey == null;
             this.startInclusive = true;
             this.startKey = makeKey(cfs.metadata(), values);
             return this;
         }
 
-        public PartitionRangeBuilder fromKeyExcl(Object... values)
-        {
+        public PartitionRangeBuilder fromKeyExcl(Object... values) {
             assert startKey == null;
             this.startInclusive = false;
             this.startKey = makeKey(cfs.metadata(), values);
             return this;
         }
 
-        public PartitionRangeBuilder toKeyIncl(Object... values)
-        {
+        public PartitionRangeBuilder toKeyIncl(Object... values) {
             assert endKey == null;
             this.endInclusive = true;
             this.endKey = makeKey(cfs.metadata(), values);
             return this;
         }
 
-        public PartitionRangeBuilder toKeyExcl(Object... values)
-        {
+        public PartitionRangeBuilder toKeyExcl(Object... values) {
             assert endKey == null;
             this.endInclusive = false;
             this.endKey = makeKey(cfs.metadata(), values);
@@ -282,21 +249,17 @@ public abstract class AbstractReadCommandBuilder
         }
 
         @Override
-        public ReadCommand build()
-        {
+        public ReadCommand build() {
             PartitionPosition start = startKey;
-            if (start == null)
-            {
+            if (start == null) {
                 start = cfs.getPartitioner().getMinimumToken().maxKeyBound();
                 startInclusive = false;
             }
             PartitionPosition end = endKey;
-            if (end == null)
-            {
+            if (end == null) {
                 end = cfs.getPartitioner().getMinimumToken().maxKeyBound();
                 endInclusive = true;
             }
-
             AbstractBounds<PartitionPosition> bounds;
             if (startInclusive && endInclusive)
                 bounds = new Bounds<>(start, end);
@@ -306,15 +269,12 @@ public abstract class AbstractReadCommandBuilder
                 bounds = new Range<>(start, end);
             else
                 bounds = new ExcludingBounds<>(start, end);
-
             return PartitionRangeReadCommand.create(cfs.metadata(), nowInSeconds, makeColumnFilter(), filter, makeLimits(), new DataRange(bounds, makeFilter()));
         }
 
-        static DecoratedKey makeKey(TableMetadata metadata, Object... partitionKey)
-        {
+        static DecoratedKey makeKey(TableMetadata metadata, Object... partitionKey) {
             if (partitionKey.length == 1 && partitionKey[0] instanceof DecoratedKey)
-                return (DecoratedKey)partitionKey[0];
-
+                return (DecoratedKey) partitionKey[0];
             ByteBuffer key = metadata.partitionKeyAsClusteringComparator().make(partitionKey).serializeAsPartitionKey();
             return metadata.partitioner.decorateKey(key);
         }

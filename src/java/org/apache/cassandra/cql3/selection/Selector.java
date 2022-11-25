@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3.selection;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.cql3.ColumnSpecification;
@@ -36,15 +35,16 @@ import org.apache.cassandra.transport.ProtocolVersion;
  * <p>Since the introduction of aggregation, <code>Selector</code>s cannot be called anymore by multiple threads
  * as they have an internal state.</p>
  */
-public abstract class Selector
-{
+public abstract class Selector {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Selector.class);
+
     /**
      * A factory for <code>Selector</code> instances.
      */
-    public static abstract class Factory
-    {
-        public void addFunctionsTo(List<Function> functions)
-        {
+    public static abstract class Factory {
+
+        public void addFunctionsTo(List<Function> functions) {
         }
 
         /**
@@ -54,13 +54,10 @@ public abstract class Selector
          * @param table the table meta data
          * @return a column specification
          */
-        public ColumnSpecification getColumnSpecification(TableMetadata table)
-        {
-            return new ColumnSpecification(table.keyspace,
-                                           table.name,
-                                           new ColumnIdentifier(getColumnName(), true), // note that the name is not necessarily
-                                                                                        // a true column name so we shouldn't intern it
-                                           getReturnType());
+        public ColumnSpecification getColumnSpecification(TableMetadata table) {
+            return new ColumnSpecification(table.keyspace, table.name, // note that the name is not necessarily
+            new ColumnIdentifier(getColumnName(), true), // a true column name so we shouldn't intern it
+            getReturnType());
         }
 
         /**
@@ -78,8 +75,7 @@ public abstract class Selector
          * @return <code>true</code> if this factory creates selectors instances that creates aggregates,
          * <code>false</code> otherwise
          */
-        public boolean isAggregateSelectorFactory()
-        {
+        public boolean isAggregateSelectorFactory() {
             return false;
         }
 
@@ -89,8 +85,7 @@ public abstract class Selector
          * @return <code>true</code> if this factory creates <code>writetime</code> selectors instances,
          * <code>false</code> otherwise
          */
-        public boolean isWritetimeSelectorFactory()
-        {
+        public boolean isWritetimeSelectorFactory() {
             return false;
         }
 
@@ -100,8 +95,7 @@ public abstract class Selector
          * @return <code>true</code> if this factory creates <code>TTL</code> selectors instances,
          * <code>false</code> otherwise
          */
-        public boolean isTTLSelectorFactory()
-        {
+        public boolean isTTLSelectorFactory() {
             return false;
         }
 
@@ -112,8 +106,7 @@ public abstract class Selector
          * @return <code>true</code> if this factory creates <code>Selector</code>s that simply return a column value,
          * <code>false</code> otherwise.
          */
-        public boolean isSimpleSelectorFactory()
-        {
+        public boolean isSimpleSelectorFactory() {
             return false;
         }
 
@@ -124,8 +117,7 @@ public abstract class Selector
          * @return <code>true</code> if this factory creates <code>Selector</code>s that simply return
          * the specified column, <code>false</code> otherwise.
          */
-        public boolean isSimpleSelectorFactoryFor(int index)
-        {
+        public boolean isSimpleSelectorFactoryFor(int index) {
             return false;
         }
 

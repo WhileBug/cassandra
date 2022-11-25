@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 /**
  * Contains pieces of the Java Driver that are needed to handle data types
  * in C* User-Defined-Functions/Aggregates.
@@ -35,3 +34,4 @@
  * the Java Driver.
  */
 package org.apache.cassandra.cql3.functions.types;
+

@@ -18,100 +18,76 @@
 package org.apache.cassandra.transport;
 
 import java.io.IOException;
-
 import io.netty.buffer.ByteBuf;
 import org.xerial.snappy.Snappy;
 import org.xerial.snappy.SnappyError;
-
 import net.jpountz.lz4.LZ4Factory;
-
 import org.apache.cassandra.utils.JVMStabilityInspector;
 
-public interface Compressor
-{
+public interface Compressor {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Compressor.class);
+
     public Envelope compress(Envelope uncompressed) throws IOException;
+
     public Envelope decompress(Envelope compressed) throws IOException;
 
     /*
      * TODO: We can probably do more efficient, like by avoiding copy.
      * Also, we don't reuse ICompressor because the API doesn't expose enough.
      */
-    public static class SnappyCompressor implements Compressor
-    {
-        public static final SnappyCompressor instance;
-        static
-        {
+    public static class SnappyCompressor implements Compressor {
+
+        public static final transient SnappyCompressor instance;
+
+        static {
             SnappyCompressor i;
-            try
-            {
+            try {
                 i = new SnappyCompressor();
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 JVMStabilityInspector.inspectThrowable(e);
                 i = null;
-            }
-            catch (NoClassDefFoundError | SnappyError | UnsatisfiedLinkError e)
-            {
+            } catch (NoClassDefFoundError | SnappyError | UnsatisfiedLinkError e) {
                 i = null;
             }
             instance = i;
         }
 
-        private SnappyCompressor()
-        {
+        private SnappyCompressor() {
             // this would throw java.lang.NoClassDefFoundError if Snappy class
             // wasn't found at runtime which should be processed by the calling method
             Snappy.getNativeLibraryVersion();
         }
 
-        public Envelope compress(Envelope uncompressed) throws IOException
-        {
+        public Envelope compress(Envelope uncompressed) throws IOException {
             byte[] input = CBUtil.readRawBytes(uncompressed.body);
             ByteBuf output = CBUtil.allocator.heapBuffer(Snappy.maxCompressedLength(input.length));
-
-            try
-            {
+            try {
                 int written = Snappy.compress(input, 0, input.length, output.array(), output.arrayOffset());
                 output.writerIndex(written);
-            }
-            catch (final Throwable e)
-            {
+            } catch (final Throwable e) {
                 output.release();
                 throw e;
-            }
-            finally
-            {
+            } finally {
                 uncompressed.release();
             }
-
             return uncompressed.with(output);
         }
 
-        public Envelope decompress(Envelope compressed) throws IOException
-        {
+        public Envelope decompress(Envelope compressed) throws IOException {
             byte[] input = CBUtil.readRawBytes(compressed.body);
-
             if (!Snappy.isValidCompressedBuffer(input, 0, input.length))
                 throw new ProtocolException("Provided frame does not appear to be Snappy compressed");
-
             ByteBuf output = CBUtil.allocator.heapBuffer(Snappy.uncompressedLength(input));
-
-            try
-            {
+            try {
                 int size = Snappy.uncompress(input, 0, input.length, output.array(), output.arrayOffset());
                 output.writerIndex(size);
-            }
-            catch (final Throwable e)
-            {
+            } catch (final Throwable e) {
                 output.release();
                 throw e;
-            }
-            finally
-            {
+            } finally {
                 compressed.release();
             }
-
             return compressed.with(output);
         }
     }
@@ -124,83 +100,59 @@ public interface Compressor
      * it feels like putting little-endian here would be a annoying trap for
      * client writer.
      */
-    public static class LZ4Compressor implements Compressor
-    {
-        public static final LZ4Compressor instance = new LZ4Compressor();
+    public static class LZ4Compressor implements Compressor {
 
-        private static final int INTEGER_BYTES = 4;
-        private final net.jpountz.lz4.LZ4Compressor compressor;
-        private final net.jpountz.lz4.LZ4Decompressor decompressor;
+        public static final transient LZ4Compressor instance = new LZ4Compressor();
 
-        private LZ4Compressor()
-        {
+        private static final transient int INTEGER_BYTES = 4;
+
+        private final transient net.jpountz.lz4.LZ4Compressor compressor;
+
+        private final transient net.jpountz.lz4.LZ4Decompressor decompressor;
+
+        private LZ4Compressor() {
             final LZ4Factory lz4Factory = LZ4Factory.fastestInstance();
             compressor = lz4Factory.fastCompressor();
             decompressor = lz4Factory.decompressor();
         }
 
-        public Envelope compress(Envelope uncompressed)
-        {
+        public Envelope compress(Envelope uncompressed) {
             byte[] input = CBUtil.readRawBytes(uncompressed.body);
-
             int maxCompressedLength = compressor.maxCompressedLength(input.length);
             ByteBuf outputBuf = CBUtil.allocator.heapBuffer(INTEGER_BYTES + maxCompressedLength);
-
             byte[] output = outputBuf.array();
             int outputOffset = outputBuf.arrayOffset();
-
-            output[outputOffset    ] = (byte) (input.length >>> 24);
+            output[outputOffset] = (byte) (input.length >>> 24);
             output[outputOffset + 1] = (byte) (input.length >>> 16);
-            output[outputOffset + 2] = (byte) (input.length >>>  8);
+            output[outputOffset + 2] = (byte) (input.length >>> 8);
             output[outputOffset + 3] = (byte) (input.length);
-
-            try
-            {
+            try {
                 int written = compressor.compress(input, 0, input.length, output, outputOffset + INTEGER_BYTES, maxCompressedLength);
                 outputBuf.writerIndex(INTEGER_BYTES + written);
-
                 return uncompressed.with(outputBuf);
-            }
-            catch (final Throwable e)
-            {
+            } catch (final Throwable e) {
                 outputBuf.release();
                 throw e;
-            }
-            finally
-            {
+            } finally {
                 uncompressed.release();
             }
         }
 
-        public Envelope decompress(Envelope compressed) throws IOException
-        {
+        public Envelope decompress(Envelope compressed) throws IOException {
             byte[] input = CBUtil.readRawBytes(compressed.body);
-
-            int uncompressedLength = ((input[0] & 0xFF) << 24)
-                                   | ((input[1] & 0xFF) << 16)
-                                   | ((input[2] & 0xFF) <<  8)
-                                   | ((input[3] & 0xFF));
-
+            int uncompressedLength = ((input[0] & 0xFF) << 24) | ((input[1] & 0xFF) << 16) | ((input[2] & 0xFF) << 8) | ((input[3] & 0xFF));
             ByteBuf output = CBUtil.allocator.heapBuffer(uncompressedLength);
-
-            try
-            {
+            try {
                 int read = decompressor.decompress(input, INTEGER_BYTES, output.array(), output.arrayOffset(), uncompressedLength);
                 if (read != input.length - INTEGER_BYTES)
                     throw new IOException("Compressed lengths mismatch");
-
                 output.writerIndex(uncompressedLength);
-
                 return compressed.with(output);
-            }
-            catch (final Throwable e)
-            {
+            } catch (final Throwable e) {
                 output.release();
                 throw e;
-            }
-            finally
-            {
-                //release the old message
+            } finally {
+                // release the old message
                 compressed.release();
             }
         }

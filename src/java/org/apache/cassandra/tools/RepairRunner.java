@@ -24,9 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
-
 import com.google.common.base.Throwables;
-
 import org.apache.cassandra.repair.messages.RepairOption;
 import org.apache.cassandra.service.ActiveRepairService;
 import org.apache.cassandra.service.StorageServiceMBean;
@@ -35,135 +33,110 @@ import org.apache.cassandra.utils.progress.ProgressEvent;
 import org.apache.cassandra.utils.progress.ProgressEventType;
 import org.apache.cassandra.utils.progress.jmx.JMXNotificationProgressListener;
 
-public class RepairRunner extends JMXNotificationProgressListener
-{
-    private final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS");
+public class RepairRunner extends JMXNotificationProgressListener {
 
-    private final PrintStream out;
-    private final StorageServiceMBean ssProxy;
-    private final String keyspace;
-    private final Map<String, String> options;
-    private final SimpleCondition condition = new SimpleCondition();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairRunner.class);
 
-    private int cmd;
-    private volatile Exception error;
+    private final transient SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS");
 
-    public RepairRunner(PrintStream out, StorageServiceMBean ssProxy, String keyspace, Map<String, String> options)
-    {
+    private final transient PrintStream out;
+
+    private final transient StorageServiceMBean ssProxy;
+
+    private final transient String keyspace;
+
+    private final transient Map<String, String> options;
+
+    private final transient SimpleCondition condition = new SimpleCondition();
+
+    private transient int cmd;
+
+    private volatile transient Exception error;
+
+    public RepairRunner(PrintStream out, StorageServiceMBean ssProxy, String keyspace, Map<String, String> options) {
         this.out = out;
         this.ssProxy = ssProxy;
         this.keyspace = keyspace;
         this.options = options;
     }
 
-    public void run() throws Exception
-    {
+    public void run() throws Exception {
         cmd = ssProxy.repairAsync(keyspace, options);
-        if (cmd <= 0)
-        {
+        if (cmd <= 0) {
             // repairAsync can only return 0 for replication factor 1.
             String message = String.format("Replication factor is 1. No repair is needed for keyspace '%s'", keyspace);
             printMessage(message);
-        }
-        else
-        {
-            while (!condition.await(NodeProbe.JMX_NOTIFICATION_POLL_INTERVAL_SECONDS, TimeUnit.SECONDS))
-            {
-                queryForCompletedRepair(String.format("After waiting for poll interval of %s seconds",
-                                                      NodeProbe.JMX_NOTIFICATION_POLL_INTERVAL_SECONDS));
+        } else {
+            while (!condition.await(NodeProbe.JMX_NOTIFICATION_POLL_INTERVAL_SECONDS, TimeUnit.SECONDS)) {
+                queryForCompletedRepair(String.format("After waiting for poll interval of %s seconds", NodeProbe.JMX_NOTIFICATION_POLL_INTERVAL_SECONDS));
             }
             Exception error = this.error;
-            if (error == null)
-            {
+            if (error == null) {
                 // notifications are lossy so its possible to see complete and not error; request latest state
                 // from the server
                 queryForCompletedRepair("condition satisfied");
                 error = this.error;
             }
-            if (error != null)
-            {
+            if (error != null) {
                 throw error;
             }
         }
     }
 
     @Override
-    public boolean isInterestedIn(String tag)
-    {
+    public boolean isInterestedIn(String tag) {
         return tag.equals("repair:" + cmd);
     }
 
     @Override
-    public void handleNotificationLost(long timestamp, String message)
-    {
-        if (cmd > 0)
-        {
+    public void handleNotificationLost(long timestamp, String message) {
+        if (cmd > 0) {
             // Check to see if the lost notification was a completion message
             queryForCompletedRepair("After receiving lost notification");
         }
     }
 
     @Override
-    public void handleConnectionClosed(long timestamp, String message)
-    {
+    public void handleConnectionClosed(long timestamp, String message) {
         handleConnectionFailed(timestamp, message);
     }
 
     @Override
-    public void handleConnectionFailed(long timestamp, String message)
-    {
-        error = new IOException(String.format("[%s] JMX connection closed. You should check server log for repair status of keyspace %s"
-                                              + "(Subsequent keyspaces are not going to be repaired).",
-                                              format.format(timestamp), keyspace));
+    public void handleConnectionFailed(long timestamp, String message) {
+        error = new IOException(String.format("[%s] JMX connection closed. You should check server log for repair status of keyspace %s" + "(Subsequent keyspaces are not going to be repaired).", format.format(timestamp), keyspace));
         condition.signalAll();
     }
 
     @Override
-    public void progress(String tag, ProgressEvent event)
-    {
+    public void progress(String tag, ProgressEvent event) {
         ProgressEventType type = event.getType();
         String message = event.getMessage();
-        if (type == ProgressEventType.PROGRESS)
-        {
+        if (type == ProgressEventType.PROGRESS) {
             message = message + " (progress: " + (int) event.getProgressPercentage() + "%)";
         }
         printMessage(message);
-        if (type == ProgressEventType.ERROR)
-        {
-            error = new RuntimeException(String.format("Repair job has failed with the error message: %s. " +
-                                                       "Check the logs on the repair participants for further details",
-                                                       message));
+        if (type == ProgressEventType.ERROR) {
+            error = new RuntimeException(String.format("Repair job has failed with the error message: %s. " + "Check the logs on the repair participants for further details", message));
         }
-        if (type == ProgressEventType.COMPLETE)
-        {
+        if (type == ProgressEventType.COMPLETE) {
             condition.signalAll();
         }
     }
 
-
-    private void queryForCompletedRepair(String triggeringCondition)
-    {
+    private void queryForCompletedRepair(String triggeringCondition) {
         List<String> status = ssProxy.getParentRepairStatus(cmd);
         String queriedString = "queried for parent session status and";
-        if (status == null)
-        {
-            String message = String.format("%s %s couldn't find repair status for cmd: %s", triggeringCondition,
-                                           queriedString, cmd);
+        if (status == null) {
+            String message = String.format("%s %s couldn't find repair status for cmd: %s", triggeringCondition, queriedString, cmd);
             printMessage(message);
-        }
-        else
-        {
+        } else {
             ActiveRepairService.ParentRepairStatus parentRepairStatus = ActiveRepairService.ParentRepairStatus.valueOf(status.get(0));
             List<String> messages = status.subList(1, status.size());
-            switch (parentRepairStatus)
-            {
+            switch(parentRepairStatus) {
                 case COMPLETED:
                 case FAILED:
-                    printMessage(String.format("%s %s discovered repair %s.",
-                                              triggeringCondition,
-                                              queriedString, parentRepairStatus.name().toLowerCase()));
-                    if (parentRepairStatus == ActiveRepairService.ParentRepairStatus.FAILED)
-                    {
+                    printMessage(String.format("%s %s discovered repair %s.", triggeringCondition, queriedString, parentRepairStatus.name().toLowerCase()));
+                    if (parentRepairStatus == ActiveRepairService.ParentRepairStatus.FAILED) {
                         error = new IOException(messages.get(0));
                     }
                     printMessages(messages);
@@ -179,16 +152,13 @@ public class RepairRunner extends JMXNotificationProgressListener
         }
     }
 
-    private void printMessages(List<String> messages)
-    {
-        for (String message : messages)
-        {
+    private void printMessages(List<String> messages) {
+        for (String message : messages) {
             printMessage(message);
         }
     }
 
-    private void printMessage(String message)
-    {
+    private void printMessage(String message) {
         out.println(String.format("[%s] %s", this.format.format(System.currentTimeMillis()), message));
     }
 }

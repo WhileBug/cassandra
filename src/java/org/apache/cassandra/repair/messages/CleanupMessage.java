@@ -20,7 +20,6 @@ package org.apache.cassandra.repair.messages;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.UUID;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
@@ -31,19 +30,19 @@ import org.apache.cassandra.utils.UUIDSerializer;
  *
  * @since 2.1.6
  */
-public class CleanupMessage extends RepairMessage
-{
-    public final UUID parentRepairSession;
+public class CleanupMessage extends RepairMessage {
 
-    public CleanupMessage(UUID parentRepairSession)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CleanupMessage.class);
+
+    public final transient UUID parentRepairSession;
+
+    public CleanupMessage(UUID parentRepairSession) {
         super(null);
         this.parentRepairSession = parentRepairSession;
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (!(o instanceof CleanupMessage))
             return false;
         CleanupMessage other = (CleanupMessage) o;
@@ -51,26 +50,22 @@ public class CleanupMessage extends RepairMessage
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(parentRepairSession);
     }
 
-    public static final IVersionedSerializer<CleanupMessage> serializer = new IVersionedSerializer<CleanupMessage>()
-    {
-        public void serialize(CleanupMessage message, DataOutputPlus out, int version) throws IOException
-        {
+    public static final transient IVersionedSerializer<CleanupMessage> serializer = new IVersionedSerializer<CleanupMessage>() {
+
+        public void serialize(CleanupMessage message, DataOutputPlus out, int version) throws IOException {
             UUIDSerializer.serializer.serialize(message.parentRepairSession, out, version);
         }
 
-        public CleanupMessage deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public CleanupMessage deserialize(DataInputPlus in, int version) throws IOException {
             UUID parentRepairSession = UUIDSerializer.serializer.deserialize(in, version);
             return new CleanupMessage(parentRepairSession);
         }
 
-        public long serializedSize(CleanupMessage message, int version)
-        {
+        public long serializedSize(CleanupMessage message, int version) {
             return UUIDSerializer.serializer.serializedSize(message.parentRepairSession, version);
         }
     };

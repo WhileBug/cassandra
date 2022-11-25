@@ -23,7 +23,6 @@ package org.apache.cassandra.db;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.db.marshal.ByteArrayAccessor;
 import org.apache.cassandra.db.marshal.ByteBufferAccessor;
 import org.apache.cassandra.schema.TableMetadata;
@@ -43,44 +42,38 @@ import org.apache.cassandra.utils.memory.ByteBufferCloner;
  *      iterator. See this comment for more details: https://goo.gl/yyB5mR.
  *   2) This saves some storage space.
  */
-public interface ClusteringBoundOrBoundary<V> extends ClusteringPrefix<V>
-{
-    public static final ClusteringBoundOrBoundary.Serializer serializer = new Serializer();
+public interface ClusteringBoundOrBoundary<V> extends ClusteringPrefix<V> {
 
-    default boolean isBoundary()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringBoundOrBoundary.class);
+
+    public static final transient ClusteringBoundOrBoundary.Serializer serializer = new Serializer();
+
+    default boolean isBoundary() {
         return kind().isBoundary();
     }
 
-    default boolean isOpen(boolean reversed)
-    {
+    default boolean isOpen(boolean reversed) {
         return kind().isOpen(reversed);
     }
 
-    default boolean isClose(boolean reversed)
-    {
+    default boolean isClose(boolean reversed) {
         return kind().isClose(reversed);
     }
 
-    default ClusteringBoundOrBoundary<ByteBuffer> clone(ByteBufferCloner cloner)
-    {
+    default ClusteringBoundOrBoundary<ByteBuffer> clone(ByteBufferCloner cloner) {
         ByteBuffer[] newValues = new ByteBuffer[size()];
-        for (int i = 0; i < size(); i++)
-            newValues[i] = cloner.clone(get(i), accessor());
+        for (int i = 0; i < size(); i++) newValues[i] = cloner.clone(get(i), accessor());
         return ByteBufferAccessor.instance.factory().boundOrBoundary(kind(), newValues);
     }
 
-    default String toString(TableMetadata metadata)
-    {
+    default String toString(TableMetadata metadata) {
         return toString(metadata.comparator);
     }
 
-    default String toString(ClusteringComparator comparator)
-    {
+    default String toString(ClusteringComparator comparator) {
         StringBuilder sb = new StringBuilder();
         sb.append(kind()).append('(');
-        for (int i = 0; i < size(); i++)
-        {
+        for (int i = 0; i < size(); i++) {
             if (i > 0)
                 sb.append(", ");
             sb.append(comparator.subtype(i).getString(get(i), accessor()));
@@ -98,43 +91,35 @@ public interface ClusteringBoundOrBoundary<V> extends ClusteringPrefix<V>
      */
     public abstract ClusteringBoundOrBoundary<V> invert();
 
-    public static class Serializer
-    {
-        public <T> void serialize(ClusteringBoundOrBoundary<T> bound, DataOutputPlus out, int version, List<AbstractType<?>> types) throws IOException
-        {
+    public static class Serializer {
+
+        public <T> void serialize(ClusteringBoundOrBoundary<T> bound, DataOutputPlus out, int version, List<AbstractType<?>> types) throws IOException {
             out.writeByte(bound.kind().ordinal());
             out.writeShort(bound.size());
             ClusteringPrefix.serializer.serializeValuesWithoutSize(bound, out, version, types);
         }
 
-        public <T> long serializedSize(ClusteringBoundOrBoundary<T> bound, int version, List<AbstractType<?>> types)
-        {
-            return 1 // kind ordinal
-                 + TypeSizes.sizeof((short)bound.size())
-                 + ClusteringPrefix.serializer.valuesWithoutSizeSerializedSize(bound, version, types);
+        public <T> long serializedSize(ClusteringBoundOrBoundary<T> bound, int version, List<AbstractType<?>> types) {
+            return // kind ordinal
+            1 + TypeSizes.sizeof((short) bound.size()) + ClusteringPrefix.serializer.valuesWithoutSizeSerializedSize(bound, version, types);
         }
 
-        public ClusteringBoundOrBoundary<byte[]> deserialize(DataInputPlus in, int version, List<AbstractType<?>> types) throws IOException
-        {
+        public ClusteringBoundOrBoundary<byte[]> deserialize(DataInputPlus in, int version, List<AbstractType<?>> types) throws IOException {
             Kind kind = Kind.values()[in.readByte()];
             return deserializeValues(in, kind, version, types);
         }
 
-        public void skipValues(DataInputPlus in, Kind kind, int version, List<AbstractType<?>> types) throws IOException
-        {
+        public void skipValues(DataInputPlus in, Kind kind, int version, List<AbstractType<?>> types) throws IOException {
             int size = in.readUnsignedShort();
             if (size == 0)
                 return;
-
             ClusteringPrefix.serializer.skipValuesWithoutSize(in, size, version, types);
         }
 
-        public ClusteringBoundOrBoundary<byte[]> deserializeValues(DataInputPlus in, Kind kind, int version, List<AbstractType<?>> types) throws IOException
-        {
+        public ClusteringBoundOrBoundary<byte[]> deserializeValues(DataInputPlus in, Kind kind, int version, List<AbstractType<?>> types) throws IOException {
             int size = in.readUnsignedShort();
             if (size == 0)
                 return ByteArrayAccessor.factory.bound(kind);
-
             byte[][] values = ClusteringPrefix.serializer.deserializeValuesWithoutSize(in, size, version, types);
             return ByteArrayAccessor.factory.boundOrBoundary(kind, values);
         }

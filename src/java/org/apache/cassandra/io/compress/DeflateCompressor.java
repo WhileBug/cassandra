@@ -19,7 +19,6 @@ package org.apache.cassandra.io.compress;
 
 import io.netty.util.concurrent.FastThreadLocal;
 import org.apache.cassandra.schema.CompressionParams;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -28,110 +27,95 @@ import java.util.Set;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
-
 import com.google.common.collect.ImmutableSet;
 
-public class DeflateCompressor implements ICompressor
-{
-    public static final DeflateCompressor instance = new DeflateCompressor();
+public class DeflateCompressor implements ICompressor {
 
-    private static final FastThreadLocal<byte[]> threadLocalScratchBuffer = new FastThreadLocal<byte[]>()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DeflateCompressor.class);
+
+    public static final transient DeflateCompressor instance = new DeflateCompressor();
+
+    private static final transient FastThreadLocal<byte[]> threadLocalScratchBuffer = new FastThreadLocal<byte[]>() {
+
         @Override
-        protected byte[] initialValue()
-        {
+        protected byte[] initialValue() {
             return new byte[CompressionParams.DEFAULT_CHUNK_LENGTH];
         }
     };
 
-    public static byte[] getThreadLocalScratchBuffer()
-    {
+    public static byte[] getThreadLocalScratchBuffer() {
         return threadLocalScratchBuffer.get();
     }
 
-    private final FastThreadLocal<Deflater> deflater;
-    private final FastThreadLocal<Inflater> inflater;
-    private final Set<Uses> recommendedUses;
+    private final transient FastThreadLocal<Deflater> deflater;
 
-    public static DeflateCompressor create(Map<String, String> compressionOptions)
-    {
+    private final transient FastThreadLocal<Inflater> inflater;
+
+    private final transient Set<Uses> recommendedUses;
+
+    public static DeflateCompressor create(Map<String, String> compressionOptions) {
         // no specific options supported so far
         return instance;
     }
 
-    private DeflateCompressor()
-    {
-        deflater = new FastThreadLocal<Deflater>()
-        {
+    private DeflateCompressor() {
+        deflater = new FastThreadLocal<Deflater>() {
+
             @Override
-            protected Deflater initialValue()
-            {
+            protected Deflater initialValue() {
                 return new Deflater();
             }
         };
-        inflater = new FastThreadLocal<Inflater>()
-        {
+        inflater = new FastThreadLocal<Inflater>() {
+
             @Override
-            protected Inflater initialValue()
-            {
+            protected Inflater initialValue() {
                 return new Inflater();
             }
         };
         recommendedUses = ImmutableSet.of(Uses.GENERAL);
     }
 
-    public Set<String> supportedOptions()
-    {
+    public Set<String> supportedOptions() {
         return Collections.emptySet();
     }
 
-    public int initialCompressedBufferLength(int sourceLen)
-    {
+    public int initialCompressedBufferLength(int sourceLen) {
         // Taken from zlib deflateBound(). See http://www.zlib.net/zlib_tech.html.
         return sourceLen + (sourceLen >> 12) + (sourceLen >> 14) + (sourceLen >> 25) + 13;
     }
 
-    public void compress(ByteBuffer input, ByteBuffer output)
-    {
-        if (input.hasArray() && output.hasArray())
-        {
-            int length = compressArray(input.array(), input.arrayOffset() + input.position(), input.remaining(),
-                                       output.array(), output.arrayOffset() + output.position(), output.remaining());
+    public void compress(ByteBuffer input, ByteBuffer output) {
+        if (input.hasArray() && output.hasArray()) {
+            int length = compressArray(input.array(), input.arrayOffset() + input.position(), input.remaining(), output.array(), output.arrayOffset() + output.position(), output.remaining());
             input.position(input.limit());
             output.position(output.position() + length);
-        }
-        else
+        } else
             compressBuffer(input, output);
     }
 
-    public int compressArray(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
-    {
+    public int compressArray(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength) {
         Deflater def = deflater.get();
         def.reset();
         def.setInput(input, inputOffset, inputLength);
         def.finish();
         if (def.needsInput())
             return 0;
-
         int len = def.deflate(output, outputOffset, maxOutputLength);
         assert def.finished();
         return len;
     }
 
-    public void compressBuffer(ByteBuffer input, ByteBuffer output)
-    {
+    public void compressBuffer(ByteBuffer input, ByteBuffer output) {
         Deflater def = deflater.get();
         def.reset();
-
         byte[] buffer = getThreadLocalScratchBuffer();
         // Use half the buffer for input, half for output.
         int chunkLen = buffer.length / 2;
-        while (input.remaining() > chunkLen)
-        {
+        while (input.remaining() > chunkLen) {
             input.get(buffer, 0, chunkLen);
             def.setInput(buffer, 0, chunkLen);
-            while (!def.needsInput())
-            {
+            while (!def.needsInput()) {
                 int len = def.deflate(buffer, chunkLen, chunkLen);
                 output.put(buffer, chunkLen, len);
             }
@@ -140,43 +124,32 @@ public class DeflateCompressor implements ICompressor
         input.get(buffer, 0, inputLength);
         def.setInput(buffer, 0, inputLength);
         def.finish();
-        while (!def.finished())
-        {
+        while (!def.finished()) {
             int len = def.deflate(buffer, chunkLen, chunkLen);
             output.put(buffer, chunkLen, len);
         }
     }
 
-
-    public void uncompress(ByteBuffer input, ByteBuffer output) throws IOException
-    {
-        if (input.hasArray() && output.hasArray())
-        {
-            int length = uncompress(input.array(), input.arrayOffset() + input.position(), input.remaining(),
-                                    output.array(), output.arrayOffset() + output.position(), output.remaining());
+    public void uncompress(ByteBuffer input, ByteBuffer output) throws IOException {
+        if (input.hasArray() && output.hasArray()) {
+            int length = uncompress(input.array(), input.arrayOffset() + input.position(), input.remaining(), output.array(), output.arrayOffset() + output.position(), output.remaining());
             input.position(input.limit());
             output.position(output.position() + length);
-        }
-        else
+        } else
             uncompressBuffer(input, output);
     }
 
-    public void uncompressBuffer(ByteBuffer input, ByteBuffer output) throws IOException
-    {
-        try
-        {
+    public void uncompressBuffer(ByteBuffer input, ByteBuffer output) throws IOException {
+        try {
             Inflater inf = inflater.get();
             inf.reset();
-
             byte[] buffer = getThreadLocalScratchBuffer();
             // Use half the buffer for input, half for output.
             int chunkLen = buffer.length / 2;
-            while (input.remaining() > chunkLen)
-            {
+            while (input.remaining() > chunkLen) {
                 input.get(buffer, 0, chunkLen);
                 inf.setInput(buffer, 0, chunkLen);
-                while (!inf.needsInput())
-                {
+                while (!inf.needsInput()) {
                     int len = inf.inflate(buffer, chunkLen, chunkLen);
                     output.put(buffer, chunkLen, len);
                 }
@@ -184,56 +157,44 @@ public class DeflateCompressor implements ICompressor
             int inputLength = input.remaining();
             input.get(buffer, 0, inputLength);
             inf.setInput(buffer, 0, inputLength);
-            while (!inf.needsInput())
-            {
+            while (!inf.needsInput()) {
                 int len = inf.inflate(buffer, chunkLen, chunkLen);
                 output.put(buffer, chunkLen, len);
             }
-        }
-        catch (DataFormatException e)
-        {
+        } catch (DataFormatException e) {
             throw new IOException(e);
         }
     }
 
-    public int uncompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset) throws IOException
-    {
+    public int uncompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset) throws IOException {
         return uncompress(input, inputOffset, inputLength, output, outputOffset, output.length - outputOffset);
     }
 
-    public int uncompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength) throws IOException
-    {
+    public int uncompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength) throws IOException {
         Inflater inf = inflater.get();
         inf.reset();
         inf.setInput(input, inputOffset, inputLength);
         if (inf.needsInput())
             return 0;
-
         // We assume output is big enough
-        try
-        {
+        try {
             return inf.inflate(output, outputOffset, maxOutputLength);
-        }
-        catch (DataFormatException e)
-        {
+        } catch (DataFormatException e) {
             throw new IOException(e);
         }
     }
 
-    public boolean supports(BufferType bufferType)
-    {
+    public boolean supports(BufferType bufferType) {
         return true;
     }
 
-    public BufferType preferredBufferType()
-    {
+    public BufferType preferredBufferType() {
         // Prefer array-backed buffers.
         return BufferType.ON_HEAP;
     }
 
     @Override
-    public Set<Uses> recommendedUses()
-    {
+    public Set<Uses> recommendedUses() {
         return recommendedUses;
     }
 }

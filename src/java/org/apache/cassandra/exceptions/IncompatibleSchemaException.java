@@ -19,10 +19,11 @@ package org.apache.cassandra.exceptions;
 
 import java.io.IOException;
 
-public class IncompatibleSchemaException extends IOException
-{
-    public IncompatibleSchemaException(String msg)
-    {
+public class IncompatibleSchemaException extends IOException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IncompatibleSchemaException.class);
+
+    public IncompatibleSchemaException(String msg) {
         super(msg);
     }
 }

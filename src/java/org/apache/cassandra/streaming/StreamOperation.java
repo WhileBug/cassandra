@@ -17,10 +17,12 @@
  */
 package org.apache.cassandra.streaming;
 
-public enum StreamOperation
-{
-    OTHER("Other"), // Fallback to avoid null types when deserializing from string
-    RESTORE_REPLICA_COUNT("Restore replica count", false), // Handles removeNode
+public enum StreamOperation {
+
+    // Fallback to avoid null types when deserializing from string
+    OTHER("Other"),
+    // Handles removeNode
+    RESTORE_REPLICA_COUNT("Restore replica count", false),
     DECOMMISSION("Unbootstrap", false),
     RELOCATION("Relocation", false),
     BOOTSTRAP("Bootstrap", false),
@@ -29,8 +31,8 @@ public enum StreamOperation
     REPAIR("Repair");
 
     private final String description;
-    private final boolean requiresViewBuild;
 
+    private final boolean requiresViewBuild;
 
     StreamOperation(String description) {
         this(description, true);
@@ -51,7 +53,6 @@ public enum StreamOperation
                 return b;
             }
         }
-
         return OTHER;
     }
 
@@ -62,8 +63,7 @@ public enum StreamOperation
     /**
      * Wether this operation requires views to be updated
      */
-    public boolean requiresViewBuild()
-    {
+    public boolean requiresViewBuild() {
         return this.requiresViewBuild;
     }
 }

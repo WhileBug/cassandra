@@ -23,14 +23,17 @@ import org.apache.cassandra.io.sstable.format.SSTableReader;
 /**
  * Fired when we load SSTables during the Cassandra initialization phase.
  */
-public class InitialSSTableAddedNotification implements INotification
-{
-    /** {@code true} if the addition corresponds to the {@link ColumnFamilyStore} initialization, then the sstables
-     * are those loaded at startup. */
-    public final Iterable<SSTableReader> added;
+public class InitialSSTableAddedNotification implements INotification {
 
-    public InitialSSTableAddedNotification(Iterable<SSTableReader> added)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InitialSSTableAddedNotification.class);
+
+    /**
+     * {@code true} if the addition corresponds to the {@link ColumnFamilyStore} initialization, then the sstables
+     * are those loaded at startup.
+     */
+    public final transient Iterable<SSTableReader> added;
+
+    public InitialSSTableAddedNotification(Iterable<SSTableReader> added) {
         this.added = added;
     }
 }

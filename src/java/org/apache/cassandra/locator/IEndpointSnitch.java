@@ -18,7 +18,6 @@
 package org.apache.cassandra.locator;
 
 import java.util.Set;
-
 import org.apache.cassandra.utils.FBUtilities;
 
 /**
@@ -26,9 +25,10 @@ import org.apache.cassandra.utils.FBUtilities;
  * Give a node A and another node B it can tell if A and B are on the same rack or in the same
  * datacenter.
  */
+public interface IEndpointSnitch {
 
-public interface IEndpointSnitch
-{
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IEndpointSnitch.class);
+
     /**
      * returns a String representing the rack the given endpoint belongs to
      */
@@ -37,8 +37,7 @@ public interface IEndpointSnitch
     /**
      * returns a String representing the rack current endpoint belongs to
      */
-    default public String getLocalRack()
-    {
+    default public String getLocalRack() {
         return getRack(FBUtilities.getBroadcastAddressAndPort());
     }
 
@@ -50,13 +49,11 @@ public interface IEndpointSnitch
     /**
      * returns a String representing the datacenter current endpoint belongs to
      */
-    default public String getLocalDatacenter()
-    {
+    default public String getLocalDatacenter() {
         return getDatacenter(FBUtilities.getBroadcastAddressAndPort());
     }
 
-    default public String getDatacenter(Replica replica)
-    {
+    default public String getDatacenter(Replica replica) {
         return getDatacenter(replica.endpoint());
     }
 
@@ -84,8 +81,7 @@ public interface IEndpointSnitch
     /**
      * Determine if the datacenter or rack values in the current node's snitch conflict with those passed in parameters.
      */
-    default boolean validate(Set<String> datacenters, Set<String> racks)
-    {
+    default boolean validate(Set<String> datacenters, Set<String> racks) {
         return true;
     }
 }

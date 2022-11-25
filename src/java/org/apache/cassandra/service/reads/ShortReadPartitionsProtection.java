@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads;
 
 import org.apache.cassandra.locator.Endpoints;
@@ -23,7 +22,6 @@ import org.apache.cassandra.locator.ReplicaPlan;
 import org.apache.cassandra.locator.ReplicaPlans;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.DataRange;
@@ -47,30 +45,34 @@ import org.apache.cassandra.service.reads.repair.NoopReadRepair;
 import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.tracing.Tracing;
 
-public class ShortReadPartitionsProtection extends Transformation<UnfilteredRowIterator> implements MorePartitions<UnfilteredPartitionIterator>
-{
-    private static final Logger logger = LoggerFactory.getLogger(ShortReadPartitionsProtection.class);
-    private final ReadCommand command;
-    private final Replica source;
+public class ShortReadPartitionsProtection extends Transformation<UnfilteredRowIterator> implements MorePartitions<UnfilteredPartitionIterator> {
 
-    private final Runnable preFetchCallback; // called immediately before fetching more contents
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ShortReadPartitionsProtection.class);
 
-    private final DataLimits.Counter singleResultCounter; // unmerged per-source counter
-    private final DataLimits.Counter mergedResultCounter; // merged end-result counter
+    private static final transient Logger logger = LoggerFactory.getLogger(ShortReadPartitionsProtection.class);
 
-    private DecoratedKey lastPartitionKey; // key of the last observed partition
+    private final transient ReadCommand command;
 
-    private boolean partitionsFetched; // whether we've seen any new partitions since iteration start or last moreContents() call
+    private final transient Replica source;
 
-    private final long queryStartNanoTime;
+    // called immediately before fetching more contents
+    private final transient Runnable preFetchCallback;
 
-    public ShortReadPartitionsProtection(ReadCommand command,
-                                         Replica source,
-                                         Runnable preFetchCallback,
-                                         DataLimits.Counter singleResultCounter,
-                                         DataLimits.Counter mergedResultCounter,
-                                         long queryStartNanoTime)
-    {
+    // unmerged per-source counter
+    private final transient DataLimits.Counter singleResultCounter;
+
+    // merged end-result counter
+    private final transient DataLimits.Counter mergedResultCounter;
+
+    // key of the last observed partition
+    private transient DecoratedKey lastPartitionKey;
+
+    // whether we've seen any new partitions since iteration start or last moreContents() call
+    private transient boolean partitionsFetched;
+
+    private final transient long queryStartNanoTime;
+
+    public ShortReadPartitionsProtection(ReadCommand command, Replica source, Runnable preFetchCallback, DataLimits.Counter singleResultCounter, DataLimits.Counter mergedResultCounter, long queryStartNanoTime) {
         this.command = command;
         this.source = source;
         this.preFetchCallback = preFetchCallback;
@@ -80,12 +82,9 @@ public class ShortReadPartitionsProtection extends Transformation<UnfilteredRowI
     }
 
     @Override
-    public UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition)
-    {
+    public UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition) {
         partitionsFetched = true;
-
         lastPartitionKey = partition.partitionKey();
-
         /*
          * Extend for moreContents() then apply protection to track lastClustering by applyToRow().
          *
@@ -94,11 +93,7 @@ public class ShortReadPartitionsProtection extends Transformation<UnfilteredRowI
          */
         ReplicaPlan.ForTokenRead replicaPlan = ReplicaPlans.forSingleReplicaRead(Keyspace.open(command.metadata().keyspace), partition.partitionKey().getToken(), source);
         ReplicaPlan.SharedForTokenRead sharedReplicaPlan = ReplicaPlan.shared(replicaPlan);
-        ShortReadRowsProtection protection = new ShortReadRowsProtection(partition.partitionKey(),
-                                                                         command, source,
-                                                                         (cmd) -> executeReadCommand(cmd, sharedReplicaPlan),
-                                                                         singleResultCounter,
-                                                                         mergedResultCounter);
+        ShortReadRowsProtection protection = new ShortReadRowsProtection(partition.partitionKey(), command, source, (cmd) -> executeReadCommand(cmd, sharedReplicaPlan), singleResultCounter, mergedResultCounter);
         return Transformation.apply(MoreRows.extend(partition, protection), protection);
     }
 
@@ -107,20 +102,16 @@ public class ShortReadPartitionsProtection extends Transformation<UnfilteredRowI
      * if the node had returned the requested number of rows but we still get here, then some results were
      * skipped during reconciliation.
      */
-    public UnfilteredPartitionIterator moreContents()
-    {
+    public UnfilteredPartitionIterator moreContents() {
         // never try to request additional partitions from replicas if our reconciled partitions are already filled to the limit
         assert !mergedResultCounter.isDone();
-
         // we do not apply short read protection when we have no limits at all
         assert !command.limits().isUnlimited();
-
         /*
          * If this is a single partition read command or an (indexed) partition range read command with
          * a partition key specified, then we can't and shouldn't try fetch more partitions.
          */
         assert !command.isLimitedToOnePartition();
-
         /*
          * If the returned result doesn't have enough rows/partitions to satisfy even the original limit, don't ask for more.
          *
@@ -129,7 +120,6 @@ public class ShortReadPartitionsProtection extends Transformation<UnfilteredRowI
          */
         if (command.limits().isExhausted(singleResultCounter) && command.limits().perPartitionCount() == DataLimits.NO_LIMIT)
             return null;
-
         /*
          * Either we had an empty iterator as the initial response, or our moreContents() call got us an empty iterator.
          * There is no point to ask the replica for more rows - it has no more in the requested range.
@@ -137,60 +127,41 @@ public class ShortReadPartitionsProtection extends Transformation<UnfilteredRowI
         if (!partitionsFetched)
             return null;
         partitionsFetched = false;
-
         /*
          * We are going to fetch one partition at a time for thrift and potentially more for CQL.
          * The row limit will either be set to the per partition limit - if the command has no total row limit set, or
          * the total # of rows remaining - if it has some. If we don't grab enough rows in some of the partitions,
          * then future ShortReadRowsProtection.moreContents() calls will fetch the missing ones.
          */
-        int toQuery = command.limits().count() != DataLimits.NO_LIMIT
-                      ? command.limits().count() - mergedResultCounter.rowsCounted()
-                      : command.limits().perPartitionCount();
-
+        int toQuery = command.limits().count() != DataLimits.NO_LIMIT ? command.limits().count() - mergedResultCounter.rowsCounted() : command.limits().perPartitionCount();
         ColumnFamilyStore.metricsFor(command.metadata().id).shortReadProtectionRequests.mark();
         Tracing.trace("Requesting {} extra rows from {} for short read protection", toQuery, source);
         logger.info("Requesting {} extra rows from {} for short read protection", toQuery, source);
-
         // If we've arrived here, all responses have been consumed, and we're about to request more.
         preFetchCallback.run();
-
         return makeAndExecuteFetchAdditionalPartitionReadCommand(toQuery);
     }
 
-    private UnfilteredPartitionIterator makeAndExecuteFetchAdditionalPartitionReadCommand(int toQuery)
-    {
+    private UnfilteredPartitionIterator makeAndExecuteFetchAdditionalPartitionReadCommand(int toQuery) {
         PartitionRangeReadCommand cmd = (PartitionRangeReadCommand) command;
-
         DataLimits newLimits = cmd.limits().forShortReadRetry(toQuery);
-
         AbstractBounds<PartitionPosition> bounds = cmd.dataRange().keyRange();
-        AbstractBounds<PartitionPosition> newBounds = bounds.inclusiveRight()
-                                                      ? new Range<>(lastPartitionKey, bounds.right)
-                                                      : new ExcludingBounds<>(lastPartitionKey, bounds.right);
+        AbstractBounds<PartitionPosition> newBounds = bounds.inclusiveRight() ? new Range<>(lastPartitionKey, bounds.right) : new ExcludingBounds<>(lastPartitionKey, bounds.right);
         DataRange newDataRange = cmd.dataRange().forSubRange(newBounds);
-
         ReplicaPlan.ForRangeRead replicaPlan = ReplicaPlans.forSingleReplicaRead(Keyspace.open(command.metadata().keyspace), cmd.dataRange().keyRange(), source, 1);
         return executeReadCommand(cmd.withUpdatedLimitsAndDataRange(newLimits, newDataRange), ReplicaPlan.shared(replicaPlan));
     }
 
-    private <E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>>
-    UnfilteredPartitionIterator executeReadCommand(ReadCommand cmd, ReplicaPlan.Shared<E, P> replicaPlan)
-    {
-        DataResolver<E, P> resolver = new DataResolver<>(cmd, replicaPlan, (NoopReadRepair<E, P>)NoopReadRepair.instance, queryStartNanoTime);
+    private <E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>> UnfilteredPartitionIterator executeReadCommand(ReadCommand cmd, ReplicaPlan.Shared<E, P> replicaPlan) {
+        DataResolver<E, P> resolver = new DataResolver<>(cmd, replicaPlan, (NoopReadRepair<E, P>) NoopReadRepair.instance, queryStartNanoTime);
         ReadCallback<E, P> handler = new ReadCallback<>(resolver, cmd, replicaPlan, queryStartNanoTime);
-
-        if (source.isSelf())
-        {
+        if (source.isSelf()) {
             Stage.READ.maybeExecuteImmediately(new StorageProxy.LocalReadRunnable(cmd, handler));
-        }
-        else
-        {
+        } else {
             if (source.isTransient())
                 cmd = cmd.copyAsTransientQuery(source);
             MessagingService.instance().sendWithCallback(cmd.createMessage(false), source.endpoint(), handler);
         }
-
         // We don't call handler.get() because we want to preserve tombstones since we're still in the middle of merging node results.
         handler.awaitResults();
         assert resolver.getMessages().size() == 1;

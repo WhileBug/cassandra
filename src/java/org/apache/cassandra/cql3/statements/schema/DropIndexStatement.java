@@ -31,83 +31,68 @@ import org.apache.cassandra.transport.Event.SchemaChange;
 import org.apache.cassandra.transport.Event.SchemaChange.Change;
 import org.apache.cassandra.transport.Event.SchemaChange.Target;
 
-public final class DropIndexStatement extends AlterSchemaStatement
-{
-    private final String indexName;
-    private final boolean ifExists;
+public final class DropIndexStatement extends AlterSchemaStatement {
 
-    public DropIndexStatement(String keyspaceName, String indexName, boolean ifExists)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropIndexStatement.class);
+
+    private final transient String indexName;
+
+    private final transient boolean ifExists;
+
+    public DropIndexStatement(String keyspaceName, String indexName, boolean ifExists) {
         super(keyspaceName);
         this.indexName = indexName;
         this.ifExists = ifExists;
     }
 
-    public Keyspaces apply(Keyspaces schema)
-    {
+    public Keyspaces apply(Keyspaces schema) {
         KeyspaceMetadata keyspace = schema.getNullable(keyspaceName);
-
-        TableMetadata table = null == keyspace
-                            ? null
-                            : keyspace.findIndexedTable(indexName).orElse(null);
-
-        if (null == table)
-        {
+        TableMetadata table = null == keyspace ? null : keyspace.findIndexedTable(indexName).orElse(null);
+        if (null == table) {
             if (ifExists)
                 return schema;
-
             throw ire("Index '%s.%s' doesn't exist'", keyspaceName, indexName);
         }
-
         TableMetadata newTable = table.withSwapped(table.indexes.without(indexName));
         return schema.withAddedOrUpdated(keyspace.withSwapped(keyspace.tables.withSwapped(newTable)));
     }
 
-    SchemaChange schemaChangeEvent(KeyspacesDiff diff)
-    {
+    SchemaChange schemaChangeEvent(KeyspacesDiff diff) {
         assert diff.altered.size() == 1;
         KeyspaceDiff ksDiff = diff.altered.get(0);
-
         assert ksDiff.tables.altered.size() == 1;
         Diff.Altered<TableMetadata> tableDiff = ksDiff.tables.altered.iterator().next();
-
         return new SchemaChange(Change.UPDATED, Target.TABLE, keyspaceName, tableDiff.after.name);
     }
 
-    public void authorize(ClientState client)
-    {
+    public void authorize(ClientState client) {
         KeyspaceMetadata keyspace = Schema.instance.getKeyspaceMetadata(keyspaceName);
         if (null == keyspace)
             return;
-
-        keyspace.findIndexedTable(indexName)
-                .ifPresent(t -> client.ensureTablePermission(keyspaceName, t.name, Permission.ALTER));
+        keyspace.findIndexedTable(indexName).ifPresent(t -> client.ensureTablePermission(keyspaceName, t.name, Permission.ALTER));
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.DROP_INDEX, keyspaceName, indexName);
     }
 
-    public String toString()
-    {
+    public String toString() {
         return String.format("%s (%s, %s)", getClass().getSimpleName(), keyspaceName, indexName);
     }
 
-    public static final class Raw extends CQLStatement.Raw
-    {
-        private final QualifiedName name;
-        private final boolean ifExists;
+    public static final class Raw extends CQLStatement.Raw {
 
-        public Raw(QualifiedName name, boolean ifExists)
-        {
+        private final transient QualifiedName name;
+
+        private final transient boolean ifExists;
+
+        public Raw(QualifiedName name, boolean ifExists) {
             this.name = name;
             this.ifExists = ifExists;
         }
 
-        public DropIndexStatement prepare(ClientState state)
-        {
+        public DropIndexStatement prepare(ClientState state) {
             String keyspaceName = name.hasKeyspace() ? name.getKeyspace() : state.getKeyspace();
             return new DropIndexStatement(keyspaceName, name.getName(), ifExists);
         }

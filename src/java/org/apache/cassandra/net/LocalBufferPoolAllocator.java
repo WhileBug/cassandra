@@ -18,7 +18,6 @@
 package org.apache.cassandra.net;
 
 import java.nio.ByteBuffer;
-
 import io.netty.channel.EventLoop;
 import org.apache.cassandra.utils.memory.BufferPool;
 import org.apache.cassandra.utils.memory.BufferPools;
@@ -30,36 +29,35 @@ import org.apache.cassandra.utils.memory.BufferPools;
  * Exists to facilitate more efficient handling large messages on the inbound path,
  * used by {@link ConnectionType#LARGE_MESSAGES} connections.
  */
-class LocalBufferPoolAllocator extends BufferPoolAllocator
-{
-    private final BufferPool.LocalPool pool;
-    private final EventLoop eventLoop;
+class LocalBufferPoolAllocator extends BufferPoolAllocator {
 
-    LocalBufferPoolAllocator(EventLoop eventLoop)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LocalBufferPoolAllocator.class);
+
+    private final transient BufferPool.LocalPool pool;
+
+    private final transient EventLoop eventLoop;
+
+    LocalBufferPoolAllocator(EventLoop eventLoop) {
         this.pool = BufferPools.forNetworking().create().recycleWhenFree(false);
         this.eventLoop = eventLoop;
     }
 
     @Override
-    ByteBuffer get(int size)
-    {
+    ByteBuffer get(int size) {
         if (!eventLoop.inEventLoop())
             throw new IllegalStateException("get() called from outside of owning event loop");
         return pool.get(size);
     }
 
     @Override
-    ByteBuffer getAtLeast(int size)
-    {
+    ByteBuffer getAtLeast(int size) {
         if (!eventLoop.inEventLoop())
             throw new IllegalStateException("getAtLeast() called from outside of owning event loop");
         return pool.getAtLeast(size);
     }
 
     @Override
-    public void release()
-    {
+    public void release() {
         pool.release();
     }
 }

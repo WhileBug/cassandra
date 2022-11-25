@@ -20,56 +20,38 @@ package org.apache.cassandra.streaming.management;
 import java.util.HashMap;
 import java.util.Map;
 import javax.management.openmbean.*;
-
 import com.google.common.base.Throwables;
-
 import org.apache.cassandra.streaming.StreamEvent;
 
-public class SessionCompleteEventCompositeData
-{
-    private static final String[] ITEM_NAMES = new String[]{"planId",
-                                                            "peer",
-                                                            "peer storage port",
-                                                            "success"};
-    private static final String[] ITEM_DESCS = new String[]{"Plan ID",
-                                                            "Session peer",
-                                                            "Session peer storage port",
-                                                            "Indicates whether session was successful"};
-    private static final OpenType<?>[] ITEM_TYPES = new OpenType[]{SimpleType.STRING,
-                                                                   SimpleType.STRING,
-                                                                   SimpleType.INTEGER,
-                                                                   SimpleType.BOOLEAN};
+public class SessionCompleteEventCompositeData {
 
-    public static final CompositeType COMPOSITE_TYPE;
-    static
-    {
-        try
-        {
-            COMPOSITE_TYPE = new CompositeType(StreamEvent.SessionCompleteEvent.class.getName(),
-                                               "SessionCompleteEvent",
-                                               ITEM_NAMES,
-                                               ITEM_DESCS,
-                                               ITEM_TYPES);
-        }
-        catch (OpenDataException e)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SessionCompleteEventCompositeData.class);
+
+    private static final transient String[] ITEM_NAMES = new String[] { "planId", "peer", "peer storage port", "success" };
+
+    private static final transient String[] ITEM_DESCS = new String[] { "Plan ID", "Session peer", "Session peer storage port", "Indicates whether session was successful" };
+
+    private static final transient OpenType<?>[] ITEM_TYPES = new OpenType[] { SimpleType.STRING, SimpleType.STRING, SimpleType.INTEGER, SimpleType.BOOLEAN };
+
+    public static final transient CompositeType COMPOSITE_TYPE;
+
+    static {
+        try {
+            COMPOSITE_TYPE = new CompositeType(StreamEvent.SessionCompleteEvent.class.getName(), "SessionCompleteEvent", ITEM_NAMES, ITEM_DESCS, ITEM_TYPES);
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public static CompositeData toCompositeData(StreamEvent.SessionCompleteEvent event)
-    {
+    public static CompositeData toCompositeData(StreamEvent.SessionCompleteEvent event) {
         Map<String, Object> valueMap = new HashMap<>();
         valueMap.put(ITEM_NAMES[0], event.planId.toString());
         valueMap.put(ITEM_NAMES[1], event.peer.address.getHostAddress());
         valueMap.put(ITEM_NAMES[2], event.peer.port);
         valueMap.put(ITEM_NAMES[3], event.success);
-        try
-        {
+        try {
             return new CompositeDataSupport(COMPOSITE_TYPE, valueMap);
-        }
-        catch (OpenDataException e)
-        {
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }

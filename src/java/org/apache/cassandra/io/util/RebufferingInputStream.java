@@ -24,13 +24,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import com.google.common.base.Preconditions;
-
 import net.nicoulaj.compilecommand.annotations.DontInline;
 import org.apache.cassandra.utils.FastByteOperations;
 import org.apache.cassandra.utils.vint.VIntCoding;
-
 import static java.lang.Math.min;
 
 /**
@@ -39,12 +36,13 @@ import static java.lang.Math.min;
  *
  * RebufferingInputStream is not thread safe.
  */
-public abstract class RebufferingInputStream extends InputStream implements DataInputPlus, Closeable
-{
-    protected ByteBuffer buffer;
+public abstract class RebufferingInputStream extends InputStream implements DataInputPlus, Closeable {
 
-    protected RebufferingInputStream(ByteBuffer buffer)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RebufferingInputStream.class);
+
+    protected transient ByteBuffer buffer;
+
+    protected RebufferingInputStream(ByteBuffer buffer) {
         Preconditions.checkArgument(buffer == null || buffer.order() == ByteOrder.BIG_ENDIAN, "Buffer must have BIG ENDIAN byte ordering");
         this.buffer = buffer;
     }
@@ -57,36 +55,29 @@ public abstract class RebufferingInputStream extends InputStream implements Data
     protected abstract void reBuffer() throws IOException;
 
     @Override
-    public void readFully(byte[] b) throws IOException
-    {
+    public void readFully(byte[] b) throws IOException {
         readFully(b, 0, b.length);
     }
 
     @Override
-    public void readFully(byte[] b, int off, int len) throws IOException
-    {
+    public void readFully(byte[] b, int off, int len) throws IOException {
         int read = read(b, off, len);
         if (read < len)
             throw new EOFException("EOF after " + read + " bytes out of " + len);
     }
 
     @Override
-    public int read(byte[] b, int off, int len) throws IOException
-    {
+    public int read(byte[] b, int off, int len) throws IOException {
         // avoid int overflow
         if (off < 0 || off > b.length || len < 0 || len > b.length - off)
             throw new IndexOutOfBoundsException();
-
         if (len == 0)
             return 0;
-
         int copied = 0;
-        while (copied < len)
-        {
+        while (copied < len) {
             int position = buffer.position();
             int remaining = buffer.limit() - position;
-            if (remaining == 0)
-            {
+            if (remaining == 0) {
                 reBuffer();
                 position = buffer.position();
                 remaining = buffer.limit() - position;
@@ -98,35 +89,26 @@ public abstract class RebufferingInputStream extends InputStream implements Data
             buffer.position(position + toCopy);
             copied += toCopy;
         }
-
         return copied;
     }
 
     /**
      * Equivalent to {@link #read(byte[], int, int)}, where offset is {@code dst.position()} and length is {@code dst.remaining()}
      */
-    public void readFully(ByteBuffer dst) throws IOException
-    {
+    public void readFully(ByteBuffer dst) throws IOException {
         int offset = dst.position();
         int len = dst.limit() - offset;
-
         int copied = 0;
-        while (copied < len)
-        {
+        while (copied < len) {
             int position = buffer.position();
             int remaining = buffer.limit() - position;
-
-            if (remaining == 0)
-            {
+            if (remaining == 0) {
                 reBuffer();
-
                 position = buffer.position();
                 remaining = buffer.limit() - position;
-
                 if (remaining == 0)
                     throw new EOFException("EOF after " + copied + " bytes out of " + len);
             }
-
             int toCopy = min(len - copied, remaining);
             FastByteOperations.copy(buffer, position, dst, offset + copied, toCopy);
             buffer.position(position + toCopy);
@@ -135,23 +117,19 @@ public abstract class RebufferingInputStream extends InputStream implements Data
     }
 
     @DontInline
-    protected long readPrimitiveSlowly(int bytes) throws IOException
-    {
+    protected long readPrimitiveSlowly(int bytes) throws IOException {
         long result = 0;
-        for (int i = 0; i < bytes; i++)
-            result = (result << 8) | (readByte() & 0xFFL);
+        for (int i = 0; i < bytes; i++) result = (result << 8) | (readByte() & 0xFFL);
         return result;
     }
 
     @Override
-    public int skipBytes(int n) throws IOException
-    {
+    public int skipBytes(int n) throws IOException {
         if (n <= 0)
             return 0;
         int requested = n;
         int position = buffer.position(), limit = buffer.limit(), remaining;
-        while ((remaining = limit - position) < n)
-        {
+        while ((remaining = limit - position) < n) {
             n -= remaining;
             buffer.position(limit);
             reBuffer();
@@ -165,33 +143,27 @@ public abstract class RebufferingInputStream extends InputStream implements Data
     }
 
     @Override
-    public boolean readBoolean() throws IOException
-    {
+    public boolean readBoolean() throws IOException {
         return readByte() != 0;
     }
 
     @Override
-    public byte readByte() throws IOException
-    {
-        if (!buffer.hasRemaining())
-        {
+    public byte readByte() throws IOException {
+        if (!buffer.hasRemaining()) {
             reBuffer();
             if (!buffer.hasRemaining())
                 throw new EOFException();
         }
-
         return buffer.get();
     }
 
     @Override
-    public int readUnsignedByte() throws IOException
-    {
+    public int readUnsignedByte() throws IOException {
         return readByte() & 0xff;
     }
 
     @Override
-    public short readShort() throws IOException
-    {
+    public short readShort() throws IOException {
         if (buffer.remaining() >= 2)
             return buffer.getShort();
         else
@@ -199,14 +171,12 @@ public abstract class RebufferingInputStream extends InputStream implements Data
     }
 
     @Override
-    public int readUnsignedShort() throws IOException
-    {
+    public int readUnsignedShort() throws IOException {
         return readShort() & 0xFFFF;
     }
 
     @Override
-    public char readChar() throws IOException
-    {
+    public char readChar() throws IOException {
         if (buffer.remaining() >= 2)
             return buffer.getChar();
         else
@@ -214,8 +184,7 @@ public abstract class RebufferingInputStream extends InputStream implements Data
     }
 
     @Override
-    public int readInt() throws IOException
-    {
+    public int readInt() throws IOException {
         if (buffer.remaining() >= 4)
             return buffer.getInt();
         else
@@ -223,41 +192,32 @@ public abstract class RebufferingInputStream extends InputStream implements Data
     }
 
     @Override
-    public long readLong() throws IOException
-    {
+    public long readLong() throws IOException {
         if (buffer.remaining() >= 8)
             return buffer.getLong();
         else
             return readPrimitiveSlowly(8);
     }
 
-    public long readVInt() throws IOException
-    {
+    public long readVInt() throws IOException {
         return VIntCoding.decodeZigZag64(readUnsignedVInt());
     }
 
-    public long readUnsignedVInt() throws IOException
-    {
-        //If 9 bytes aren't available use the slow path in VIntCoding
+    public long readUnsignedVInt() throws IOException {
+        // If 9 bytes aren't available use the slow path in VIntCoding
         if (buffer.remaining() < 9)
             return VIntCoding.readUnsignedVInt(this);
-
         byte firstByte = buffer.get();
-
-        //Bail out early if this is one byte, necessary or it fails later
+        // Bail out early if this is one byte, necessary or it fails later
         if (firstByte >= 0)
             return firstByte;
-
         int extraBytes = VIntCoding.numberOfExtraBytesToRead(firstByte);
-
         int position = buffer.position();
         int extraBits = extraBytes * 8;
-
         long retval = buffer.getLong(position);
         if (buffer.order() == ByteOrder.LITTLE_ENDIAN)
             retval = Long.reverseBytes(retval);
         buffer.position(position + extraBytes);
-
         // truncate the bytes we read in excess of those we needed
         retval >>>= 64 - extraBits;
         // remove the non-value bits from the first byte
@@ -268,17 +228,15 @@ public abstract class RebufferingInputStream extends InputStream implements Data
     }
 
     @Override
-    public float readFloat() throws IOException
-    {
+    public float readFloat() throws IOException {
         if (buffer.remaining() >= 4)
             return buffer.getFloat();
         else
-            return Float.intBitsToFloat((int)readPrimitiveSlowly(4));
+            return Float.intBitsToFloat((int) readPrimitiveSlowly(4));
     }
 
     @Override
-    public double readDouble() throws IOException
-    {
+    public double readDouble() throws IOException {
         if (buffer.remaining() >= 8)
             return buffer.getDouble();
         else
@@ -286,26 +244,20 @@ public abstract class RebufferingInputStream extends InputStream implements Data
     }
 
     @Override
-    public String readLine() throws IOException
-    {
+    public String readLine() throws IOException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public String readUTF() throws IOException
-    {
+    public String readUTF() throws IOException {
         return DataInputStream.readUTF(this);
     }
 
     @Override
-    public int read() throws IOException
-    {
-        try
-        {
+    public int read() throws IOException {
+        try {
             return readUnsignedByte();
-        }
-        catch (EOFException ex)
-        {
+        } catch (EOFException ex) {
             return -1;
         }
     }

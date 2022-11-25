@@ -19,14 +19,11 @@ package org.apache.cassandra.net;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import javax.annotation.Nullable;
-
 import org.apache.cassandra.exceptions.RequestFailureReason;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.UUIDSerializer;
-
 import static java.lang.Math.max;
 import static org.apache.cassandra.locator.InetAddressAndPort.FwdFrmSerializer.fwdFrmSerializer;
 
@@ -38,78 +35,67 @@ import static org.apache.cassandra.locator.InetAddressAndPort.FwdFrmSerializer.f
  *
  * Please don't add boolean params here. Extend and use {@link MessageFlag} instead.
  */
-public enum ParamType
-{
-    FORWARD_TO          (0, "FWD_TO",        ForwardingInfo.serializer),
-    RESPOND_TO          (1, "FWD_FRM",       fwdFrmSerializer),
+public enum ParamType {
 
+    FORWARD_TO(0, "FWD_TO", ForwardingInfo.serializer),
+    RESPOND_TO(1, "FWD_FRM", fwdFrmSerializer),
     @Deprecated
-    FAILURE_RESPONSE    (2, "FAIL",          LegacyFlag.serializer),
+    FAILURE_RESPONSE(2, "FAIL", LegacyFlag.serializer),
     @Deprecated
-    FAILURE_REASON      (3, "FAIL_REASON",   RequestFailureReason.serializer),
+    FAILURE_REASON(3, "FAIL_REASON", RequestFailureReason.serializer),
     @Deprecated
-    FAILURE_CALLBACK    (4, "CAL_BAC",       LegacyFlag.serializer),
-
-    TRACE_SESSION       (5, "TraceSession",  UUIDSerializer.serializer),
-    TRACE_TYPE          (6, "TraceType",     Tracing.traceTypeSerializer),
-
+    FAILURE_CALLBACK(4, "CAL_BAC", LegacyFlag.serializer),
+    TRACE_SESSION(5, "TraceSession", UUIDSerializer.serializer),
+    TRACE_TYPE(6, "TraceType", Tracing.traceTypeSerializer),
     @Deprecated
-    TRACK_REPAIRED_DATA (7, "TrackRepaired", LegacyFlag.serializer);
+    TRACK_REPAIRED_DATA(7, "TrackRepaired", LegacyFlag.serializer);
 
     final int id;
-    @Deprecated final String legacyAlias; // pre-4.0 we used to serialize entire param name string
+
+    // pre-4.0 we used to serialize entire param name string
+    @Deprecated
+    final String legacyAlias;
+
     final IVersionedSerializer serializer;
 
-    ParamType(int id, String legacyAlias, IVersionedSerializer serializer)
-    {
+    ParamType(int id, String legacyAlias, IVersionedSerializer serializer) {
         if (id < 0)
             throw new IllegalArgumentException("ParamType id must be non-negative");
-
         this.id = id;
         this.legacyAlias = legacyAlias;
         this.serializer = serializer;
     }
 
     private static final ParamType[] idToTypeMap;
+
     private static final Map<String, ParamType> aliasToTypeMap;
 
-    static
-    {
+    static {
         ParamType[] types = values();
-
         int max = -1;
-        for (ParamType t : types)
-            max = max(t.id, max);
-
+        for (ParamType t : types) max = max(t.id, max);
         ParamType[] idMap = new ParamType[max + 1];
         Map<String, ParamType> aliasMap = new HashMap<>();
-
-        for (ParamType type : types)
-        {
+        for (ParamType type : types) {
             if (idMap[type.id] != null)
                 throw new RuntimeException("Two ParamType-s that map to the same id: " + type.id);
             idMap[type.id] = type;
-
             if (aliasMap.put(type.legacyAlias, type) != null)
                 throw new RuntimeException("Two ParamType-s that map to the same legacy alias: " + type.legacyAlias);
         }
-
         idToTypeMap = idMap;
         aliasToTypeMap = aliasMap;
     }
 
     @Nullable
-    static ParamType lookUpById(int id)
-    {
+    static ParamType lookUpById(int id) {
         if (id < 0)
             throw new IllegalArgumentException("ParamType id must be non-negative (got " + id + ')');
-
         return id < idToTypeMap.length ? idToTypeMap[id] : null;
     }
 
     @Nullable
-    static ParamType lookUpByAlias(String alias)
-    {
+    static ParamType lookUpByAlias(String alias) {
         return aliasToTypeMap.get(alias);
     }
 }

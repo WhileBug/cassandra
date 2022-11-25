@@ -19,16 +19,14 @@ package org.apache.cassandra.utils;
 
 import com.google.common.base.Throwables;
 
-public abstract class WrappedRunnable implements Runnable
-{
-    public final void run()
-    {
-        try
-        {
+public abstract class WrappedRunnable implements Runnable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WrappedRunnable.class);
+
+    public final void run() {
+        try {
             runMayThrow();
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw Throwables.propagate(e);
         }
     }

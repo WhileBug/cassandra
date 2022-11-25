@@ -19,12 +19,13 @@ package org.apache.cassandra.notifications;
 
 import org.apache.cassandra.db.Memtable;
 
-public class MemtableRenewedNotification implements INotification
-{
-    public final Memtable renewed;
+public class MemtableRenewedNotification implements INotification {
 
-    public MemtableRenewedNotification(Memtable renewed)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemtableRenewedNotification.class);
+
+    public final transient Memtable renewed;
+
+    public MemtableRenewedNotification(Memtable renewed) {
         this.renewed = renewed;
     }
 }

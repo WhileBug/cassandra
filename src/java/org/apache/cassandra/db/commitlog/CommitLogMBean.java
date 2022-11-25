@@ -17,13 +17,14 @@
  */
 package org.apache.cassandra.db.commitlog;
 
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-public interface CommitLogMBean
-{
+public interface CommitLogMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CommitLogMBean.class);
+
     /**
      *  Command to execute to archive a commitlog segment.  Blank to disabled.
      */

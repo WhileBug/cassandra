@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.view;
 
 import java.util.Optional;
 import java.util.function.Predicate;
-
 import com.google.common.collect.Iterables;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.Keyspace;
@@ -31,10 +29,11 @@ import org.apache.cassandra.locator.NetworkTopologyStrategy;
 import org.apache.cassandra.locator.Replica;
 import org.apache.cassandra.utils.FBUtilities;
 
-public final class ViewUtils
-{
-    private ViewUtils()
-    {
+public final class ViewUtils {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ViewUtils.class);
+
+    private ViewUtils() {
     }
 
     /**
@@ -59,49 +58,34 @@ public final class ViewUtils
      *
      * @return Optional.empty() if this method is called using a base token which does not belong to this replica
      */
-    public static Optional<Replica> getViewNaturalEndpoint(AbstractReplicationStrategy replicationStrategy, Token baseToken, Token viewToken)
-    {
+    public static Optional<Replica> getViewNaturalEndpoint(AbstractReplicationStrategy replicationStrategy, Token baseToken, Token viewToken) {
         String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getLocalDatacenter();
         EndpointsForToken naturalBaseReplicas = replicationStrategy.getNaturalReplicasForToken(baseToken);
         EndpointsForToken naturalViewReplicas = replicationStrategy.getNaturalReplicasForToken(viewToken);
-
         Optional<Replica> localReplica = Iterables.tryFind(naturalViewReplicas, Replica::isSelf).toJavaUtil();
         if (localReplica.isPresent())
             return localReplica;
-
         // We only select replicas from our own DC
         // TODO: this is poor encapsulation, leaking implementation details of replication strategy
-        Predicate<Replica> isLocalDC = r -> !(replicationStrategy instanceof NetworkTopologyStrategy)
-                || DatabaseDescriptor.getEndpointSnitch().getDatacenter(r).equals(localDataCenter);
-
+        Predicate<Replica> isLocalDC = r -> !(replicationStrategy instanceof NetworkTopologyStrategy) || DatabaseDescriptor.getEndpointSnitch().getDatacenter(r).equals(localDataCenter);
         // We have to remove any endpoint which is shared between the base and the view, as it will select itself
         // and throw off the counts otherwise.
-        EndpointsForToken baseReplicas = naturalBaseReplicas.filter(
-                r -> !naturalViewReplicas.endpoints().contains(r.endpoint()) && isLocalDC.test(r)
-        );
-        EndpointsForToken viewReplicas = naturalViewReplicas.filter(
-                r -> !naturalBaseReplicas.endpoints().contains(r.endpoint()) && isLocalDC.test(r)
-        );
-
+        EndpointsForToken baseReplicas = naturalBaseReplicas.filter(r -> !naturalViewReplicas.endpoints().contains(r.endpoint()) && isLocalDC.test(r));
+        EndpointsForToken viewReplicas = naturalViewReplicas.filter(r -> !naturalBaseReplicas.endpoints().contains(r.endpoint()) && isLocalDC.test(r));
         // The replication strategy will be the same for the base and the view, as they must belong to the same keyspace.
         // Since the same replication strategy is used, the same placement should be used and we should get the same
         // number of replicas for all of the tokens in the ring.
         assert baseReplicas.size() == viewReplicas.size() : "Replication strategy should have the same number of endpoints for the base and the view";
-
         int baseIdx = -1;
-        for (int i=0; i<baseReplicas.size(); i++)
-        {
-            if (baseReplicas.get(i).isSelf())
-            {
+        for (int i = 0; i < baseReplicas.size(); i++) {
+            if (baseReplicas.get(i).isSelf()) {
                 baseIdx = i;
                 break;
             }
         }
-
         if (baseIdx < 0)
-            //This node is not a base replica of this key, so we return empty
+            // This node is not a base replica of this key, so we return empty
             return Optional.empty();
-
         return Optional.of(viewReplicas.get(baseIdx));
     }
 }

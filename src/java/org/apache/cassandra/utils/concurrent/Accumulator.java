@@ -29,16 +29,21 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
  *
  * @param <E>
  */
-public class Accumulator<E>
-{
-    private volatile int nextIndex;
-    private volatile int presentCount;
-    private final Object[] values;
-    private static final AtomicIntegerFieldUpdater<Accumulator> nextIndexUpdater = AtomicIntegerFieldUpdater.newUpdater(Accumulator.class, "nextIndex");
-    private static final AtomicIntegerFieldUpdater<Accumulator> presentCountUpdater = AtomicIntegerFieldUpdater.newUpdater(Accumulator.class, "presentCount");
+public class Accumulator<E> {
 
-    public Accumulator(int size)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Accumulator.class);
+
+    private volatile transient int nextIndex;
+
+    private volatile transient int presentCount;
+
+    private final transient Object[] values;
+
+    private static final transient AtomicIntegerFieldUpdater<Accumulator> nextIndexUpdater = AtomicIntegerFieldUpdater.newUpdater(Accumulator.class, "nextIndex");
+
+    private static final transient AtomicIntegerFieldUpdater<Accumulator> presentCountUpdater = AtomicIntegerFieldUpdater.newUpdater(Accumulator.class, "presentCount");
+
+    public Accumulator(int size) {
         values = new Object[size];
     }
 
@@ -51,11 +56,9 @@ public class Accumulator<E>
      *
      * @param item add to collection
      */
-    public void add(E item)
-    {
+    public void add(E item) {
         int insertPos;
-        while (true)
-        {
+        while (true) {
             insertPos = nextIndex;
             if (insertPos >= values.length)
                 throw new IllegalStateException();
@@ -66,17 +69,14 @@ public class Accumulator<E>
         // we then try to increase presentCount for each consecutive value that is visible after the current size;
         // this should hopefully extend past us, but if it doesn't this behaviour means the lagging write will fix up
         // our state for us.
-        //
+        // 
         // we piggyback off presentCountUpdater to get volatile write semantics for our update to values
         boolean volatileWrite = false;
-        while (true)
-        {
+        while (true) {
             int cur = presentCount;
-            if (cur != insertPos && (cur == values.length || values[cur] == null))
-            {
+            if (cur != insertPos && (cur == values.length || values[cur] == null)) {
                 // ensure our item has been made visible before aborting
-                if (!volatileWrite && cur < insertPos && !presentCountUpdater.compareAndSet(this, cur, cur))
-                {
+                if (!volatileWrite && cur < insertPos && !presentCountUpdater.compareAndSet(this, cur, cur)) {
                     // if we fail to CAS it means an older write has completed, and may have not fixed us up
                     // due to our write not being visible
                     volatileWrite = true;
@@ -89,69 +89,58 @@ public class Accumulator<E>
         }
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return presentCount == 0;
     }
 
     /**
      * @return the size of guaranteed-to-be-visible portion of the list
      */
-    public int size()
-    {
+    public int size() {
         return presentCount;
     }
 
-    public int capacity()
-    {
+    public int capacity() {
         return values.length;
     }
 
-    private Iterator<E> iterator(int count)
-    {
-        return new Iterator<E>()
-        {
+    private Iterator<E> iterator(int count) {
+        return new Iterator<E>() {
+
             int p = 0;
 
-            public boolean hasNext()
-            {
+            public boolean hasNext() {
                 return p < count;
             }
 
-            public E next()
-            {
+            public E next() {
                 return (E) values[p++];
             }
 
-            public void remove()
-            {
+            public void remove() {
                 throw new UnsupportedOperationException();
             }
         };
     }
 
-    public E get(int i)
-    {
+    public E get(int i) {
         // we read presentCount to guarantee a volatile read of values
         if (i >= presentCount)
             throw new IndexOutOfBoundsException();
         return (E) values[i];
     }
 
-    public Collection<E> snapshot()
-    {
+    public Collection<E> snapshot() {
         int count = presentCount;
-        return new AbstractCollection<E>()
-        {
+        return new AbstractCollection<E>() {
+
             @Override
-            public Iterator<E> iterator()
-            {
+            public Iterator<E> iterator() {
                 return Accumulator.this.iterator(count);
             }
 
             @Override
-            public int size()
-            {
+            public int size() {
                 return count;
             }
         };
@@ -162,8 +151,7 @@ public class Accumulator<E>
      *
      * This method is not thread-safe when used concurrently with {@link #add(Object)}.
      */
-    public void clearUnsafe(int i)
-    {
+    public void clearUnsafe(int i) {
         values[i] = null;
     }
 }

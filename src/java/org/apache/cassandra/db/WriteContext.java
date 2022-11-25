@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 /**
@@ -24,8 +23,10 @@ package org.apache.cassandra.db;
  * as a marker for ordering operations. Reads can also end up performing writes in some cases, particularly
  * when correcting secondary indexes.
  */
-public interface WriteContext extends AutoCloseable
-{
+public interface WriteContext extends AutoCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WriteContext.class);
+
     @Override
     void close();
 }

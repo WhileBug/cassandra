@@ -18,7 +18,6 @@
 package org.apache.cassandra.db;
 
 import java.io.IOException;
-
 import org.apache.cassandra.db.marshal.ByteArrayAccessor;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.rows.*;
@@ -31,27 +30,31 @@ import org.apache.cassandra.io.util.DataInputPlus;
  * we don't do more work than necessary (i.e. we don't allocate/deserialize
  * objects for things we don't care about).
  */
-public class UnfilteredDeserializer
-{
-    protected final TableMetadata metadata;
-    protected final DataInputPlus in;
-    protected final DeserializationHelper helper;
+public class UnfilteredDeserializer {
 
-    private final ClusteringPrefix.Deserializer clusteringDeserializer;
-    private final SerializationHeader header;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnfilteredDeserializer.class);
 
-    private int nextFlags;
-    private int nextExtendedFlags;
-    private boolean isReady;
-    private boolean isDone;
+    protected final transient TableMetadata metadata;
 
-    private final Row.Builder builder;
+    protected final transient DataInputPlus in;
 
-    private UnfilteredDeserializer(TableMetadata metadata,
-                                   DataInputPlus in,
-                                   SerializationHeader header,
-                                   DeserializationHelper helper)
-    {
+    protected final transient DeserializationHelper helper;
+
+    private final transient ClusteringPrefix.Deserializer clusteringDeserializer;
+
+    private final transient SerializationHeader header;
+
+    private transient int nextFlags;
+
+    private transient int nextExtendedFlags;
+
+    private transient boolean isReady;
+
+    private transient boolean isDone;
+
+    private final transient Row.Builder builder;
+
+    private UnfilteredDeserializer(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper) {
         this.metadata = metadata;
         this.in = in;
         this.helper = helper;
@@ -60,41 +63,30 @@ public class UnfilteredDeserializer
         this.builder = BTreeRow.sortedBuilder();
     }
 
-    public static UnfilteredDeserializer create(TableMetadata metadata,
-                                                DataInputPlus in,
-                                                SerializationHeader header,
-                                                DeserializationHelper helper)
-    {
+    public static UnfilteredDeserializer create(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper) {
         return new UnfilteredDeserializer(metadata, in, header, helper);
     }
 
     /**
      * Whether or not there is more atom to read.
      */
-    public boolean hasNext() throws IOException
-    {
+    public boolean hasNext() throws IOException {
         if (isReady)
             return true;
-
         prepareNext();
         return !isDone;
     }
 
-    private void prepareNext() throws IOException
-    {
+    private void prepareNext() throws IOException {
         if (isDone)
             return;
-
         nextFlags = in.readUnsignedByte();
-        if (UnfilteredSerializer.isEndOfPartition(nextFlags))
-        {
+        if (UnfilteredSerializer.isEndOfPartition(nextFlags)) {
             isDone = true;
             isReady = false;
             return;
         }
-
         nextExtendedFlags = UnfilteredSerializer.readExtendedFlags(in, nextFlags);
-
         clusteringDeserializer.prepare(nextFlags, nextExtendedFlags);
         isReady = true;
     }
@@ -106,40 +98,31 @@ public class UnfilteredDeserializer
      * comparison. Whenever we know what to do with this atom (read it or skip it),
      * readNext or skipNext should be called.
      */
-    public int compareNextTo(ClusteringBound<?> bound) throws IOException
-    {
+    public int compareNextTo(ClusteringBound<?> bound) throws IOException {
         if (!isReady)
             prepareNext();
-
         assert !isDone;
-
         return clusteringDeserializer.compareNextTo(bound);
     }
 
     /**
      * Returns whether the next atom is a row or not.
      */
-    public boolean nextIsRow() throws IOException
-    {
+    public boolean nextIsRow() throws IOException {
         if (!isReady)
             prepareNext();
-
         return UnfilteredSerializer.kind(nextFlags) == Unfiltered.Kind.ROW;
     }
 
     /**
      * Returns the next atom.
      */
-    public Unfiltered readNext() throws IOException
-    {
+    public Unfiltered readNext() throws IOException {
         isReady = false;
-        if (UnfilteredSerializer.kind(nextFlags) == Unfiltered.Kind.RANGE_TOMBSTONE_MARKER)
-        {
+        if (UnfilteredSerializer.kind(nextFlags) == Unfiltered.Kind.RANGE_TOMBSTONE_MARKER) {
             ClusteringBoundOrBoundary<byte[]> bound = clusteringDeserializer.deserializeNextBound();
             return UnfilteredSerializer.serializer.deserializeMarkerBody(in, header, bound);
-        }
-        else
-        {
+        } else {
             builder.newRow(clusteringDeserializer.deserializeNextClustering());
             return UnfilteredSerializer.serializer.deserializeRowBody(in, header, helper, nextFlags, nextExtendedFlags, builder);
         }
@@ -148,8 +131,7 @@ public class UnfilteredDeserializer
     /**
      * Clears any state in this deserializer.
      */
-    public void clearState()
-    {
+    public void clearState() {
         isReady = false;
         isDone = false;
     }
@@ -157,16 +139,12 @@ public class UnfilteredDeserializer
     /**
      * Skips the next atom.
      */
-    public void skipNext() throws IOException
-    {
+    public void skipNext() throws IOException {
         isReady = false;
         clusteringDeserializer.skipNext();
-        if (UnfilteredSerializer.kind(nextFlags) == Unfiltered.Kind.RANGE_TOMBSTONE_MARKER)
-        {
+        if (UnfilteredSerializer.kind(nextFlags) == Unfiltered.Kind.RANGE_TOMBSTONE_MARKER) {
             UnfilteredSerializer.serializer.skipMarkerBody(in);
-        }
-        else
-        {
+        } else {
             UnfilteredSerializer.serializer.skipRowBody(in);
         }
     }

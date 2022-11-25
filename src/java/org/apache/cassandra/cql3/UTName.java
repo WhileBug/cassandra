@@ -19,45 +19,41 @@ package org.apache.cassandra.cql3;
 
 import java.nio.ByteBuffer;
 
-public class UTName
-{
-    private String ksName;
-    private final ColumnIdentifier utName;
+public class UTName {
 
-    public UTName(ColumnIdentifier ksName, ColumnIdentifier utName)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UTName.class);
+
+    private transient String ksName;
+
+    private final transient ColumnIdentifier utName;
+
+    public UTName(ColumnIdentifier ksName, ColumnIdentifier utName) {
         this.ksName = ksName == null ? null : ksName.toString();
         this.utName = utName;
     }
 
-    public boolean hasKeyspace()
-    {
+    public boolean hasKeyspace() {
         return ksName != null;
     }
 
-    public void setKeyspace(String keyspace)
-    {
+    public void setKeyspace(String keyspace) {
         this.ksName = keyspace;
     }
 
-    public String getKeyspace()
-    {
+    public String getKeyspace() {
         return ksName;
     }
 
-    public ByteBuffer getUserTypeName()
-    {
+    public ByteBuffer getUserTypeName() {
         return utName.bytes;
     }
 
-    public String getStringTypeName()
-    {
+    public String getStringTypeName() {
         return utName.toString();
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return (hasKeyspace() ? (ksName + ".") : "") + utName;
     }
 }

@@ -15,25 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.marshal;
 
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 
-public class ValueComparators
-{
-    public final Comparator<byte[]> array;
-    public final Comparator<ByteBuffer> buffer;
+public class ValueComparators {
 
-    public ValueComparators(Comparator<byte[]> array, Comparator<ByteBuffer> buffer)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ValueComparators.class);
+
+    public final transient Comparator<byte[]> array;
+
+    public final transient Comparator<ByteBuffer> buffer;
+
+    public ValueComparators(Comparator<byte[]> array, Comparator<ByteBuffer> buffer) {
         this.array = array;
         this.buffer = buffer;
     }
 
-    public Comparator getForAccessor(ValueAccessor accessor)
-    {
+    public Comparator getForAccessor(ValueAccessor accessor) {
         if (accessor == ByteArrayAccessor.instance)
             return array;
         if (accessor == ByteBufferAccessor.instance)

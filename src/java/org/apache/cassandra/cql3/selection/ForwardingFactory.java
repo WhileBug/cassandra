@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.selection;
 
 import java.util.List;
-
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.functions.Function;
@@ -32,78 +31,68 @@ import org.apache.cassandra.exceptions.InvalidRequestException;
  * Subclasses should override one or more methods to modify the behavior of the backing factory as desired per
  * the decorator pattern.
  */
-abstract class ForwardingFactory extends Factory
-{
+abstract class ForwardingFactory extends Factory {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ForwardingFactory.class);
+
     /**
      * Returns the backing delegate instance that methods are forwarded to.
      */
     protected abstract Factory delegate();
 
-    public Selector newInstance(QueryOptions options) throws InvalidRequestException
-    {
+    public Selector newInstance(QueryOptions options) throws InvalidRequestException {
         return delegate().newInstance(options);
     }
 
-    protected String getColumnName()
-    {
+    protected String getColumnName() {
         return delegate().getColumnName();
     }
 
-    protected AbstractType<?> getReturnType()
-    {
+    protected AbstractType<?> getReturnType() {
         return delegate().getReturnType();
     }
 
-    protected void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn)
-    {
+    protected void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn) {
         delegate().addColumnMapping(mapping, resultsColumn);
     }
 
     @Override
-    public void addFunctionsTo(List<Function> functions)
-    {
+    public void addFunctionsTo(List<Function> functions) {
         delegate().addFunctionsTo(functions);
     }
 
     @Override
-    public boolean isAggregateSelectorFactory()
-    {
+    public boolean isAggregateSelectorFactory() {
         return delegate().isAggregateSelectorFactory();
     }
 
     @Override
-    public boolean isWritetimeSelectorFactory()
-    {
+    public boolean isWritetimeSelectorFactory() {
         return delegate().isWritetimeSelectorFactory();
     }
 
     @Override
-    public boolean isTTLSelectorFactory()
-    {
+    public boolean isTTLSelectorFactory() {
         return delegate().isTTLSelectorFactory();
     }
 
     @Override
-    public boolean isSimpleSelectorFactory()
-    {
+    public boolean isSimpleSelectorFactory() {
         return delegate().isSimpleSelectorFactory();
     }
 
     @Override
-    public boolean isSimpleSelectorFactoryFor(int index)
-    {
+    public boolean isSimpleSelectorFactoryFor(int index) {
         return delegate().isSimpleSelectorFactoryFor(index);
     }
 
     @Override
-    boolean areAllFetchedColumnsKnown()
-    {
+    boolean areAllFetchedColumnsKnown() {
         return delegate().areAllFetchedColumnsKnown();
     }
 
     @Override
-    void addFetchedColumns(Builder builder)
-    {
+    void addFetchedColumns(Builder builder) {
         delegate().addFetchedColumns(builder);
     }
 }

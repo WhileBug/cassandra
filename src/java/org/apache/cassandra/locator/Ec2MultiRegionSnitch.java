@@ -20,7 +20,6 @@ package org.apache.cassandra.locator;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.gms.ApplicationState;
@@ -38,38 +37,36 @@ import org.apache.cassandra.service.StorageService;
  * Operational: All the nodes in this cluster needs to be able to (modify the
  * Security group settings in AWS) communicate via Public IP's.
  */
-public class Ec2MultiRegionSnitch extends Ec2Snitch
-{
-    private static final String PUBLIC_IP_QUERY_URL = "http://169.254.169.254/latest/meta-data/public-ipv4";
-    private static final String PRIVATE_IP_QUERY_URL = "http://169.254.169.254/latest/meta-data/local-ipv4";
-    private final String localPrivateAddress;
+public class Ec2MultiRegionSnitch extends Ec2Snitch {
 
-    public Ec2MultiRegionSnitch() throws IOException, ConfigurationException
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Ec2MultiRegionSnitch.class);
+
+    private static final transient String PUBLIC_IP_QUERY_URL = "http://169.254.169.254/latest/meta-data/public-ipv4";
+
+    private static final transient String PRIVATE_IP_QUERY_URL = "http://169.254.169.254/latest/meta-data/local-ipv4";
+
+    private final transient String localPrivateAddress;
+
+    public Ec2MultiRegionSnitch() throws IOException, ConfigurationException {
         super();
         InetAddress localPublicAddress = InetAddress.getByName(awsApiCall(PUBLIC_IP_QUERY_URL));
         logger.info("EC2Snitch using publicIP as identifier: {}", localPublicAddress);
         localPrivateAddress = awsApiCall(PRIVATE_IP_QUERY_URL);
         // use the Public IP to broadcast Address to other nodes.
         DatabaseDescriptor.setBroadcastAddress(localPublicAddress);
-        if (DatabaseDescriptor.getBroadcastRpcAddress() == null)
-        {
+        if (DatabaseDescriptor.getBroadcastRpcAddress() == null) {
             logger.info("broadcast_rpc_address unset, broadcasting public IP as rpc_address: {}", localPublicAddress);
             DatabaseDescriptor.setBroadcastRpcAddress(localPublicAddress);
         }
     }
 
     @Override
-    public void gossiperStarting()
-    {
+    public void gossiperStarting() {
         super.gossiperStarting();
         InetAddressAndPort address;
-        try
-        {
+        try {
             address = InetAddressAndPort.getByName(localPrivateAddress);
-        }
-        catch (UnknownHostException e)
-        {
+        } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
         Gossiper.instance.addLocalApplicationState(ApplicationState.INTERNAL_ADDRESS_AND_PORT, StorageService.instance.valueFactory.internalAddressAndPort(address));

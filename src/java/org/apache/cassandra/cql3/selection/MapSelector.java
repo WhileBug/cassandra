@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.cql3.Maps;
 import org.apache.cassandra.cql3.QueryOptions;
@@ -39,65 +38,53 @@ import org.apache.cassandra.utils.Pair;
 
 /**
  * <code>Selector</code> for literal map (e.g. {'min' : min(value), 'max' : max(value), 'count' : count(value)}).
- *
  */
-final class MapSelector extends Selector
-{
+final class MapSelector extends Selector {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MapSelector.class);
+
     /**
      * The map type.
      */
-    private final MapType<?, ?> type;
+    private final transient MapType<?, ?> type;
 
     /**
      * The map elements
      */
-    private final List<Pair<Selector, Selector>> elements;
+    private final transient List<Pair<Selector, Selector>> elements;
 
-    public static Factory newFactory(final AbstractType<?> type, final List<Pair<Factory, Factory>> factories)
-    {
-        return new Factory()
-        {
-            protected String getColumnName()
-            {
+    public static Factory newFactory(final AbstractType<?> type, final List<Pair<Factory, Factory>> factories) {
+        return new Factory() {
+
+            protected String getColumnName() {
                 return Maps.mapToString(factories, Factory::getColumnName);
             }
 
-            protected AbstractType<?> getReturnType()
-            {
+            protected AbstractType<?> getReturnType() {
                 return type;
             }
 
-            protected final void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn)
-            {
+            protected final void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn) {
                 SelectionColumnMapping tmpMapping = SelectionColumnMapping.newMapping();
-                for (Pair<Factory, Factory> entry : factories)
-                {
+                for (Pair<Factory, Factory> entry : factories) {
                     entry.left.addColumnMapping(tmpMapping, resultsColumn);
                     entry.right.addColumnMapping(tmpMapping, resultsColumn);
                 }
-
                 if (tmpMapping.getMappings().get(resultsColumn).isEmpty())
                     // add a null mapping for cases where the collection is empty
-                    mapping.addMapping(resultsColumn, (ColumnMetadata)null);
+                    mapping.addMapping(resultsColumn, (ColumnMetadata) null);
                 else
                     // collate the mapped columns from the child factories & add those
                     mapping.addMapping(resultsColumn, tmpMapping.getMappings().values());
             }
 
-            public Selector newInstance(final QueryOptions options)
-            {
-                return new MapSelector(type,
-                                        factories.stream()
-                                                 .map(p -> Pair.create(p.left.newInstance(options),
-                                                                       p.right.newInstance(options)))
-                                                 .collect(Collectors.toList()));
+            public Selector newInstance(final QueryOptions options) {
+                return new MapSelector(type, factories.stream().map(p -> Pair.create(p.left.newInstance(options), p.right.newInstance(options))).collect(Collectors.toList()));
             }
 
             @Override
-            public boolean isAggregateSelectorFactory()
-            {
-                for (Pair<Factory, Factory> entry : factories)
-                {
+            public boolean isAggregateSelectorFactory() {
+                for (Pair<Factory, Factory> entry : factories) {
                     if (entry.left.isAggregateSelectorFactory() || entry.right.isAggregateSelectorFactory())
                         return true;
                 }
@@ -105,20 +92,16 @@ final class MapSelector extends Selector
             }
 
             @Override
-            public void addFunctionsTo(List<Function> functions)
-            {
-                for (Pair<Factory, Factory> entry : factories)
-                {
+            public void addFunctionsTo(List<Function> functions) {
+                for (Pair<Factory, Factory> entry : factories) {
                     entry.left.addFunctionsTo(functions);
                     entry.right.addFunctionsTo(functions);
                 }
             }
 
             @Override
-            public boolean isWritetimeSelectorFactory()
-            {
-                for (Pair<Factory, Factory> entry : factories)
-                {
+            public boolean isWritetimeSelectorFactory() {
+                for (Pair<Factory, Factory> entry : factories) {
                     if (entry.left.isWritetimeSelectorFactory() || entry.right.isWritetimeSelectorFactory())
                         return true;
                 }
@@ -126,10 +109,8 @@ final class MapSelector extends Selector
             }
 
             @Override
-            public boolean isTTLSelectorFactory()
-            {
-                for (Pair<Factory, Factory> entry : factories)
-                {
+            public boolean isTTLSelectorFactory() {
+                for (Pair<Factory, Factory> entry : factories) {
                     if (entry.left.isTTLSelectorFactory() || entry.right.isTTLSelectorFactory())
                         return true;
                 }
@@ -137,10 +118,8 @@ final class MapSelector extends Selector
             }
 
             @Override
-            boolean areAllFetchedColumnsKnown()
-            {
-                for (Pair<Factory, Factory> entry : factories)
-                {
+            boolean areAllFetchedColumnsKnown() {
+                for (Pair<Factory, Factory> entry : factories) {
                     if (!entry.left.areAllFetchedColumnsKnown() || !entry.right.areAllFetchedColumnsKnown())
                         return false;
                 }
@@ -148,10 +127,8 @@ final class MapSelector extends Selector
             }
 
             @Override
-            void addFetchedColumns(Builder builder)
-            {
-                for (Pair<Factory, Factory> entry : factories)
-                {
+            void addFetchedColumns(Builder builder) {
+                for (Pair<Factory, Factory> entry : factories) {
                     entry.left.addFetchedColumns(builder);
                     entry.right.addFetchedColumns(builder);
                 }
@@ -160,67 +137,54 @@ final class MapSelector extends Selector
     }
 
     @Override
-    public void addFetchedColumns(Builder builder)
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-        {
+    public void addFetchedColumns(Builder builder) {
+        for (int i = 0, m = elements.size(); i < m; i++) {
             Pair<Selector, Selector> pair = elements.get(i);
             pair.left.addFetchedColumns(builder);
             pair.right.addFetchedColumns(builder);
         }
     }
 
-    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-        {
+    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException {
+        for (int i = 0, m = elements.size(); i < m; i++) {
             Pair<Selector, Selector> pair = elements.get(i);
             pair.left.addInput(protocolVersion, rs);
             pair.right.addInput(protocolVersion, rs);
         }
     }
 
-    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException
-    {
+    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException {
         Map<ByteBuffer, ByteBuffer> map = new TreeMap<>(type.getKeysType());
-        for (int i = 0, m = elements.size(); i < m; i++)
-        {
+        for (int i = 0, m = elements.size(); i < m; i++) {
             Pair<Selector, Selector> pair = elements.get(i);
             map.put(pair.left.getOutput(protocolVersion), pair.right.getOutput(protocolVersion));
         }
-
         List<ByteBuffer> buffers = new ArrayList<>(elements.size() * 2);
-        for (Map.Entry<ByteBuffer, ByteBuffer> entry : map.entrySet())
-        {
+        for (Map.Entry<ByteBuffer, ByteBuffer> entry : map.entrySet()) {
             buffers.add(entry.getKey());
             buffers.add(entry.getValue());
         }
         return CollectionSerializer.pack(buffers, elements.size(), protocolVersion);
     }
 
-    public void reset()
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-        {
+    public void reset() {
+        for (int i = 0, m = elements.size(); i < m; i++) {
             Pair<Selector, Selector> pair = elements.get(i);
             pair.left.reset();
             pair.right.reset();
         }
     }
 
-    public AbstractType<?> getType()
-    {
+    public AbstractType<?> getType() {
         return type;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return Maps.mapToString(elements);
     }
 
-    private MapSelector(AbstractType<?> type, List<Pair<Selector, Selector>> elements)
-    {
+    private MapSelector(AbstractType<?> type, List<Pair<Selector, Selector>> elements) {
         this.type = (MapType<?, ?>) type;
         this.elements = elements;
     }

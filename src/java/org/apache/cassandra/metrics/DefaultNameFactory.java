@@ -17,51 +17,46 @@
  */
 package org.apache.cassandra.metrics;
 
-
 /**
  * MetricNameFactory that generates default MetricName of metrics.
  */
-public class DefaultNameFactory implements MetricNameFactory
-{
-    public static final String GROUP_NAME = "org.apache.cassandra.metrics";
+public class DefaultNameFactory implements MetricNameFactory {
 
-    private final String type;
-    private final String scope;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DefaultNameFactory.class);
 
-    public DefaultNameFactory(String type)
-    {
+    public static final transient String GROUP_NAME = "org.apache.cassandra.metrics";
+
+    private final transient String type;
+
+    private final transient String scope;
+
+    public DefaultNameFactory(String type) {
         this(type, null);
     }
 
-    public DefaultNameFactory(String type, String scope)
-    {
+    public DefaultNameFactory(String type, String scope) {
         this.type = type;
         this.scope = scope;
     }
 
-    public CassandraMetricsRegistry.MetricName createMetricName(String metricName)
-    {
+    public CassandraMetricsRegistry.MetricName createMetricName(String metricName) {
         return createMetricName(type, metricName, scope);
     }
 
-    public static CassandraMetricsRegistry.MetricName createMetricName(String type, String metricName, String scope)
-    {
+    public static CassandraMetricsRegistry.MetricName createMetricName(String type, String metricName, String scope) {
         return new CassandraMetricsRegistry.MetricName(GROUP_NAME, type, metricName, scope, createDefaultMBeanName(type, metricName, scope));
     }
 
-    protected static String createDefaultMBeanName(String type, String name, String scope)
-    {
+    protected static String createDefaultMBeanName(String type, String name, String scope) {
         final StringBuilder nameBuilder = new StringBuilder();
         nameBuilder.append(GROUP_NAME);
         nameBuilder.append(":type=");
         nameBuilder.append(type);
-        if (scope != null)
-        {
+        if (scope != null) {
             nameBuilder.append(",scope=");
             nameBuilder.append(scope);
         }
-        if (name.length() > 0)
-        {
+        if (name.length() > 0) {
             nameBuilder.append(",name=");
             nameBuilder.append(name);
         }

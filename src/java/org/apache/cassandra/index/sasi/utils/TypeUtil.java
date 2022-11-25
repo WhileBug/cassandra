@@ -18,66 +18,47 @@
 package org.apache.cassandra.index.sasi.utils;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.serializers.MarshalException;
 
-public class TypeUtil
-{
-    public static boolean isValid(ByteBuffer term, AbstractType<?> validator)
-    {
-        try
-        {
+public class TypeUtil {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TypeUtil.class);
+
+    public static boolean isValid(ByteBuffer term, AbstractType<?> validator) {
+        try {
             validator.validate(term);
             return true;
-        }
-        catch (MarshalException e)
-        {
+        } catch (MarshalException e) {
             return false;
         }
     }
 
-    public static ByteBuffer tryUpcast(ByteBuffer term, AbstractType<?> validator)
-    {
+    public static ByteBuffer tryUpcast(ByteBuffer term, AbstractType<?> validator) {
         if (term.remaining() == 0)
             return null;
-
-        try
-        {
-            if (validator instanceof Int32Type && term.remaining() == 2)
-            {
+        try {
+            if (validator instanceof Int32Type && term.remaining() == 2) {
                 return Int32Type.instance.decompose((int) term.getShort(term.position()));
-            }
-            else if (validator instanceof LongType)
-            {
+            } else if (validator instanceof LongType) {
                 long upcastToken;
-
-                switch (term.remaining())
-                {
+                switch(term.remaining()) {
                     case 2:
                         upcastToken = (long) term.getShort(term.position());
                         break;
-
                     case 4:
                         upcastToken = (long) Int32Type.instance.compose(term);
                         break;
-
                     default:
                         upcastToken = Long.parseLong(UTF8Type.instance.getString(term));
                 }
-
                 return LongType.instance.decompose(upcastToken);
-            }
-            else if (validator instanceof DoubleType && term.remaining() == 4)
-            {
+            } else if (validator instanceof DoubleType && term.remaining() == 4) {
                 return DoubleType.instance.decompose((double) FloatType.instance.compose(term));
             }
-
             // maybe it was a string after all
             return validator.fromString(UTF8Type.instance.getString(term));
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             return null;
         }
     }

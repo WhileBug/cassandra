@@ -17,5 +17,7 @@
  */
 package org.apache.cassandra.io.util;
 
-public interface DataPosition
-{}
+public interface DataPosition {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataPosition.class);
+}

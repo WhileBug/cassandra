@@ -17,8 +17,10 @@
  */
 package org.apache.cassandra.service;
 
-public interface NativeAccessMBean 
-{
+public interface NativeAccessMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativeAccessMBean.class);
+
     boolean isAvailable();
 
     boolean isMemoryLockable();

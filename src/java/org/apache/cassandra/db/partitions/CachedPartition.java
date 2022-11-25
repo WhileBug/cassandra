@@ -28,9 +28,11 @@ import org.apache.cassandra.io.ISerializer;
  * we keep this interface mainly to make it clear what we need from partition in the cache
  * (that we don't otherwise)
  */
-public interface CachedPartition extends Partition, IRowCacheEntry
-{
-    public static final ISerializer<CachedPartition> cacheSerializer = new CachedBTreePartition.Serializer();
+public interface CachedPartition extends Partition, IRowCacheEntry {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CachedPartition.class);
+
+    public static final transient ISerializer<CachedPartition> cacheSerializer = new CachedBTreePartition.Serializer();
 
     /**
      * The number of {@code Row} objects in this cached partition.

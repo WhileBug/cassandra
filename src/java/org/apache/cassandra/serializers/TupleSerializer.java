@@ -18,46 +18,38 @@
 package org.apache.cassandra.serializers;
 
 import java.util.List;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.db.marshal.ValueAccessor;
 
-public class TupleSerializer extends BytesSerializer
-{
-    public final List<TypeSerializer<?>> fields;
+public class TupleSerializer extends BytesSerializer {
 
-    public TupleSerializer(List<TypeSerializer<?>> fields)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TupleSerializer.class);
+
+    public final transient List<TypeSerializer<?>> fields;
+
+    public TupleSerializer(List<TypeSerializer<?>> fields) {
         this.fields = fields;
     }
 
-    public <V> void validate(V input, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V input, ValueAccessor<V> accessor) throws MarshalException {
         int offset = 0;
-        for (int i = 0; i < fields.size(); i++)
-        {
+        for (int i = 0; i < fields.size(); i++) {
             // we allow the input to have less fields than declared so as to support field addition.
             if (accessor.isEmptyFromOffset(input, offset))
                 return;
-
             if (accessor.sizeFromOffset(input, offset) < Integer.BYTES)
                 throw new MarshalException(String.format("Not enough bytes to read size of %dth component", i));
-
             int size = accessor.getInt(input, offset);
             offset += TypeSizes.INT_SIZE;
-
             // size < 0 means null value
             if (size < 0)
                 continue;
-
             if (accessor.sizeFromOffset(input, offset) < size)
                 throw new MarshalException(String.format("Not enough bytes to read %dth component", i));
-
             V field = accessor.slice(input, offset, size);
             offset += size;
             fields.get(i).validate(field, accessor);
         }
-
         // We're allowed to get less fields than declared, but not more
         if (!accessor.isEmptyFromOffset(input, offset))
             throw new MarshalException("Invalid remaining data after end of tuple value");

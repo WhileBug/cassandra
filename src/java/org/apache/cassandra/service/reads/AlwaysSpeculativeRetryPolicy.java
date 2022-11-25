@@ -18,49 +18,43 @@
 package org.apache.cassandra.service.reads;
 
 import com.google.common.base.Objects;
-
 import com.codahale.metrics.Snapshot;
 
-public class AlwaysSpeculativeRetryPolicy implements SpeculativeRetryPolicy
-{
-    public static final AlwaysSpeculativeRetryPolicy INSTANCE = new AlwaysSpeculativeRetryPolicy();
+public class AlwaysSpeculativeRetryPolicy implements SpeculativeRetryPolicy {
 
-    private AlwaysSpeculativeRetryPolicy()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AlwaysSpeculativeRetryPolicy.class);
+
+    public static final transient AlwaysSpeculativeRetryPolicy INSTANCE = new AlwaysSpeculativeRetryPolicy();
+
+    private AlwaysSpeculativeRetryPolicy() {
     }
 
     @Override
-    public long calculateThreshold(Snapshot latency, long existingValue)
-    {
+    public long calculateThreshold(Snapshot latency, long existingValue) {
         return 0;
     }
 
     @Override
-    public Kind kind()
-    {
+    public Kind kind() {
         return Kind.ALWAYS;
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         return obj instanceof AlwaysSpeculativeRetryPolicy;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(kind());
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return Kind.ALWAYS.toString();
     }
 
-    static boolean stringMatches(String str)
-    {
+    static boolean stringMatches(String str) {
         return str.equalsIgnoreCase("ALWAYS");
     }
 }

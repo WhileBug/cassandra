@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.db.ExpirationDateOverflowHandling;
 import org.apache.cassandra.db.LivenessInfo;
@@ -36,145 +35,119 @@ import org.apache.commons.lang3.builder.ToStringStyle;
  * Utility class for the Parser to gather attributes for modification
  * statements.
  */
-public class Attributes
-{
+public class Attributes {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Attributes.class);
+
     /**
      * If this limit is ever raised, make sure @{@link Integer#MAX_VALUE} is not allowed,
      * as this is used as a flag to represent expired liveness.
      *
      * See {@link org.apache.cassandra.db.LivenessInfo#EXPIRED_LIVENESS_TTL}
      */
-    public static final int MAX_TTL = 20 * 365 * 24 * 60 * 60; // 20 years in seconds
+    // 20 years in seconds
+    public static final transient int MAX_TTL = 20 * 365 * 24 * 60 * 60;
 
-    private final Term timestamp;
-    private final Term timeToLive;
+    private final transient Term timestamp;
 
-    public static Attributes none()
-    {
+    private final transient Term timeToLive;
+
+    public static Attributes none() {
         return new Attributes(null, null);
     }
 
-    private Attributes(Term timestamp, Term timeToLive)
-    {
+    private Attributes(Term timestamp, Term timeToLive) {
         this.timestamp = timestamp;
         this.timeToLive = timeToLive;
     }
 
-    public void addFunctionsTo(List<Function> functions)
-    {
+    public void addFunctionsTo(List<Function> functions) {
         if (timestamp != null)
             timestamp.addFunctionsTo(functions);
         if (timeToLive != null)
             timeToLive.addFunctionsTo(functions);
     }
 
-    public boolean isTimestampSet()
-    {
+    public boolean isTimestampSet() {
         return timestamp != null;
     }
 
-    public boolean isTimeToLiveSet()
-    {
+    public boolean isTimeToLiveSet() {
         return timeToLive != null;
     }
 
-    public long getTimestamp(long now, QueryOptions options) throws InvalidRequestException
-    {
+    public long getTimestamp(long now, QueryOptions options) throws InvalidRequestException {
         if (timestamp == null)
             return now;
-
         ByteBuffer tval = timestamp.bindAndGet(options);
         if (tval == null)
             throw new InvalidRequestException("Invalid null value of timestamp");
-
         if (tval == ByteBufferUtil.UNSET_BYTE_BUFFER)
             return now;
-
-        try
-        {
+        try {
             LongType.instance.validate(tval);
-        }
-        catch (MarshalException e)
-        {
+        } catch (MarshalException e) {
             throw new InvalidRequestException("Invalid timestamp value: " + tval);
         }
-
         return LongType.instance.compose(tval);
     }
 
-    public int getTimeToLive(QueryOptions options, TableMetadata metadata) throws InvalidRequestException
-    {
-        if (timeToLive == null)
-        {
+    public int getTimeToLive(QueryOptions options, TableMetadata metadata) throws InvalidRequestException {
+        if (timeToLive == null) {
             ExpirationDateOverflowHandling.maybeApplyExpirationDateOverflowPolicy(metadata, metadata.params.defaultTimeToLive, true);
             return metadata.params.defaultTimeToLive;
         }
-
         ByteBuffer tval = timeToLive.bindAndGet(options);
         if (tval == null)
             return 0;
-
         if (tval == ByteBufferUtil.UNSET_BYTE_BUFFER)
             return metadata.params.defaultTimeToLive;
-
-        try
-        {
+        try {
             Int32Type.instance.validate(tval);
-        }
-        catch (MarshalException e)
-        {
+        } catch (MarshalException e) {
             throw new InvalidRequestException("Invalid timestamp value: " + tval);
         }
-
         int ttl = Int32Type.instance.compose(tval);
         if (ttl < 0)
             throw new InvalidRequestException("A TTL must be greater or equal to 0, but was " + ttl);
-
         if (ttl > MAX_TTL)
             throw new InvalidRequestException(String.format("ttl is too large. requested (%d) maximum (%d)", ttl, MAX_TTL));
-
         if (metadata.params.defaultTimeToLive != LivenessInfo.NO_TTL && ttl == LivenessInfo.NO_TTL)
             return LivenessInfo.NO_TTL;
-
         ExpirationDateOverflowHandling.maybeApplyExpirationDateOverflowPolicy(metadata, ttl, false);
-
         return ttl;
     }
 
-    public void collectMarkerSpecification(VariableSpecifications boundNames)
-    {
+    public void collectMarkerSpecification(VariableSpecifications boundNames) {
         if (timestamp != null)
             timestamp.collectMarkerSpecification(boundNames);
         if (timeToLive != null)
             timeToLive.collectMarkerSpecification(boundNames);
     }
 
-    public static class Raw
-    {
-        public Term.Raw timestamp;
-        public Term.Raw timeToLive;
+    public static class Raw {
 
-        public Attributes prepare(String ksName, String cfName) throws InvalidRequestException
-        {
+        public transient Term.Raw timestamp;
+
+        public transient Term.Raw timeToLive;
+
+        public Attributes prepare(String ksName, String cfName) throws InvalidRequestException {
             Term ts = timestamp == null ? null : timestamp.prepare(ksName, timestampReceiver(ksName, cfName));
             Term ttl = timeToLive == null ? null : timeToLive.prepare(ksName, timeToLiveReceiver(ksName, cfName));
             return new Attributes(ts, ttl);
         }
 
-        private ColumnSpecification timestampReceiver(String ksName, String cfName)
-        {
+        private ColumnSpecification timestampReceiver(String ksName, String cfName) {
             return new ColumnSpecification(ksName, cfName, new ColumnIdentifier("[timestamp]", true), LongType.instance);
         }
 
-        private ColumnSpecification timeToLiveReceiver(String ksName, String cfName)
-        {
+        private ColumnSpecification timeToLiveReceiver(String ksName, String cfName) {
             return new ColumnSpecification(ksName, cfName, new ColumnIdentifier("[ttl]", true), Int32Type.instance);
         }
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 }

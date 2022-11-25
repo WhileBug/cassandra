@@ -18,19 +18,24 @@
 package org.apache.cassandra.metrics;
 
 import com.codahale.metrics.Counter;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
 /**
  * Metrics related to Storage.
  */
-public class StorageMetrics
-{
-    private static final MetricNameFactory factory = new DefaultNameFactory("Storage");
+public class StorageMetrics {
 
-    public static final Counter load = Metrics.counter(factory.createMetricName("Load"));
-    public static final Counter uncaughtExceptions = Metrics.counter(factory.createMetricName("Exceptions"));
-    public static final Counter totalHintsInProgress  = Metrics.counter(factory.createMetricName("TotalHintsInProgress"));
-    public static final Counter totalHints = Metrics.counter(factory.createMetricName("TotalHints"));
-    public static final Counter repairExceptions = Metrics.counter(factory.createMetricName("RepairExceptions"));
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StorageMetrics.class);
+
+    private static final transient MetricNameFactory factory = new DefaultNameFactory("Storage");
+
+    public static final transient Counter load = Metrics.counter(factory.createMetricName("Load"));
+
+    public static final transient Counter uncaughtExceptions = Metrics.counter(factory.createMetricName("Exceptions"));
+
+    public static final transient Counter totalHintsInProgress = Metrics.counter(factory.createMetricName("TotalHintsInProgress"));
+
+    public static final transient Counter totalHints = Metrics.counter(factory.createMetricName("TotalHints"));
+
+    public static final transient Counter repairExceptions = Metrics.counter(factory.createMetricName("RepairExceptions"));
 }

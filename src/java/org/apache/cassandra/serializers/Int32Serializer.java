@@ -15,41 +15,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class Int32Serializer extends TypeSerializer<Integer>
-{
-    public static final Int32Serializer instance = new Int32Serializer();
+public class Int32Serializer extends TypeSerializer<Integer> {
 
-    public <V> Integer deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Int32Serializer.class);
+
+    public static final transient Int32Serializer instance = new Int32Serializer();
+
+    public <V> Integer deserialize(V value, ValueAccessor<V> accessor) {
         return accessor.isEmpty(value) ? null : accessor.toInt(value);
     }
 
-    public ByteBuffer serialize(Integer value)
-    {
+    public ByteBuffer serialize(Integer value) {
         return value == null ? ByteBufferUtil.EMPTY_BYTE_BUFFER : ByteBufferUtil.bytes(value);
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (accessor.size(value) != 4 && !accessor.isEmpty(value))
             throw new MarshalException(String.format("Expected 4 or 0 byte int (%d)", accessor.size(value)));
     }
 
-    public String toString(Integer value)
-    {
+    public String toString(Integer value) {
         return value == null ? "" : String.valueOf(value);
     }
 
-    public Class<Integer> getType()
-    {
+    public Class<Integer> getType() {
         return Integer.class;
     }
 }

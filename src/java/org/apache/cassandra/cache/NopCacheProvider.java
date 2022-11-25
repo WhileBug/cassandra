@@ -20,78 +20,64 @@ package org.apache.cassandra.cache;
 import java.util.Collections;
 import java.util.Iterator;
 
-public class NopCacheProvider implements CacheProvider<RowCacheKey, IRowCacheEntry>
-{
-    public ICache<RowCacheKey, IRowCacheEntry> create()
-    {
+public class NopCacheProvider implements CacheProvider<RowCacheKey, IRowCacheEntry> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NopCacheProvider.class);
+
+    public ICache<RowCacheKey, IRowCacheEntry> create() {
         return new NopCache();
     }
 
-    private static class NopCache implements ICache<RowCacheKey, IRowCacheEntry>
-    {
-        public long capacity()
-        {
+    private static class NopCache implements ICache<RowCacheKey, IRowCacheEntry> {
+
+        public long capacity() {
             return 0;
         }
 
-        public void setCapacity(long capacity)
-        {
-            if (capacity != 0)
-            {
-                throw new UnsupportedOperationException("Setting capacity of " + NopCache.class.getSimpleName()
-                                                        + " is not permitted as this cache is disabled. Check your yaml settings if you want to enable it.");
+        public void setCapacity(long capacity) {
+            if (capacity != 0) {
+                throw new UnsupportedOperationException("Setting capacity of " + NopCache.class.getSimpleName() + " is not permitted as this cache is disabled. Check your yaml settings if you want to enable it.");
             }
         }
 
-        public void put(RowCacheKey key, IRowCacheEntry value)
-        {
+        public void put(RowCacheKey key, IRowCacheEntry value) {
         }
 
-        public boolean putIfAbsent(RowCacheKey key, IRowCacheEntry value)
-        {
+        public boolean putIfAbsent(RowCacheKey key, IRowCacheEntry value) {
             return false;
         }
 
-        public boolean replace(RowCacheKey key, IRowCacheEntry old, IRowCacheEntry value)
-        {
+        public boolean replace(RowCacheKey key, IRowCacheEntry old, IRowCacheEntry value) {
             return false;
         }
 
-        public IRowCacheEntry get(RowCacheKey key)
-        {
+        public IRowCacheEntry get(RowCacheKey key) {
             return null;
         }
 
-        public void remove(RowCacheKey key)
-        {
+        public void remove(RowCacheKey key) {
         }
 
-        public int size()
-        {
+        public int size() {
             return 0;
         }
 
-        public long weightedSize()
-        {
+        public long weightedSize() {
             return 0;
         }
 
-        public void clear()
-        {
+        public void clear() {
         }
 
-        public Iterator<RowCacheKey> hotKeyIterator(int n)
-        {
+        public Iterator<RowCacheKey> hotKeyIterator(int n) {
             return Collections.emptyIterator();
         }
 
-        public Iterator<RowCacheKey> keyIterator()
-        {
+        public Iterator<RowCacheKey> keyIterator() {
             return Collections.emptyIterator();
         }
 
-        public boolean containsKey(RowCacheKey key)
-        {
+        public boolean containsKey(RowCacheKey key) {
             return false;
         }
     }

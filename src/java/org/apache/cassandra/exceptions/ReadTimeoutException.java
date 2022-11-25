@@ -19,12 +19,13 @@ package org.apache.cassandra.exceptions;
 
 import org.apache.cassandra.db.ConsistencyLevel;
 
-public class ReadTimeoutException extends RequestTimeoutException
-{
-    public final boolean dataPresent;
+public class ReadTimeoutException extends RequestTimeoutException {
 
-    public ReadTimeoutException(ConsistencyLevel consistency, int received, int blockFor, boolean dataPresent)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadTimeoutException.class);
+
+    public final transient boolean dataPresent;
+
+    public ReadTimeoutException(ConsistencyLevel consistency, int received, int blockFor, boolean dataPresent) {
         super(ExceptionCode.READ_TIMEOUT, consistency, received, blockFor);
         this.dataPresent = dataPresent;
     }

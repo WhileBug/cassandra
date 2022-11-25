@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool;
 
 import java.io.PrintStream;
@@ -23,12 +22,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.management.openmbean.CompositeData;
-
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
-
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
@@ -43,286 +40,216 @@ import org.apache.cassandra.utils.FBUtilities;
 /**
  * Supports listing and failing incremental repair sessions
  */
-public abstract class RepairAdmin extends NodeTool.NodeToolCmd
-{
+public abstract class RepairAdmin extends NodeTool.NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairAdmin.class);
+
     @Command(name = "list", description = "list repair sessions")
-    public static class ListCmd extends RepairAdmin
-    {
-        @Option(title = "all", name = {"-a", "--all"}, description = "include completed and failed sessions")
-        private boolean all;
+    public static class ListCmd extends RepairAdmin {
 
-        @Option(title = "start_token", name = {"-st", "--start-token"}, description = "Use -st to specify a token at which the repair range starts")
-        private String startToken = StringUtils.EMPTY;
+        @Option(title = "all", name = { "-a", "--all" }, description = "include completed and failed sessions")
+        private transient boolean all;
 
-        @Option(title = "end_token", name = {"-et", "--end-token"}, description = "Use -et to specify a token at which repair range ends")
-        private String endToken = StringUtils.EMPTY;
+        @Option(title = "start_token", name = { "-st", "--start-token" }, description = "Use -st to specify a token at which the repair range starts")
+        private transient String startToken = StringUtils.EMPTY;
 
-        protected void execute(NodeProbe probe)
-        {
+        @Option(title = "end_token", name = { "-et", "--end-token" }, description = "Use -et to specify a token at which repair range ends")
+        private transient String endToken = StringUtils.EMPTY;
+
+        protected void execute(NodeProbe probe) {
             PrintStream out = probe.output().out;
             List<Map<String, String>> sessions = probe.getRepairServiceProxy().getSessions(all, getRangeString(startToken, endToken));
-            if (sessions.isEmpty())
-            {
+            if (sessions.isEmpty()) {
                 out.println("no sessions");
-            }
-            else
-            {
+            } else {
                 List<List<String>> rows = new ArrayList<>();
-                rows.add(Lists.newArrayList("id",
-                                            "state",
-                                            "last activity",
-                                            "coordinator",
-                                            "participants",
-                                            "participants_wp"));
+                rows.add(Lists.newArrayList("id", "state", "last activity", "coordinator", "participants", "participants_wp"));
                 int now = FBUtilities.nowInSeconds();
-                for (Map<String, String> session : sessions)
-                {
+                for (Map<String, String> session : sessions) {
                     int updated = Integer.parseInt(session.get(LocalSessionInfo.LAST_UPDATE));
-                    List<String> values = Lists.newArrayList(session.get(LocalSessionInfo.SESSION_ID),
-                                                             session.get(LocalSessionInfo.STATE),
-                                                             (now - updated) + " (s)",
-                                                             session.get(LocalSessionInfo.COORDINATOR),
-                                                             session.get(LocalSessionInfo.PARTICIPANTS),
-                                                             session.get(LocalSessionInfo.PARTICIPANTS_WP));
+                    List<String> values = Lists.newArrayList(session.get(LocalSessionInfo.SESSION_ID), session.get(LocalSessionInfo.STATE), (now - updated) + " (s)", session.get(LocalSessionInfo.COORDINATOR), session.get(LocalSessionInfo.PARTICIPANTS), session.get(LocalSessionInfo.PARTICIPANTS_WP));
                     rows.add(values);
                 }
-
                 printTable(rows, out);
             }
         }
     }
-    @Command(name = "summarize-pending", description = "report the amount of data marked pending repair for the given token " +
-                                                       "range (or all replicated range if no tokens are provided")
-    public static class SummarizePendingCmd extends RepairAdmin
-    {
-        @Option(title = "verbose", name = {"-v", "--verbose"}, description = "print additional info ")
-        private boolean verbose;
 
-        @Option(title = "start_token", name = {"-st", "--start-token"}, description = "Use -st to specify a token at which the repair range starts")
-        private String startToken = StringUtils.EMPTY;
+    @Command(name = "summarize-pending", description = "report the amount of data marked pending repair for the given token " + "range (or all replicated range if no tokens are provided")
+    public static class SummarizePendingCmd extends RepairAdmin {
 
-        @Option(title = "end_token", name = {"-et", "--end-token"}, description = "Use -et to specify a token at which repair range ends")
-        private String endToken = StringUtils.EMPTY;
+        @Option(title = "verbose", name = { "-v", "--verbose" }, description = "print additional info ")
+        private transient boolean verbose;
+
+        @Option(title = "start_token", name = { "-st", "--start-token" }, description = "Use -st to specify a token at which the repair range starts")
+        private transient String startToken = StringUtils.EMPTY;
+
+        @Option(title = "end_token", name = { "-et", "--end-token" }, description = "Use -et to specify a token at which repair range ends")
+        private transient String endToken = StringUtils.EMPTY;
 
         @Arguments(usage = "[<keyspace> <tables>...]", description = "The keyspace followed by one or many tables")
-        private List<String> schemaArgs = new ArrayList<>();
+        private transient List<String> schemaArgs = new ArrayList<>();
 
-        protected void execute(NodeProbe probe)
-        {
+        protected void execute(NodeProbe probe) {
             List<CompositeData> cds = probe.getRepairServiceProxy().getPendingStats(schemaArgs, getRangeString(startToken, endToken));
             List<PendingStats> stats = new ArrayList<>(cds.size());
             cds.forEach(cd -> stats.add(PendingStats.fromComposite(cd)));
-
             stats.sort((l, r) -> {
                 int cmp = l.keyspace.compareTo(r.keyspace);
                 if (cmp != 0)
                     return cmp;
-
                 return l.table.compareTo(r.table);
             });
-
             List<String> header = Lists.newArrayList("keyspace", "table", "total");
-            if (verbose)
-            {
+            if (verbose) {
                 header.addAll(Lists.newArrayList("pending", "finalized", "failed"));
             }
-
             List<List<String>> rows = new ArrayList<>(stats.size() + 1);
             rows.add(header);
-
-            for (PendingStats stat : stats)
-            {
+            for (PendingStats stat : stats) {
                 List<String> row = new ArrayList<>(header.size());
-
                 row.add(stat.keyspace);
                 row.add(stat.table);
                 row.add(stat.total.sizeString());
-                if (verbose)
-                {
+                if (verbose) {
                     row.add(stat.pending.sizeString());
                     row.add(stat.finalized.sizeString());
                     row.add(stat.failed.sizeString());
                 }
                 rows.add(row);
             }
-
             printTable(rows, probe.output().out);
         }
     }
 
-    @Command(name = "summarize-repaired", description = "return the most recent repairedAt timestamp for the given token range " +
-                                                        "(or all replicated ranges if no tokens are provided)")
-    public static class SummarizeRepairedCmd extends RepairAdmin
-    {
-        @Option(title = "verbose", name = {"-v", "--verbose"}, description = "print additional info ")
-        private boolean verbose = false;
+    @Command(name = "summarize-repaired", description = "return the most recent repairedAt timestamp for the given token range " + "(or all replicated ranges if no tokens are provided)")
+    public static class SummarizeRepairedCmd extends RepairAdmin {
 
-        @Option(title = "start_token", name = {"-st", "--start-token"}, description = "Use -st to specify a token at which the repair range starts")
-        private String startToken = StringUtils.EMPTY;
+        @Option(title = "verbose", name = { "-v", "--verbose" }, description = "print additional info ")
+        private transient boolean verbose = false;
 
-        @Option(title = "end_token", name = {"-et", "--end-token"}, description = "Use -et to specify a token at which repair range ends")
-        private String endToken = StringUtils.EMPTY;
+        @Option(title = "start_token", name = { "-st", "--start-token" }, description = "Use -st to specify a token at which the repair range starts")
+        private transient String startToken = StringUtils.EMPTY;
+
+        @Option(title = "end_token", name = { "-et", "--end-token" }, description = "Use -et to specify a token at which repair range ends")
+        private transient String endToken = StringUtils.EMPTY;
 
         @Arguments(usage = "[<keyspace> <tables>...]", description = "The keyspace followed by one or many tables")
-        private List<String> schemaArgs = new ArrayList<>();
+        private transient List<String> schemaArgs = new ArrayList<>();
 
-        protected void execute(NodeProbe probe)
-        {
+        protected void execute(NodeProbe probe) {
             PrintStream out = probe.output().out;
             List<CompositeData> compositeData = probe.getRepairServiceProxy().getRepairStats(schemaArgs, getRangeString(startToken, endToken));
-
-            if (compositeData.isEmpty())
-            {
+            if (compositeData.isEmpty()) {
                 out.println("no stats");
                 return;
             }
-
             List<RepairStats> stats = new ArrayList<>(compositeData.size());
             compositeData.forEach(cd -> stats.add(RepairStats.fromComposite(cd)));
-
             stats.sort((l, r) -> {
                 int cmp = l.keyspace.compareTo(r.keyspace);
                 if (cmp != 0)
                     return cmp;
-
                 return l.table.compareTo(r.table);
             });
-
             List<String> header = Lists.newArrayList("keyspace", "table", "min_repaired", "max_repaired");
             if (verbose)
                 header.add("detail");
-
             List<List<String>> rows = new ArrayList<>(stats.size() + 1);
             rows.add(header);
-
-            for (RepairStats stat : stats)
-            {
-                List<String> row = Lists.newArrayList(stat.keyspace,
-                                                      stat.table,
-                                                      Long.toString(stat.minRepaired),
-                                                      Long.toString(stat.maxRepaired));
-                if (verbose)
-                {
+            for (RepairStats stat : stats) {
+                List<String> row = Lists.newArrayList(stat.keyspace, stat.table, Long.toString(stat.minRepaired), Long.toString(stat.maxRepaired));
+                if (verbose) {
                     row.add(Joiner.on(", ").join(Iterables.transform(stat.sections, RepairStats.Section::toString)));
                 }
                 rows.add(row);
             }
-
             printTable(rows, out);
         }
     }
 
-    @Command(name = "cleanup", description = "cleans up pending data from completed sessions. " +
-                                             "This happens automatically, but the command is provided " +
-                                             "for situations where it needs to be expedited." +
-                                            " Use --force to cancel compactions that are preventing promotion")
-    public static class CleanupDataCmd extends RepairAdmin
-    {
-        @Option(title = "force", name = {"-f", "--force"}, description = "Force a cleanup.")
-        private boolean force = false;
+    @Command(name = "cleanup", description = "cleans up pending data from completed sessions. " + "This happens automatically, but the command is provided " + "for situations where it needs to be expedited." + " Use --force to cancel compactions that are preventing promotion")
+    public static class CleanupDataCmd extends RepairAdmin {
 
-        @Option(title = "start_token", name = {"-st", "--start-token"}, description = "Use -st to specify a token at which the repair range starts")
-        private String startToken = StringUtils.EMPTY;
+        @Option(title = "force", name = { "-f", "--force" }, description = "Force a cleanup.")
+        private transient boolean force = false;
 
-        @Option(title = "end_token", name = {"-et", "--end-token"}, description = "Use -et to specify a token at which repair range ends")
-        private String endToken = StringUtils.EMPTY;
+        @Option(title = "start_token", name = { "-st", "--start-token" }, description = "Use -st to specify a token at which the repair range starts")
+        private transient String startToken = StringUtils.EMPTY;
+
+        @Option(title = "end_token", name = { "-et", "--end-token" }, description = "Use -et to specify a token at which repair range ends")
+        private transient String endToken = StringUtils.EMPTY;
 
         @Arguments(usage = "[<keyspace> <tables>...]", description = "The keyspace followed by one or many tables")
-        private List<String> schemaArgs = new ArrayList<>();
+        private transient List<String> schemaArgs = new ArrayList<>();
 
-        protected void execute(NodeProbe probe)
-        {
+        protected void execute(NodeProbe probe) {
             PrintStream out = probe.output().out;
             out.println("Cleaning up data from completed sessions...");
             List<CompositeData> compositeData = probe.getRepairServiceProxy().cleanupPending(schemaArgs, getRangeString(startToken, endToken), force);
-
             List<CleanupSummary> summaries = new ArrayList<>(compositeData.size());
             compositeData.forEach(cd -> summaries.add(CleanupSummary.fromComposite(cd)));
-
             summaries.sort((l, r) -> {
                 int cmp = l.keyspace.compareTo(r.keyspace);
                 if (cmp != 0)
                     return cmp;
-
                 return l.table.compareTo(r.table);
             });
-
             List<String> header = Lists.newArrayList("keyspace", "table", "successful sessions", "unsuccessful sessions");
             List<List<String>> rows = new ArrayList<>(summaries.size() + 1);
             rows.add(header);
-
             boolean hasFailures = false;
-            for (CleanupSummary summary : summaries)
-            {
-                List<String> row = Lists.newArrayList(summary.keyspace,
-                                                      summary.table,
-                                                      Integer.toString(summary.successful.size()),
-                                                      Integer.toString(summary.unsuccessful.size()));
-
+            for (CleanupSummary summary : summaries) {
+                List<String> row = Lists.newArrayList(summary.keyspace, summary.table, Integer.toString(summary.successful.size()), Integer.toString(summary.unsuccessful.size()));
                 hasFailures |= !summary.unsuccessful.isEmpty();
                 rows.add(row);
             }
-
             if (hasFailures)
                 out.println("Some tables couldn't be cleaned up completely");
-
             printTable(rows, out);
         }
     }
 
-    @Command(name = "cancel", description = "cancel an incremental repair session." +
-                                            " Use --force to cancel from a node other than the repair coordinator" +
-                                            " Attempting to cancel FINALIZED or FAILED sessions is an error.")
-    public static class CancelCmd extends RepairAdmin
-    {
-        @Option(title = "force", name = {"-f", "--force"}, description = "Force a cancellation.")
-        private boolean force = false;
+    @Command(name = "cancel", description = "cancel an incremental repair session." + " Use --force to cancel from a node other than the repair coordinator" + " Attempting to cancel FINALIZED or FAILED sessions is an error.")
+    public static class CancelCmd extends RepairAdmin {
 
-        @Option(title = "session", name = {"-s", "--session"}, description = "The session to cancel", required = true)
-        private String sessionToCancel;
+        @Option(title = "force", name = { "-f", "--force" }, description = "Force a cancellation.")
+        private transient boolean force = false;
 
-        protected void execute(NodeProbe probe)
-        {
+        @Option(title = "session", name = { "-s", "--session" }, description = "The session to cancel", required = true)
+        private transient String sessionToCancel;
+
+        protected void execute(NodeProbe probe) {
             probe.getRepairServiceProxy().failSession(sessionToCancel, force);
         }
     }
 
-    private static void printTable(List<List<String>> rows, PrintStream out)
-    {
+    private static void printTable(List<List<String>> rows, PrintStream out) {
         if (rows.isEmpty())
             return;
-
         // get max col widths
         int[] widths = new int[rows.get(0).size()];
-        for (List<String> row : rows)
-        {
+        for (List<String> row : rows) {
             assert row.size() == widths.length;
-            for (int i = 0; i < widths.length; i++)
-            {
+            for (int i = 0; i < widths.length; i++) {
                 widths[i] = Math.max(widths[i], row.get(i).length());
             }
         }
-
         List<String> fmts = new ArrayList<>(widths.length);
-        for (int i = 0; i < widths.length; i++)
-        {
+        for (int i = 0; i < widths.length; i++) {
             fmts.add("%-" + widths[i] + "s");
         }
-
         // print
-        for (List<String> row : rows)
-        {
+        for (List<String> row : rows) {
             List<String> formatted = new ArrayList<>(row.size());
-            for (int i = 0; i < widths.length; i++)
-            {
+            for (int i = 0; i < widths.length; i++) {
                 formatted.add(String.format(fmts.get(i), row.get(i)));
             }
             out.println(Joiner.on(" | ").join(formatted));
         }
     }
 
-    static String getRangeString(String startToken, String endToken)
-    {
+    static String getRangeString(String startToken, String endToken) {
         String rangeStr = null;
         if (!startToken.isEmpty() || !endToken.isEmpty())
             rangeStr = startToken + ':' + endToken;

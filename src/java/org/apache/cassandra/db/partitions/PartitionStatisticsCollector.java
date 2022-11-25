@@ -20,11 +20,17 @@ package org.apache.cassandra.db.partitions;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.Cell;
 
-public interface PartitionStatisticsCollector
-{
+public interface PartitionStatisticsCollector {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionStatisticsCollector.class);
+
     public void update(LivenessInfo info);
+
     public void update(DeletionTime deletionTime);
+
     public void update(Cell<?> cell);
+
     public void updateColumnSetPerRow(long columnSetInRow);
+
     public void updateHasLegacyCounterShards(boolean hasLegacyCounterShards);
 }

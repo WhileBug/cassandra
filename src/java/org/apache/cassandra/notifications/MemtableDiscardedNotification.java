@@ -19,12 +19,13 @@ package org.apache.cassandra.notifications;
 
 import org.apache.cassandra.db.Memtable;
 
-public class MemtableDiscardedNotification implements INotification
-{
-    public final Memtable memtable;
+public class MemtableDiscardedNotification implements INotification {
 
-    public MemtableDiscardedNotification(Memtable discarded)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemtableDiscardedNotification.class);
+
+    public final transient Memtable memtable;
+
+    public MemtableDiscardedNotification(Memtable discarded) {
         this.memtable = discarded;
     }
 }

@@ -19,10 +19,8 @@ package org.apache.cassandra.cql3.restrictions;
 
 import java.util.List;
 import java.util.Set;
-
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.functions.Function;
@@ -33,88 +31,73 @@ import org.apache.cassandra.index.IndexRegistry;
  * A <code>RestrictionSet</code> wrapper that can be extended to allow to modify the <code>RestrictionSet</code>
  * behaviour without breaking its immutability. Sub-classes should be immutables.
  */
-class RestrictionSetWrapper implements Restrictions
-{
+class RestrictionSetWrapper implements Restrictions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RestrictionSetWrapper.class);
+
     /**
      * The wrapped <code>RestrictionSet</code>.
      */
-    protected final RestrictionSet restrictions;
+    protected final transient RestrictionSet restrictions;
 
-    public RestrictionSetWrapper(RestrictionSet restrictions)
-    {
+    public RestrictionSetWrapper(RestrictionSet restrictions) {
         this.restrictions = restrictions;
     }
 
-    public void addRowFilterTo(RowFilter filter,
-                               IndexRegistry indexRegistry,
-                               QueryOptions options)
-    {
+    public void addRowFilterTo(RowFilter filter, IndexRegistry indexRegistry, QueryOptions options) {
         restrictions.addRowFilterTo(filter, indexRegistry, options);
     }
 
-    public List<ColumnMetadata> getColumnDefs()
-    {
+    public List<ColumnMetadata> getColumnDefs() {
         return restrictions.getColumnDefs();
     }
 
-    public void addFunctionsTo(List<Function> functions)
-    {
+    public void addFunctionsTo(List<Function> functions) {
         restrictions.addFunctionsTo(functions);
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return restrictions.isEmpty();
     }
 
-    public int size()
-    {
+    public int size() {
         return restrictions.size();
     }
 
-    public boolean hasSupportingIndex(IndexRegistry indexRegistry)
-    {
+    public boolean hasSupportingIndex(IndexRegistry indexRegistry) {
         return restrictions.hasSupportingIndex(indexRegistry);
     }
 
-    public ColumnMetadata getFirstColumn()
-    {
+    public ColumnMetadata getFirstColumn() {
         return restrictions.getFirstColumn();
     }
 
-    public ColumnMetadata getLastColumn()
-    {
+    public ColumnMetadata getLastColumn() {
         return restrictions.getLastColumn();
     }
 
-    public boolean hasIN()
-    {
+    public boolean hasIN() {
         return restrictions.hasIN();
     }
 
-    public boolean hasContains()
-    {
+    public boolean hasContains() {
         return restrictions.hasContains();
     }
 
-    public boolean hasSlice()
-    {
+    public boolean hasSlice() {
         return restrictions.hasSlice();
     }
 
-    public boolean hasOnlyEqualityRestrictions()
-    {
+    public boolean hasOnlyEqualityRestrictions() {
         return restrictions.hasOnlyEqualityRestrictions();
     }
 
-    public Set<Restriction> getRestrictions(ColumnMetadata columnDef)
-    {
+    public Set<Restriction> getRestrictions(ColumnMetadata columnDef) {
         return restrictions.getRestrictions(columnDef);
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 }

@@ -17,8 +17,8 @@
  */
 package org.apache.cassandra.db;
 
-public enum WriteType
-{
+public enum WriteType {
+
     SIMPLE,
     BATCH,
     UNLOGGED_BATCH,
@@ -26,5 +26,5 @@ public enum WriteType
     BATCH_LOG,
     CAS,
     VIEW,
-    CDC;
+    CDC
 }

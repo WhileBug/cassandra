@@ -19,7 +19,6 @@ package org.apache.cassandra.db.rows;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import org.apache.cassandra.db.marshal.ByteBufferAccessor;
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.schema.ColumnMetadata;
@@ -29,146 +28,115 @@ import org.apache.cassandra.utils.concurrent.OpOrder;
 import org.apache.cassandra.utils.memory.MemoryUtil;
 import org.apache.cassandra.utils.memory.NativeAllocator;
 
-public class NativeCell extends AbstractCell<ByteBuffer>
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new NativeCell());
+public class NativeCell extends AbstractCell<ByteBuffer> {
 
-    private static final long HAS_CELLPATH = 0;
-    private static final long TIMESTAMP = 1;
-    private static final long TTL = 9;
-    private static final long DELETION = 13;
-    private static final long LENGTH = 17;
-    private static final long VALUE = 21;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativeCell.class);
 
-    private final long peer;
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new NativeCell());
 
-    private NativeCell()
-    {
+    private static final transient long HAS_CELLPATH = 0;
+
+    private static final transient long TIMESTAMP = 1;
+
+    private static final transient long TTL = 9;
+
+    private static final transient long DELETION = 13;
+
+    private static final transient long LENGTH = 17;
+
+    private static final transient long VALUE = 21;
+
+    private final transient long peer;
+
+    private NativeCell() {
         super(null);
         this.peer = 0;
     }
 
-    public NativeCell(NativeAllocator allocator,
-                      OpOrder.Group writeOp,
-                      Cell<?> cell)
-    {
-        this(allocator,
-             writeOp,
-             cell.column(),
-             cell.timestamp(),
-             cell.ttl(),
-             cell.localDeletionTime(),
-             cell.buffer(),
-             cell.path());
+    public NativeCell(NativeAllocator allocator, OpOrder.Group writeOp, Cell<?> cell) {
+        this(allocator, writeOp, cell.column(), cell.timestamp(), cell.ttl(), cell.localDeletionTime(), cell.buffer(), cell.path());
     }
 
-    public NativeCell(NativeAllocator allocator,
-                      OpOrder.Group writeOp,
-                      ColumnMetadata column,
-                      long timestamp,
-                      int ttl,
-                      int localDeletionTime,
-                      ByteBuffer value,
-                      CellPath path)
-    {
+    public NativeCell(NativeAllocator allocator, OpOrder.Group writeOp, ColumnMetadata column, long timestamp, int ttl, int localDeletionTime, ByteBuffer value, CellPath path) {
         super(column);
         long size = simpleSize(value.remaining());
-
         assert value.order() == ByteOrder.BIG_ENDIAN;
         assert column.isComplex() == (path != null);
-        if (path != null)
-        {
+        if (path != null) {
             assert path.size() == 1 : String.format("Expected path size to be 1 but was not; %s", path);
             size += 4 + path.get(0).remaining();
         }
-
         if (size > Integer.MAX_VALUE)
             throw new IllegalStateException();
-
         // cellpath? : timestamp : ttl : localDeletionTime : length : <data> : [cell path length] : [<cell path data>]
         peer = allocator.allocate((int) size, writeOp);
-        MemoryUtil.setByte(peer + HAS_CELLPATH, (byte)(path == null ? 0 : 1));
+        MemoryUtil.setByte(peer + HAS_CELLPATH, (byte) (path == null ? 0 : 1));
         MemoryUtil.setLong(peer + TIMESTAMP, timestamp);
         MemoryUtil.setInt(peer + TTL, ttl);
         MemoryUtil.setInt(peer + DELETION, localDeletionTime);
         MemoryUtil.setInt(peer + LENGTH, value.remaining());
         MemoryUtil.setBytes(peer + VALUE, value);
-
-        if (path != null)
-        {
+        if (path != null) {
             ByteBuffer pathbuffer = path.get(0);
             assert pathbuffer.order() == ByteOrder.BIG_ENDIAN;
-
             long offset = peer + VALUE + value.remaining();
             MemoryUtil.setInt(offset, pathbuffer.remaining());
             MemoryUtil.setBytes(offset + 4, pathbuffer);
         }
     }
 
-    private static long simpleSize(int length)
-    {
+    private static long simpleSize(int length) {
         return VALUE + length;
     }
 
-    public long timestamp()
-    {
+    public long timestamp() {
         return MemoryUtil.getLong(peer + TIMESTAMP);
     }
 
-    public int ttl()
-    {
+    public int ttl() {
         return MemoryUtil.getInt(peer + TTL);
     }
 
-    public int localDeletionTime()
-    {
+    public int localDeletionTime() {
         return MemoryUtil.getInt(peer + DELETION);
     }
 
-    public ByteBuffer value()// FIXME: add native accessor
-    {
+    public // FIXME: add native accessor
+    ByteBuffer value() {
         int length = MemoryUtil.getInt(peer + LENGTH);
         return MemoryUtil.getByteBuffer(peer + VALUE, length, ByteOrder.BIG_ENDIAN);
     }
 
-    public ValueAccessor<ByteBuffer> accessor()
-    {
-        return ByteBufferAccessor.instance;  // FIXME: add native accessor
+    public ValueAccessor<ByteBuffer> accessor() {
+        // FIXME: add native accessor
+        return ByteBufferAccessor.instance;
     }
 
-    public CellPath path()
-    {
-        if (MemoryUtil.getByte(peer+ HAS_CELLPATH) == 0)
+    public CellPath path() {
+        if (MemoryUtil.getByte(peer + HAS_CELLPATH) == 0)
             return null;
-
         long offset = peer + VALUE + MemoryUtil.getInt(peer + LENGTH);
         int size = MemoryUtil.getInt(offset);
         return CellPath.create(MemoryUtil.getByteBuffer(offset + 4, size, ByteOrder.BIG_ENDIAN));
     }
 
-    public Cell<?> withUpdatedValue(ByteBuffer newValue)
-    {
+    public Cell<?> withUpdatedValue(ByteBuffer newValue) {
         throw new UnsupportedOperationException();
     }
 
-    public Cell<?> withUpdatedTimestampAndLocalDeletionTime(long newTimestamp, int newLocalDeletionTime)
-    {
+    public Cell<?> withUpdatedTimestampAndLocalDeletionTime(long newTimestamp, int newLocalDeletionTime) {
         return new BufferCell(column, newTimestamp, ttl(), newLocalDeletionTime, value(), path());
     }
 
-    public Cell<?> withUpdatedColumn(ColumnMetadata column)
-    {
+    public Cell<?> withUpdatedColumn(ColumnMetadata column) {
         return new BufferCell(column, timestamp(), ttl(), localDeletionTime(), value(), path());
     }
 
-    public Cell withSkippedValue()
-    {
+    public Cell withSkippedValue() {
         return new BufferCell(column, timestamp(), ttl(), localDeletionTime(), ByteBufferUtil.EMPTY_BYTE_BUFFER, path());
     }
 
-    public long unsharedHeapSizeExcludingData()
-    {
+    public long unsharedHeapSizeExcludingData() {
         return EMPTY_SIZE;
     }
-
 }

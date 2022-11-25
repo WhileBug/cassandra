@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.cql3;
 
 import java.io.BufferedReader;
@@ -24,40 +23,34 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-
 import org.apache.cassandra.exceptions.ConfigurationException;
 
-public final class ReservedKeywords
-{
-    private static final String FILE_NAME = "reserved_keywords.txt";
+public final class ReservedKeywords {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReservedKeywords.class);
+
+    private static final transient String FILE_NAME = "reserved_keywords.txt";
 
     @VisibleForTesting
-    static final Set<String> reservedKeywords = getFromResource();
+    static final transient Set<String> reservedKeywords = getFromResource();
 
-    private static Set<String> getFromResource()
-    {
+    private static Set<String> getFromResource() {
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
         try (InputStream is = ReservedKeywords.class.getResource(FILE_NAME).openConnection().getInputStream();
-             BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8)))
-        {
+            BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
             String line;
-            while ((line = r.readLine()) != null)
-            {
+            while ((line = r.readLine()) != null) {
                 builder.add(line.trim());
             }
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new ConfigurationException(String.format("Unable to read reserved keywords file '%s'", FILE_NAME), e);
         }
         return builder.build();
     }
 
-    public static boolean isReserved(String text)
-    {
+    public static boolean isReserved(String text) {
         return reservedKeywords.contains(text.toUpperCase());
     }
 }

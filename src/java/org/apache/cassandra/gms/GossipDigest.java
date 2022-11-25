@@ -18,58 +18,54 @@
 package org.apache.cassandra.gms;
 
 import java.io.*;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.locator.InetAddressAndPort;
-
 import static org.apache.cassandra.locator.InetAddressAndPort.Serializer.inetAddressAndPortSerializer;
 
 /**
  * Contains information about a specified list of Endpoints and the largest version
  * of the state they have generated as known by the local endpoint.
  */
-public class GossipDigest implements Comparable<GossipDigest>
-{
-    public static final IVersionedSerializer<GossipDigest> serializer = new GossipDigestSerializer();
+public class GossipDigest implements Comparable<GossipDigest> {
 
-    final InetAddressAndPort endpoint;
-    final int generation;
-    final int maxVersion;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GossipDigest.class);
 
-    GossipDigest(InetAddressAndPort ep, int gen, int version)
-    {
+    public static final transient IVersionedSerializer<GossipDigest> serializer = new GossipDigestSerializer();
+
+    final transient InetAddressAndPort endpoint;
+
+    final transient int generation;
+
+    final transient int maxVersion;
+
+    GossipDigest(InetAddressAndPort ep, int gen, int version) {
         endpoint = ep;
         generation = gen;
         maxVersion = version;
     }
 
-    InetAddressAndPort getEndpoint()
-    {
+    InetAddressAndPort getEndpoint() {
         return endpoint;
     }
 
-    int getGeneration()
-    {
+    int getGeneration() {
         return generation;
     }
 
-    int getMaxVersion()
-    {
+    int getMaxVersion() {
         return maxVersion;
     }
 
-    public int compareTo(GossipDigest gDigest)
-    {
+    public int compareTo(GossipDigest gDigest) {
         if (generation != gDigest.generation)
             return (generation - gDigest.generation);
         return (maxVersion - gDigest.maxVersion);
     }
 
-    public String toString()
-    {
+    public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append(endpoint);
         sb.append(":");
@@ -80,25 +76,24 @@ public class GossipDigest implements Comparable<GossipDigest>
     }
 }
 
-class GossipDigestSerializer implements IVersionedSerializer<GossipDigest>
-{
-    public void serialize(GossipDigest gDigest, DataOutputPlus out, int version) throws IOException
-    {
+class GossipDigestSerializer implements IVersionedSerializer<GossipDigest> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GossipDigestSerializer.class);
+
+    public void serialize(GossipDigest gDigest, DataOutputPlus out, int version) throws IOException {
         inetAddressAndPortSerializer.serialize(gDigest.endpoint, out, version);
         out.writeInt(gDigest.generation);
         out.writeInt(gDigest.maxVersion);
     }
 
-    public GossipDigest deserialize(DataInputPlus in, int version) throws IOException
-    {
+    public GossipDigest deserialize(DataInputPlus in, int version) throws IOException {
         InetAddressAndPort endpoint = inetAddressAndPortSerializer.deserialize(in, version);
         int generation = in.readInt();
         int maxVersion = in.readInt();
         return new GossipDigest(endpoint, generation, maxVersion);
     }
 
-    public long serializedSize(GossipDigest gDigest, int version)
-    {
+    public long serializedSize(GossipDigest gDigest, int version) {
         long size = inetAddressAndPortSerializer.serializedSize(gDigest.endpoint, version);
         size += TypeSizes.sizeof(gDigest.generation);
         size += TypeSizes.sizeof(gDigest.maxVersion);
