@@ -18,7 +18,6 @@
 package org.apache.cassandra.transport.messages;
 
 import java.nio.ByteBuffer;
-
 import io.netty.buffer.ByteBuf;
 import org.apache.cassandra.auth.AuthEvents;
 import org.apache.cassandra.auth.AuthenticatedUser;
@@ -33,64 +32,56 @@ import org.apache.cassandra.transport.*;
  * mechanisms and clients may send an initial token before
  * receiving a challenge from the server.
  */
-public class AuthResponse extends Message.Request
-{
-    public static final Message.Codec<AuthResponse> codec = new Message.Codec<AuthResponse>()
-    {
-        public AuthResponse decode(ByteBuf body, ProtocolVersion version)
-        {
+public class AuthResponse extends Message.Request {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthResponse.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthResponse.class);
+
+    public static final transient Message.Codec<AuthResponse> codec = new Message.Codec<AuthResponse>() {
+
+        public AuthResponse decode(ByteBuf body, ProtocolVersion version) {
             if (version == ProtocolVersion.V1)
                 throw new ProtocolException("SASL Authentication is not supported in version 1 of the protocol");
-
             ByteBuffer b = CBUtil.readValue(body);
             byte[] token = new byte[b.remaining()];
             b.get(token);
             return new AuthResponse(token);
         }
 
-        public void encode(AuthResponse response, ByteBuf dest, ProtocolVersion version)
-        {
+        public void encode(AuthResponse response, ByteBuf dest, ProtocolVersion version) {
             CBUtil.writeValue(response.token, dest);
         }
 
-        public int encodedSize(AuthResponse response, ProtocolVersion version)
-        {
+        public int encodedSize(AuthResponse response, ProtocolVersion version) {
             return CBUtil.sizeOfValue(response.token);
         }
     };
 
-    private final byte[] token;
+    private final transient byte[] token;
 
-    public AuthResponse(byte[] token)
-    {
+    public AuthResponse(byte[] token) {
         super(Message.Type.AUTH_RESPONSE);
         assert token != null;
         this.token = token;
     }
 
     @Override
-    protected Response execute(QueryState queryState, long queryStartNanoTime, boolean traceRequest)
-    {
-        try
-        {
+    protected Response execute(QueryState queryState, long queryStartNanoTime, boolean traceRequest) {
+        try {
             IAuthenticator.SaslNegotiator negotiator = ((ServerConnection) connection).getSaslNegotiator(queryState);
             byte[] challenge = negotiator.evaluateResponse(token);
-            if (negotiator.isComplete())
-            {
+            if (negotiator.isComplete()) {
                 AuthenticatedUser user = negotiator.getAuthenticatedUser();
                 queryState.getClientState().login(user);
                 ClientMetrics.instance.markAuthSuccess();
                 AuthEvents.instance.notifyAuthSuccess(queryState);
                 // authentication is complete, send a ready message to the client
                 return new AuthSuccess(challenge);
-            }
-            else
-            {
+            } else {
                 return new AuthChallenge(challenge);
             }
-        }
-        catch (AuthenticationException e)
-        {
+        } catch (AuthenticationException e) {
             ClientMetrics.instance.markAuthFailure();
             AuthEvents.instance.notifyAuthFailure(queryState, e);
             return ErrorMessage.fromException(e);

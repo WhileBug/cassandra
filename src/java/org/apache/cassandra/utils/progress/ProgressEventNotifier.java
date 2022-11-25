@@ -20,8 +20,12 @@ package org.apache.cassandra.utils.progress;
 /**
  * Interface for {@link ProgressEvent} publisher.
  */
-public interface ProgressEventNotifier
-{
+public interface ProgressEventNotifier {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProgressEventNotifier.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProgressEventNotifier.class);
+
     /**
      * Register progress listener to this publisher.
      *

@@ -22,13 +22,15 @@ import java.nio.ByteBuffer;
 /**
  * Input stream around a single ByteBuffer.
  */
-public class DataInputBuffer extends RebufferingInputStream
-{
-    private static ByteBuffer slice(byte[] buffer, int offset, int length)
-    {
+public class DataInputBuffer extends RebufferingInputStream {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataInputBuffer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataInputBuffer.class);
+
+    private static ByteBuffer slice(byte[] buffer, int offset, int length) {
         ByteBuffer buf = ByteBuffer.wrap(buffer);
-        if (offset > 0 || length < buf.capacity())
-        {
+        if (offset > 0 || length < buf.capacity()) {
             buf.position(offset);
             buf.limit(offset + length);
             buf = buf.slice();
@@ -40,33 +42,29 @@ public class DataInputBuffer extends RebufferingInputStream
      * @param buffer
      * @param duplicate Whether or not to duplicate the buffer to ensure thread safety
      */
-    public DataInputBuffer(ByteBuffer buffer, boolean duplicate)
-    {
+    public DataInputBuffer(ByteBuffer buffer, boolean duplicate) {
         super(duplicate ? buffer.duplicate() : buffer);
     }
 
-    public DataInputBuffer(byte[] buffer, int offset, int length)
-    {
+    public DataInputBuffer(byte[] buffer, int offset, int length) {
         super(slice(buffer, offset, length));
     }
 
-    public DataInputBuffer(byte[] buffer)
-    {
+    public DataInputBuffer(byte[] buffer) {
         super(ByteBuffer.wrap(buffer));
     }
 
     @Override
-    protected void reBuffer()
-    {
-        //nope, we don't rebuffer, we are done!
+    protected void reBuffer() {
+        // nope, we don't rebuffer, we are done!
     }
 
     @Override
-    public int available()
-    {
+    public int available() {
         return buffer.remaining();
     }
 
     @Override
-    public void close() {}
+    public void close() {
+    }
 }

@@ -37,13 +37,17 @@ import java.util.function.Consumer;
  * In addition to that, provides a {@link #relaxedPeekLastAndOffer(Object)} method that we use to avoid a CAS when
  * putting message handlers onto the wait queue.
  */
-class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHead<E> implements Queue<E>
-{
-    @SuppressWarnings("unused") // pad two cache lines after the head to prevent false sharing
-    protected long p31, p32, p33, p34, p35, p36, p37, p38, p39, p40, p41, p42, p43, p44, p45;
+class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHead<E> implements Queue<E> {
 
-    ManyToOneConcurrentLinkedQueue()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueue.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueue.class);
+
+    // pad two cache lines after the head to prevent false sharing
+    @SuppressWarnings("unused")
+    protected transient long p31, p32, p33, p34, p35, p36, p37, p38, p39, p40, p41, p42, p43, p44, p45;
+
+    ManyToOneConcurrentLinkedQueue() {
         head = tail = new Node<>(null);
     }
 
@@ -51,8 +55,7 @@ class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHe
      * See {@link #relaxedIsEmpty()}.
      */
     @Override
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return relaxedIsEmpty();
     }
 
@@ -63,24 +66,20 @@ class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHe
      *  - {@code false} result indicates that the queue <em>MIGHT BE</em> non-empty - the value of {@code head} might
      *    not yet have been made externally visible by the consumer thread.
      */
-    boolean relaxedIsEmpty()
-    {
+    boolean relaxedIsEmpty() {
         return null == head.next;
     }
 
     @Override
-    public int size()
-    {
+    public int size() {
         int size = 0;
         Node<E> next = head;
-        while (null != (next = next.next))
-            size++;
+        while (null != (next = next.next)) size++;
         return size;
     }
 
     @Override
-    public E peek()
-    {
+    public E peek() {
         Node<E> next = head.next;
         if (null == next)
             return null;
@@ -88,8 +87,7 @@ class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHe
     }
 
     @Override
-    public E element()
-    {
+    public E element() {
         E item = peek();
         if (null == item)
             throw new NoSuchElementException("Queue is empty");
@@ -97,25 +95,22 @@ class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHe
     }
 
     @Override
-    public E poll()
-    {
+    public E poll() {
         Node<E> head = this.head;
         Node<E> next = head.next;
-
         if (null == next)
             return null;
-
-        this.lazySetHead(next); // update head reference to next before making previous head node unreachable,
-        head.lazySetNext(head); // to maintain the guarantee of tail being always reachable from head
-
+        // update head reference to next before making previous head node unreachable,
+        this.lazySetHead(next);
+        // to maintain the guarantee of tail being always reachable from head
+        head.lazySetNext(head);
         E item = next.item;
         next.item = null;
         return item;
     }
 
     @Override
-    public E remove()
-    {
+    public E remove() {
         E item = poll();
         if (null == item)
             throw new NoSuchElementException("Queue is empty");
@@ -123,29 +118,23 @@ class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHe
     }
 
     @Override
-    public boolean remove(Object o)
-    {
+    public boolean remove(Object o) {
         if (null == o)
             throw new NullPointerException();
-
         Node<E> prev = this.head;
         Node<E> next = prev.next;
-
-        while (null != next)
-        {
-            if (o.equals(next.item))
-            {
-                prev.lazySetNext(next.next); // update prev reference to next before making removed node unreachable,
-                next.lazySetNext(next);      // to maintain the guarantee of tail being always reachable from head
-
+        while (null != next) {
+            if (o.equals(next.item)) {
+                // update prev reference to next before making removed node unreachable,
+                prev.lazySetNext(next.next);
+                // to maintain the guarantee of tail being always reachable from head
+                next.lazySetNext(next);
                 next.item = null;
                 return true;
             }
-
             prev = next;
             next = next.next;
         }
-
         return false;
     }
 
@@ -156,23 +145,20 @@ class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHe
      * Yields no performance benefit over invoking {@link #poll()} manually - there just isn't
      * anything to meaningfully amortise on the consumer side of this queue.
      */
-    void drain(Consumer<E> consumer)
-    {
+    void drain(Consumer<E> consumer) {
         E item;
-        while ((item = poll()) != null)
-            consumer.accept(item);
+        while ((item = poll()) != null) consumer.accept(item);
     }
 
     @Override
-    public boolean add(E e)
-    {
+    public boolean add(E e) {
         return offer(e);
     }
 
     @Override
-    public boolean offer(E e)
-    {
-        internalOffer(e); return true;
+    public boolean offer(E e) {
+        internalOffer(e);
+        return true;
     }
 
     /**
@@ -181,8 +167,7 @@ class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHe
      *
      * @return previously last tail item in the queue, potentially stale
      */
-    E relaxedPeekLastAndOffer(E e)
-    {
+    E relaxedPeekLastAndOffer(E e) {
         return internalOffer(e);
     }
 
@@ -191,38 +176,30 @@ class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHe
      * written by Doug Lea and Martin Buchholz with assistance from members of JCP JSR-166 Expert Group
      * and released to the public domain, as explained at http://creativecommons.org/publicdomain/zero/1.0/
      */
-    private E internalOffer(E e)
-    {
+    private E internalOffer(E e) {
         if (null == e)
             throw new NullPointerException();
-
         final Node<E> node = new Node<>(e);
-
-        for (Node<E> t = tail, p = t;;)
-        {
+        for (Node<E> t = tail, p = t; ; ) {
             Node<E> q = p.next;
-            if (q == null)
-            {
+            if (q == null) {
                 // p is last node
-                if (p.casNext(null, node))
-                {
+                if (p.casNext(null, node)) {
                     // successful CAS is the linearization point for e to become an element of this queue and for node to become "live".
-                    if (p != t) // hop two nodes at a time
-                        casTail(t, node); // failure is ok
+                    if (// hop two nodes at a time
+                    p != t)
+                        // failure is ok
+                        casTail(t, node);
                     return p.item;
                 }
                 // lost CAS race to another thread; re-read next
-            }
-            else if (p == q)
-            {
+            } else if (p == q) {
                 /*
                  * We have fallen off list. If tail is unchanged, it will also be off-list, in which case we need to
                  * jump to head, from which all live nodes are always reachable. Else the new tail is a better bet.
                  */
                 p = (t != (t = tail)) ? t : head;
-            }
-            else
-            {
+            } else {
                 // check for tail updates after two hops
                 p = (p != t && t != (t = tail)) ? t : q;
             }
@@ -230,120 +207,122 @@ class ManyToOneConcurrentLinkedQueue<E> extends ManyToOneConcurrentLinkedQueueHe
     }
 
     @Override
-    public boolean contains(Object o)
-    {
+    public boolean contains(Object o) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Iterator<E> iterator()
-    {
+    public Iterator<E> iterator() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Object[] toArray()
-    {
+    public Object[] toArray() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public <T> T[] toArray(T[] a)
-    {
+    public <T> T[] toArray(T[] a) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean containsAll(Collection<?> c)
-    {
+    public boolean containsAll(Collection<?> c) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean addAll(Collection<? extends E> c)
-    {
+    public boolean addAll(Collection<? extends E> c) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean removeAll(Collection<?> c)
-    {
+    public boolean removeAll(Collection<?> c) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean retainAll(Collection<?> c)
-    {
+    public boolean retainAll(Collection<?> c) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void clear()
-    {
+    public void clear() {
         throw new UnsupportedOperationException();
     }
 }
 
-class ManyToOneConcurrentLinkedQueueHead<E> extends ManyToOneConcurrentLinkedQueuePadding2<E>
-{
-    protected volatile ManyToOneConcurrentLinkedQueue.Node<E> head;
+class ManyToOneConcurrentLinkedQueueHead<E> extends ManyToOneConcurrentLinkedQueuePadding2<E> {
 
-    private static final AtomicReferenceFieldUpdater<ManyToOneConcurrentLinkedQueueHead, Node> headUpdater =
-        AtomicReferenceFieldUpdater.newUpdater(ManyToOneConcurrentLinkedQueueHead.class, Node.class, "head");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueueHead.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueueHead.class);
+
+    protected volatile transient ManyToOneConcurrentLinkedQueue.Node<E> head;
+
+    private static final transient AtomicReferenceFieldUpdater<ManyToOneConcurrentLinkedQueueHead, Node> headUpdater = AtomicReferenceFieldUpdater.newUpdater(ManyToOneConcurrentLinkedQueueHead.class, Node.class, "head");
 
     @SuppressWarnings("WeakerAccess")
-    protected void lazySetHead(Node<E> val)
-    {
+    protected void lazySetHead(Node<E> val) {
         headUpdater.lazySet(this, val);
     }
 }
 
-class ManyToOneConcurrentLinkedQueuePadding2<E> extends ManyToOneConcurrentLinkedQueueTail<E>
-{
-    @SuppressWarnings("unused") // pad two cache lines between tail and head to prevent false sharing
-    protected long p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30;
+class ManyToOneConcurrentLinkedQueuePadding2<E> extends ManyToOneConcurrentLinkedQueueTail<E> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueuePadding2.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueuePadding2.class);
+
+    // pad two cache lines between tail and head to prevent false sharing
+    @SuppressWarnings("unused")
+    protected transient long p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30;
 }
 
-class ManyToOneConcurrentLinkedQueueTail<E> extends ManyToOneConcurrentLinkedQueuePadding1
-{
-    protected volatile ManyToOneConcurrentLinkedQueue.Node<E> tail;
+class ManyToOneConcurrentLinkedQueueTail<E> extends ManyToOneConcurrentLinkedQueuePadding1 {
 
-    private static final AtomicReferenceFieldUpdater<ManyToOneConcurrentLinkedQueueTail, Node> tailUpdater =
-        AtomicReferenceFieldUpdater.newUpdater(ManyToOneConcurrentLinkedQueueTail.class, Node.class, "tail");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueueTail.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueueTail.class);
+
+    protected volatile transient ManyToOneConcurrentLinkedQueue.Node<E> tail;
+
+    private static final transient AtomicReferenceFieldUpdater<ManyToOneConcurrentLinkedQueueTail, Node> tailUpdater = AtomicReferenceFieldUpdater.newUpdater(ManyToOneConcurrentLinkedQueueTail.class, Node.class, "tail");
 
     @SuppressWarnings({ "WeakerAccess", "UnusedReturnValue" })
-    protected boolean casTail(Node<E> expect, Node<E> update)
-    {
+    protected boolean casTail(Node<E> expect, Node<E> update) {
         return tailUpdater.compareAndSet(this, expect, update);
     }
 }
 
-class ManyToOneConcurrentLinkedQueuePadding1
-{
-    @SuppressWarnings("unused") // pad two cache lines before the tail to prevent false sharing
-    protected long p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15;
+class ManyToOneConcurrentLinkedQueuePadding1 {
 
-    static final class Node<E>
-    {
-        E item;
-        volatile Node<E> next;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueuePadding1.class);
 
-        private static final AtomicReferenceFieldUpdater<Node, Node> nextUpdater =
-            AtomicReferenceFieldUpdater.newUpdater(Node.class, Node.class, "next");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ManyToOneConcurrentLinkedQueuePadding1.class);
 
-        Node(E item)
-        {
+    // pad two cache lines before the tail to prevent false sharing
+    @SuppressWarnings("unused")
+    protected transient long p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15;
+
+    static final class Node<E> {
+
+        transient E item;
+
+        volatile transient Node<E> next;
+
+        private static final transient AtomicReferenceFieldUpdater<Node, Node> nextUpdater = AtomicReferenceFieldUpdater.newUpdater(Node.class, Node.class, "next");
+
+        Node(E item) {
             this.item = item;
         }
 
         @SuppressWarnings("SameParameterValue")
-        boolean casNext(Node<E> expect, Node<E> update)
-        {
+        boolean casNext(Node<E> expect, Node<E> update) {
             return nextUpdater.compareAndSet(this, expect, update);
         }
 
-        void lazySetNext(Node<E> val)
-        {
+        void lazySetNext(Node<E> val) {
             nextUpdater.lazySet(this, val);
         }
     }

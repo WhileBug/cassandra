@@ -22,18 +22,19 @@ package org.apache.cassandra.cql3.functions.types.exceptions;
  *
  * <p>This should never be raised and indicates a bug (either in the driver or in Cassandra).
  */
-public class DriverInternalError extends DriverException
-{
+public class DriverInternalError extends DriverException {
 
-    private static final long serialVersionUID = 0;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DriverInternalError.class);
 
-    public DriverInternalError(String message)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DriverInternalError.class);
+
+    private static final transient long serialVersionUID = 0;
+
+    public DriverInternalError(String message) {
         super(message);
     }
 
-    public DriverInternalError(String message, Throwable cause)
-    {
+    public DriverInternalError(String message, Throwable cause) {
         super(message, cause);
     }
 }

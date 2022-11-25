@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.io.compress.BufferType;
 
 /**
@@ -28,13 +26,17 @@ import org.apache.cassandra.io.compress.BufferType;
  * A caching or buffer-managing rebufferer will reference one of these to do the actual reading.
  * Note: Implementations of this interface must be thread-safe!
  */
-public interface ChunkReader extends RebuffererFactory
-{
+public interface ChunkReader extends RebuffererFactory {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ChunkReader.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ChunkReader.class);
+
     /**
      * Read the chunk at the given position, attempting to fill the capacity of the given buffer.
      * The filled buffer must be positioned at 0, with limit set at the size of the available data.
      * The source may have requirements for the positioning and/or size of the buffer (e.g. chunk-aligned and
-     * chunk-sized). These must be satisfied by the caller. 
+     * chunk-sized). These must be satisfied by the caller.
      */
     void readChunk(long position, ByteBuffer buffer);
 

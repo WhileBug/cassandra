@@ -30,8 +30,12 @@ import java.util.Arrays;
  *   1. MD5Digest is a more explicit name than ByteBuffer to represent a md5.
  *   2. Using our own class allows to use our FastByteComparison for equals.
  */
-public class MD5Digest
-{
+public class MD5Digest {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MD5Digest.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MD5Digest.class);
+
     /**
      * In the interest not breaking things, we're consciously keeping this single remaining instance
      * of MessageDigest around for usage by GuidGenerator (which is only ever used by RandomPartitioner)
@@ -41,76 +45,66 @@ public class MD5Digest
      * digests etc possible, but not regress on performance or bugs in RandomPartitioner's usage of
      * MD5 and MessageDigest.
      */
-    private static final ThreadLocal<MessageDigest> localMD5Digest = new ThreadLocal<MessageDigest>()
-    {
+    private static final transient ThreadLocal<MessageDigest> localMD5Digest = new ThreadLocal<MessageDigest>() {
+
         @Override
-        protected MessageDigest initialValue()
-        {
+        protected MessageDigest initialValue() {
             return FBUtilities.newMessageDigest("MD5");
         }
 
         @Override
-        public MessageDigest get()
-        {
+        public MessageDigest get() {
             MessageDigest digest = super.get();
             digest.reset();
             return digest;
         }
     };
 
-    public final byte[] bytes;
-    private final int hashCode;
+    public final transient byte[] bytes;
 
-    private MD5Digest(byte[] bytes)
-    {
+    private final transient int hashCode;
+
+    private MD5Digest(byte[] bytes) {
         this.bytes = bytes;
         hashCode = Arrays.hashCode(bytes);
     }
 
-    public static MD5Digest wrap(byte[] digest)
-    {
+    public static MD5Digest wrap(byte[] digest) {
         return new MD5Digest(digest);
     }
 
-    public static MD5Digest compute(byte[] toHash)
-    {
+    public static MD5Digest compute(byte[] toHash) {
         return new MD5Digest(localMD5Digest.get().digest(toHash));
     }
 
-    public static MD5Digest compute(String toHash)
-    {
+    public static MD5Digest compute(String toHash) {
         return compute(toHash.getBytes(StandardCharsets.UTF_8));
     }
 
-    public ByteBuffer byteBuffer()
-    {
+    public ByteBuffer byteBuffer() {
         return ByteBuffer.wrap(bytes);
     }
 
     @Override
-    public final int hashCode()
-    {
+    public final int hashCode() {
         return hashCode;
     }
 
     @Override
-    public final boolean equals(Object o)
-    {
-        if(!(o instanceof MD5Digest))
+    public final boolean equals(Object o) {
+        if (!(o instanceof MD5Digest))
             return false;
-        MD5Digest that = (MD5Digest)o;
+        MD5Digest that = (MD5Digest) o;
         // handles nulls properly
         return FBUtilities.compareUnsigned(this.bytes, that.bytes, 0, 0, this.bytes.length, that.bytes.length) == 0;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return Hex.bytesToHex(bytes);
     }
 
-    public static MessageDigest threadLocalMD5Digest()
-    {
+    public static MessageDigest threadLocalMD5Digest() {
         return localMD5Digest.get();
     }
 }

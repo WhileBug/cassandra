@@ -18,9 +18,7 @@
 package org.apache.cassandra.streaming.messages;
 
 import java.io.IOException;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputStreamPlus;
 import org.apache.cassandra.schema.TableId;
@@ -28,59 +26,49 @@ import org.apache.cassandra.streaming.OutgoingStream;
 import org.apache.cassandra.streaming.StreamSession;
 import org.apache.cassandra.utils.FBUtilities;
 
-public class OutgoingStreamMessage extends StreamMessage
-{
-    public static Serializer<OutgoingStreamMessage> serializer = new Serializer<OutgoingStreamMessage>()
-    {
-        public OutgoingStreamMessage deserialize(DataInputPlus in, int version)
-        {
+public class OutgoingStreamMessage extends StreamMessage {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutgoingStreamMessage.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutgoingStreamMessage.class);
+
+    public static transient Serializer<OutgoingStreamMessage> serializer = new Serializer<OutgoingStreamMessage>() {
+
+        public OutgoingStreamMessage deserialize(DataInputPlus in, int version) {
             throw new UnsupportedOperationException("Not allowed to call deserialize on an outgoing stream");
         }
 
-        public void serialize(OutgoingStreamMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException
-        {
+        public void serialize(OutgoingStreamMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException {
             message.startTransfer();
-            try
-            {
+            try {
                 message.serialize(out, version, session);
                 session.streamSent(message);
-            }
-            finally
-            {
+            } finally {
                 message.finishTransfer();
             }
         }
 
-        public long serializedSize(OutgoingStreamMessage message, int version)
-        {
+        public long serializedSize(OutgoingStreamMessage message, int version) {
             return 0;
         }
     };
 
-    public final StreamMessageHeader header;
-    public final OutgoingStream stream;
-    private boolean completed = false;
-    private boolean transferring = false;
+    public final transient StreamMessageHeader header;
 
-    public OutgoingStreamMessage(TableId tableId, StreamSession session, OutgoingStream stream, int sequenceNumber)
-    {
+    public final transient OutgoingStream stream;
+
+    private transient boolean completed = false;
+
+    private transient boolean transferring = false;
+
+    public OutgoingStreamMessage(TableId tableId, StreamSession session, OutgoingStream stream, int sequenceNumber) {
         super(Type.STREAM);
-
         this.stream = stream;
-        this.header = new StreamMessageHeader(tableId,
-                                              FBUtilities.getBroadcastAddressAndPort(),
-                                              session.planId(),
-                                              session.isFollower(),
-                                              session.sessionIndex(),
-                                              sequenceNumber,
-                                              stream.getRepairedAt(),
-                                              stream.getPendingRepair());
+        this.header = new StreamMessageHeader(tableId, FBUtilities.getBroadcastAddressAndPort(), session.planId(), session.isFollower(), session.sessionIndex(), sequenceNumber, stream.getRepairedAt(), stream.getPendingRepair());
     }
 
-    public synchronized void serialize(DataOutputStreamPlus out, int version, StreamSession session) throws IOException
-    {
-        if (completed)
-        {
+    public synchronized void serialize(DataOutputStreamPlus out, int version, StreamSession session) throws IOException {
+        if (completed) {
             return;
         }
         StreamMessageHeader.serializer.serialize(header, out, version);
@@ -88,50 +76,37 @@ public class OutgoingStreamMessage extends StreamMessage
     }
 
     @VisibleForTesting
-    public synchronized void finishTransfer()
-    {
+    public synchronized void finishTransfer() {
         transferring = false;
-        //session was aborted mid-transfer, now it's safe to release
-        if (completed)
-        {
+        // session was aborted mid-transfer, now it's safe to release
+        if (completed) {
             stream.finish();
         }
     }
 
     @VisibleForTesting
-    public synchronized void startTransfer()
-    {
+    public synchronized void startTransfer() {
         if (completed)
-            throw new RuntimeException(String.format("Transfer of stream %s already completed or aborted (perhaps session failed?).",
-                                                     stream));
+            throw new RuntimeException(String.format("Transfer of stream %s already completed or aborted (perhaps session failed?).", stream));
         transferring = true;
     }
 
-    public synchronized void complete()
-    {
-        if (!completed)
-        {
+    public synchronized void complete() {
+        if (!completed) {
             completed = true;
-            //release only if not transferring
-            if (!transferring)
-            {
+            // release only if not transferring
+            if (!transferring) {
                 stream.finish();
             }
         }
     }
 
     @Override
-    public String toString()
-    {
-        return "OutgoingStreamMessage{" +
-               "header=" + header +
-               ", stream=" + stream +
-               '}';
+    public String toString() {
+        return "OutgoingStreamMessage{" + "header=" + header + ", stream=" + stream + '}';
     }
 
-    public String getName()
-    {
+    public String getName() {
         return stream.getName();
     }
 }
-

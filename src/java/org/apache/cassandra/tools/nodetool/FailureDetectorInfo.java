@@ -18,29 +18,27 @@
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
-
 import java.util.List;
-
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.TabularData;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "failuredetector", description = "Shows the failure detector information for the cluster")
-public class FailureDetectorInfo extends NodeToolCmd
-{
+public class FailureDetectorInfo extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FailureDetectorInfo.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FailureDetectorInfo.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         TabularData data = probe.getFailureDetectorPhilValues(printPort);
         probe.output().out.printf("%10s,%16s%n", "Endpoint", "Phi");
-        for (Object o : data.keySet())
-        {
+        for (Object o : data.keySet()) {
             @SuppressWarnings({ "rawtypes", "unchecked" })
             CompositeData datum = data.get(((List) o).toArray(new Object[((List) o).size()]));
             probe.output().out.printf("%10s,%16.8f%n", datum.get("Endpoint"), datum.get("PHI"));
         }
     }
 }
-

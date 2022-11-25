@@ -15,14 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 import java.util.Collections;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.sun.jna.LastErrorException;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
@@ -42,90 +39,84 @@ import com.sun.jna.Pointer;
  * @see org.apache.cassandra.utils.NativeLibraryWrapper
  * @see NativeLibrary
  */
-public class NativeLibraryLinux implements NativeLibraryWrapper
-{
-    private static boolean available;
+public class NativeLibraryLinux implements NativeLibraryWrapper {
 
-    private static final Logger logger = LoggerFactory.getLogger(NativeLibraryLinux.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativeLibraryLinux.class);
 
-    static
-    {
-        try
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativeLibraryLinux.class);
+
+    private static transient boolean available;
+
+    private static final transient Logger logger = LoggerFactory.getLogger(NativeLibraryLinux.class);
+
+    static {
+        try {
             Native.register(com.sun.jna.NativeLibrary.getInstance("c", Collections.emptyMap()));
             available = true;
-        }
-        catch (NoClassDefFoundError e)
-        {
+        } catch (NoClassDefFoundError e) {
             logger.warn("JNA not found. Native methods will be disabled.");
-        }
-        catch (UnsatisfiedLinkError e)
-        {
+        } catch (UnsatisfiedLinkError e) {
             logger.error("Failed to link the C library against JNA. Native methods will be unavailable.", e);
-        }
-        catch (NoSuchMethodError e)
-        {
+        } catch (NoSuchMethodError e) {
             logger.warn("Obsolete version of JNA present; unable to register C library. Upgrade to JNA 3.2.7 or later");
         }
     }
 
     private static native int mlockall(int flags) throws LastErrorException;
+
     private static native int munlockall() throws LastErrorException;
+
     private static native int fcntl(int fd, int command, long flags) throws LastErrorException;
+
     private static native int posix_fadvise(int fd, long offset, int len, int flag) throws LastErrorException;
+
     private static native int open(String path, int flags) throws LastErrorException;
+
     private static native int fsync(int fd) throws LastErrorException;
+
     private static native int close(int fd) throws LastErrorException;
+
     private static native Pointer strerror(int errnum) throws LastErrorException;
+
     private static native long getpid() throws LastErrorException;
 
-    public int callMlockall(int flags) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callMlockall(int flags) throws UnsatisfiedLinkError, RuntimeException {
         return mlockall(flags);
     }
 
-    public int callMunlockall() throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callMunlockall() throws UnsatisfiedLinkError, RuntimeException {
         return munlockall();
     }
 
-    public int callFcntl(int fd, int command, long flags) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callFcntl(int fd, int command, long flags) throws UnsatisfiedLinkError, RuntimeException {
         return fcntl(fd, command, flags);
     }
 
-    public int callPosixFadvise(int fd, long offset, int len, int flag) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callPosixFadvise(int fd, long offset, int len, int flag) throws UnsatisfiedLinkError, RuntimeException {
         return posix_fadvise(fd, offset, len, flag);
     }
 
-    public int callOpen(String path, int flags) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callOpen(String path, int flags) throws UnsatisfiedLinkError, RuntimeException {
         return open(path, flags);
     }
 
-    public int callFsync(int fd) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callFsync(int fd) throws UnsatisfiedLinkError, RuntimeException {
         return fsync(fd);
     }
 
-    public int callClose(int fd) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public int callClose(int fd) throws UnsatisfiedLinkError, RuntimeException {
         return close(fd);
     }
 
-    public Pointer callStrerror(int errnum) throws UnsatisfiedLinkError, RuntimeException
-    {
+    public Pointer callStrerror(int errnum) throws UnsatisfiedLinkError, RuntimeException {
         return strerror(errnum);
     }
 
-    public long callGetpid() throws UnsatisfiedLinkError, RuntimeException
-    {
+    public long callGetpid() throws UnsatisfiedLinkError, RuntimeException {
         return getpid();
     }
 
-    public boolean isAvailable()
-    {
+    public boolean isAvailable() {
         return available;
     }
 }

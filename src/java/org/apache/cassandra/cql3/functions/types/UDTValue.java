@@ -20,38 +20,36 @@ package org.apache.cassandra.cql3.functions.types;
 /**
  * A value for a User Defined Type.
  */
-public class UDTValue extends AbstractData<UDTValue>
-{
+public class UDTValue extends AbstractData<UDTValue> {
 
-    private final UserType definition;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UDTValue.class);
 
-    UDTValue(UserType definition)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UDTValue.class);
+
+    private final transient UserType definition;
+
+    UDTValue(UserType definition) {
         super(definition.getProtocolVersion(), definition.size());
         this.definition = definition;
     }
 
     @Override
-    protected DataType getType(int i)
-    {
+    protected DataType getType(int i) {
         return definition.byIdx[i].getType();
     }
 
     @Override
-    protected String getName(int i)
-    {
+    protected String getName(int i) {
         return definition.byIdx[i].getName();
     }
 
     @Override
-    protected CodecRegistry getCodecRegistry()
-    {
+    protected CodecRegistry getCodecRegistry() {
         return definition.getCodecRegistry();
     }
 
     @Override
-    protected int[] getAllIndexesOf(String name)
-    {
+    protected int[] getAllIndexesOf(String name) {
         int[] indexes = definition.byName.get(Metadata.handleId(name));
         if (indexes == null)
             throw new IllegalArgumentException(name + " is not a field defined in this UDT");
@@ -63,31 +61,27 @@ public class UDTValue extends AbstractData<UDTValue>
      *
      * @return the UDT this is a value of.
      */
-    public UserType getType()
-    {
+    public UserType getType() {
         return definition;
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (!(o instanceof UDTValue)) return false;
-
+    public boolean equals(Object o) {
+        if (!(o instanceof UDTValue))
+            return false;
         UDTValue that = (UDTValue) o;
-        if (!definition.equals(that.definition)) return false;
-
+        if (!definition.equals(that.definition))
+            return false;
         return super.equals(o);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return super.hashCode();
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         StringBuilder sb = new StringBuilder();
         TypeCodec<Object> codec = getCodecRegistry().codecFor(definition);
         sb.append(codec.format(this));

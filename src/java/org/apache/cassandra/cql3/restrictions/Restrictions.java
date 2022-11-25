@@ -18,14 +18,17 @@
 package org.apache.cassandra.cql3.restrictions;
 
 import java.util.Set;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 
 /**
  * Sets of restrictions
  */
-public interface Restrictions extends Restriction
-{
+public interface Restrictions extends Restriction {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Restrictions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Restrictions.class);
+
     /**
      * Returns the restrictions applied to the specified column.
      *
@@ -59,6 +62,7 @@ public interface Restrictions extends Restriction
      * @return <code>true</code> if any of the underlying restrictions is CONTAINS, <code>false</code> otherwise
      */
     public boolean hasContains();
+
     /**
      * Checks if any of the underlying restrictions is a slice.
      * @return <code>true</code> if any of the underlying restrictions is a slice, <code>false</code> otherwise

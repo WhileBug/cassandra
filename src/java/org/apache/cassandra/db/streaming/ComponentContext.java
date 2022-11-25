@@ -15,17 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.streaming;
 
 import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.io.sstable.Component;
 import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.cassandra.io.util.FileUtils;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -38,67 +35,59 @@ import java.util.Set;
  * Mutable SSTable components and their hardlinks to avoid concurrent sstable component modification
  * during entire-sstable-streaming.
  */
-public class ComponentContext implements AutoCloseable
-{
-    private static final Logger logger = LoggerFactory.getLogger(ComponentContext.class);
+public class ComponentContext implements AutoCloseable {
 
-    private static final Set<Component> MUTABLE_COMPONENTS = ImmutableSet.of(Component.STATS, Component.SUMMARY);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ComponentContext.class);
 
-    private final Map<Component, File> hardLinks;
-    private final ComponentManifest manifest;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ComponentContext.class);
 
-    private ComponentContext(Map<Component, File> hardLinks, ComponentManifest manifest)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(ComponentContext.class);
+
+    private static final transient Set<Component> MUTABLE_COMPONENTS = ImmutableSet.of(Component.STATS, Component.SUMMARY);
+
+    private final transient Map<Component, File> hardLinks;
+
+    private final transient ComponentManifest manifest;
+
+    private ComponentContext(Map<Component, File> hardLinks, ComponentManifest manifest) {
         this.hardLinks = hardLinks;
         this.manifest = manifest;
     }
 
-    public static ComponentContext create(Descriptor descriptor)
-    {
+    public static ComponentContext create(Descriptor descriptor) {
         Map<Component, File> hardLinks = new HashMap<>(1);
-
-        for (Component component : MUTABLE_COMPONENTS)
-        {
+        for (Component component : MUTABLE_COMPONENTS) {
             File file = new File(descriptor.filenameFor(component));
             if (!file.exists())
                 continue;
-
             File hardlink = new File(descriptor.tmpFilenameForStreaming(component));
             FileUtils.createHardLink(file, hardlink);
             hardLinks.put(component, hardlink);
         }
-
         return new ComponentContext(hardLinks, ComponentManifest.create(descriptor));
     }
 
-    public ComponentManifest manifest()
-    {
+    public ComponentManifest manifest() {
         return manifest;
     }
 
     /**
      * @return file channel to be streamed, either original component or hardlinked component.
      */
-    public FileChannel channel(Descriptor descriptor, Component component, long size) throws IOException
-    {
+    public FileChannel channel(Descriptor descriptor, Component component, long size) throws IOException {
         String toTransfer = hardLinks.containsKey(component) ? hardLinks.get(component).getPath() : descriptor.filenameFor(component);
-        @SuppressWarnings("resource") // file channel will be closed by Caller
+        // file channel will be closed by Caller
+        @SuppressWarnings("resource")
         FileChannel channel = new RandomAccessFile(toTransfer, "r").getChannel();
-
-        assert size == channel.size() : String.format("Entire sstable streaming expects %s file size to be %s but got %s.",
-                                                      component, size, channel.size());
+        assert size == channel.size() : String.format("Entire sstable streaming expects %s file size to be %s but got %s.", component, size, channel.size());
         return channel;
     }
 
     @Override
-    public void close()
-    {
+    public void close() {
         Throwable accumulate = null;
-        for (File file : hardLinks.values())
-            accumulate = FileUtils.deleteWithConfirm(file, accumulate);
-
+        for (File file : hardLinks.values()) accumulate = FileUtils.deleteWithConfirm(file, accumulate);
         hardLinks.clear();
-
         if (accumulate != null)
             logger.warn("Failed to remove hard link files", accumulate);
     }

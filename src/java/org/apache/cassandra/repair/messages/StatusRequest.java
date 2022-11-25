@@ -15,63 +15,56 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.messages;
 
 import java.io.IOException;
 import java.util.UUID;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.utils.UUIDSerializer;
 
-public class StatusRequest extends RepairMessage
-{
-    public final UUID sessionID;
+public class StatusRequest extends RepairMessage {
 
-    public StatusRequest(UUID sessionID)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StatusRequest.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StatusRequest.class);
+
+    public final transient UUID sessionID;
+
+    public StatusRequest(UUID sessionID) {
         super(null);
         this.sessionID = sessionID;
     }
 
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         StatusRequest request = (StatusRequest) o;
-
         return sessionID.equals(request.sessionID);
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         return sessionID.hashCode();
     }
 
-    public String toString()
-    {
-        return "StatusRequest{" +
-               "sessionID=" + sessionID +
-               '}';
+    public String toString() {
+        return "StatusRequest{" + "sessionID=" + sessionID + '}';
     }
 
-    public static final IVersionedSerializer<StatusRequest> serializer = new IVersionedSerializer<StatusRequest>()
-    {
-        public void serialize(StatusRequest msg, DataOutputPlus out, int version) throws IOException
-        {
+    public static final transient IVersionedSerializer<StatusRequest> serializer = new IVersionedSerializer<StatusRequest>() {
+
+        public void serialize(StatusRequest msg, DataOutputPlus out, int version) throws IOException {
             UUIDSerializer.serializer.serialize(msg.sessionID, out, version);
         }
 
-        public StatusRequest deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public StatusRequest deserialize(DataInputPlus in, int version) throws IOException {
             return new StatusRequest(UUIDSerializer.serializer.deserialize(in, version));
         }
 
-        public long serializedSize(StatusRequest msg, int version)
-        {
+        public long serializedSize(StatusRequest msg, int version) {
             return UUIDSerializer.serializer.serializedSize(msg.sessionID, version);
         }
     };

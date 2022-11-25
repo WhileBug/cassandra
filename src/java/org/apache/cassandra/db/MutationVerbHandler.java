@@ -22,63 +22,51 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
 import org.apache.cassandra.tracing.Tracing;
 
-public class MutationVerbHandler implements IVerbHandler<Mutation>
-{
-    public static final MutationVerbHandler instance = new MutationVerbHandler();
+public class MutationVerbHandler implements IVerbHandler<Mutation> {
 
-    private void respond(Message<?> respondTo, InetAddressAndPort respondToAddress)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MutationVerbHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MutationVerbHandler.class);
+
+    public static final transient MutationVerbHandler instance = new MutationVerbHandler();
+
+    private void respond(Message<?> respondTo, InetAddressAndPort respondToAddress) {
         Tracing.trace("Enqueuing response to {}", respondToAddress);
         MessagingService.instance().send(respondTo.emptyResponse(), respondToAddress);
     }
 
-    private void failed()
-    {
+    private void failed() {
         Tracing.trace("Payload application resulted in WriteTimeout, not replying");
     }
 
-    public void doVerb(Message<Mutation> message)
-    {
+    public void doVerb(Message<Mutation> message) {
         // Check if there were any forwarding headers in this message
         InetAddressAndPort from = message.respondTo();
         InetAddressAndPort respondToAddress;
-        if (from == null)
-        {
+        if (from == null) {
             respondToAddress = message.from();
             ForwardingInfo forwardTo = message.forwardTo();
-            if (forwardTo != null) forwardToLocalNodes(message, forwardTo);
-        }
-        else
-        {
+            if (forwardTo != null)
+                forwardToLocalNodes(message, forwardTo);
+        } else {
             respondToAddress = from;
         }
-
-        try
-        {
+        try {
             message.payload.applyFuture().thenAccept(o -> respond(message, respondToAddress)).exceptionally(wto -> {
                 failed();
                 return null;
             });
-        }
-        catch (WriteTimeoutException wto)
-        {
+        } catch (WriteTimeoutException wto) {
             failed();
         }
     }
 
-    private static void forwardToLocalNodes(Message<Mutation> originalMessage, ForwardingInfo forwardTo)
-    {
-        Message.Builder<Mutation> builder =
-            Message.builder(originalMessage)
-                   .withParam(ParamType.RESPOND_TO, originalMessage.from())
-                   .withoutParam(ParamType.FORWARD_TO);
-
+    private static void forwardToLocalNodes(Message<Mutation> originalMessage, ForwardingInfo forwardTo) {
+        Message.Builder<Mutation> builder = Message.builder(originalMessage).withParam(ParamType.RESPOND_TO, originalMessage.from()).withoutParam(ParamType.FORWARD_TO);
         boolean useSameMessageID = forwardTo.useSameMessageID(originalMessage.id());
         // reuse the same Message if all ids are identical (as they will be for 4.0+ node originated messages)
         Message<Mutation> message = useSameMessageID ? builder.build() : null;
-
-        forwardTo.forEach((id, target) ->
-        {
+        forwardTo.forEach((id, target) -> {
             Tracing.trace("Enqueuing forwarded write to {}", target);
             MessagingService.instance().send(useSameMessageID ? message : builder.withId(id).build(), target);
         });

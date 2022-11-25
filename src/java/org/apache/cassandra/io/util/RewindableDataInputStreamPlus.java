@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.io.Closeable;
@@ -25,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import static org.apache.cassandra.utils.Throwables.maybeFail;
 import static org.apache.cassandra.utils.Throwables.merge;
 
@@ -46,32 +44,42 @@ import static org.apache.cassandra.utils.Throwables.merge;
  *
  * If more than <code>maxMemBufferSize + maxDiskBufferSize</code> are cached while the stream is marked,
  * the following {@link #reset()} invocation will throw a {@link IllegalStateException}.
- *
  */
-public class RewindableDataInputStreamPlus extends FilterInputStream implements RewindableDataInput, Closeable
-{
-    private boolean marked = false;
-    private boolean exhausted = false;
-    private AtomicBoolean closed = new AtomicBoolean(false);
+public class RewindableDataInputStreamPlus extends FilterInputStream implements RewindableDataInput, Closeable {
 
-    protected int memAvailable = 0;
-    protected int diskTailAvailable = 0;
-    protected int diskHeadAvailable = 0;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RewindableDataInputStreamPlus.class);
 
-    private final File spillFile;
-    private final int initialMemBufferSize;
-    private final int maxMemBufferSize;
-    private final int maxDiskBufferSize;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RewindableDataInputStreamPlus.class);
 
-    private volatile byte memBuffer[];
-    private int memBufferSize;
-    private RandomAccessFile spillBuffer;
+    private transient boolean marked = false;
 
-    private final DataInputPlus dataReader;
+    private transient boolean exhausted = false;
 
-    public RewindableDataInputStreamPlus(InputStream in, int initialMemBufferSize, int maxMemBufferSize,
-                                         File spillFile, int maxDiskBufferSize)
-    {
+    private transient AtomicBoolean closed = new AtomicBoolean(false);
+
+    protected transient int memAvailable = 0;
+
+    protected transient int diskTailAvailable = 0;
+
+    protected transient int diskHeadAvailable = 0;
+
+    private final transient File spillFile;
+
+    private final transient int initialMemBufferSize;
+
+    private final transient int maxMemBufferSize;
+
+    private final transient int maxDiskBufferSize;
+
+    private volatile transient byte[] memBuffer;
+
+    private transient int memBufferSize;
+
+    private transient RandomAccessFile spillBuffer;
+
+    private final transient DataInputPlus dataReader;
+
+    public RewindableDataInputStreamPlus(InputStream in, int initialMemBufferSize, int maxMemBufferSize, File spillFile, int maxDiskBufferSize) {
         super(in);
         dataReader = new DataInputStreamPlus(this);
         this.initialMemBufferSize = initialMemBufferSize;
@@ -81,13 +89,11 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
     }
 
     /* RewindableDataInput methods */
-
     /**
      * Marks the current position of a stream to return to this position later via the {@link #reset(DataPosition)} method.
      * @return An empty @link{DataPosition} object
      */
-    public DataPosition mark()
-    {
+    public DataPosition mark() {
         mark(0);
         return new RewindableDataInputPlusMark();
     }
@@ -97,25 +103,19 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
      * @param mark it's not possible to return to a custom position, so this parameter is ignored.
      * @throws IOException if an error ocurs while resetting
      */
-    public void reset(DataPosition mark) throws IOException
-    {
+    public void reset(DataPosition mark) throws IOException {
         reset();
     }
 
-    public long bytesPastMark(DataPosition mark)
-    {
-        return maxMemBufferSize - memAvailable + (diskTailAvailable == -1? 0 : maxDiskBufferSize - diskHeadAvailable - diskTailAvailable);
+    public long bytesPastMark(DataPosition mark) {
+        return maxMemBufferSize - memAvailable + (diskTailAvailable == -1 ? 0 : maxDiskBufferSize - diskHeadAvailable - diskTailAvailable);
     }
 
-
-    protected static class RewindableDataInputPlusMark implements DataPosition
-    {
+    protected static class RewindableDataInputPlusMark implements DataPosition {
     }
 
     /* InputStream methods */
-
-    public boolean markSupported()
-    {
+    public boolean markSupported() {
         return true;
     }
 
@@ -124,123 +124,88 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
      * later via the {@link #reset()} method.
      * @param readlimit the maximum amount of bytes to cache
      */
-    public synchronized void mark(int readlimit)
-    {
+    public synchronized void mark(int readlimit) {
         if (marked)
             throw new IllegalStateException("Cannot mark already marked stream.");
-
         if (memAvailable > 0 || diskHeadAvailable > 0 || diskTailAvailable > 0)
             throw new IllegalStateException("Can only mark stream after reading previously marked data.");
-
         marked = true;
         memAvailable = maxMemBufferSize;
         diskHeadAvailable = -1;
         diskTailAvailable = -1;
     }
 
-    public synchronized void reset() throws IOException
-    {
+    public synchronized void reset() throws IOException {
         if (!marked)
             throw new IOException("Must call mark() before calling reset().");
-
         if (exhausted)
             throw new IOException(String.format("Read more than capacity: %d bytes.", maxMemBufferSize + maxDiskBufferSize));
-
         memAvailable = maxMemBufferSize - memAvailable;
         memBufferSize = memAvailable;
-
-        if (diskTailAvailable == -1)
-        {
+        if (diskTailAvailable == -1) {
             diskHeadAvailable = 0;
             diskTailAvailable = 0;
-        }
-        else
-        {
-            int initialPos = diskTailAvailable > 0 ? 0 : (int)getIfNotClosed(spillBuffer).getFilePointer();
+        } else {
+            int initialPos = diskTailAvailable > 0 ? 0 : (int) getIfNotClosed(spillBuffer).getFilePointer();
             int diskMarkpos = initialPos + diskHeadAvailable;
             getIfNotClosed(spillBuffer).seek(diskMarkpos);
-
             diskHeadAvailable = diskMarkpos - diskHeadAvailable;
             diskTailAvailable = (maxDiskBufferSize - diskTailAvailable) - diskMarkpos;
         }
-
         marked = false;
     }
 
-    public int available() throws IOException
-    {
-
-        return super.available() + (marked? 0 : memAvailable + diskHeadAvailable + diskTailAvailable);
+    public int available() throws IOException {
+        return super.available() + (marked ? 0 : memAvailable + diskHeadAvailable + diskTailAvailable);
     }
 
-    public int read() throws IOException
-    {
+    public int read() throws IOException {
         int read = readOne();
         if (read == -1)
             return read;
-
-        if (marked)
-        {
-            //mark exhausted
-            if (isExhausted(1))
-            {
+        if (marked) {
+            // mark exhausted
+            if (isExhausted(1)) {
                 exhausted = true;
                 return read;
             }
-
             writeOne(read);
         }
-
         return read;
     }
 
-    public int read(byte[] b, int off, int len) throws IOException
-    {
+    public int read(byte[] b, int off, int len) throws IOException {
         int readBytes = readMulti(b, off, len);
         if (readBytes == -1)
             return readBytes;
-
-        if (marked)
-        {
-            //check we have space on buffer
-            if (isExhausted(readBytes))
-            {
+        if (marked) {
+            // check we have space on buffer
+            if (isExhausted(readBytes)) {
                 exhausted = true;
                 return readBytes;
             }
-
             writeMulti(b, off, readBytes);
         }
-
         return readBytes;
     }
 
-    private void maybeCreateDiskBuffer() throws IOException
-    {
-        if (spillBuffer == null)
-        {
+    private void maybeCreateDiskBuffer() throws IOException {
+        if (spillBuffer == null) {
             if (!spillFile.getParentFile().exists())
                 spillFile.getParentFile().mkdirs();
             spillFile.createNewFile();
-
             this.spillBuffer = new RandomAccessFile(spillFile, "rw");
         }
     }
 
-
-    private int readOne() throws IOException
-    {
-        if (!marked)
-        {
-            if (memAvailable > 0)
-            {
+    private int readOne() throws IOException {
+        if (!marked) {
+            if (memAvailable > 0) {
                 int pos = memBufferSize - memAvailable;
                 memAvailable--;
                 return getIfNotClosed(memBuffer)[pos] & 0xff;
             }
-
-            if (diskTailAvailable > 0 || diskHeadAvailable > 0)
-            {
+            if (diskTailAvailable > 0 || diskHeadAvailable > 0) {
                 int read = getIfNotClosed(spillBuffer).read();
                 if (diskTailAvailable > 0)
                     diskTailAvailable--;
@@ -251,22 +216,17 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
                 return read;
             }
         }
-
         return getIfNotClosed(in).read();
     }
 
-    private boolean isExhausted(int readBytes)
-    {
-        return exhausted || readBytes > memAvailable + (long)(diskTailAvailable == -1? maxDiskBufferSize : diskTailAvailable + diskHeadAvailable);
+    private boolean isExhausted(int readBytes) {
+        return exhausted || readBytes > memAvailable + (long) (diskTailAvailable == -1 ? maxDiskBufferSize : diskTailAvailable + diskHeadAvailable);
     }
 
-    private int readMulti(byte[] b, int off, int len) throws IOException
-    {
+    private int readMulti(byte[] b, int off, int len) throws IOException {
         int readBytes = 0;
-        if (!marked)
-        {
-            if (memAvailable > 0)
-            {
+        if (!marked) {
+            if (memAvailable > 0) {
                 readBytes += memAvailable < len ? memAvailable : len;
                 int pos = memBufferSize - memAvailable;
                 System.arraycopy(memBuffer, pos, b, off, readBytes);
@@ -274,9 +234,8 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
                 off += readBytes;
                 len -= readBytes;
             }
-            if (len > 0 && diskTailAvailable > 0)
-            {
-                int readFromTail = diskTailAvailable < len? diskTailAvailable : len;
+            if (len > 0 && diskTailAvailable > 0) {
+                int readFromTail = diskTailAvailable < len ? diskTailAvailable : len;
                 readFromTail = getIfNotClosed(spillBuffer).read(b, off, readFromTail);
                 readBytes += readFromTail;
                 diskTailAvailable -= readFromTail;
@@ -285,9 +244,8 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
                 if (diskTailAvailable == 0)
                     spillBuffer.seek(0);
             }
-            if (len > 0 && diskHeadAvailable > 0)
-            {
-                int readFromHead = diskHeadAvailable < len? diskHeadAvailable : len;
+            if (len > 0 && diskHeadAvailable > 0) {
+                int readFromHead = diskHeadAvailable < len ? diskHeadAvailable : len;
                 readFromHead = getIfNotClosed(spillBuffer).read(b, off, readFromHead);
                 readBytes += readFromHead;
                 diskHeadAvailable -= readFromHead;
@@ -295,21 +253,17 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
                 len -= readFromHead;
             }
         }
-
         if (len > 0)
             readBytes += getIfNotClosed(in).read(b, off, len);
-
         return readBytes;
     }
 
-    private void writeMulti(byte[] b, int off, int len) throws IOException
-    {
-        if (memAvailable > 0)
-        {
+    private void writeMulti(byte[] b, int off, int len) throws IOException {
+        if (memAvailable > 0) {
             if (memBuffer == null)
                 memBuffer = new byte[initialMemBufferSize];
             int pos = maxMemBufferSize - memAvailable;
-            int memWritten = memAvailable < len? memAvailable : len;
+            int memWritten = memAvailable < len ? memAvailable : len;
             if (pos + memWritten >= getIfNotClosed(memBuffer).length)
                 growMemBuffer(pos, memWritten);
             System.arraycopy(b, off, memBuffer, pos, memWritten);
@@ -317,19 +271,14 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
             len -= memWritten;
             memAvailable -= memWritten;
         }
-
-        if (len > 0)
-        {
-            if (diskTailAvailable == -1)
-            {
+        if (len > 0) {
+            if (diskTailAvailable == -1) {
                 maybeCreateDiskBuffer();
-                diskHeadAvailable = (int)spillBuffer.getFilePointer();
+                diskHeadAvailable = (int) spillBuffer.getFilePointer();
                 diskTailAvailable = maxDiskBufferSize - diskHeadAvailable;
             }
-
-            if (len > 0 && diskTailAvailable > 0)
-            {
-                int diskTailWritten = diskTailAvailable < len? diskTailAvailable : len;
+            if (len > 0 && diskTailAvailable > 0) {
+                int diskTailWritten = diskTailAvailable < len ? diskTailAvailable : len;
                 getIfNotClosed(spillBuffer).write(b, off, diskTailWritten);
                 off += diskTailWritten;
                 len -= diskTailWritten;
@@ -337,38 +286,30 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
                 if (diskTailAvailable == 0)
                     spillBuffer.seek(0);
             }
-
-            if (len > 0 && diskTailAvailable > 0)
-            {
-                int diskHeadWritten = diskHeadAvailable < len? diskHeadAvailable : len;
+            if (len > 0 && diskTailAvailable > 0) {
+                int diskHeadWritten = diskHeadAvailable < len ? diskHeadAvailable : len;
                 getIfNotClosed(spillBuffer).write(b, off, diskHeadWritten);
             }
         }
     }
 
-    private void writeOne(int value) throws IOException
-    {
-        if (memAvailable > 0)
-        {
+    private void writeOne(int value) throws IOException {
+        if (memAvailable > 0) {
             if (memBuffer == null)
                 memBuffer = new byte[initialMemBufferSize];
             int pos = maxMemBufferSize - memAvailable;
             if (pos == getIfNotClosed(memBuffer).length)
                 growMemBuffer(pos, 1);
-            getIfNotClosed(memBuffer)[pos] = (byte)value;
+            getIfNotClosed(memBuffer)[pos] = (byte) value;
             memAvailable--;
             return;
         }
-
-        if (diskTailAvailable == -1)
-        {
+        if (diskTailAvailable == -1) {
             maybeCreateDiskBuffer();
-            diskHeadAvailable = (int)spillBuffer.getFilePointer();
+            diskHeadAvailable = (int) spillBuffer.getFilePointer();
             diskTailAvailable = maxDiskBufferSize - diskHeadAvailable;
         }
-
-        if (diskTailAvailable > 0 || diskHeadAvailable > 0)
-        {
+        if (diskTailAvailable > 0 || diskHeadAvailable > 0) {
             getIfNotClosed(spillBuffer).write(value);
             if (diskTailAvailable > 0)
                 diskTailAvailable--;
@@ -380,42 +321,33 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
         }
     }
 
-    public int read(byte[] b) throws IOException
-    {
+    public int read(byte[] b) throws IOException {
         return read(b, 0, b.length);
     }
 
-    private void growMemBuffer(int pos, int writeSize)
-    {
+    private void growMemBuffer(int pos, int writeSize) {
         int newSize = Math.min(2 * (pos + writeSize), maxMemBufferSize);
-        byte newBuffer[] = new byte[newSize];
+        byte[] newBuffer = new byte[newSize];
         System.arraycopy(memBuffer, 0, newBuffer, 0, pos);
         memBuffer = newBuffer;
     }
 
-    public long skip(long n) throws IOException
-    {
+    public long skip(long n) throws IOException {
         long skipped = 0;
-
-        if (marked)
-        {
-            //if marked, we need to cache skipped bytes
-            while (n-- > 0 && read() != -1)
-            {
+        if (marked) {
+            // if marked, we need to cache skipped bytes
+            while (n-- > 0 && read() != -1) {
                 skipped++;
             }
             return skipped;
         }
-
-        if (memAvailable > 0)
-        {
+        if (memAvailable > 0) {
             skipped += memAvailable < n ? memAvailable : n;
             memAvailable -= skipped;
             n -= skipped;
         }
-        if (n > 0 && diskTailAvailable > 0)
-        {
-            int skipFromTail = diskTailAvailable < n? diskTailAvailable : (int)n;
+        if (n > 0 && diskTailAvailable > 0) {
+            int skipFromTail = diskTailAvailable < n ? diskTailAvailable : (int) n;
             getIfNotClosed(spillBuffer).skipBytes(skipFromTail);
             diskTailAvailable -= skipFromTail;
             skipped += skipFromTail;
@@ -423,69 +355,51 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
             if (diskTailAvailable == 0)
                 spillBuffer.seek(0);
         }
-        if (n > 0 && diskHeadAvailable > 0)
-        {
-            int skipFromHead = diskHeadAvailable < n? diskHeadAvailable : (int)n;
+        if (n > 0 && diskHeadAvailable > 0) {
+            int skipFromHead = diskHeadAvailable < n ? diskHeadAvailable : (int) n;
             getIfNotClosed(spillBuffer).skipBytes(skipFromHead);
             diskHeadAvailable -= skipFromHead;
             skipped += skipFromHead;
             n -= skipFromHead;
         }
-
         if (n > 0)
             skipped += getIfNotClosed(in).skip(n);
-
         return skipped;
     }
 
-    private <T> T getIfNotClosed(T in) throws IOException
-    {
+    private <T> T getIfNotClosed(T in) throws IOException {
         if (closed.get())
             throw new IOException("Stream closed");
         return in;
     }
 
-    public void close() throws IOException
-    {
+    public void close() throws IOException {
         close(true);
     }
 
-    public void close(boolean closeUnderlying) throws IOException
-    {
-        if (closed.compareAndSet(false, true))
-        {
+    public void close(boolean closeUnderlying) throws IOException {
+        if (closed.compareAndSet(false, true)) {
             Throwable fail = null;
-            if (closeUnderlying)
-            {
-                try
-                {
+            if (closeUnderlying) {
+                try {
                     super.close();
-                }
-                catch (IOException e)
-                {
+                } catch (IOException e) {
                     fail = merge(fail, e);
                 }
             }
-            try
-            {
-                if (spillBuffer != null)
-                {
+            try {
+                if (spillBuffer != null) {
                     this.spillBuffer.close();
                     this.spillBuffer = null;
                 }
-            } catch (IOException e)
-            {
+            } catch (IOException e) {
                 fail = merge(fail, e);
             }
-            try
-            {
-                if (spillFile.exists())
-                {
+            try {
+                if (spillFile.exists()) {
                     spillFile.delete();
                 }
-            }
-            catch (Throwable e)
-            {
+            } catch (Throwable e) {
                 fail = merge(fail, e);
             }
             maybeFail(fail, IOException.class);
@@ -493,79 +407,63 @@ public class RewindableDataInputStreamPlus extends FilterInputStream implements 
     }
 
     /* DataInputPlus methods */
-
-    public void readFully(byte[] b) throws IOException
-    {
+    public void readFully(byte[] b) throws IOException {
         dataReader.readFully(b);
     }
 
-    public void readFully(byte[] b, int off, int len) throws IOException
-    {
+    public void readFully(byte[] b, int off, int len) throws IOException {
         dataReader.readFully(b, off, len);
     }
 
-    public int skipBytes(int n) throws IOException
-    {
+    public int skipBytes(int n) throws IOException {
         return dataReader.skipBytes(n);
     }
 
-    public boolean readBoolean() throws IOException
-    {
+    public boolean readBoolean() throws IOException {
         return dataReader.readBoolean();
     }
 
-    public byte readByte() throws IOException
-    {
+    public byte readByte() throws IOException {
         return dataReader.readByte();
     }
 
-    public int readUnsignedByte() throws IOException
-    {
+    public int readUnsignedByte() throws IOException {
         return dataReader.readUnsignedByte();
     }
 
-    public short readShort() throws IOException
-    {
+    public short readShort() throws IOException {
         return dataReader.readShort();
     }
 
-    public int readUnsignedShort() throws IOException
-    {
+    public int readUnsignedShort() throws IOException {
         return dataReader.readUnsignedShort();
     }
 
-    public char readChar() throws IOException
-    {
+    public char readChar() throws IOException {
         return dataReader.readChar();
     }
 
-    public int readInt() throws IOException
-    {
+    public int readInt() throws IOException {
         return dataReader.readInt();
     }
 
-    public long readLong() throws IOException
-    {
+    public long readLong() throws IOException {
         return dataReader.readLong();
     }
 
-    public float readFloat() throws IOException
-    {
+    public float readFloat() throws IOException {
         return dataReader.readFloat();
     }
 
-    public double readDouble() throws IOException
-    {
+    public double readDouble() throws IOException {
         return dataReader.readDouble();
     }
 
-    public String readLine() throws IOException
-    {
+    public String readLine() throws IOException {
         return dataReader.readLine();
     }
 
-    public String readUTF() throws IOException
-    {
+    public String readUTF() throws IOException {
         return dataReader.readUTF();
     }
 }

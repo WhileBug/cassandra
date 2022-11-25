@@ -21,9 +21,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import org.apache.cassandra.config.DatabaseDescriptor;
@@ -33,7 +31,6 @@ import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputBufferFixed;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.utils.memory.BufferPools;
-
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.cassandra.locator.InetAddressAndPort.Serializer.inetAddressAndPortSerializer;
 import static org.apache.cassandra.net.MessagingService.VERSION_30;
@@ -53,9 +50,13 @@ import static org.apache.cassandra.net.OutboundConnectionSettings.*;
  * it will simply disconnect and reconnect with a more appropriate version. But if the version is acceptable, the connection
  * initiator sends the third message of the protocol, after which it considers the connection ready.
  */
-class HandshakeProtocol
-{
-    static final long TIMEOUT_MILLIS = 3 * DatabaseDescriptor.getRpcTimeout(MILLISECONDS);
+class HandshakeProtocol {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HandshakeProtocol.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HandshakeProtocol.class);
+
+    static final transient long TIMEOUT_MILLIS = 3 * DatabaseDescriptor.getRpcTimeout(MILLISECONDS);
 
     /**
      * The initial message sent when a node creates a new connection to a remote peer. This message contains:
@@ -88,23 +89,30 @@ class HandshakeProtocol
      * CRC - crc enabled bit
      * VERSION - {@link org.apache.cassandra.net.MessagingService#current_version}
      */
-    static class Initiate
-    {
-        /** Contains the PROTOCOL_MAGIC (int) and the flags (int). */
-        private static final int MIN_LENGTH = 8;
-        private static final int MAX_LENGTH = 12 + InetAddressAndPort.Serializer.MAXIMUM_SIZE;
+    static class Initiate {
 
-        @Deprecated // this is ignored by post40 nodes, i.e. if maxMessagingVersion is set
-        final int requestMessagingVersion;
+        /**
+         * Contains the PROTOCOL_MAGIC (int) and the flags (int).
+         */
+        private static final transient int MIN_LENGTH = 8;
+
+        private static final transient int MAX_LENGTH = 12 + InetAddressAndPort.Serializer.MAXIMUM_SIZE;
+
+        // this is ignored by post40 nodes, i.e. if maxMessagingVersion is set
+        @Deprecated
+        final transient int requestMessagingVersion;
+
         // the messagingVersion bounds the sender will accept to initiate a connection;
         // if the remote peer supports any, the newest supported version will be selected; otherwise the nearest supported version
-        final AcceptVersions acceptVersions;
-        final ConnectionType type;
-        final Framing framing;
-        final InetAddressAndPort from;
+        final transient AcceptVersions acceptVersions;
 
-        Initiate(int requestMessagingVersion, AcceptVersions acceptVersions, ConnectionType type, Framing framing, InetAddressAndPort from)
-        {
+        final transient ConnectionType type;
+
+        final transient Framing framing;
+
+        final transient InetAddressAndPort from;
+
+        Initiate(int requestMessagingVersion, AcceptVersions acceptVersions, ConnectionType type, Framing framing, InetAddressAndPort from) {
             this.requestMessagingVersion = requestMessagingVersion;
             this.acceptVersions = acceptVersions;
             this.type = type;
@@ -113,122 +121,83 @@ class HandshakeProtocol
         }
 
         @VisibleForTesting
-        int encodeFlags()
-        {
+        int encodeFlags() {
             int flags = 0;
             if (type.isMessaging())
                 flags |= type.twoBitID();
             if (type.isStreaming())
                 flags |= 1 << 3;
-
             // framing id is split over 2nd and 4th bits, for backwards compatibility
             flags |= ((framing.id & 1) << 2) | ((framing.id & 2) << 3);
             flags |= (requestMessagingVersion << 8);
-
             if (requestMessagingVersion < VERSION_40 || acceptVersions.max < VERSION_40)
-                return flags; // for testing, permit serializing as though we are pre40
-
+                // for testing, permit serializing as though we are pre40
+                return flags;
             flags |= (acceptVersions.min << 16);
             flags |= (acceptVersions.max << 24);
             return flags;
         }
 
-        ByteBuf encode()
-        {
+        ByteBuf encode() {
             ByteBuffer buffer = BufferPools.forNetworking().get(MAX_LENGTH, BufferType.OFF_HEAP);
-            try (DataOutputBufferFixed out = new DataOutputBufferFixed(buffer))
-            {
+            try (DataOutputBufferFixed out = new DataOutputBufferFixed(buffer)) {
                 out.writeInt(Message.PROTOCOL_MAGIC);
                 out.writeInt(encodeFlags());
-
-                if (requestMessagingVersion >= VERSION_40 && acceptVersions.max >= VERSION_40)
-                {
+                if (requestMessagingVersion >= VERSION_40 && acceptVersions.max >= VERSION_40) {
                     inetAddressAndPortSerializer.serialize(from, out, requestMessagingVersion);
                     out.writeInt(computeCrc32(buffer, 0, buffer.position()));
                 }
                 buffer.flip();
                 return GlobalBufferPoolAllocator.wrap(buffer);
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
         }
 
-        static Initiate maybeDecode(ByteBuf buf) throws IOException
-        {
+        static Initiate maybeDecode(ByteBuf buf) throws IOException {
             if (buf.readableBytes() < MIN_LENGTH)
                 return null;
-
             ByteBuffer nio = buf.nioBuffer();
             int start = nio.position();
-            try (DataInputBuffer in = new DataInputBuffer(nio, false))
-            {
+            try (DataInputBuffer in = new DataInputBuffer(nio, false)) {
                 validateLegacyProtocolMagic(in.readInt());
                 int flags = in.readInt();
-
                 int requestedMessagingVersion = getBits(flags, 8, 8);
                 int minMessagingVersion = getBits(flags, 16, 8);
                 int maxMessagingVersion = getBits(flags, 24, 8);
                 int framingBits = getBits(flags, 2, 1) | (getBits(flags, 4, 1) << 1);
                 Framing framing = Framing.forId(framingBits);
-
                 boolean isStream = getBits(flags, 3, 1) == 1;
-
-                ConnectionType type = isStream
-                                    ? ConnectionType.STREAMING
-                                    : ConnectionType.fromId(getBits(flags, 0, 2));
-
+                ConnectionType type = isStream ? ConnectionType.STREAMING : ConnectionType.fromId(getBits(flags, 0, 2));
                 InetAddressAndPort from = null;
-
-                if (requestedMessagingVersion >= VERSION_40 && maxMessagingVersion >= MessagingService.VERSION_40)
-                {
+                if (requestedMessagingVersion >= VERSION_40 && maxMessagingVersion >= MessagingService.VERSION_40) {
                     from = inetAddressAndPortSerializer.deserialize(in, requestedMessagingVersion);
-
                     int computed = computeCrc32(nio, start, nio.position());
                     int read = in.readInt();
                     if (read != computed)
                         throw new InvalidCrc(read, computed);
                 }
-
                 buf.skipBytes(nio.position() - start);
-                return new Initiate(requestedMessagingVersion,
-                                    minMessagingVersion == 0 && maxMessagingVersion == 0
-                                        ? null : new AcceptVersions(minMessagingVersion, maxMessagingVersion),
-                                    type, framing, from);
-
-            }
-            catch (EOFException e)
-            {
+                return new Initiate(requestedMessagingVersion, minMessagingVersion == 0 && maxMessagingVersion == 0 ? null : new AcceptVersions(minMessagingVersion, maxMessagingVersion), type, framing, from);
+            } catch (EOFException e) {
                 return null;
             }
         }
 
         @VisibleForTesting
         @Override
-        public boolean equals(Object other)
-        {
+        public boolean equals(Object other) {
             if (!(other instanceof Initiate))
                 return false;
-
-            Initiate that = (Initiate)other;
-            return    this.type == that.type
-                   && this.framing == that.framing
-                   && this.requestMessagingVersion == that.requestMessagingVersion
-                   && Objects.equals(this.acceptVersions, that.acceptVersions);
+            Initiate that = (Initiate) other;
+            return this.type == that.type && this.framing == that.framing && this.requestMessagingVersion == that.requestMessagingVersion && Objects.equals(this.acceptVersions, that.acceptVersions);
         }
 
         @Override
-        public String toString()
-        {
-            return String.format("Initiate(request: %d, min: %d, max: %d, type: %s, framing: %b, from: %s)",
-                                 requestMessagingVersion,
-                                 acceptVersions == null ? requestMessagingVersion : acceptVersions.min,
-                                 acceptVersions == null ? requestMessagingVersion : acceptVersions.max,
-                                 type, framing, from);
+        public String toString() {
+            return String.format("Initiate(request: %d, min: %d, max: %d, type: %s, framing: %b, from: %s)", requestMessagingVersion, acceptVersions == null ? requestMessagingVersion : acceptVersions.min, acceptVersions == null ? requestMessagingVersion : acceptVersions.max, type, framing, from);
         }
     }
-
 
     /**
      * The second message of the handshake, sent by the node receiving the {@link Initiate} back to the
@@ -242,22 +211,23 @@ class HandshakeProtocol
      *
      * Note that the pre40 equivalent of this message contains ONLY the messaging version of the peer.
      */
-    static class Accept
-    {
-        /** The messaging version sent by the receiving peer (int). */
-        private static final int MAX_LENGTH = 12;
+    static class Accept {
 
-        final int useMessagingVersion;
-        final int maxMessagingVersion;
+        /**
+         * The messaging version sent by the receiving peer (int).
+         */
+        private static final transient int MAX_LENGTH = 12;
 
-        Accept(int useMessagingVersion, int maxMessagingVersion)
-        {
+        final transient int useMessagingVersion;
+
+        final transient int maxMessagingVersion;
+
+        Accept(int useMessagingVersion, int maxMessagingVersion) {
             this.useMessagingVersion = useMessagingVersion;
             this.maxMessagingVersion = maxMessagingVersion;
         }
 
-        ByteBuf encode(ByteBufAllocator allocator)
-        {
+        ByteBuf encode(ByteBufAllocator allocator) {
             ByteBuf buffer = allocator.directBuffer(MAX_LENGTH);
             buffer.clear();
             buffer.writeInt(maxMessagingVersion);
@@ -269,54 +239,43 @@ class HandshakeProtocol
         /**
          * Respond to pre40 nodes only with our current messagingVersion
          */
-        static ByteBuf respondPre40(int messagingVersion, ByteBufAllocator allocator)
-        {
+        static ByteBuf respondPre40(int messagingVersion, ByteBufAllocator allocator) {
             ByteBuf buffer = allocator.directBuffer(4);
             buffer.clear();
             buffer.writeInt(messagingVersion);
             return buffer;
         }
 
-        static Accept maybeDecode(ByteBuf in, int handshakeMessagingVersion) throws InvalidCrc
-        {
+        static Accept maybeDecode(ByteBuf in, int handshakeMessagingVersion) throws InvalidCrc {
             int readerIndex = in.readerIndex();
             if (in.readableBytes() < 4)
                 return null;
             int maxMessagingVersion = in.readInt();
             int useMessagingVersion = 0;
-
             // if the other node is pre-4.0, it will respond only with its maxMessagingVersion
             if (maxMessagingVersion < VERSION_40 || handshakeMessagingVersion < VERSION_40)
                 return new Accept(useMessagingVersion, maxMessagingVersion);
-
-            if (in.readableBytes() < 8)
-            {
+            if (in.readableBytes() < 8) {
                 in.readerIndex(readerIndex);
                 return null;
             }
             useMessagingVersion = in.readInt();
-
             // verify crc
             int computed = computeCrc32(in, readerIndex, readerIndex + 8);
             int read = in.readInt();
             if (read != computed)
                 throw new InvalidCrc(read, computed);
-
             return new Accept(useMessagingVersion, maxMessagingVersion);
         }
 
         @VisibleForTesting
         @Override
-        public boolean equals(Object other)
-        {
-            return other instanceof Accept
-                   && this.useMessagingVersion == ((Accept) other).useMessagingVersion
-                   && this.maxMessagingVersion == ((Accept) other).maxMessagingVersion;
+        public boolean equals(Object other) {
+            return other instanceof Accept && this.useMessagingVersion == ((Accept) other).useMessagingVersion && this.maxMessagingVersion == ((Accept) other).maxMessagingVersion;
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return String.format("Accept(use: %d, max: %d)", useMessagingVersion, maxMessagingVersion);
         }
     }
@@ -332,83 +291,67 @@ class HandshakeProtocol
      * <p>
      * This message concludes the legacy handshake protocol.
      */
-    static class ConfirmOutboundPre40
-    {
-        private static final int MAX_LENGTH = 4 + InetAddressAndPort.Serializer.MAXIMUM_SIZE;
+    static class ConfirmOutboundPre40 {
 
-        final int maxMessagingVersion;
-        final InetAddressAndPort from;
+        private static final transient int MAX_LENGTH = 4 + InetAddressAndPort.Serializer.MAXIMUM_SIZE;
 
-        ConfirmOutboundPre40(int maxMessagingVersion, InetAddressAndPort from)
-        {
+        final transient int maxMessagingVersion;
+
+        final transient InetAddressAndPort from;
+
+        ConfirmOutboundPre40(int maxMessagingVersion, InetAddressAndPort from) {
             this.maxMessagingVersion = maxMessagingVersion;
             this.from = from;
         }
 
-        ByteBuf encode()
-        {
+        ByteBuf encode() {
             ByteBuffer buffer = BufferPools.forNetworking().get(MAX_LENGTH, BufferType.OFF_HEAP);
-            try (DataOutputBufferFixed out = new DataOutputBufferFixed(buffer))
-            {
+            try (DataOutputBufferFixed out = new DataOutputBufferFixed(buffer)) {
                 out.writeInt(maxMessagingVersion);
                 // pre-4.0 nodes should only receive the address, never port, and it's ok to hardcode VERSION_30
                 inetAddressAndPortSerializer.serialize(from, out, VERSION_30);
                 buffer.flip();
                 return GlobalBufferPoolAllocator.wrap(buffer);
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
         }
 
         @SuppressWarnings("resource")
-        static ConfirmOutboundPre40 maybeDecode(ByteBuf in)
-        {
+        static ConfirmOutboundPre40 maybeDecode(ByteBuf in) {
             ByteBuffer nio = in.nioBuffer();
             int start = nio.position();
             DataInputPlus input = new DataInputBuffer(nio, false);
-            try
-            {
+            try {
                 int version = input.readInt();
                 InetAddressAndPort address = inetAddressAndPortSerializer.deserialize(input, version);
                 in.skipBytes(nio.position() - start);
                 return new ConfirmOutboundPre40(version, address);
-            }
-            catch (EOFException e)
-            {
+            } catch (EOFException e) {
                 // makes the assumption we didn't have enough bytes to deserialize an IPv6 address,
                 // as we only check the MIN_LENGTH of the buf.
                 return null;
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
         }
 
         @VisibleForTesting
         @Override
-        public boolean equals(Object other)
-        {
+        public boolean equals(Object other) {
             if (!(other instanceof ConfirmOutboundPre40))
                 return false;
-
             ConfirmOutboundPre40 that = (ConfirmOutboundPre40) other;
-            return this.maxMessagingVersion == that.maxMessagingVersion
-                   && Objects.equals(this.from, that.from);
+            return this.maxMessagingVersion == that.maxMessagingVersion && Objects.equals(this.from, that.from);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return String.format("ConfirmOutboundPre40(maxMessagingVersion: %d; address: %s)", maxMessagingVersion, from);
         }
     }
 
-    private static int getBits(int packed, int start, int count)
-    {
+    private static int getBits(int packed, int start, int count) {
         return (packed >>> start) & ~(-1 << count);
     }
-
 }

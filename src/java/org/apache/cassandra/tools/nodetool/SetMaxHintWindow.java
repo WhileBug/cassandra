@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Arguments;
@@ -24,14 +23,17 @@ import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool;
 
 @Command(name = "setmaxhintwindow", description = "Set the specified max hint window in ms")
-public class SetMaxHintWindow extends NodeTool.NodeToolCmd
-{
+public class SetMaxHintWindow extends NodeTool.NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetMaxHintWindow.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetMaxHintWindow.class);
+
     @Arguments(title = "max_hint_window", usage = "<value_in_ms>", description = "Value of maxhintwindow in ms", required = true)
-    private Integer maxHintWindow = null;
+    private transient Integer maxHintWindow = null;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.setMaxHintWindow(maxHintWindow);
     }
 }

@@ -21,32 +21,34 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.cassandra.index.sasi.disk.OnDiskIndexBuilder.Mode;
 import org.apache.cassandra.index.sasi.disk.TokenTreeBuilder;
 import org.apache.cassandra.db.marshal.AbstractType;
 
-public abstract class SA<T extends Buffer>
-{
-    protected final AbstractType<?> comparator;
-    protected final Mode mode;
+public abstract class SA<T extends Buffer> {
 
-    protected final List<Term<T>> terms = new ArrayList<>();
-    protected int charCount = 0;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SA.class);
 
-    public SA(AbstractType<?> comparator, Mode mode)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SA.class);
+
+    protected final transient AbstractType<?> comparator;
+
+    protected final transient Mode mode;
+
+    protected final transient List<Term<T>> terms = new ArrayList<>();
+
+    protected transient int charCount = 0;
+
+    public SA(AbstractType<?> comparator, Mode mode) {
         this.comparator = comparator;
         this.mode = mode;
     }
 
-    public Mode getMode()
-    {
+    public Mode getMode() {
         return mode;
     }
 
-    public void add(ByteBuffer termValue, TokenTreeBuilder tokens)
-    {
+    public void add(ByteBuffer termValue, TokenTreeBuilder tokens) {
         Term<T> term = getTerm(termValue, tokens);
         terms.add(term);
         charCount += term.length();

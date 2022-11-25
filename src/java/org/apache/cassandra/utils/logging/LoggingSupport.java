@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils.logging;
 
 import java.util.Map;
@@ -24,17 +23,23 @@ import java.util.Map;
  * Common abstraction of functionality which can be implemented for different logging backend implementations (slf4j bindings).
  * Concrete implementations are dynamically loaded and instantiated by {@link LoggingSupportFactory#getLoggingSupport()}.
  */
-public interface LoggingSupport
-{
+public interface LoggingSupport {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LoggingSupport.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LoggingSupport.class);
+
     /**
      * Hook used to execute logging implementation specific customization at Cassandra startup time.
      */
-    default void onStartup() {}
+    default void onStartup() {
+    }
 
     /**
      * Hook used to execute logging implementation specific customization at Cassandra shutdown time.
      */
-    default void onShutdown() {}
+    default void onShutdown() {
+    }
 
     /**
      * Changes the given logger to the given log level.

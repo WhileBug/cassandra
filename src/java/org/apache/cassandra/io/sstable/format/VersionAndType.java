@@ -15,14 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.sstable.format;
 
 import java.util.List;
 import java.util.Objects;
-
 import com.google.common.base.Splitter;
-
 import org.apache.cassandra.io.sstable.Descriptor;
 
 /**
@@ -32,62 +29,57 @@ import org.apache.cassandra.io.sstable.Descriptor;
  * its {@link Descriptor}). In particular, while {@link Version} contains its {{@link SSTableFormat}}, you cannot get
  * the {{@link SSTableFormat.Type}} from that.
  */
-public final class VersionAndType
-{
-    private static final Splitter splitOnDash = Splitter.on('-').omitEmptyStrings().trimResults();
+public final class VersionAndType {
 
-    private final Version version;
-    private final SSTableFormat.Type formatType;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VersionAndType.class);
 
-    public VersionAndType(Version version, SSTableFormat.Type formatType)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VersionAndType.class);
+
+    private static final transient Splitter splitOnDash = Splitter.on('-').omitEmptyStrings().trimResults();
+
+    private final transient Version version;
+
+    private final transient SSTableFormat.Type formatType;
+
+    public VersionAndType(Version version, SSTableFormat.Type formatType) {
         this.version = version;
         this.formatType = formatType;
     }
 
-    public Version version()
-    {
+    public Version version() {
         return version;
     }
 
-    public SSTableFormat.Type formatType()
-    {
+    public SSTableFormat.Type formatType() {
         return formatType;
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
         if (o == null || getClass() != o.getClass())
             return false;
-
         VersionAndType that = (VersionAndType) o;
-        return Objects.equals(version, that.version) &&
-               formatType == that.formatType;
+        return Objects.equals(version, that.version) && formatType == that.formatType;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(version, formatType);
     }
 
-    public static VersionAndType fromString(String versionAndType)
-    {
+    public static VersionAndType fromString(String versionAndType) {
         List<String> components = splitOnDash.splitToList(versionAndType);
         if (components.size() != 2)
             throw new IllegalArgumentException("Invalid VersionAndType string: " + versionAndType + " (should be of the form 'big-bc')");
-
         SSTableFormat.Type formatType = SSTableFormat.Type.validate(components.get(0));
         Version version = formatType.info.getVersion(components.get(1));
         return new VersionAndType(version, formatType);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return formatType.name + '-' + version;
     }
 }

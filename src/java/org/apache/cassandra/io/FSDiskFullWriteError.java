@@ -15,23 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io;
 
 import java.io.IOException;
 
-public class FSDiskFullWriteError extends FSWriteError
-{
-    public FSDiskFullWriteError(String keyspace, long mutationSize)
-    {
-        super(new IOException(String.format("Insufficient disk space to write %d bytes into the %s keyspace",
-                                            mutationSize,
-                                            keyspace)));
+public class FSDiskFullWriteError extends FSWriteError {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FSDiskFullWriteError.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FSDiskFullWriteError.class);
+
+    public FSDiskFullWriteError(String keyspace, long mutationSize) {
+        super(new IOException(String.format("Insufficient disk space to write %d bytes into the %s keyspace", mutationSize, keyspace)));
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "FSDiskFullWriteError";
     }
 }

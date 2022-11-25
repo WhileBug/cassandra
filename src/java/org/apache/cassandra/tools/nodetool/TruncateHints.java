@@ -20,19 +20,21 @@ package org.apache.cassandra.tools.nodetool;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "truncatehints", description = "Truncate all hints on the local node, or truncate hints for the endpoint(s) specified.")
-public class TruncateHints extends NodeToolCmd
-{
+public class TruncateHints extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncateHints.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncateHints.class);
+
     @Arguments(usage = "[endpoint ... ]", description = "Endpoint address(es) to delete hints for, either ip address (\"127.0.0.1\") or hostname")
-    private String endpoint = EMPTY;
+    private transient String endpoint = EMPTY;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         if (endpoint.isEmpty())
             probe.truncateHints();
         else

@@ -21,38 +21,41 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 /**
  * Current snapshot of streaming progress.
  */
-public class StreamState implements Serializable
-{
-    public final UUID planId;
-    public final StreamOperation streamOperation;
-    public final Set<SessionInfo> sessions;
+public class StreamState implements Serializable {
 
-    public StreamState(UUID planId, StreamOperation streamOperation, Set<SessionInfo> sessions)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamState.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamState.class);
+
+    public final transient UUID planId;
+
+    public final transient StreamOperation streamOperation;
+
+    public final transient Set<SessionInfo> sessions;
+
+    public StreamState(UUID planId, StreamOperation streamOperation, Set<SessionInfo> sessions) {
         this.planId = planId;
         this.sessions = sessions;
         this.streamOperation = streamOperation;
     }
 
-    public boolean hasFailedSession()
-    {
+    public boolean hasFailedSession() {
         return Iterables.any(sessions, SessionInfo::isFailed);
     }
 
-    public boolean hasAbortedSession()
-    {
+    public boolean hasAbortedSession() {
         return Iterables.any(sessions, SessionInfo::isAborted);
     }
 
-    public List<SessionSummary> createSummaries()
-    {
+    public List<SessionSummary> createSummaries() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.streaming.StreamState.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.streaming.StreamState.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
         return Lists.newArrayList(Iterables.transform(sessions, SessionInfo::createSummary));
     }
 }

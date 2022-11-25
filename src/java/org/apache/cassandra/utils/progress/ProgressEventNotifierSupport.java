@@ -23,26 +23,26 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Provides basic, thread safe ProgressEvent notification support
  */
-public abstract class ProgressEventNotifierSupport implements ProgressEventNotifier
-{
-    private List<ProgressListener> listeners = new CopyOnWriteArrayList<>();
+public abstract class ProgressEventNotifierSupport implements ProgressEventNotifier {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProgressEventNotifierSupport.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProgressEventNotifierSupport.class);
+
+    private transient List<ProgressListener> listeners = new CopyOnWriteArrayList<>();
 
     @Override
-    public void addProgressListener(ProgressListener listener)
-    {
+    public void addProgressListener(ProgressListener listener) {
         listeners.add(listener);
     }
 
     @Override
-    public void removeProgressListener(ProgressListener listener)
-    {
+    public void removeProgressListener(ProgressListener listener) {
         listeners.remove(listener);
     }
 
-    protected void fireProgressEvent(String tag, ProgressEvent event)
-    {
-        for (ProgressListener listener : listeners)
-        {
+    protected void fireProgressEvent(String tag, ProgressEvent event) {
+        for (ProgressListener listener : listeners) {
             listener.progress(tag, event);
         }
     }

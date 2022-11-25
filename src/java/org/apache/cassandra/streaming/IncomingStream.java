@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.schema.TableId;
 
@@ -31,8 +29,11 @@ import org.apache.cassandra.schema.TableId;
  * delete the streamed data, but implementations still need to handle the case where it's process dies
  * during streaming, and it has data left around on startup, in which case it should be deleted.
  */
-public interface IncomingStream
-{
+public interface IncomingStream {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IncomingStream.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IncomingStream.class);
 
     /**
      * Read in the stream data.
@@ -40,8 +41,11 @@ public interface IncomingStream
     void read(DataInputPlus inputPlus, int version) throws IOException;
 
     String getName();
+
     long getSize();
+
     int getNumFiles();
+
     TableId getTableId();
 
     /**

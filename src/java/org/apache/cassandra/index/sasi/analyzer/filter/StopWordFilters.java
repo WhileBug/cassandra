@@ -23,19 +23,21 @@ import java.util.Set;
 /**
  * Filter implementations for input matching Stop Words
  */
-public class StopWordFilters
-{
-    public static class DefaultStopWordFilter extends FilterPipelineTask<String, String>
-    {
-        private Set<String> stopWords = null;
+public class StopWordFilters {
 
-        public DefaultStopWordFilter(Locale locale)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StopWordFilters.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StopWordFilters.class);
+
+    public static class DefaultStopWordFilter extends FilterPipelineTask<String, String> {
+
+        private transient Set<String> stopWords = null;
+
+        public DefaultStopWordFilter(Locale locale) {
             this.stopWords = StopWordFactory.getStopWordsForLanguage(locale);
         }
 
-        public String process(String input) throws Exception
-        {
+        public String process(String input) throws Exception {
             return (stopWords != null && stopWords.contains(input)) ? null : input;
         }
     }

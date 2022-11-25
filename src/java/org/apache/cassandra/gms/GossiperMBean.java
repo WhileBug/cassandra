@@ -21,8 +21,12 @@ import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 
-public interface GossiperMBean
-{
+public interface GossiperMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GossiperMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GossiperMBean.class);
+
     public long getEndpointDowntime(String address) throws UnknownHostException;
 
     public int getCurrentGenerationNumber(String address) throws UnknownHostException;
@@ -35,7 +39,8 @@ public interface GossiperMBean
 
     public List<String> getSeeds();
 
-    /** Returns each node's database release version */
+    /**
+     * Returns each node's database release version
+     */
     public Map<String, List<String>> getReleaseVersionsWithPort();
-
 }

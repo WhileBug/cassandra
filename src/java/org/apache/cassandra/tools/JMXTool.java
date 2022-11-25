@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools;
 
 import java.io.File;
@@ -57,12 +56,10 @@ import javax.management.ReflectionException;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.airline.Arguments;
@@ -79,17 +76,15 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.Tag;
 import org.yaml.snakeyaml.representer.Representer;
 
-public class JMXTool
-{
-    private static final List<String> METRIC_PACKAGES = Arrays.asList("org.apache.cassandra.metrics",
-                                                                      "org.apache.cassandra.db",
-                                                                      "org.apache.cassandra.hints",
-                                                                      "org.apache.cassandra.internal",
-                                                                      "org.apache.cassandra.net",
-                                                                      "org.apache.cassandra.request",
-                                                                      "org.apache.cassandra.service");
+public class JMXTool {
 
-    private static final Comparator<MBeanOperationInfo> OPERATOR_COMPARATOR = (a, b) -> {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(JMXTool.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(JMXTool.class);
+
+    private static final transient List<String> METRIC_PACKAGES = Arrays.asList("org.apache.cassandra.metrics", "org.apache.cassandra.db", "org.apache.cassandra.hints", "org.apache.cassandra.internal", "org.apache.cassandra.net", "org.apache.cassandra.request", "org.apache.cassandra.service");
+
+    private static final transient Comparator<MBeanOperationInfo> OPERATOR_COMPARATOR = (a, b) -> {
         int rc = a.getName().compareTo(b.getName());
         if (rc != 0)
             return rc;
@@ -98,8 +93,7 @@ public class JMXTool
         rc = Integer.compare(aSig.length, bSig.length);
         if (rc != 0)
             return rc;
-        for (int i = 0; i < aSig.length; i++)
-        {
+        for (int i = 0; i < aSig.length; i++) {
             rc = aSig[i].compareTo(bSig[i]);
             if (rc != 0)
                 return rc;
@@ -108,79 +102,70 @@ public class JMXTool
     };
 
     @Command(name = "dump", description = "Dump the Apache Cassandra JMX objects and metadata.")
-    public static final class Dump implements Callable<Void>
-    {
+    public static final class Dump implements Callable<Void> {
+
         @Inject
-        private HelpOption helpOption;
+        private transient HelpOption helpOption;
 
         @Option(title = "url", name = { "-u", "--url" }, description = "JMX url to target")
-        private String targetUrl = "service:jmx:rmi:///jndi/rmi://localhost:7199/jmxrmi";
+        private transient String targetUrl = "service:jmx:rmi:///jndi/rmi://localhost:7199/jmxrmi";
 
         @Option(title = "format", name = { "-f", "--format" }, description = "What format to dump content as; supported values are console (default), json, and yaml")
-        private Format format = Format.console;
+        private transient Format format = Format.console;
 
-        public Void call() throws Exception
-        {
+        public Void call() throws Exception {
             Map<String, Info> map = load(new JMXServiceURL(targetUrl));
             format.dump(System.out, map);
             return null;
         }
 
-        public enum Format
-        {
-            console
-            {
-                void dump(OutputStream output, Map<String, Info> map)
-                {
+        public enum Format {
+
+            console {
+
+                void dump(OutputStream output, Map<String, Info> map) {
                     @SuppressWarnings("resource")
-                    // output should be released by caller
-                    PrintStream out = toPrintStream(output);
-                    for (Map.Entry<String, Info> e : map.entrySet())
-                    {
+                    PrintStream // output should be released by caller
+                    out = toPrintStream(output);
+                    for (Map.Entry<String, Info> e : map.entrySet()) {
                         String name = e.getKey();
                         Info info = e.getValue();
-
                         out.println(name);
                         out.println("\tAttributes");
                         Stream.of(info.attributes).forEach(a -> printRow(out, a.name, a.type, a.access));
                         out.println("\tOperations");
                         Stream.of(info.operations).forEach(o -> {
-                            String args = Stream.of(o.parameters)
-                                                .map(i -> i.name + ": " + i.type)
-                                                .collect(Collectors.joining(",", "(", ")"));
+                            String args = Stream.of(o.parameters).map(i -> i.name + ": " + i.type).collect(Collectors.joining(",", "(", ")"));
                             printRow(out, o.name, o.returnType, args);
                         });
                     }
                 }
-            },
-            json
-            {
-                void dump(OutputStream output, Map<String, Info> map) throws IOException
-                {
+            }
+            , json {
+
+                void dump(OutputStream output, Map<String, Info> map) throws IOException {
                     ObjectMapper mapper = new ObjectMapper();
                     mapper.writeValue(output, map);
                 }
-            },
-            yaml
-            {
-                void dump(OutputStream output, Map<String, Info> map) throws IOException
-                {
+            }
+            , yaml {
+
+                void dump(OutputStream output, Map<String, Info> map) throws IOException {
                     Representer representer = new Representer();
-                    representer.addClassTag(Info.class, Tag.MAP); // avoid the auto added tag
+                    // avoid the auto added tag
+                    representer.addClassTag(Info.class, Tag.MAP);
                     Yaml yaml = new Yaml(representer);
                     yaml.dump(map, new OutputStreamWriter(output));
                 }
-            };
+            }
+            ;
 
-            private static PrintStream toPrintStream(OutputStream output)
-            {
-                try
-                {
+            private static PrintStream toPrintStream(OutputStream output) {
+                try {
                     return output instanceof PrintStream ? (PrintStream) output : new PrintStream(output, true, "UTF-8");
-                }
-                catch (UnsupportedEncodingException e)
-                {
-                    throw new AssertionError(e); // utf-8 is a required charset for the JVM
+                } catch (UnsupportedEncodingException e) {
+                    // utf-8 is a required charset for the JVM
+                    throw new AssertionError(e);
                 }
             }
 
@@ -189,252 +174,205 @@ public class JMXTool
     }
 
     @Command(name = "diff", description = "Diff two jmx dump files and report their differences")
-    public static final class Diff implements Callable<Void>
-    {
+    public static final class Diff implements Callable<Void> {
+
         @Inject
-        private HelpOption helpOption;
+        private transient HelpOption helpOption;
 
         @Arguments(title = "files", usage = "<left> <right>", description = "Files to diff")
-        private List<File> files;
+        private transient List<File> files;
 
         @Option(title = "format", name = { "-f", "--format" }, description = "What format the files are in; only support json and yaml as format")
-        private Format format = Format.yaml;
+        private transient Format format = Format.yaml;
 
         @Option(title = "ignore left", name = { "--ignore-missing-on-left" }, description = "Ignore results missing on the left")
-        private boolean ignoreMissingLeft;
+        private transient boolean ignoreMissingLeft;
 
         @Option(title = "ignore right", name = { "--ignore-missing-on-right" }, description = "Ignore results missing on the right")
-        private boolean ignoreMissingRight;
+        private transient boolean ignoreMissingRight;
 
-        @Option(title = "exclude objects", name = "--exclude-object", description
-                                                                      = "Ignores processing specific objects. " +
-                                                                        "Each usage should take a single object, " +
-                                                                        "but can use this flag multiple times.")
-        private List<CliPattern> excludeObjects = new ArrayList<>();
+        @Option(title = "exclude objects", name = "--exclude-object", description = "Ignores processing specific objects. " + "Each usage should take a single object, " + "but can use this flag multiple times.")
+        private transient List<CliPattern> excludeObjects = new ArrayList<>();
 
-        @Option(title = "exclude attributes", name = "--exclude-attribute", description
-                                                                            = "Ignores processing specific attributes. " +
-                                                                              "Each usage should take a single attribute, " +
-                                                                              "but can use this flag multiple times.")
-        private List<CliPattern> excludeAttributes = new ArrayList<>();
+        @Option(title = "exclude attributes", name = "--exclude-attribute", description = "Ignores processing specific attributes. " + "Each usage should take a single attribute, " + "but can use this flag multiple times.")
+        private transient List<CliPattern> excludeAttributes = new ArrayList<>();
 
-        @Option(title = "exclude operations", name = "--exclude-operation", description
-                                                                            = "Ignores processing specific operations. " +
-                                                                              "Each usage should take a single operation, " +
-                                                                              "but can use this flag multiple times.")
-        private List<CliPattern> excludeOperations = new ArrayList<>();
+        @Option(title = "exclude operations", name = "--exclude-operation", description = "Ignores processing specific operations. " + "Each usage should take a single operation, " + "but can use this flag multiple times.")
+        private transient List<CliPattern> excludeOperations = new ArrayList<>();
 
-        public Void call() throws Exception
-        {
+        public Void call() throws Exception {
             Preconditions.checkArgument(files.size() == 2, "files requires 2 arguments but given %s", files);
             Map<String, Info> left;
             Map<String, Info> right;
             try (FileInputStream leftStream = new FileInputStream(files.get(0));
-                 FileInputStream rightStream = new FileInputStream(files.get(1)))
-            {
+                FileInputStream rightStream = new FileInputStream(files.get(1))) {
                 left = format.load(leftStream);
                 right = format.load(rightStream);
             }
-
             diff(left, right);
             return null;
         }
 
-        private void diff(Map<String, Info> left, Map<String, Info> right)
-        {
+        private void diff(Map<String, Info> left, Map<String, Info> right) {
             DiffResult<String> objectNames = diff(left.keySet(), right.keySet(), name -> {
-                for (CliPattern p : excludeObjects)
-                {
+                for (CliPattern p : excludeObjects) {
                     if (p.pattern.matcher(name).matches())
                         return false;
                 }
                 return true;
             });
-
-            if (!ignoreMissingRight && !objectNames.notInRight.isEmpty())
-            {
+            if (!ignoreMissingRight && !objectNames.notInRight.isEmpty()) {
                 System.out.println("Objects not in right:");
                 printSet(0, objectNames.notInRight);
             }
-            if (!ignoreMissingLeft && !objectNames.notInLeft.isEmpty())
-            {
+            if (!ignoreMissingLeft && !objectNames.notInLeft.isEmpty()) {
                 System.out.println("Objects not in left: ");
                 printSet(0, objectNames.notInLeft);
             }
-            Runnable printHeader = new Runnable()
-            {
+            Runnable printHeader = new Runnable() {
+
                 boolean printedHeader = false;
 
-                public void run()
-                {
-                    if (!printedHeader)
-                    {
+                public void run() {
+                    if (!printedHeader) {
                         System.out.println("Difference found in attribute or operation");
                         printedHeader = true;
                     }
                 }
             };
-
-            for (String key : objectNames.shared)
-            {
+            for (String key : objectNames.shared) {
                 Info leftInfo = left.get(key);
                 Info rightInfo = right.get(key);
                 DiffResult<Attribute> attributes = diff(leftInfo.attributeSet(), rightInfo.attributeSet(), attribute -> {
-                    for (CliPattern p : excludeAttributes)
-                    {
+                    for (CliPattern p : excludeAttributes) {
                         if (p.pattern.matcher(attribute.name).matches())
                             return false;
                     }
                     return true;
                 });
-                if (!ignoreMissingRight && !attributes.notInRight.isEmpty())
-                {
+                if (!ignoreMissingRight && !attributes.notInRight.isEmpty()) {
                     printHeader.run();
                     System.out.println(key + "\tattribute not in right:");
                     printSet(1, attributes.notInRight);
                 }
-                if (!ignoreMissingLeft && !attributes.notInLeft.isEmpty())
-                {
+                if (!ignoreMissingLeft && !attributes.notInLeft.isEmpty()) {
                     printHeader.run();
                     System.out.println(key + "\tattribute not in left:");
                     printSet(1, attributes.notInLeft);
                 }
-
                 DiffResult<Operation> operations = diff(leftInfo.operationSet(), rightInfo.operationSet(), operation -> {
-                    for (CliPattern p : excludeOperations)
-                    {
+                    for (CliPattern p : excludeOperations) {
                         if (p.pattern.matcher(operation.name).matches())
                             return false;
                     }
                     return true;
                 });
-                if (!ignoreMissingRight && !operations.notInRight.isEmpty())
-                {
+                if (!ignoreMissingRight && !operations.notInRight.isEmpty()) {
                     printHeader.run();
                     System.out.println(key + "\toperation not in right:");
-                    printSet(1, operations.notInRight, (sb, o) ->
-                                                       rightInfo.getOperation(o.name).ifPresent(match ->
-                                                                                                sb.append("\t").append("similar in right: ").append(match)));
+                    printSet(1, operations.notInRight, (sb, o) -> rightInfo.getOperation(o.name).ifPresent(match -> sb.append("\t").append("similar in right: ").append(match)));
                 }
-                if (!ignoreMissingLeft && !operations.notInLeft.isEmpty())
-                {
+                if (!ignoreMissingLeft && !operations.notInLeft.isEmpty()) {
                     printHeader.run();
                     System.out.println(key + "\toperation not in left:");
-                    printSet(1, operations.notInLeft, (sb, o) ->
-                                                      leftInfo.getOperation(o.name).ifPresent(match ->
-                                                                                              sb.append("\t").append("similar in left: ").append(match)));
+                    printSet(1, operations.notInLeft, (sb, o) -> leftInfo.getOperation(o.name).ifPresent(match -> sb.append("\t").append("similar in left: ").append(match)));
                 }
             }
         }
 
-        private static <T extends Comparable<T>> void printSet(int indent, Set<T> set)
-        {
-            printSet(indent, set, (i1, i2) -> {});
+        private static <T extends Comparable<T>> void printSet(int indent, Set<T> set) {
+            printSet(indent, set, (i1, i2) -> {
+            });
         }
 
-        private static <T extends Comparable<T>> void printSet(int indent, Set<T> set, BiConsumer<StringBuilder, T> fn)
-        {
+        private static <T extends Comparable<T>> void printSet(int indent, Set<T> set, BiConsumer<StringBuilder, T> fn) {
             StringBuilder sb = new StringBuilder();
-            for (T t : new TreeSet<>(set))
-            {
+            for (T t : new TreeSet<>(set)) {
                 sb.setLength(0);
-                for (int i = 0; i < indent; i++)
-                    sb.append('\t');
+                for (int i = 0; i < indent; i++) sb.append('\t');
                 sb.append(t);
                 fn.accept(sb, t);
                 System.out.println(sb);
             }
         }
 
-        private static <T> DiffResult<T> diff(Set<T> left, Set<T> right, Predicate<T> fn)
-        {
+        private static <T> DiffResult<T> diff(Set<T> left, Set<T> right, Predicate<T> fn) {
             left = Sets.filter(left, fn);
             right = Sets.filter(right, fn);
             return new DiffResult<>(Sets.difference(left, right), Sets.difference(right, left), Sets.intersection(left, right));
         }
 
-        private static final class DiffResult<T>
-        {
-            private final SetView<T> notInRight;
-            private final SetView<T> notInLeft;
-            private final SetView<T> shared;
+        private static final class DiffResult<T> {
 
-            private DiffResult(SetView<T> notInRight, SetView<T> notInLeft, SetView<T> shared)
-            {
+            private final transient SetView<T> notInRight;
+
+            private final transient SetView<T> notInLeft;
+
+            private final transient SetView<T> shared;
+
+            private DiffResult(SetView<T> notInRight, SetView<T> notInLeft, SetView<T> shared) {
                 this.notInRight = notInRight;
                 this.notInLeft = notInLeft;
                 this.shared = shared;
             }
         }
 
-        public enum Format
-        {
-            json
-            {
-                Map<String, Info> load(InputStream input) throws IOException
-                {
+        public enum Format {
+
+            json {
+
+                Map<String, Info> load(InputStream input) throws IOException {
                     ObjectMapper mapper = new ObjectMapper();
-                    return mapper.readValue(input, new TypeReference<Map<String, Info>>() {});
+                    return mapper.readValue(input, new TypeReference<Map<String, Info>>() {
+                    });
                 }
-            },
-            yaml
-            {
-                Map<String, Info> load(InputStream input) throws IOException
-                {
+            }
+            , yaml {
+
+                Map<String, Info> load(InputStream input) throws IOException {
                     Yaml yaml = new Yaml(new CustomConstructor());
                     return (Map<String, Info>) yaml.load(input);
                 }
-            };
+            }
+            ;
 
             abstract Map<String, Info> load(InputStream input) throws IOException;
         }
 
-        private static final class CustomConstructor extends Constructor
-        {
-            private static final String ROOT = "__root__";
-            private static final TypeDescription INFO_TYPE = new TypeDescription(Info.class);
+        private static final class CustomConstructor extends Constructor {
 
-            public CustomConstructor()
-            {
+            private static final transient String ROOT = "__root__";
+
+            private static final transient TypeDescription INFO_TYPE = new TypeDescription(Info.class);
+
+            public CustomConstructor() {
                 this.rootTag = new Tag(ROOT);
                 this.addTypeDescription(INFO_TYPE);
             }
 
-            protected Object constructObject(Node node)
-            {
-                if (ROOT.equals(node.getTag().getValue()) && node instanceof MappingNode)
-                {
+            protected Object constructObject(Node node) {
+                if (ROOT.equals(node.getTag().getValue()) && node instanceof MappingNode) {
                     MappingNode mn = (MappingNode) node;
-                    return mn.getValue().stream()
-                                .collect(Collectors.toMap(t -> super.constructObject(t.getKeyNode()),
-                                                          t -> {
-                                                              Node child = t.getValueNode();
-                                                              child.setType(INFO_TYPE.getType());
-                                                              return super.constructObject(child);
-                                                          }));
-                }
-                else
-                {
+                    return mn.getValue().stream().collect(Collectors.toMap(t -> super.constructObject(t.getKeyNode()), t -> {
+                        Node child = t.getValueNode();
+                        child.setType(INFO_TYPE.getType());
+                        return super.constructObject(child);
+                    }));
+                } else {
                     return super.constructObject(node);
                 }
             }
         }
     }
 
-    private static Map<String, Info> load(JMXServiceURL url) throws IOException, MalformedObjectNameException, IntrospectionException, InstanceNotFoundException, ReflectionException
-    {
-        try (JMXConnector jmxc = JMXConnectorFactory.connect(url, null))
-        {
+    private static Map<String, Info> load(JMXServiceURL url) throws IOException, MalformedObjectNameException, IntrospectionException, InstanceNotFoundException, ReflectionException {
+        try (JMXConnector jmxc = JMXConnectorFactory.connect(url, null)) {
             MBeanServerConnection mbsc = jmxc.getMBeanServerConnection();
-
             Map<String, Info> map = new TreeMap<>();
-            for (String pkg : new TreeSet<>(METRIC_PACKAGES))
-            {
+            for (String pkg : new TreeSet<>(METRIC_PACKAGES)) {
                 Set<ObjectName> metricNames = new TreeSet<>(mbsc.queryNames(new ObjectName(pkg + ":*"), null));
-                for (ObjectName name : metricNames)
-                {
-                    if (mbsc.isRegistered(name))
-                    {
+                for (ObjectName name : metricNames) {
+                    if (mbsc.isRegistered(name)) {
                         MBeanInfo info = mbsc.getMBeanInfo(name);
                         map.put(name.toString(), Info.from(info));
                     }
@@ -444,27 +382,22 @@ public class JMXTool
         }
     }
 
-    private static String getAccess(MBeanAttributeInfo a)
-    {
+    private static String getAccess(MBeanAttributeInfo a) {
         String access;
-        if (a.isReadable())
-        {
+        if (a.isReadable()) {
             if (a.isWritable())
                 access = "read/write";
             else
                 access = "read-only";
-        }
-        else if (a.isWritable())
+        } else if (a.isWritable())
             access = "write-only";
         else
             access = "no-access";
         return access;
     }
 
-    private static String normalizeType(String type)
-    {
-        switch (type)
-        {
+    private static String normalizeType(String type) {
+        switch(type) {
             case "[Z":
                 return "boolean[]";
             case "[B":
@@ -483,202 +416,169 @@ public class JMXTool
                 return "char[]";
         }
         if (type.startsWith("[L"))
-            return type.substring(2, type.length() - 1) + "[]"; // -1 will remove the ; at the end
+            // -1 will remove the ; at the end
+            return type.substring(2, type.length() - 1) + "[]";
         return type;
     }
 
-    private static final StringBuilder ROW_BUFFER = new StringBuilder();
+    private static final transient StringBuilder ROW_BUFFER = new StringBuilder();
 
-    private static void printRow(PrintStream out, String... args)
-    {
+    private static void printRow(PrintStream out, String... args) {
         ROW_BUFFER.setLength(0);
         ROW_BUFFER.append("\t\t");
-        for (String a : args)
-            ROW_BUFFER.append(a).append("\t");
+        for (String a : args) ROW_BUFFER.append(a).append("\t");
         out.println(ROW_BUFFER);
     }
 
-    public static final class Info
-    {
-        private Attribute[] attributes;
-        private Operation[] operations;
+    public static final class Info {
 
-        public Info()
-        {
+        private transient Attribute[] attributes;
+
+        private transient Operation[] operations;
+
+        public Info() {
         }
 
-        public Info(Attribute[] attributes, Operation[] operations)
-        {
+        public Info(Attribute[] attributes, Operation[] operations) {
             this.attributes = attributes;
             this.operations = operations;
         }
 
-        private static Info from(MBeanInfo info)
-        {
-            Attribute[] attributes = Stream.of(info.getAttributes())
-                                           .sorted(Comparator.comparing(MBeanFeatureInfo::getName))
-                                           .map(Attribute::from)
-                                           .toArray(Attribute[]::new);
-
-            Operation[] operations = Stream.of(info.getOperations())
-                                           .sorted(OPERATOR_COMPARATOR)
-                                           .map(Operation::from)
-                                           .toArray(Operation[]::new);
+        private static Info from(MBeanInfo info) {
+            Attribute[] attributes = Stream.of(info.getAttributes()).sorted(Comparator.comparing(MBeanFeatureInfo::getName)).map(Attribute::from).toArray(Attribute[]::new);
+            Operation[] operations = Stream.of(info.getOperations()).sorted(OPERATOR_COMPARATOR).map(Operation::from).toArray(Operation[]::new);
             return new Info(attributes, operations);
         }
 
-        public Attribute[] getAttributes()
-        {
+        public Attribute[] getAttributes() {
             return attributes;
         }
 
-        public void setAttributes(Attribute[] attributes)
-        {
+        public void setAttributes(Attribute[] attributes) {
             this.attributes = attributes;
         }
 
-        public Set<String> attributeNames()
-        {
+        public Set<String> attributeNames() {
             return Stream.of(attributes).map(a -> a.name).collect(Collectors.toSet());
         }
 
-        public Set<Attribute> attributeSet()
-        {
+        public Set<Attribute> attributeSet() {
             return new HashSet<>(Arrays.asList(attributes));
         }
 
-        public Operation[] getOperations()
-        {
+        public Operation[] getOperations() {
             return operations;
         }
 
-        public void setOperations(Operation[] operations)
-        {
+        public void setOperations(Operation[] operations) {
             this.operations = operations;
         }
 
-        public Set<String> operationNames()
-        {
+        public Set<String> operationNames() {
             return Stream.of(operations).map(o -> o.name).collect(Collectors.toSet());
         }
 
-        public Set<Operation> operationSet()
-        {
+        public Set<Operation> operationSet() {
             return new HashSet<>(Arrays.asList(operations));
         }
 
-        public Optional<Attribute> getAttribute(String name)
-        {
+        public Optional<Attribute> getAttribute(String name) {
             return Stream.of(attributes).filter(a -> a.name.equals(name)).findFirst();
         }
 
-        public Attribute getAttributePresent(String name)
-        {
+        public Attribute getAttributePresent(String name) {
             return getAttribute(name).orElseThrow(AssertionError::new);
         }
 
-        public Optional<Operation> getOperation(String name)
-        {
+        public Optional<Operation> getOperation(String name) {
             return Stream.of(operations).filter(o -> o.name.equals(name)).findFirst();
         }
 
-        public Operation getOperationPresent(String name)
-        {
+        public Operation getOperationPresent(String name) {
             return getOperation(name).orElseThrow(AssertionError::new);
         }
 
         @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+        public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
             Info info = (Info) o;
-            return Arrays.equals(attributes, info.attributes) &&
-                   Arrays.equals(operations, info.operations);
+            return Arrays.equals(attributes, info.attributes) && Arrays.equals(operations, info.operations);
         }
 
         @Override
-        public int hashCode()
-        {
+        public int hashCode() {
             int result = Arrays.hashCode(attributes);
             result = 31 * result + Arrays.hashCode(operations);
             return result;
         }
     }
 
-    public static final class Attribute implements Comparable<Attribute>
-    {
-        private String name;
-        private String type;
-        private String access;
+    public static final class Attribute implements Comparable<Attribute> {
 
-        public Attribute()
-        {
+        private transient String name;
+
+        private transient String type;
+
+        private transient String access;
+
+        public Attribute() {
         }
 
-        public Attribute(String name, String type, String access)
-        {
+        public Attribute(String name, String type, String access) {
             this.name = name;
             this.type = type;
             this.access = access;
         }
 
-        private static Attribute from(MBeanAttributeInfo info)
-        {
+        private static Attribute from(MBeanAttributeInfo info) {
             return new Attribute(info.getName(), normalizeType(info.getType()), JMXTool.getAccess(info));
         }
 
-        public String getName()
-        {
+        public String getName() {
             return name;
         }
 
-        public void setName(String name)
-        {
+        public void setName(String name) {
             this.name = name;
         }
 
-        public String getType()
-        {
+        public String getType() {
             return type;
         }
 
-        public void setType(String type)
-        {
+        public void setType(String type) {
             this.type = type;
         }
 
-        public String getAccess()
-        {
+        public String getAccess() {
             return access;
         }
 
-        public void setAccess(String access)
-        {
+        public void setAccess(String access) {
             this.access = access;
         }
 
-        public boolean equals(Object o)
-        {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+        public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
             Attribute attribute = (Attribute) o;
-            return Objects.equals(name, attribute.name) &&
-                   Objects.equals(type, attribute.type);
+            return Objects.equals(name, attribute.name) && Objects.equals(type, attribute.type);
         }
 
-        public int hashCode()
-        {
+        public int hashCode() {
             return Objects.hash(name, type);
         }
 
-        public String toString()
-        {
+        public String toString() {
             return name + ": " + type;
         }
 
-        public int compareTo(Attribute o)
-        {
+        public int compareTo(Attribute o) {
             int rc = name.compareTo(o.name);
             if (rc != 0)
                 return rc;
@@ -686,96 +586,83 @@ public class JMXTool
         }
     }
 
-    public static final class Operation implements Comparable<Operation>
-    {
-        private String name;
-        private Parameter[] parameters;
-        private String returnType;
+    public static final class Operation implements Comparable<Operation> {
 
-        public Operation()
-        {
+        private transient String name;
+
+        private transient Parameter[] parameters;
+
+        private transient String returnType;
+
+        public Operation() {
         }
 
-        public Operation(String name, Parameter[] parameters, String returnType)
-        {
+        public Operation(String name, Parameter[] parameters, String returnType) {
             this.name = name;
             this.parameters = parameters;
             this.returnType = returnType;
         }
 
-        private static Operation from(MBeanOperationInfo info)
-        {
+        private static Operation from(MBeanOperationInfo info) {
             Parameter[] params = Stream.of(info.getSignature()).map(Parameter::from).toArray(Parameter[]::new);
             return new Operation(info.getName(), params, normalizeType(info.getReturnType()));
         }
 
-        public String getName()
-        {
+        public String getName() {
             return name;
         }
 
-        public void setName(String name)
-        {
+        public void setName(String name) {
             this.name = name;
         }
 
-        public Parameter[] getParameters()
-        {
+        public Parameter[] getParameters() {
             return parameters;
         }
 
-        public void setParameters(Parameter[] parameters)
-        {
+        public void setParameters(Parameter[] parameters) {
             this.parameters = parameters;
         }
 
-        public List<String> parameterTypes()
-        {
+        public List<String> parameterTypes() {
             return Stream.of(parameters).map(p -> p.type).collect(Collectors.toList());
         }
 
-        public String getReturnType()
-        {
+        public String getReturnType() {
             return returnType;
         }
 
-        public void setReturnType(String returnType)
-        {
+        public void setReturnType(String returnType) {
             this.returnType = returnType;
         }
 
-        public boolean equals(Object o)
-        {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+        public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
             Operation operation = (Operation) o;
-            return Objects.equals(name, operation.name) &&
-                   Arrays.equals(parameters, operation.parameters) &&
-                   Objects.equals(returnType, operation.returnType);
+            return Objects.equals(name, operation.name) && Arrays.equals(parameters, operation.parameters) && Objects.equals(returnType, operation.returnType);
         }
 
-        public int hashCode()
-        {
+        public int hashCode() {
             int result = Objects.hash(name, returnType);
             result = 31 * result + Arrays.hashCode(parameters);
             return result;
         }
 
-        public String toString()
-        {
+        public String toString() {
             return name + Stream.of(parameters).map(Parameter::toString).collect(Collectors.joining(", ", "(", ")")) + ": " + returnType;
         }
 
-        public int compareTo(Operation o)
-        {
+        public int compareTo(Operation o) {
             int rc = name.compareTo(o.name);
             if (rc != 0)
                 return rc;
             rc = Integer.compare(parameters.length, o.parameters.length);
             if (rc != 0)
                 return rc;
-            for (int i = 0; i < parameters.length; i++)
-            {
+            for (int i = 0; i < parameters.length; i++) {
                 rc = parameters[i].type.compareTo(o.parameters[i].type);
                 if (rc != 0)
                     return rc;
@@ -784,81 +671,71 @@ public class JMXTool
         }
     }
 
-    public static final class Parameter
-    {
-        private String name;
-        private String type;
+    public static final class Parameter {
 
-        public Parameter()
-        {
+        private transient String name;
+
+        private transient String type;
+
+        public Parameter() {
         }
 
-        public Parameter(String name, String type)
-        {
+        public Parameter(String name, String type) {
             this.name = name;
             this.type = type;
         }
 
-        private static Parameter from(MBeanParameterInfo info)
-        {
+        private static Parameter from(MBeanParameterInfo info) {
             return new Parameter(info.getName(), normalizeType(info.getType()));
         }
 
-        public String getName()
-        {
+        public String getName() {
             return name;
         }
 
-        public void setName(String name)
-        {
+        public void setName(String name) {
             this.name = name;
         }
 
-        public String getType()
-        {
+        public String getType() {
             return type;
         }
 
-        public void setType(String type)
-        {
+        public void setType(String type) {
             this.type = type;
         }
 
-        public boolean equals(Object o)
-        {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+        public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
             Parameter parameter = (Parameter) o;
             return Objects.equals(type, parameter.type);
         }
 
-        public int hashCode()
-        {
+        public int hashCode() {
             return Objects.hash(type);
         }
 
-        public String toString()
-        {
+        public String toString() {
             return name + ": " + type;
         }
     }
 
-    public static final class CliPattern
-    {
-        private final Pattern pattern;
+    public static final class CliPattern {
 
-        public CliPattern(String pattern)
-        {
+        private final transient Pattern pattern;
+
+        public CliPattern(String pattern) {
             this.pattern = Pattern.compile(pattern);
         }
     }
 
-    public static void main(String[] args) throws Exception
-    {
+    public static void main(String[] args) throws Exception {
         Cli.CliBuilder<Callable<Void>> builder = Cli.builder("jmxtool");
         builder.withDefaultCommand(Help.class);
         builder.withCommands(Help.class, Dump.class, Diff.class);
-
         Cli<Callable<Void>> parser = builder.build();
         Callable<Void> command = parser.parse(args);
         command.call();

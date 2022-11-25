@@ -19,7 +19,6 @@ package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.schema.TableMetadata;
@@ -38,271 +37,232 @@ import org.apache.cassandra.utils.CounterId;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.UUIDGen;
 
-public abstract class SimpleBuilders
-{
-    private SimpleBuilders()
-    {
+public abstract class SimpleBuilders {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SimpleBuilders.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SimpleBuilders.class);
+
+    private SimpleBuilders() {
     }
 
-    private static DecoratedKey makePartitonKey(TableMetadata metadata, Object... partitionKey)
-    {
+    private static DecoratedKey makePartitonKey(TableMetadata metadata, Object... partitionKey) {
         if (partitionKey.length == 1 && partitionKey[0] instanceof DecoratedKey)
-            return (DecoratedKey)partitionKey[0];
-
+            return (DecoratedKey) partitionKey[0];
         ByteBuffer key = metadata.partitionKeyAsClusteringComparator().make(partitionKey).serializeAsPartitionKey();
         return metadata.partitioner.decorateKey(key);
     }
 
-    private static Clustering<?> makeClustering(TableMetadata metadata, Object... clusteringColumns)
-    {
+    private static Clustering<?> makeClustering(TableMetadata metadata, Object... clusteringColumns) {
         if (clusteringColumns.length == 1 && clusteringColumns[0] instanceof Clustering)
-            return (Clustering<?>)clusteringColumns[0];
-
-        if (clusteringColumns.length == 0)
-        {
+            return (Clustering<?>) clusteringColumns[0];
+        if (clusteringColumns.length == 0) {
             // If the table has clustering columns, passing no values is for updating the static values, so check we
             // do have some static columns defined.
             assert metadata.comparator.size() == 0 || !metadata.staticColumns().isEmpty();
             return metadata.comparator.size() == 0 ? Clustering.EMPTY : Clustering.STATIC_CLUSTERING;
-        }
-        else
-        {
+        } else {
             return metadata.comparator.make(clusteringColumns);
         }
     }
 
-    private static class AbstractBuilder<T>
-    {
-        protected long timestamp = FBUtilities.timestampMicros();
-        protected int ttl = 0;
-        protected int nowInSec = FBUtilities.nowInSeconds();
+    private static class AbstractBuilder<T> {
 
-        protected void copyParams(AbstractBuilder<?> other)
-        {
+        protected transient long timestamp = FBUtilities.timestampMicros();
+
+        protected transient int ttl = 0;
+
+        protected transient int nowInSec = FBUtilities.nowInSeconds();
+
+        protected void copyParams(AbstractBuilder<?> other) {
             other.timestamp = timestamp;
             other.ttl = ttl;
             other.nowInSec = nowInSec;
         }
 
-        public T timestamp(long timestamp)
-        {
+        public T timestamp(long timestamp) {
             this.timestamp = timestamp;
-            return (T)this;
+            return (T) this;
         }
 
-        public T ttl(int ttl)
-        {
+        public T ttl(int ttl) {
             this.ttl = ttl;
-            return (T)this;
+            return (T) this;
         }
 
-        public T nowInSec(int nowInSec)
-        {
+        public T nowInSec(int nowInSec) {
             this.nowInSec = nowInSec;
-            return (T)this;
+            return (T) this;
         }
     }
 
-    public static class MutationBuilder extends AbstractBuilder<Mutation.SimpleBuilder> implements Mutation.SimpleBuilder
-    {
-        private final String keyspaceName;
-        private final DecoratedKey key;
+    public static class MutationBuilder extends AbstractBuilder<Mutation.SimpleBuilder> implements Mutation.SimpleBuilder {
 
-        private final Map<TableId, PartitionUpdateBuilder> updateBuilders = new HashMap<>();
+        private final transient String keyspaceName;
 
-        public MutationBuilder(String keyspaceName, DecoratedKey key)
-        {
+        private final transient DecoratedKey key;
+
+        private final transient Map<TableId, PartitionUpdateBuilder> updateBuilders = new HashMap<>();
+
+        public MutationBuilder(String keyspaceName, DecoratedKey key) {
             this.keyspaceName = keyspaceName;
             this.key = key;
         }
 
-        public PartitionUpdate.SimpleBuilder update(TableMetadata metadata)
-        {
+        public PartitionUpdate.SimpleBuilder update(TableMetadata metadata) {
             assert metadata.keyspace.equals(keyspaceName);
-
             PartitionUpdateBuilder builder = updateBuilders.get(metadata.id);
-            if (builder == null)
-            {
+            if (builder == null) {
                 builder = new PartitionUpdateBuilder(metadata, key);
                 updateBuilders.put(metadata.id, builder);
             }
-
             copyParams(builder);
-
             return builder;
         }
 
-        public PartitionUpdate.SimpleBuilder update(String tableName)
-        {
+        public PartitionUpdate.SimpleBuilder update(String tableName) {
             TableMetadata metadata = Schema.instance.getTableMetadata(keyspaceName, tableName);
             assert metadata != null : "Unknown table " + tableName + " in keyspace " + keyspaceName;
             return update(metadata);
         }
 
-        public Mutation build()
-        {
+        public Mutation build() {
             assert !updateBuilders.isEmpty() : "Cannot create empty mutation";
-
             if (updateBuilders.size() == 1)
                 return new Mutation(updateBuilders.values().iterator().next().build());
-
             Mutation.PartitionUpdateCollector mutationBuilder = new Mutation.PartitionUpdateCollector(keyspaceName, key);
-            for (PartitionUpdateBuilder builder : updateBuilders.values())
-                mutationBuilder.add(builder.build());
+            for (PartitionUpdateBuilder builder : updateBuilders.values()) mutationBuilder.add(builder.build());
             return mutationBuilder.build();
         }
     }
 
-    public static class PartitionUpdateBuilder extends AbstractBuilder<PartitionUpdate.SimpleBuilder> implements PartitionUpdate.SimpleBuilder
-    {
-        private final TableMetadata metadata;
-        private final DecoratedKey key;
-        private final Map<Clustering<?>, RowBuilder> rowBuilders = new HashMap<>();
-        private List<RTBuilder> rangeBuilders = null; // We use that rarely, so create lazily
-        private List<RangeTombstone> rangeTombstones = null;
+    public static class PartitionUpdateBuilder extends AbstractBuilder<PartitionUpdate.SimpleBuilder> implements PartitionUpdate.SimpleBuilder {
 
-        private DeletionTime partitionDeletion = DeletionTime.LIVE;
+        private final transient TableMetadata metadata;
 
-        public PartitionUpdateBuilder(TableMetadata metadata, Object... partitionKeyValues)
-        {
+        private final transient DecoratedKey key;
+
+        private final transient Map<Clustering<?>, RowBuilder> rowBuilders = new HashMap<>();
+
+        // We use that rarely, so create lazily
+        private transient List<RTBuilder> rangeBuilders = null;
+
+        private transient List<RangeTombstone> rangeTombstones = null;
+
+        private transient DeletionTime partitionDeletion = DeletionTime.LIVE;
+
+        public PartitionUpdateBuilder(TableMetadata metadata, Object... partitionKeyValues) {
             this.metadata = metadata;
             this.key = makePartitonKey(metadata, partitionKeyValues);
         }
 
-        public TableMetadata metadata()
-        {
+        public TableMetadata metadata() {
             return metadata;
         }
 
-        public Row.SimpleBuilder row(Object... clusteringValues)
-        {
+        public Row.SimpleBuilder row(Object... clusteringValues) {
             Clustering<?> clustering = makeClustering(metadata, clusteringValues);
             RowBuilder builder = rowBuilders.get(clustering);
-            if (builder == null)
-            {
+            if (builder == null) {
                 builder = new RowBuilder(metadata, clustering);
                 rowBuilders.put(clustering, builder);
             }
-
             copyParams(builder);
-
             return builder;
         }
 
-        public PartitionUpdate.SimpleBuilder delete()
-        {
+        public PartitionUpdate.SimpleBuilder delete() {
             this.partitionDeletion = new DeletionTime(timestamp, nowInSec);
             return this;
         }
 
-        public RangeTombstoneBuilder addRangeTombstone()
-        {
+        public RangeTombstoneBuilder addRangeTombstone() {
             if (rangeBuilders == null)
                 rangeBuilders = new ArrayList<>();
-
             RTBuilder builder = new RTBuilder(metadata.comparator, new DeletionTime(timestamp, nowInSec));
             rangeBuilders.add(builder);
             return builder;
         }
 
-        public PartitionUpdate.SimpleBuilder addRangeTombstone(RangeTombstone rt)
-        {
+        public PartitionUpdate.SimpleBuilder addRangeTombstone(RangeTombstone rt) {
             if (rangeTombstones == null)
                 rangeTombstones = new ArrayList<>();
             rangeTombstones.add(rt);
             return this;
         }
 
-        public PartitionUpdate build()
-        {
+        public PartitionUpdate build() {
             // Collect all updated columns
             RegularAndStaticColumns.Builder columns = RegularAndStaticColumns.builder();
-            for (RowBuilder builder : rowBuilders.values())
-                columns.addAll(builder.columns());
-
+            for (RowBuilder builder : rowBuilders.values()) columns.addAll(builder.columns());
             // Note that rowBuilders.size() could include the static column so could be 1 off the really need capacity
             // of the final PartitionUpdate, but as that's just a sizing hint, we'll live.
             PartitionUpdate.Builder update = new PartitionUpdate.Builder(metadata, key, columns.build(), rowBuilders.size());
-
             update.addPartitionDeletion(partitionDeletion);
-            if (rangeBuilders != null)
-            {
-                for (RTBuilder builder : rangeBuilders)
-                    update.add(builder.build());
+            if (rangeBuilders != null) {
+                for (RTBuilder builder : rangeBuilders) update.add(builder.build());
             }
-
-            if (rangeTombstones != null)
-            {
-                for (RangeTombstone rt : rangeTombstones)
-                    update.add(rt);
+            if (rangeTombstones != null) {
+                for (RangeTombstone rt : rangeTombstones) update.add(rt);
             }
-
-            for (RowBuilder builder : rowBuilders.values())
-                update.add(builder.build());
-
+            for (RowBuilder builder : rowBuilders.values()) update.add(builder.build());
             return update.build();
         }
 
-        public Mutation buildAsMutation()
-        {
+        public Mutation buildAsMutation() {
             return new Mutation(build());
         }
 
-        private static class RTBuilder implements RangeTombstoneBuilder
-        {
-            private final ClusteringComparator comparator;
-            private final DeletionTime deletionTime;
+        private static class RTBuilder implements RangeTombstoneBuilder {
 
-            private Object[] start;
-            private Object[] end;
+            private final transient ClusteringComparator comparator;
 
-            private boolean startInclusive = true;
-            private boolean endInclusive = true;
+            private final transient DeletionTime deletionTime;
 
-            private RTBuilder(ClusteringComparator comparator, DeletionTime deletionTime)
-            {
+            private transient Object[] start;
+
+            private transient Object[] end;
+
+            private transient boolean startInclusive = true;
+
+            private transient boolean endInclusive = true;
+
+            private RTBuilder(ClusteringComparator comparator, DeletionTime deletionTime) {
                 this.comparator = comparator;
                 this.deletionTime = deletionTime;
             }
 
-            public RangeTombstoneBuilder start(Object... values)
-            {
+            public RangeTombstoneBuilder start(Object... values) {
                 this.start = values;
                 return this;
             }
 
-            public RangeTombstoneBuilder end(Object... values)
-            {
+            public RangeTombstoneBuilder end(Object... values) {
                 this.end = values;
                 return this;
             }
 
-            public RangeTombstoneBuilder inclStart()
-            {
+            public RangeTombstoneBuilder inclStart() {
                 this.startInclusive = true;
                 return this;
             }
 
-            public RangeTombstoneBuilder exclStart()
-            {
+            public RangeTombstoneBuilder exclStart() {
                 this.startInclusive = false;
                 return this;
             }
 
-            public RangeTombstoneBuilder inclEnd()
-            {
+            public RangeTombstoneBuilder inclEnd() {
                 this.endInclusive = true;
                 return this;
             }
 
-            public RangeTombstoneBuilder exclEnd()
-            {
+            public RangeTombstoneBuilder exclEnd() {
                 this.endInclusive = false;
                 return this;
             }
 
-            private RangeTombstone build()
-            {
+            private RangeTombstone build() {
                 ClusteringBound<?> startBound = ClusteringBound.create(comparator, true, startInclusive, start);
                 ClusteringBound<?> endBound = ClusteringBound.create(comparator, false, endInclusive, end);
                 return new RangeTombstone(Slice.make(startBound, endBound), deletionTime);
@@ -310,102 +270,81 @@ public abstract class SimpleBuilders
         }
     }
 
-    public static class RowBuilder extends AbstractBuilder<Row.SimpleBuilder> implements Row.SimpleBuilder
-    {
-        private final TableMetadata metadata;
+    public static class RowBuilder extends AbstractBuilder<Row.SimpleBuilder> implements Row.SimpleBuilder {
 
-        private final Set<ColumnMetadata> columns = new HashSet<>();
-        private final Row.Builder builder;
+        private final transient TableMetadata metadata;
 
-        private boolean initiated;
-        private boolean noPrimaryKeyLivenessInfo;
+        private final transient Set<ColumnMetadata> columns = new HashSet<>();
 
-        public RowBuilder(TableMetadata metadata, Object... clusteringColumns)
-        {
+        private final transient Row.Builder builder;
+
+        private transient boolean initiated;
+
+        private transient boolean noPrimaryKeyLivenessInfo;
+
+        public RowBuilder(TableMetadata metadata, Object... clusteringColumns) {
             this.metadata = metadata;
             this.builder = BTreeRow.unsortedBuilder();
-
             this.builder.newRow(makeClustering(metadata, clusteringColumns));
         }
 
-        Set<ColumnMetadata> columns()
-        {
+        Set<ColumnMetadata> columns() {
             return columns;
         }
 
-        private void maybeInit()
-        {
+        private void maybeInit() {
             // We're working around the fact that Row.Builder requires that addPrimaryKeyLivenessInfo() and
             // addRowDeletion() are called before any cell addition (which is done so the builder can more easily skip
             // shadowed cells).
             if (initiated)
                 return;
-
             // Adds the row liveness
             if (!metadata.isCompactTable() && !noPrimaryKeyLivenessInfo)
                 builder.addPrimaryKeyLivenessInfo(LivenessInfo.create(timestamp, ttl, nowInSec));
-
             initiated = true;
         }
 
-        public Row.SimpleBuilder add(String columnName, Object value)
-        {
+        public Row.SimpleBuilder add(String columnName, Object value) {
             return add(columnName, value, true);
         }
 
-        public Row.SimpleBuilder appendAll(String columnName, Object value)
-        {
+        public Row.SimpleBuilder appendAll(String columnName, Object value) {
             return add(columnName, value, false);
         }
 
-        private Row.SimpleBuilder add(String columnName, Object value, boolean overwriteForCollection)
-        {
+        private Row.SimpleBuilder add(String columnName, Object value, boolean overwriteForCollection) {
             maybeInit();
             ColumnMetadata column = getColumn(columnName);
-
             if (!overwriteForCollection && !(column.type.isMultiCell() && column.type.isCollection()))
                 throw new IllegalArgumentException("appendAll() can only be called on non-frozen collections");
-
             columns.add(column);
-
-            if (!column.type.isMultiCell())
-            {
+            if (!column.type.isMultiCell()) {
                 builder.addCell(cell(column, toByteBuffer(value, column.type), null));
                 return this;
             }
-
             assert column.type instanceof CollectionType : "Collection are the only multi-cell types supported so far";
-
-            if (value == null)
-            {
+            if (value == null) {
                 builder.addComplexDeletion(column, new DeletionTime(timestamp, nowInSec));
                 return this;
             }
-
             // Erase previous entry if any.
             if (overwriteForCollection)
                 builder.addComplexDeletion(column, new DeletionTime(timestamp - 1, nowInSec));
-            switch (((CollectionType)column.type).kind)
-            {
+            switch(((CollectionType) column.type).kind) {
                 case LIST:
-                    ListType lt = (ListType)column.type;
+                    ListType lt = (ListType) column.type;
                     assert value instanceof List;
-                    for (Object elt : (List)value)
-                        builder.addCell(cell(column, toByteBuffer(elt, lt.getElementsType()), CellPath.create(ByteBuffer.wrap(UUIDGen.getTimeUUIDBytes()))));
+                    for (Object elt : (List) value) builder.addCell(cell(column, toByteBuffer(elt, lt.getElementsType()), CellPath.create(ByteBuffer.wrap(UUIDGen.getTimeUUIDBytes()))));
                     break;
                 case SET:
-                    SetType st = (SetType)column.type;
+                    SetType st = (SetType) column.type;
                     assert value instanceof Set;
-                    for (Object elt : (Set)value)
-                        builder.addCell(cell(column, ByteBufferUtil.EMPTY_BYTE_BUFFER, CellPath.create(toByteBuffer(elt, st.getElementsType()))));
+                    for (Object elt : (Set) value) builder.addCell(cell(column, ByteBufferUtil.EMPTY_BYTE_BUFFER, CellPath.create(toByteBuffer(elt, st.getElementsType()))));
                     break;
                 case MAP:
-                    MapType mt = (MapType)column.type;
+                    MapType mt = (MapType) column.type;
                     assert value instanceof Map;
-                    for (Map.Entry entry : ((Map<?, ?>)value).entrySet())
-                        builder.addCell(cell(column,
-                                             toByteBuffer(entry.getValue(), mt.getValuesType()),
-                                             CellPath.create(toByteBuffer(entry.getKey(), mt.getKeysType()))));
+                    for (Map.Entry entry : ((Map<?, ?>) value).entrySet()) builder.addCell(cell(column, toByteBuffer(entry.getValue(), mt.getValuesType()), CellPath.create(toByteBuffer(entry.getKey(), mt.getKeysType()))));
                     break;
                 default:
                     throw new AssertionError();
@@ -413,32 +352,27 @@ public abstract class SimpleBuilders
             return this;
         }
 
-        public Row.SimpleBuilder delete()
-        {
+        public Row.SimpleBuilder delete() {
             assert !initiated : "If called, delete() should be called before any other column value addition";
             builder.addRowDeletion(Row.Deletion.regular(new DeletionTime(timestamp, nowInSec)));
             return this;
         }
 
-        public Row.SimpleBuilder delete(String columnName)
-        {
+        public Row.SimpleBuilder delete(String columnName) {
             return add(columnName, null);
         }
 
-        public Row.SimpleBuilder noPrimaryKeyLivenessInfo()
-        {
+        public Row.SimpleBuilder noPrimaryKeyLivenessInfo() {
             this.noPrimaryKeyLivenessInfo = true;
             return this;
         }
 
-        public Row build()
-        {
+        public Row build() {
             maybeInit();
             return builder.build();
         }
 
-        private ColumnMetadata getColumn(String columnName)
-        {
+        private ColumnMetadata getColumn(String columnName) {
             ColumnMetadata column = metadata.getColumn(new ColumnIdentifier(columnName, true));
             assert column != null : "Cannot find column " + columnName;
             assert !column.isPrimaryKeyColumn();
@@ -446,32 +380,23 @@ public abstract class SimpleBuilders
             return column;
         }
 
-        private Cell<?> cell(ColumnMetadata column, ByteBuffer value, CellPath path)
-        {
+        private Cell<?> cell(ColumnMetadata column, ByteBuffer value, CellPath path) {
             if (value == null)
                 return BufferCell.tombstone(column, timestamp, nowInSec, path);
-
-            return ttl == LivenessInfo.NO_TTL
-                 ? BufferCell.live(column, timestamp, value, path)
-                 : BufferCell.expiring(column, timestamp, ttl, nowInSec, value, path);
+            return ttl == LivenessInfo.NO_TTL ? BufferCell.live(column, timestamp, value, path) : BufferCell.expiring(column, timestamp, ttl, nowInSec, value, path);
         }
 
-        private ByteBuffer toByteBuffer(Object value, AbstractType<?> type)
-        {
+        private ByteBuffer toByteBuffer(Object value, AbstractType<?> type) {
             if (value == null)
                 return null;
-
             if (value instanceof ByteBuffer)
-                return (ByteBuffer)value;
-
-            if (type.isCounter())
-            {
+                return (ByteBuffer) value;
+            if (type.isCounter()) {
                 // See UpdateParameters.addCounter()
                 assert value instanceof Long : "Attempted to adjust Counter cell with non-long value.";
-                return CounterContext.instance().createGlobal(CounterId.getLocalId(), 1, (Long)value);
+                return CounterContext.instance().createGlobal(CounterId.getLocalId(), 1, (Long) value);
             }
-
-            return ((AbstractType)type).decompose(value);
+            return ((AbstractType) type).decompose(value);
         }
     }
 }

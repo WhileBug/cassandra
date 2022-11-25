@@ -25,33 +25,48 @@ import org.apache.cassandra.metrics.CassandraMetricsRegistry.MetricName;
 /**
  * Metrics for internode connections.
  */
-public class InternodeInboundMetrics
-{
-    private final MetricName corruptFramesRecovered;
-    private final MetricName corruptFramesUnrecovered;
-    private final MetricName errorBytes;
-    private final MetricName errorCount;
-    private final MetricName expiredBytes;
-    private final MetricName expiredCount;
-    private final MetricName pendingBytes;
-    private final MetricName pendingCount;
-    private final MetricName processedBytes;
-    private final MetricName processedCount;
-    private final MetricName receivedBytes;
-    private final MetricName receivedCount;
-    private final MetricName throttledCount;
-    private final MetricName throttledNanos;
+public class InternodeInboundMetrics {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InternodeInboundMetrics.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InternodeInboundMetrics.class);
+
+    private final transient MetricName corruptFramesRecovered;
+
+    private final transient MetricName corruptFramesUnrecovered;
+
+    private final transient MetricName errorBytes;
+
+    private final transient MetricName errorCount;
+
+    private final transient MetricName expiredBytes;
+
+    private final transient MetricName expiredCount;
+
+    private final transient MetricName pendingBytes;
+
+    private final transient MetricName pendingCount;
+
+    private final transient MetricName processedBytes;
+
+    private final transient MetricName processedCount;
+
+    private final transient MetricName receivedBytes;
+
+    private final transient MetricName receivedCount;
+
+    private final transient MetricName throttledCount;
+
+    private final transient MetricName throttledNanos;
 
     /**
      * Create metrics for given inbound message handlers.
      *
      * @param peer IP address and port to use for metrics label
      */
-    public InternodeInboundMetrics(InetAddressAndPort peer, InboundMessageHandlers handlers)
-    {
+    public InternodeInboundMetrics(InetAddressAndPort peer, InboundMessageHandlers handlers) {
         // ipv6 addresses will contain colons, which are invalid in a JMX ObjectName
         MetricNameFactory factory = new DefaultNameFactory("InboundConnection", peer.getHostAddressAndPortForJMX());
-
         register(corruptFramesRecovered = factory.createMetricName("CorruptFramesRecovered"), handlers::corruptFramesRecovered);
         register(corruptFramesUnrecovered = factory.createMetricName("CorruptFramesUnrecovered"), handlers::corruptFramesUnrecovered);
         register(errorBytes = factory.createMetricName("ErrorBytes"), handlers::errorBytes);
@@ -68,8 +83,7 @@ public class InternodeInboundMetrics
         register(throttledNanos = factory.createMetricName("ThrottledNanos"), handlers::throttledNanos);
     }
 
-    public void release()
-    {
+    public void release() {
         remove(corruptFramesRecovered);
         remove(corruptFramesUnrecovered);
         remove(errorBytes);
@@ -86,13 +100,11 @@ public class InternodeInboundMetrics
         remove(throttledNanos);
     }
 
-    private static void register(MetricName name, Gauge gauge)
-    {
+    private static void register(MetricName name, Gauge gauge) {
         CassandraMetricsRegistry.Metrics.register(name, gauge);
     }
 
-    private static void remove(MetricName name)
-    {
+    private static void remove(MetricName name) {
         CassandraMetricsRegistry.Metrics.remove(name);
     }
 }

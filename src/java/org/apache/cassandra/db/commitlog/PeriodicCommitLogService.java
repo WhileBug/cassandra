@@ -18,24 +18,23 @@
 package org.apache.cassandra.db.commitlog;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 
-class PeriodicCommitLogService extends AbstractCommitLogService
-{
-    private static final long blockWhenSyncLagsNanos = TimeUnit.MILLISECONDS.toNanos(DatabaseDescriptor.getPeriodicCommitLogSyncBlock());
+class PeriodicCommitLogService extends AbstractCommitLogService {
 
-    public PeriodicCommitLogService(final CommitLog commitLog)
-    {
-        super(commitLog, "PERIODIC-COMMIT-LOG-SYNCER", DatabaseDescriptor.getCommitLogSyncPeriod(),
-              !(commitLog.configuration.useCompression() || commitLog.configuration.useEncryption()));
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PeriodicCommitLogService.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PeriodicCommitLogService.class);
+
+    private static final transient long blockWhenSyncLagsNanos = TimeUnit.MILLISECONDS.toNanos(DatabaseDescriptor.getPeriodicCommitLogSyncBlock());
+
+    public PeriodicCommitLogService(final CommitLog commitLog) {
+        super(commitLog, "PERIODIC-COMMIT-LOG-SYNCER", DatabaseDescriptor.getCommitLogSyncPeriod(), !(commitLog.configuration.useCompression() || commitLog.configuration.useEncryption()));
     }
 
-    protected void maybeWaitForSync(CommitLogSegment.Allocation alloc)
-    {
+    protected void maybeWaitForSync(CommitLogSegment.Allocation alloc) {
         long expectedSyncTime = System.nanoTime() - blockWhenSyncLagsNanos;
-        if (lastSyncedAt < expectedSyncTime)
-        {
+        if (lastSyncedAt < expectedSyncTime) {
             pending.incrementAndGet();
             awaitSyncAt(expectedSyncTime, commitLog.metrics.waitingOnCommit.time());
             pending.decrementAndGet();

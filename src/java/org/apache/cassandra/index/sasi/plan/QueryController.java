@@ -19,9 +19,7 @@ package org.apache.cassandra.index.sasi.plan;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.collect.Sets;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.DataRange;
 import org.apache.cassandra.db.DecoratedKey;
@@ -49,18 +47,25 @@ import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.Pair;
 
-public class QueryController
-{
-    private final long executionQuota;
-    private final long executionStart;
+public class QueryController {
 
-    private final ColumnFamilyStore cfs;
-    private final PartitionRangeReadCommand command;
-    private final DataRange range;
-    private final Map<Collection<Expression>, List<RangeIterator<Long, Token>>> resources = new HashMap<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QueryController.class);
 
-    public QueryController(ColumnFamilyStore cfs, PartitionRangeReadCommand command, long timeQuotaMs)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QueryController.class);
+
+    private final transient long executionQuota;
+
+    private final transient long executionStart;
+
+    private final transient ColumnFamilyStore cfs;
+
+    private final transient PartitionRangeReadCommand command;
+
+    private final transient DataRange range;
+
+    private final transient Map<Collection<Expression>, List<RangeIterator<Long, Token>>> resources = new HashMap<>();
+
+    public QueryController(ColumnFamilyStore cfs, PartitionRangeReadCommand command, long timeQuotaMs) {
         this.cfs = cfs;
         this.command = command;
         this.range = command.dataRange();
@@ -68,51 +73,34 @@ public class QueryController
         this.executionStart = System.nanoTime();
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return command.metadata();
     }
 
-    public Collection<RowFilter.Expression> getExpressions()
-    {
+    public Collection<RowFilter.Expression> getExpressions() {
         return command.rowFilter().getExpressions();
     }
 
-    public DataRange dataRange()
-    {
+    public DataRange dataRange() {
         return command.dataRange();
     }
 
-    public AbstractType<?> getKeyValidator()
-    {
+    public AbstractType<?> getKeyValidator() {
         return cfs.metadata().partitionKeyType;
     }
 
-    public ColumnIndex getIndex(RowFilter.Expression expression)
-    {
+    public ColumnIndex getIndex(RowFilter.Expression expression) {
         Optional<Index> index = cfs.indexManager.getBestIndexFor(expression);
         return index.isPresent() ? ((SASIIndex) index.get()).getIndex() : null;
     }
 
-
-    public UnfilteredRowIterator getPartition(DecoratedKey key, ReadExecutionController executionController)
-    {
+    public UnfilteredRowIterator getPartition(DecoratedKey key, ReadExecutionController executionController) {
         if (key == null)
             throw new NullPointerException();
-        try
-        {
-            SinglePartitionReadCommand partition = SinglePartitionReadCommand.create(cfs.metadata(),
-                                                                                     command.nowInSec(),
-                                                                                     command.columnFilter(),
-                                                                                     command.rowFilter().withoutExpressions(),
-                                                                                     DataLimits.NONE,
-                                                                                     key,
-                                                                                     command.clusteringIndexFilter(key));
-
+        try {
+            SinglePartitionReadCommand partition = SinglePartitionReadCommand.create(cfs.metadata(), command.nowInSec(), command.columnFilter(), command.rowFilter().withoutExpressions(), DataLimits.NONE, key, command.clusteringIndexFilter(key));
             return partition.queryMemtableAndDisk(cfs, executionController);
-        }
-        finally
-        {
+        } finally {
             checkpoint();
         }
     }
@@ -127,129 +115,91 @@ public class QueryController
      *
      * @return The range builder based on given expressions and operation type.
      */
-    public RangeIterator.Builder<Long, Token> getIndexes(OperationType op, Collection<Expression> expressions)
-    {
+    public RangeIterator.Builder<Long, Token> getIndexes(OperationType op, Collection<Expression> expressions) {
         if (resources.containsKey(expressions))
             throw new IllegalArgumentException("Can't process the same expressions multiple times.");
-
-        RangeIterator.Builder<Long, Token> builder = op == OperationType.OR
-                                                ? RangeUnionIterator.<Long, Token>builder()
-                                                : RangeIntersectionIterator.<Long, Token>builder();
-
+        RangeIterator.Builder<Long, Token> builder = op == OperationType.OR ? RangeUnionIterator.<Long, Token>builder() : RangeIntersectionIterator.<Long, Token>builder();
         Set<Map.Entry<Expression, Set<SSTableIndex>>> view = getView(op, expressions).entrySet();
         List<RangeIterator<Long, Token>> perIndexUnions = new ArrayList<>(view.size());
-
-        for (Map.Entry<Expression, Set<SSTableIndex>> e : view)
-        {
-            @SuppressWarnings("resource") // RangeIterators are closed by releaseIndexes
+        for (Map.Entry<Expression, Set<SSTableIndex>> e : view) {
+            // RangeIterators are closed by releaseIndexes
+            @SuppressWarnings("resource")
             RangeIterator<Long, Token> index = TermIterator.build(e.getKey(), e.getValue());
-
             builder.add(index);
             perIndexUnions.add(index);
         }
-
         resources.put(expressions, perIndexUnions);
         return builder;
     }
 
-    public void checkpoint()
-    {
-	long executionTime = (System.nanoTime() - executionStart);
-
+    public void checkpoint() {
+        long executionTime = (System.nanoTime() - executionStart);
         if (executionTime >= executionQuota)
-            throw new TimeQuotaExceededException(
-	            "Command '" + command + "' took too long " +
-                "(" + TimeUnit.NANOSECONDS.toMillis(executionTime) +
-                " >= " + TimeUnit.NANOSECONDS.toMillis(executionQuota) + "ms).");
+            throw new TimeQuotaExceededException("Command '" + command + "' took too long " + "(" + TimeUnit.NANOSECONDS.toMillis(executionTime) + " >= " + TimeUnit.NANOSECONDS.toMillis(executionQuota) + "ms).");
     }
 
-    public void releaseIndexes(Operation operation)
-    {
+    public void releaseIndexes(Operation operation) {
         if (operation.expressions != null)
             releaseIndexes(resources.remove(operation.expressions.values()));
     }
 
-    private void releaseIndexes(List<RangeIterator<Long, Token>> indexes)
-    {
+    private void releaseIndexes(List<RangeIterator<Long, Token>> indexes) {
         if (indexes == null)
             return;
-
         indexes.forEach(FileUtils::closeQuietly);
     }
 
-    public void finish()
-    {
+    public void finish() {
         resources.values().forEach(this::releaseIndexes);
     }
 
-    private Map<Expression, Set<SSTableIndex>> getView(OperationType op, Collection<Expression> expressions)
-    {
+    private Map<Expression, Set<SSTableIndex>> getView(OperationType op, Collection<Expression> expressions) {
         // first let's determine the primary expression if op is AND
         Pair<Expression, Set<SSTableIndex>> primary = (op == OperationType.AND) ? calculatePrimary(expressions) : null;
-
         Map<Expression, Set<SSTableIndex>> indexes = new HashMap<>();
-        for (Expression e : expressions)
-        {
+        for (Expression e : expressions) {
             // NO_EQ and non-index column query should only act as FILTER BY for satisfiedBy(Row) method
             // because otherwise it likely to go through the whole index.
             if (!e.isIndexed() || e.getOp() == Expression.Op.NOT_EQ)
                 continue;
-
             // primary expression, we'll have to add as is
-            if (primary != null && e.equals(primary.left))
-            {
+            if (primary != null && e.equals(primary.left)) {
                 indexes.put(primary.left, primary.right);
                 continue;
             }
-
             View view = e.index.getView();
             if (view == null)
                 continue;
-
             Set<SSTableIndex> readers = new HashSet<>();
-            if (primary != null && primary.right.size() > 0)
-            {
-                for (SSTableIndex index : primary.right)
-                    readers.addAll(view.match(index.minKey(), index.maxKey()));
-            }
-            else
-            {
+            if (primary != null && primary.right.size() > 0) {
+                for (SSTableIndex index : primary.right) readers.addAll(view.match(index.minKey(), index.maxKey()));
+            } else {
                 readers.addAll(applyScope(view.match(e)));
             }
-
             indexes.put(e, readers);
         }
-
         return indexes;
     }
 
-    private Pair<Expression, Set<SSTableIndex>> calculatePrimary(Collection<Expression> expressions)
-    {
+    private Pair<Expression, Set<SSTableIndex>> calculatePrimary(Collection<Expression> expressions) {
         Expression expression = null;
         Set<SSTableIndex> primaryIndexes = Collections.emptySet();
-
-        for (Expression e : expressions)
-        {
+        for (Expression e : expressions) {
             if (!e.isIndexed())
                 continue;
-
             View view = e.index.getView();
             if (view == null)
                 continue;
-
             Set<SSTableIndex> indexes = applyScope(view.match(e));
-            if (expression == null || primaryIndexes.size() > indexes.size())
-            {
+            if (expression == null || primaryIndexes.size() > indexes.size()) {
                 primaryIndexes = indexes;
                 expression = e;
             }
         }
-
         return expression == null ? null : Pair.create(expression, primaryIndexes);
     }
 
-    private Set<SSTableIndex> applyScope(Set<SSTableIndex> indexes)
-    {
+    private Set<SSTableIndex> applyScope(Set<SSTableIndex> indexes) {
         return Sets.filter(indexes, index -> {
             SSTableReader sstable = index.getSSTable();
             return range.startKey().compareTo(sstable.last) <= 0 && (range.stopKey().isMinimum() || sstable.first.compareTo(range.stopKey()) <= 0);

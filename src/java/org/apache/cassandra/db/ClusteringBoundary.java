@@ -24,8 +24,12 @@ package org.apache.cassandra.db;
  * The threshold between two different ranges, i.e. a shortcut for the combination of two ClusteringBounds -- one
  * specifying the end of one of the ranges, and its (implicit) complement specifying the beginning of the other.
  */
-public interface ClusteringBoundary<V> extends ClusteringBoundOrBoundary<V>
-{
+public interface ClusteringBoundary<V> extends ClusteringBoundOrBoundary<V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringBoundary.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringBoundary.class);
+
     @Override
     public ClusteringBoundary<V> invert();
 
@@ -33,8 +37,7 @@ public interface ClusteringBoundary<V> extends ClusteringBoundOrBoundary<V>
 
     public ClusteringBound<V> closeBound(boolean reversed);
 
-    public static <V> ClusteringBoundary<V> create(ClusteringBound.Kind kind, ClusteringPrefix<V> from)
-    {
+    public static <V> ClusteringBoundary<V> create(ClusteringBound.Kind kind, ClusteringPrefix<V> from) {
         return from.accessor().factory().boundary(kind, from.getRawValues());
     }
 }

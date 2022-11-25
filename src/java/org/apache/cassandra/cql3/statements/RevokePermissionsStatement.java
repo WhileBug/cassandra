@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.statements;
 
 import java.util.Set;
-
 import org.apache.cassandra.audit.AuditLogContext;
 import org.apache.cassandra.audit.AuditLogEntryType;
 import org.apache.cassandra.auth.IResource;
@@ -32,28 +31,28 @@ import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class RevokePermissionsStatement extends PermissionsManagementStatement
-{
-    public RevokePermissionsStatement(Set<Permission> permissions, IResource resource, RoleName grantee)
-    {
+public class RevokePermissionsStatement extends PermissionsManagementStatement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RevokePermissionsStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RevokePermissionsStatement.class);
+
+    public RevokePermissionsStatement(Set<Permission> permissions, IResource resource, RoleName grantee) {
         super(permissions, resource, grantee);
     }
 
-    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException
-    {
+    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException {
         DatabaseDescriptor.getAuthorizer().revoke(state.getUser(), permissions, resource, grantee);
         return null;
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         String keyspace = resource.hasParent() ? resource.getParent().getName() : resource.getName();
         return new AuditLogContext(AuditLogEntryType.REVOKE, keyspace, resource.getName());
     }

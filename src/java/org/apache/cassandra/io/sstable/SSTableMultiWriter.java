@@ -15,19 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.sstable;
 
 import java.util.Collection;
-
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.utils.Throwables;
 import org.apache.cassandra.utils.concurrent.Transactional;
 
-public interface SSTableMultiWriter extends Transactional
-{
+public interface SSTableMultiWriter extends Transactional {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableMultiWriter.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableMultiWriter.class);
 
     /**
      * Writes a partition in an implementation specific way
@@ -37,17 +38,20 @@ public interface SSTableMultiWriter extends Transactional
     boolean append(UnfilteredRowIterator partition);
 
     Collection<SSTableReader> finish(long repairedAt, long maxDataAge, boolean openResult);
+
     Collection<SSTableReader> finish(boolean openResult);
+
     Collection<SSTableReader> finished();
 
     SSTableMultiWriter setOpenResult(boolean openResult);
 
     String getFilename();
+
     long getFilePointer();
+
     TableId getTableId();
 
-    static void abortOrDie(SSTableMultiWriter writer)
-    {
+    static void abortOrDie(SSTableMultiWriter writer) {
         Throwables.maybeFail(writer.abort(null));
     }
 }

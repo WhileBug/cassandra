@@ -20,34 +20,36 @@ package org.apache.cassandra.net;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.zip.CRC32;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import org.apache.cassandra.utils.memory.BufferPool;
-
 import static org.apache.cassandra.net.Crc.*;
 
 /**
  * Please see {@link FrameDecoderCrc} for description of the framing produced by this encoder.
  */
 @ChannelHandler.Sharable
-public class FrameEncoderCrc extends FrameEncoder
-{
-    static final int HEADER_LENGTH = 6;
-    private static final int TRAILER_LENGTH = 4;
-    public static final int HEADER_AND_TRAILER_LENGTH = 10;
+public class FrameEncoderCrc extends FrameEncoder {
 
-    public static final FrameEncoderCrc instance = new FrameEncoderCrc();
-    static final PayloadAllocator allocator = (isSelfContained, capacity) ->
-        new Payload(isSelfContained, capacity, HEADER_LENGTH, TRAILER_LENGTH);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameEncoderCrc.class);
 
-    public PayloadAllocator allocator()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameEncoderCrc.class);
+
+    static final transient int HEADER_LENGTH = 6;
+
+    private static final transient int TRAILER_LENGTH = 4;
+
+    public static final transient int HEADER_AND_TRAILER_LENGTH = 10;
+
+    public static final transient FrameEncoderCrc instance = new FrameEncoderCrc();
+
+    static final transient PayloadAllocator allocator = (isSelfContained, capacity) -> new Payload(isSelfContained, capacity, HEADER_LENGTH, TRAILER_LENGTH);
+
+    public PayloadAllocator allocator() {
         return allocator;
     }
 
-    static void writeHeader(ByteBuffer frame, boolean isSelfContained, int dataLength)
-    {
+    static void writeHeader(ByteBuffer frame, boolean isSelfContained, int dataLength) {
         int header3b = dataLength;
         if (isSelfContained)
             header3b |= 1 << 17;
@@ -56,41 +58,31 @@ public class FrameEncoderCrc extends FrameEncoder
         put3b(frame, 3, crc);
     }
 
-    private static void put3b(ByteBuffer frame, int index, int put3b)
-    {
-        frame.put(index    , (byte) put3b        );
-        frame.put(index + 1, (byte)(put3b >>> 8) );
-        frame.put(index + 2, (byte)(put3b >>> 16));
+    private static void put3b(ByteBuffer frame, int index, int put3b) {
+        frame.put(index, (byte) put3b);
+        frame.put(index + 1, (byte) (put3b >>> 8));
+        frame.put(index + 2, (byte) (put3b >>> 16));
     }
 
-    ByteBuf encode(boolean isSelfContained, ByteBuffer frame)
-    {
-        try
-        {
+    ByteBuf encode(boolean isSelfContained, ByteBuffer frame) {
+        try {
             int frameLength = frame.remaining();
             int dataLength = frameLength - HEADER_AND_TRAILER_LENGTH;
             if (dataLength >= 1 << 17)
                 throw new IllegalArgumentException("Maximum payload size is 128KiB");
-
             writeHeader(frame, isSelfContained, dataLength);
-
             CRC32 crc = crc32();
             frame.position(HEADER_LENGTH);
             frame.limit(dataLength + HEADER_LENGTH);
             crc.update(frame);
-
             int frameCrc = (int) crc.getValue();
             if (frame.order() == ByteOrder.BIG_ENDIAN)
                 frameCrc = Integer.reverseBytes(frameCrc);
-
             frame.limit(frameLength);
             frame.putInt(frameLength - TRAILER_LENGTH, frameCrc);
             frame.position(0);
-
             return GlobalBufferPoolAllocator.wrap(frame);
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             bufferPool.put(frame);
             throw t;
         }

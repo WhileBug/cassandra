@@ -19,7 +19,6 @@ package org.apache.cassandra.net;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-
 import org.apache.cassandra.utils.memory.BufferPools;
 
 /**
@@ -29,53 +28,53 @@ import org.apache.cassandra.utils.memory.BufferPools;
  * When sharing is necessary, {@link #share()} method must be invoked by the owning thread
  * before a {@link ShareableBytes} instance can be shared with another thread.
  */
-public class ShareableBytes
-{
-    private final ByteBuffer bytes;
-    private final ShareableBytes owner;
-    private volatile int count;
+public class ShareableBytes {
 
-    private static final int UNSHARED = -1;
-    private static final int RELEASED = 0;
-    private static final AtomicIntegerFieldUpdater<ShareableBytes> countUpdater =
-        AtomicIntegerFieldUpdater.newUpdater(ShareableBytes.class, "count");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ShareableBytes.class);
 
-    private ShareableBytes(ByteBuffer bytes)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ShareableBytes.class);
+
+    private final transient ByteBuffer bytes;
+
+    private final transient ShareableBytes owner;
+
+    private volatile transient int count;
+
+    private static final transient int UNSHARED = -1;
+
+    private static final transient int RELEASED = 0;
+
+    private static final transient AtomicIntegerFieldUpdater<ShareableBytes> countUpdater = AtomicIntegerFieldUpdater.newUpdater(ShareableBytes.class, "count");
+
+    private ShareableBytes(ByteBuffer bytes) {
         this.count = UNSHARED;
         this.owner = this;
         this.bytes = bytes;
     }
 
-    private ShareableBytes(ShareableBytes owner, ByteBuffer bytes)
-    {
+    private ShareableBytes(ShareableBytes owner, ByteBuffer bytes) {
         this.owner = owner;
         this.bytes = bytes;
     }
 
-    public ByteBuffer get()
-    {
+    public ByteBuffer get() {
         assert owner.count != 0;
         return bytes;
     }
 
-    public boolean hasRemaining()
-    {
+    public boolean hasRemaining() {
         return bytes.hasRemaining();
     }
 
-    public int remaining()
-    {
+    public int remaining() {
         return bytes.remaining();
     }
 
-    void skipBytes(int skipBytes)
-    {
+    void skipBytes(int skipBytes) {
         bytes.position(bytes.position() + skipBytes);
     }
 
-    void consume()
-    {
+    void consume() {
         bytes.position(bytes.limit());
     }
 
@@ -84,71 +83,57 @@ public class ShareableBytes
      * The first invocation must occur while the calling thread has exclusive access (though there may be more
      * than one 'owner', these must all either be owned by the calling thread or otherwise not being used)
      */
-    public ShareableBytes share()
-    {
+    public ShareableBytes share() {
         int count = owner.count;
         if (count < 0)
             owner.count = -count;
         return this;
     }
 
-    private ShareableBytes retain()
-    {
+    private ShareableBytes retain() {
         owner.doRetain();
         return this;
     }
 
-    private void doRetain()
-    {
+    private void doRetain() {
         int count = this.count;
-        if (count < 0)
-        {
+        if (count < 0) {
             countUpdater.lazySet(this, count - 1);
             return;
         }
-
-        while (true)
-        {
+        while (true) {
             if (count == RELEASED)
                 throw new IllegalStateException("Attempted to reference an already released SharedByteBuffer");
-
             if (countUpdater.compareAndSet(this, count, count + 1))
                 return;
-
             count = this.count;
         }
     }
 
-    public void release()
-    {
+    public void release() {
         owner.doRelease();
     }
 
-    private void doRelease()
-    {
+    private void doRelease() {
         int count = this.count;
-
         if (count < 0)
             countUpdater.lazySet(this, count += 1);
         else if (count > 0)
             count = countUpdater.decrementAndGet(this);
         else
             throw new IllegalStateException("Already released");
-
         if (count == RELEASED)
             BufferPools.forNetworking().put(bytes);
     }
 
-    boolean isReleased()
-    {
+    boolean isReleased() {
         return owner.count == RELEASED;
     }
 
     /**
      * Create a slice over the next {@code length} bytes, consuming them from our buffer, and incrementing the owner count
      */
-    public ShareableBytes sliceAndConsume(int length)
-    {
+    public ShareableBytes sliceAndConsume(int length) {
         int begin = bytes.position();
         int end = begin + length;
         ShareableBytes result = slice(begin, end);
@@ -159,16 +144,13 @@ public class ShareableBytes
     /**
      * Create a new slice, incrementing the number of owners (making it shared if it was previously unshared)
      */
-    ShareableBytes slice(int begin, int end)
-    {
+    ShareableBytes slice(int begin, int end) {
         ByteBuffer slice = bytes.duplicate();
         slice.position(begin).limit(end);
         return new ShareableBytes(owner.retain(), slice);
     }
 
-    public static ShareableBytes wrap(ByteBuffer buffer)
-    {
+    public static ShareableBytes wrap(ByteBuffer buffer) {
         return new ShareableBytes(buffer);
     }
 }
-

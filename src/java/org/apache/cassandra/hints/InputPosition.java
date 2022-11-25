@@ -15,13 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.hints;
 
 /**
  * Marker interface for file positions as provided by the various ChecksummedDataReader implementations.
  */
-public interface InputPosition
-{
+public interface InputPosition {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InputPosition.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InputPosition.class);
+
     long subtract(InputPosition other);
 }

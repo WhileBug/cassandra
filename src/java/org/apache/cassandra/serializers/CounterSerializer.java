@@ -17,6 +17,9 @@
  */
 package org.apache.cassandra.serializers;
 
-public class CounterSerializer extends LongSerializer
-{
+public class CounterSerializer extends LongSerializer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CounterSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CounterSerializer.class);
 }

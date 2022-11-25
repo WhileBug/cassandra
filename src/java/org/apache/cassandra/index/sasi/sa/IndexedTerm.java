@@ -15,29 +15,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.index.sasi.sa;
 
 import java.nio.ByteBuffer;
 
-public class IndexedTerm
-{
-    private final ByteBuffer term;
-    private final boolean isPartial;
+public class IndexedTerm {
 
-    public IndexedTerm(ByteBuffer term, boolean isPartial)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexedTerm.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexedTerm.class);
+
+    private final transient ByteBuffer term;
+
+    private final transient boolean isPartial;
+
+    public IndexedTerm(ByteBuffer term, boolean isPartial) {
         this.term = term;
         this.isPartial = isPartial;
     }
 
-    public ByteBuffer getBytes()
-    {
+    public ByteBuffer getBytes() {
         return term;
     }
 
-    public boolean isPartial()
-    {
+    public boolean isPartial() {
         return isPartial;
     }
 }

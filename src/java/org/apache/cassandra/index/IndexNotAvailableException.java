@@ -15,20 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.index;
 
 /**
  * Thrown if a secondary index is not currently available.
  */
-public final class IndexNotAvailableException extends RuntimeException
-{
+public final class IndexNotAvailableException extends RuntimeException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexNotAvailableException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexNotAvailableException.class);
+
     /**
      * Creates a new <code>IndexNotAvailableException</code> for the specified index.
      * @param index the index
      */
-    public IndexNotAvailableException(Index index)
-    {
+    public IndexNotAvailableException(Index index) {
         super(String.format("The secondary index '%s' is not yet available", index.getIndexMetadata().name));
     }
 }

@@ -20,7 +20,6 @@ package org.apache.cassandra.cql3.selection;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.Lists;
 import org.apache.cassandra.db.filter.ColumnFilter.Builder;
@@ -31,78 +30,67 @@ import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
  * <code>Selector</code> for literal list (e.g. [min(value), max(value), count(value)]).
- *
  */
-final class ListSelector extends Selector
-{
+final class ListSelector extends Selector {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ListSelector.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ListSelector.class);
+
     /**
      * The list type.
      */
-    private final AbstractType<?> type;
+    private final transient AbstractType<?> type;
 
     /**
      * The list elements
      */
-    private final List<Selector> elements;
+    private final transient List<Selector> elements;
 
-    public static Factory newFactory(final AbstractType<?> type, final SelectorFactories factories)
-    {
-        return new CollectionFactory(type, factories)
-        {
-            protected String getColumnName()
-            {
+    public static Factory newFactory(final AbstractType<?> type, final SelectorFactories factories) {
+        return new CollectionFactory(type, factories) {
+
+            protected String getColumnName() {
                 return Lists.listToString(factories, Factory::getColumnName);
             }
 
-            public Selector newInstance(final QueryOptions options)
-            {
+            public Selector newInstance(final QueryOptions options) {
                 return new ListSelector(type, factories.newInstances(options));
             }
         };
     }
 
     @Override
-    public void addFetchedColumns(Builder builder)
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-            elements.get(i).addFetchedColumns(builder);
+    public void addFetchedColumns(Builder builder) {
+        for (int i = 0, m = elements.size(); i < m; i++) elements.get(i).addFetchedColumns(builder);
     }
 
-    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-            elements.get(i).addInput(protocolVersion, rs);
+    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException {
+        for (int i = 0, m = elements.size(); i < m; i++) elements.get(i).addInput(protocolVersion, rs);
     }
 
-    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException
-    {
+    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException {
         List<ByteBuffer> buffers = new ArrayList<>(elements.size());
-        for (int i = 0, m = elements.size(); i < m; i++)
-        {
+        for (int i = 0, m = elements.size(); i < m; i++) {
             buffers.add(elements.get(i).getOutput(protocolVersion));
         }
         return CollectionSerializer.pack(buffers, buffers.size(), protocolVersion);
     }
 
-    public void reset()
-    {
-        for (int i = 0, m = elements.size(); i < m; i++)
-            elements.get(i).reset();
+    public void reset() {
+        for (int i = 0, m = elements.size(); i < m; i++) elements.get(i).reset();
     }
 
-    public AbstractType<?> getType()
-    {
+    public AbstractType<?> getType() {
         return type;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return Lists.listToString(elements);
     }
 
-    private ListSelector(AbstractType<?> type, List<Selector> elements)
-    {
+    private ListSelector(AbstractType<?> type, List<Selector> elements) {
         this.type = type;
         this.elements = elements;
     }

@@ -15,46 +15,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.nio.ByteBuffer;
 import java.util.EnumMap;
-
 import io.netty.util.concurrent.FastThreadLocal;
-
 import org.apache.cassandra.io.compress.BufferType;
 
 /**
  * Utility class that allow buffers to be reused by storing them in a thread local instance.
  */
-public final class ThreadLocalByteBufferHolder
-{
-    private static final EnumMap<BufferType, FastThreadLocal<ByteBuffer>> reusableBBHolder = new EnumMap<>(BufferType.class);
-    // Convenience variable holding a ref to the current resuableBB to avoid map lookups
-    private final FastThreadLocal<ByteBuffer> reusableBB;
+public final class ThreadLocalByteBufferHolder {
 
-    static
-    {
-        for (BufferType bbType : BufferType.values())
-        {
-            reusableBBHolder.put(bbType, new FastThreadLocal<ByteBuffer>()
-            {
-                protected ByteBuffer initialValue()
-                {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ThreadLocalByteBufferHolder.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ThreadLocalByteBufferHolder.class);
+
+    private static final transient EnumMap<BufferType, FastThreadLocal<ByteBuffer>> reusableBBHolder = new EnumMap<>(BufferType.class);
+
+    // Convenience variable holding a ref to the current resuableBB to avoid map lookups
+    private final transient FastThreadLocal<ByteBuffer> reusableBB;
+
+    static {
+        for (BufferType bbType : BufferType.values()) {
+            reusableBBHolder.put(bbType, new FastThreadLocal<ByteBuffer>() {
+
+                protected ByteBuffer initialValue() {
                     return ByteBuffer.allocate(0);
                 }
             });
         }
-    };
+    }
 
     /**
      * The type of buffer that will be returned
      */
-    private final BufferType bufferType;
+    private final transient BufferType bufferType;
 
-    public ThreadLocalByteBufferHolder(BufferType bufferType)
-    {
+    public ThreadLocalByteBufferHolder(BufferType bufferType) {
         this.bufferType = bufferType;
         this.reusableBB = reusableBBHolder.get(bufferType);
     }
@@ -68,11 +66,9 @@ public final class ThreadLocalByteBufferHolder
      * @param size the buffer size
      * @return the buffer for the current thread.
      */
-    public ByteBuffer getBuffer(int size)
-    {
+    public ByteBuffer getBuffer(int size) {
         ByteBuffer buffer = reusableBB.get();
-        if (buffer.capacity() < size)
-        {
+        if (buffer.capacity() < size) {
             FileUtils.clean(buffer);
             buffer = bufferType.allocate(size);
             reusableBB.set(buffer);

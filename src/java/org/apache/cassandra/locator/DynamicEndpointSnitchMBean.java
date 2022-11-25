@@ -22,15 +22,25 @@ import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.List;
 
-public interface DynamicEndpointSnitchMBean 
-{
+public interface DynamicEndpointSnitchMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DynamicEndpointSnitchMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DynamicEndpointSnitchMBean.class);
+
     public Map<String, Double> getScoresWithPort();
+
     @Deprecated
     public Map<InetAddress, Double> getScores();
+
     public int getUpdateInterval();
+
     public int getResetInterval();
+
     public double getBadnessThreshold();
+
     public String getSubsnitchClassName();
+
     public List<Double> dumpTimings(String hostname) throws UnknownHostException;
 
     /**

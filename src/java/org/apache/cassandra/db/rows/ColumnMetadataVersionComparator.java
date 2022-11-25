@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.rows;
 
 import java.util.Comparator;
-
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.schema.ColumnMetadata;
 
@@ -35,32 +34,28 @@ import org.apache.cassandra.schema.ColumnMetadata;
  *     cannot guarantee when that's fully done).</li>
  * </ul>
  */
-final class ColumnMetadataVersionComparator implements Comparator<ColumnMetadata>
-{
-    public static final Comparator<ColumnMetadata> INSTANCE = new ColumnMetadataVersionComparator();
+final class ColumnMetadataVersionComparator implements Comparator<ColumnMetadata> {
 
-    private ColumnMetadataVersionComparator()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnMetadataVersionComparator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnMetadataVersionComparator.class);
+
+    public static final transient Comparator<ColumnMetadata> INSTANCE = new ColumnMetadataVersionComparator();
+
+    private ColumnMetadataVersionComparator() {
     }
 
     @Override
-    public int compare(ColumnMetadata v1, ColumnMetadata v2)
-    {
-        assert v1.ksName.equals(v2.ksName)
-               && v1.cfName.equals(v2.cfName)
-               && v1.name.equals(v2.name) : v1.debugString() + " != " + v2.debugString();
-
+    public int compare(ColumnMetadata v1, ColumnMetadata v2) {
+        assert v1.ksName.equals(v2.ksName) && v1.cfName.equals(v2.cfName) && v1.name.equals(v2.name) : v1.debugString() + " != " + v2.debugString();
         AbstractType<?> v1Type = v1.type;
         AbstractType<?> v2Type = v2.type;
-
         // In most cases, this is used on equal types, and on most types, equality is cheap (most are singleton classes
         // and just use reference equality), so evacuating that case first.
         if (v1Type.equals(v2Type))
             return 0;
-
         // If those aren't the same type, one must be "more general" than the other, that is accept strictly more values.
-        if (v1Type.isValueCompatibleWith(v2Type))
-        {
+        if (v1Type.isValueCompatibleWith(v2Type)) {
             // Note: if both accept the same values, there is really no good way to prefer one over the other and so we
             // consider them equal here. In practice, this mean we have 2 types that accepts the same values but are
             // not equal. For internal types, TimestampType/DataType/LongType is, afaik, the only example, but as user
@@ -69,17 +64,11 @@ final class ColumnMetadataVersionComparator implements Comparator<ColumnMetadata
             // this method is only used for regular/static columns in practice, where sorting has no impact whatsoever,
             // it shouldn't matter too much what we return here.
             return v2Type.isValueCompatibleWith(v1Type) ? 0 : 1;
-        }
-        else if (v2Type.isValueCompatibleWith(v1Type))
-        {
+        } else if (v2Type.isValueCompatibleWith(v1Type)) {
             return -1;
-        }
-        else
-        {
+        } else {
             // Neither is a super type of the other: something is pretty wrong and we probably shouldn't ignore it.
-            throw new IllegalArgumentException(String.format("Found 2 incompatible versions of column %s in %s.%s: one " +
-                                                             "of type %s and one of type %s (but both types are incompatible)",
-                                                             v1.name, v1.ksName, v1.cfName, v1Type, v2Type));
+            throw new IllegalArgumentException(String.format("Found 2 incompatible versions of column %s in %s.%s: one " + "of type %s and one of type %s (but both types are incompatible)", v1.name, v1.ksName, v1.cfName, v1Type, v2Type));
         }
     }
 }

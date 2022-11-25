@@ -15,17 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.consistent;
 
 import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
-
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.schema.Schema;
 import org.apache.cassandra.schema.TableId;
@@ -34,28 +31,37 @@ import org.apache.cassandra.schema.TableMetadata;
 /**
  * helper for JMX management functions
  */
-public class LocalSessionInfo
-{
-    public static final String SESSION_ID = "SESSION_ID";
-    public static final String STATE = "STATE";
-    public static final String STARTED = "STARTED";
-    public static final String LAST_UPDATE = "LAST_UPDATE";
-    public static final String COORDINATOR = "COORDINATOR";
-    public static final String PARTICIPANTS = "PARTICIPANTS";
-    public static final String PARTICIPANTS_WP = "PARTICIPANTS_WP";
-    public static final String TABLES = "TABLES";
+public class LocalSessionInfo {
 
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LocalSessionInfo.class);
 
-    private LocalSessionInfo() {}
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LocalSessionInfo.class);
 
-    private static String tableString(TableId id)
-    {
+    public static final transient String SESSION_ID = "SESSION_ID";
+
+    public static final transient String STATE = "STATE";
+
+    public static final transient String STARTED = "STARTED";
+
+    public static final transient String LAST_UPDATE = "LAST_UPDATE";
+
+    public static final transient String COORDINATOR = "COORDINATOR";
+
+    public static final transient String PARTICIPANTS = "PARTICIPANTS";
+
+    public static final transient String PARTICIPANTS_WP = "PARTICIPANTS_WP";
+
+    public static final transient String TABLES = "TABLES";
+
+    private LocalSessionInfo() {
+    }
+
+    private static String tableString(TableId id) {
         TableMetadata meta = Schema.instance.getTableMetadata(id);
         return meta != null ? meta.keyspace + '.' + meta.name : "<null>";
     }
 
-    static Map<String, String> sessionToMap(LocalSession session)
-    {
+    static Map<String, String> sessionToMap(LocalSession session) {
         Map<String, String> m = new HashMap<>();
         m.put(SESSION_ID, session.sessionID.toString());
         m.put(STATE, session.getState().toString());
@@ -65,7 +71,6 @@ public class LocalSessionInfo
         m.put(PARTICIPANTS, Joiner.on(',').join(Iterables.transform(session.participants.stream().map(peer -> peer.address).collect(Collectors.toList()), InetAddress::getHostAddress)));
         m.put(PARTICIPANTS_WP, Joiner.on(',').join(Iterables.transform(session.participants, InetAddressAndPort::getHostAddressAndPort)));
         m.put(TABLES, Joiner.on(',').join(Iterables.transform(session.tableIds, LocalSessionInfo::tableString)));
-
         return m;
     }
 }

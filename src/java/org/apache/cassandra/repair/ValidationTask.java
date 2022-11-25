@@ -18,29 +18,33 @@
 package org.apache.cassandra.repair;
 
 import com.google.common.util.concurrent.AbstractFuture;
-
 import org.apache.cassandra.exceptions.RepairException;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.repair.messages.RepairMessage;
 import org.apache.cassandra.repair.messages.ValidationRequest;
 import org.apache.cassandra.streaming.PreviewKind;
 import org.apache.cassandra.utils.MerkleTrees;
-
 import static org.apache.cassandra.net.Verb.VALIDATION_REQ;
 
 /**
  * ValidationTask sends {@link ValidationRequest} to a replica.
  * When a replica sends back message, task completes.
  */
-public class ValidationTask extends AbstractFuture<TreeResponse> implements Runnable
-{
-    private final RepairJobDesc desc;
-    private final InetAddressAndPort endpoint;
-    private final int nowInSec;
-    private final PreviewKind previewKind;
+public class ValidationTask extends AbstractFuture<TreeResponse> implements Runnable {
 
-    public ValidationTask(RepairJobDesc desc, InetAddressAndPort endpoint, int nowInSec, PreviewKind previewKind)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ValidationTask.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ValidationTask.class);
+
+    private final transient RepairJobDesc desc;
+
+    private final transient InetAddressAndPort endpoint;
+
+    private final transient int nowInSec;
+
+    private final transient PreviewKind previewKind;
+
+    public ValidationTask(RepairJobDesc desc, InetAddressAndPort endpoint, int nowInSec, PreviewKind previewKind) {
         this.desc = desc;
         this.endpoint = endpoint;
         this.nowInSec = nowInSec;
@@ -50,12 +54,8 @@ public class ValidationTask extends AbstractFuture<TreeResponse> implements Runn
     /**
      * Send ValidationRequest to replica
      */
-    public void run()
-    {
-        RepairMessage.sendMessageWithFailureCB(new ValidationRequest(desc, nowInSec),
-                                               VALIDATION_REQ,
-                                               endpoint,
-                                               this::setException);
+    public void run() {
+        RepairMessage.sendMessageWithFailureCB(new ValidationRequest(desc, nowInSec), VALIDATION_REQ, endpoint, this::setException);
     }
 
     /**
@@ -63,14 +63,10 @@ public class ValidationTask extends AbstractFuture<TreeResponse> implements Runn
      *
      * @param trees MerkleTrees that is sent from replica. Null if validation failed on replica node.
      */
-    public void treesReceived(MerkleTrees trees)
-    {
-        if (trees == null)
-        {
+    public void treesReceived(MerkleTrees trees) {
+        if (trees == null) {
             setException(new RepairException(desc, previewKind, "Validation failed in " + endpoint));
-        }
-        else
-        {
+        } else {
             set(new TreeResponse(endpoint, trees));
         }
     }

@@ -19,17 +19,29 @@ package org.apache.cassandra.net;
 
 import org.apache.cassandra.locator.InetAddressAndPort;
 
-interface OutboundMessageCallbacks
-{
-    /** A message was not enqueued to the link because too many messages are already waiting to send */
+interface OutboundMessageCallbacks {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutboundMessageCallbacks.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutboundMessageCallbacks.class);
+
+    /**
+     * A message was not enqueued to the link because too many messages are already waiting to send
+     */
     void onOverloaded(Message<?> message, InetAddressAndPort peer);
 
-    /** A message was not serialized to a frame because it had expired */
+    /**
+     * A message was not serialized to a frame because it had expired
+     */
     void onExpired(Message<?> message, InetAddressAndPort peer);
 
-    /** A message was not fully or successfully serialized to a frame because an exception was thrown */
+    /**
+     * A message was not fully or successfully serialized to a frame because an exception was thrown
+     */
     void onFailedSerialize(Message<?> message, InetAddressAndPort peer, int messagingVersion, int bytesWrittenToNetwork, Throwable failure);
 
-    /** A message was not sent because the connection was forcibly closed */
+    /**
+     * A message was not sent because the connection was forcibly closed
+     */
     void onDiscardOnClose(Message<?> message, InetAddressAndPort peer);
 }

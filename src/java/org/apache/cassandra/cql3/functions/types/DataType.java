@@ -18,22 +18,23 @@
 package org.apache.cassandra.cql3.functions.types;
 
 import java.util.*;
-
 import com.google.common.collect.ImmutableList;
-
 import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
  * Data types supported by cassandra.
  */
-public abstract class DataType
-{
+public abstract class DataType {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataType.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataType.class);
 
     /**
      * The CQL type name.
      */
-    public enum Name
-    {
+    public enum Name {
+
         CUSTOM(0),
         ASCII(1),
         BIGINT(2),
@@ -44,24 +45,24 @@ public abstract class DataType
         DOUBLE(7),
         FLOAT(8),
         INT(9),
-        TEXT(10)
-        {
+        TEXT(10) {
+
             @Override
-            public boolean isCompatibleWith(Name that)
-            {
+            public boolean isCompatibleWith(Name that) {
                 return this == that || that == VARCHAR;
             }
-        },
+        }
+        ,
         TIMESTAMP(11),
         UUID(12),
-        VARCHAR(13)
-        {
+        VARCHAR(13) {
+
             @Override
-            public boolean isCompatibleWith(Name that)
-            {
+            public boolean isCompatibleWith(Name that) {
                 return this == that || that == TEXT;
             }
-        },
+        }
+        ,
         VARINT(14),
         TIMEUUID(15),
         INET(16),
@@ -82,25 +83,22 @@ public abstract class DataType
 
         private static final Name[] nameToIds;
 
-        static
-        {
+        static {
             int maxCode = -1;
             for (Name name : Name.values()) maxCode = Math.max(maxCode, name.protocolId);
             nameToIds = new Name[maxCode + 1];
-            for (Name name : Name.values())
-            {
-                if (nameToIds[name.protocolId] != null) throw new IllegalStateException("Duplicate Id");
+            for (Name name : Name.values()) {
+                if (nameToIds[name.protocolId] != null)
+                    throw new IllegalStateException("Duplicate Id");
                 nameToIds[name.protocolId] = name;
             }
         }
 
-        Name(int protocolId)
-        {
+        Name(int protocolId) {
             this(protocolId, ProtocolVersion.V1);
         }
 
-        Name(int protocolId, ProtocolVersion minProtocolVersion)
-        {
+        Name(int protocolId, ProtocolVersion minProtocolVersion) {
             this.protocolId = protocolId;
             this.minProtocolVersion = minProtocolVersion;
         }
@@ -113,23 +111,19 @@ public abstract class DataType
          * @return {@code true} if the provided Name is equal to this one, or if they are aliases for
          * each other, and {@code false} otherwise.
          */
-        public boolean isCompatibleWith(Name that)
-        {
+        public boolean isCompatibleWith(Name that) {
             return this == that;
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return super.toString().toLowerCase();
         }
     }
 
-    private static final Map<Name, DataType> primitiveTypeMap =
-    new EnumMap<>(Name.class);
+    private static final transient Map<Name, DataType> primitiveTypeMap = new EnumMap<>(Name.class);
 
-    static
-    {
+    static {
         primitiveTypeMap.put(Name.ASCII, new DataType.NativeType(Name.ASCII));
         primitiveTypeMap.put(Name.BIGINT, new DataType.NativeType(Name.BIGINT));
         primitiveTypeMap.put(Name.BLOB, new DataType.NativeType(Name.BLOB));
@@ -153,10 +147,9 @@ public abstract class DataType
         primitiveTypeMap.put(Name.DURATION, new DataType.NativeType(Name.DURATION));
     }
 
-    protected final DataType.Name name;
+    protected final transient DataType.Name name;
 
-    protected DataType(DataType.Name name)
-    {
+    protected DataType(DataType.Name name) {
         this.name = name;
     }
 
@@ -165,8 +158,7 @@ public abstract class DataType
      *
      * @return The ASCII type.
      */
-    public static DataType ascii()
-    {
+    public static DataType ascii() {
         return primitiveTypeMap.get(Name.ASCII);
     }
 
@@ -175,8 +167,7 @@ public abstract class DataType
      *
      * @return The BIGINT type.
      */
-    public static DataType bigint()
-    {
+    public static DataType bigint() {
         return primitiveTypeMap.get(Name.BIGINT);
     }
 
@@ -185,8 +176,7 @@ public abstract class DataType
      *
      * @return The BLOB type.
      */
-    public static DataType blob()
-    {
+    public static DataType blob() {
         return primitiveTypeMap.get(Name.BLOB);
     }
 
@@ -195,8 +185,7 @@ public abstract class DataType
      *
      * @return The BOOLEAN type.
      */
-    public static DataType cboolean()
-    {
+    public static DataType cboolean() {
         return primitiveTypeMap.get(Name.BOOLEAN);
     }
 
@@ -205,8 +194,7 @@ public abstract class DataType
      *
      * @return The COUNTER type.
      */
-    public static DataType counter()
-    {
+    public static DataType counter() {
         return primitiveTypeMap.get(Name.COUNTER);
     }
 
@@ -215,8 +203,7 @@ public abstract class DataType
      *
      * @return The DECIMAL type.
      */
-    public static DataType decimal()
-    {
+    public static DataType decimal() {
         return primitiveTypeMap.get(Name.DECIMAL);
     }
 
@@ -225,8 +212,7 @@ public abstract class DataType
      *
      * @return The DOUBLE type.
      */
-    public static DataType cdouble()
-    {
+    public static DataType cdouble() {
         return primitiveTypeMap.get(Name.DOUBLE);
     }
 
@@ -235,8 +221,7 @@ public abstract class DataType
      *
      * @return The FLOAT type.
      */
-    public static DataType cfloat()
-    {
+    public static DataType cfloat() {
         return primitiveTypeMap.get(Name.FLOAT);
     }
 
@@ -245,8 +230,7 @@ public abstract class DataType
      *
      * @return The INET type.
      */
-    public static DataType inet()
-    {
+    public static DataType inet() {
         return primitiveTypeMap.get(Name.INET);
     }
 
@@ -255,8 +239,7 @@ public abstract class DataType
      *
      * @return The TINYINT type.
      */
-    public static DataType tinyint()
-    {
+    public static DataType tinyint() {
         return primitiveTypeMap.get(Name.TINYINT);
     }
 
@@ -265,8 +248,7 @@ public abstract class DataType
      *
      * @return The SMALLINT type.
      */
-    public static DataType smallint()
-    {
+    public static DataType smallint() {
         return primitiveTypeMap.get(Name.SMALLINT);
     }
 
@@ -275,8 +257,7 @@ public abstract class DataType
      *
      * @return The INT type.
      */
-    public static DataType cint()
-    {
+    public static DataType cint() {
         return primitiveTypeMap.get(Name.INT);
     }
 
@@ -285,8 +266,7 @@ public abstract class DataType
      *
      * @return The TEXT type.
      */
-    public static DataType text()
-    {
+    public static DataType text() {
         return primitiveTypeMap.get(Name.TEXT);
     }
 
@@ -295,8 +275,7 @@ public abstract class DataType
      *
      * @return The TIMESTAMP type.
      */
-    public static DataType timestamp()
-    {
+    public static DataType timestamp() {
         return primitiveTypeMap.get(Name.TIMESTAMP);
     }
 
@@ -305,8 +284,7 @@ public abstract class DataType
      *
      * @return The DATE type.
      */
-    public static DataType date()
-    {
+    public static DataType date() {
         return primitiveTypeMap.get(Name.DATE);
     }
 
@@ -315,8 +293,7 @@ public abstract class DataType
      *
      * @return The TIME type.
      */
-    public static DataType time()
-    {
+    public static DataType time() {
         return primitiveTypeMap.get(Name.TIME);
     }
 
@@ -325,8 +302,7 @@ public abstract class DataType
      *
      * @return The UUID type.
      */
-    public static DataType uuid()
-    {
+    public static DataType uuid() {
         return primitiveTypeMap.get(Name.UUID);
     }
 
@@ -335,8 +311,7 @@ public abstract class DataType
      *
      * @return The VARCHAR type.
      */
-    public static DataType varchar()
-    {
+    public static DataType varchar() {
         return primitiveTypeMap.get(Name.VARCHAR);
     }
 
@@ -345,8 +320,7 @@ public abstract class DataType
      *
      * @return The VARINT type.
      */
-    public static DataType varint()
-    {
+    public static DataType varint() {
         return primitiveTypeMap.get(Name.VARINT);
     }
 
@@ -355,8 +329,7 @@ public abstract class DataType
      *
      * @return The TIMEUUID type.
      */
-    public static DataType timeuuid()
-    {
+    public static DataType timeuuid() {
         return primitiveTypeMap.get(Name.TIMEUUID);
     }
 
@@ -367,8 +340,7 @@ public abstract class DataType
      * @param frozen      whether the list is frozen.
      * @return the type of lists of {@code elementType} elements.
      */
-    public static CollectionType list(DataType elementType, boolean frozen)
-    {
+    public static CollectionType list(DataType elementType, boolean frozen) {
         return new DataType.CollectionType(Name.LIST, ImmutableList.of(elementType), frozen);
     }
 
@@ -380,8 +352,7 @@ public abstract class DataType
      * @param elementType the type of the list elements.
      * @return the type of "not frozen" lists of {@code elementType} elements.
      */
-    public static CollectionType list(DataType elementType)
-    {
+    public static CollectionType list(DataType elementType) {
         return list(elementType, false);
     }
 
@@ -392,8 +363,7 @@ public abstract class DataType
      * @param frozen      whether the set is frozen.
      * @return the type of sets of {@code elementType} elements.
      */
-    public static CollectionType set(DataType elementType, boolean frozen)
-    {
+    public static CollectionType set(DataType elementType, boolean frozen) {
         return new DataType.CollectionType(Name.SET, ImmutableList.of(elementType), frozen);
     }
 
@@ -405,8 +375,7 @@ public abstract class DataType
      * @param elementType the type of the set elements.
      * @return the type of "not frozen" sets of {@code elementType} elements.
      */
-    public static CollectionType set(DataType elementType)
-    {
+    public static CollectionType set(DataType elementType) {
         return set(elementType, false);
     }
 
@@ -418,8 +387,7 @@ public abstract class DataType
      * @param frozen    whether the map is frozen.
      * @return the type of maps of {@code keyType} to {@code valueType} elements.
      */
-    public static CollectionType map(DataType keyType, DataType valueType, boolean frozen)
-    {
+    public static CollectionType map(DataType keyType, DataType valueType, boolean frozen) {
         return new DataType.CollectionType(Name.MAP, ImmutableList.of(keyType, valueType), frozen);
     }
 
@@ -432,8 +400,7 @@ public abstract class DataType
      * @param valueType the type of the map values.
      * @return the type of "not frozen" maps of {@code keyType} to {@code valueType} elements.
      */
-    public static CollectionType map(DataType keyType, DataType valueType)
-    {
+    public static CollectionType map(DataType keyType, DataType valueType) {
         return map(keyType, valueType, false);
     }
 
@@ -448,9 +415,9 @@ public abstract class DataType
      * @param typeClassName the server-side fully qualified class name for the type.
      * @return the custom type for {@code typeClassName}.
      */
-    public static DataType.CustomType custom(String typeClassName)
-    {
-        if (typeClassName == null) throw new NullPointerException();
+    public static DataType.CustomType custom(String typeClassName) {
+        if (typeClassName == null)
+            throw new NullPointerException();
         return new DataType.CustomType(Name.CUSTOM, typeClassName);
     }
 
@@ -462,8 +429,7 @@ public abstract class DataType
      *
      * @return the Duration type. The returned instance is a singleton.
      */
-    public static DataType duration()
-    {
+    public static DataType duration() {
         return primitiveTypeMap.get(Name.DURATION);
     }
 
@@ -472,8 +438,7 @@ public abstract class DataType
      *
      * @return the name of that type.
      */
-    public Name getName()
-    {
+    public Name getName() {
         return name;
     }
 
@@ -494,8 +459,7 @@ public abstract class DataType
      *
      * @return whether this data type name represent the name of a collection type.
      */
-    public boolean isCollection()
-    {
+    public boolean isCollection() {
         return this instanceof CollectionType;
     }
 
@@ -515,8 +479,7 @@ public abstract class DataType
      *
      * @return an immutable list containing the type arguments of this type.
      */
-    public List<DataType> getTypeArguments()
-    {
+    public List<DataType> getTypeArguments() {
         return Collections.emptyList();
     }
 
@@ -530,46 +493,39 @@ public abstract class DataType
      * @return a String representation of this data type suitable for inclusion as a parameter type in
      * a function or aggregate signature.
      */
-    public String asFunctionParameterString()
-    {
+    public String asFunctionParameterString() {
         return toString();
     }
 
     /**
      * Instances of this class represent CQL native types, also known as CQL primitive types.
      */
-    public static class NativeType extends DataType
-    {
+    public static class NativeType extends DataType {
 
-        private NativeType(DataType.Name name)
-        {
+        private NativeType(DataType.Name name) {
             super(name);
         }
 
         @Override
-        public boolean isFrozen()
-        {
+        public boolean isFrozen() {
             return false;
         }
 
         @Override
-        public final int hashCode()
-        {
+        public final int hashCode() {
             return (name == Name.TEXT) ? Name.VARCHAR.hashCode() : name.hashCode();
         }
 
         @Override
-        public final boolean equals(Object o)
-        {
-            if (!(o instanceof DataType.NativeType)) return false;
-
+        public final boolean equals(Object o) {
+            if (!(o instanceof DataType.NativeType))
+                return false;
             NativeType that = (DataType.NativeType) o;
             return this.name.isCompatibleWith(that.name);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return name.toString();
         }
     }
@@ -577,75 +533,58 @@ public abstract class DataType
     /**
      * Instances of this class represent collection types, that is, lists, sets or maps.
      */
-    public static class CollectionType extends DataType
-    {
+    public static class CollectionType extends DataType {
 
-        private final List<DataType> typeArguments;
-        private final boolean frozen;
+        private final transient List<DataType> typeArguments;
 
-        private CollectionType(DataType.Name name, List<DataType> typeArguments, boolean frozen)
-        {
+        private final transient boolean frozen;
+
+        private CollectionType(DataType.Name name, List<DataType> typeArguments, boolean frozen) {
             super(name);
             this.typeArguments = typeArguments;
             this.frozen = frozen;
         }
 
         @Override
-        public boolean isFrozen()
-        {
+        public boolean isFrozen() {
             return frozen;
         }
 
         @Override
-        public List<DataType> getTypeArguments()
-        {
+        public List<DataType> getTypeArguments() {
             return typeArguments;
         }
 
         @Override
-        public final int hashCode()
-        {
+        public final int hashCode() {
             return Objects.hash(name, typeArguments);
         }
 
         @Override
-        public final boolean equals(Object o)
-        {
-            if (!(o instanceof DataType.CollectionType)) return false;
-
+        public final boolean equals(Object o) {
+            if (!(o instanceof DataType.CollectionType))
+                return false;
             DataType.CollectionType d = (DataType.CollectionType) o;
             return name == d.name && typeArguments.equals(d.typeArguments);
         }
 
         @Override
-        public String toString()
-        {
-            if (name == Name.MAP)
-            {
+        public String toString() {
+            if (name == Name.MAP) {
                 String template = frozen ? "frozen<%s<%s, %s>>" : "%s<%s, %s>";
                 return String.format(template, name, typeArguments.get(0), typeArguments.get(1));
-            }
-            else
-            {
+            } else {
                 String template = frozen ? "frozen<%s<%s>>" : "%s<%s>";
                 return String.format(template, name, typeArguments.get(0));
             }
         }
 
         @Override
-        public String asFunctionParameterString()
-        {
-            if (name == Name.MAP)
-            {
+        public String asFunctionParameterString() {
+            if (name == Name.MAP) {
                 String template = "%s<%s, %s>";
-                return String.format(
-                template,
-                name,
-                typeArguments.get(0).asFunctionParameterString(),
-                typeArguments.get(1).asFunctionParameterString());
-            }
-            else
-            {
+                return String.format(template, name, typeArguments.get(0).asFunctionParameterString(), typeArguments.get(1).asFunctionParameterString());
+            } else {
                 String template = "%s<%s>";
                 return String.format(template, name, typeArguments.get(0).asFunctionParameterString());
             }
@@ -662,41 +601,35 @@ public abstract class DataType
      *
      * <p>A codec for custom types can be obtained via {@link TypeCodec#custom(DataType.CustomType)}.
      */
-    public static class CustomType extends DataType
-    {
+    public static class CustomType extends DataType {
 
-        private final String customClassName;
+        private final transient String customClassName;
 
-        private CustomType(DataType.Name name, String className)
-        {
+        private CustomType(DataType.Name name, String className) {
             super(name);
             this.customClassName = className;
         }
 
         @Override
-        public boolean isFrozen()
-        {
+        public boolean isFrozen() {
             return false;
         }
 
         @Override
-        public final int hashCode()
-        {
+        public final int hashCode() {
             return Objects.hash(name, customClassName);
         }
 
         @Override
-        public final boolean equals(Object o)
-        {
-            if (!(o instanceof DataType.CustomType)) return false;
-
+        public final boolean equals(Object o) {
+            if (!(o instanceof DataType.CustomType))
+                return false;
             DataType.CustomType d = (DataType.CustomType) o;
             return name == d.name && Objects.equals(customClassName, d.customClassName);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return String.format("'%s'", customClassName);
         }
     }

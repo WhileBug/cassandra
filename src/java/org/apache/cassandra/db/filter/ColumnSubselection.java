@@ -20,7 +20,6 @@ package org.apache.cassandra.db.filter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.CollectionType;
@@ -39,36 +38,39 @@ import org.apache.cassandra.utils.ByteBufferUtil;
  * This only make sense for complex column. For those, this allow for instance
  * to select only a slice of a map.
  */
-public abstract class ColumnSubselection implements Comparable<ColumnSubselection>
-{
-    public static final Serializer serializer = new Serializer();
+public abstract class ColumnSubselection implements Comparable<ColumnSubselection> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnSubselection.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnSubselection.class);
+
+    public static final transient Serializer serializer = new Serializer();
 
     /* this enum is used in serialization; preserve order for compatibility */
-    private enum Kind { SLICE, ELEMENT }
+    private enum Kind {
 
-    protected final ColumnMetadata column;
+        SLICE, ELEMENT
+    }
 
-    protected ColumnSubselection(ColumnMetadata column)
-    {
+    protected final transient ColumnMetadata column;
+
+    protected ColumnSubselection(ColumnMetadata column) {
         this.column = column;
     }
 
-    public static ColumnSubselection slice(ColumnMetadata column, CellPath from, CellPath to)
-    {
+    public static ColumnSubselection slice(ColumnMetadata column, CellPath from, CellPath to) {
         assert column.isComplex() && column.type instanceof CollectionType;
         assert from.size() <= 1 && to.size() <= 1;
         return new Slice(column, from, to);
     }
 
-    public static ColumnSubselection element(ColumnMetadata column, CellPath elt)
-    {
+    public static ColumnSubselection element(ColumnMetadata column, CellPath elt) {
         assert column.isComplex() && column.type instanceof CollectionType;
         assert elt.size() == 1;
         return new Element(column, elt);
     }
 
-    public ColumnMetadata column()
-    {
+    public ColumnMetadata column() {
         return column;
     }
 
@@ -76,8 +78,7 @@ public abstract class ColumnSubselection implements Comparable<ColumnSubselectio
 
     protected abstract CellPath comparisonPath();
 
-    public int compareTo(ColumnSubselection other)
-    {
+    public int compareTo(ColumnSubselection other) {
         assert other.column().name.equals(column().name);
         return column().cellPathComparator().compare(comparisonPath(), other.comparisonPath());
     }
@@ -88,30 +89,27 @@ public abstract class ColumnSubselection implements Comparable<ColumnSubselectio
      */
     public abstract int compareInclusionOf(CellPath path);
 
-    private static class Slice extends ColumnSubselection
-    {
-        private final CellPath from;
-        private final CellPath to;
+    private static class Slice extends ColumnSubselection {
 
-        private Slice(ColumnMetadata column, CellPath from, CellPath to)
-        {
+        private final transient CellPath from;
+
+        private final transient CellPath to;
+
+        private Slice(ColumnMetadata column, CellPath from, CellPath to) {
             super(column);
             this.from = from;
             this.to = to;
         }
 
-        protected Kind kind()
-        {
+        protected Kind kind() {
             return Kind.SLICE;
         }
 
-        public CellPath comparisonPath()
-        {
+        public CellPath comparisonPath() {
             return from;
         }
 
-        public int compareInclusionOf(CellPath path)
-        {
+        public int compareInclusionOf(CellPath path) {
             Comparator<CellPath> cmp = column.cellPathComparator();
             if (cmp.compare(path, from) < 0)
                 return -1;
@@ -122,64 +120,56 @@ public abstract class ColumnSubselection implements Comparable<ColumnSubselectio
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             // This assert we're dealing with a collection since that's the only thing it's used for so far.
-            AbstractType<?> type = ((CollectionType<?>)column().type).nameComparator();
+            AbstractType<?> type = ((CollectionType<?>) column().type).nameComparator();
             return String.format("[%s:%s]", from == CellPath.BOTTOM ? "" : type.getString(from.get(0)), to == CellPath.TOP ? "" : type.getString(to.get(0)));
         }
     }
 
-    private static class Element extends ColumnSubselection
-    {
-        private final CellPath element;
+    private static class Element extends ColumnSubselection {
 
-        private Element(ColumnMetadata column, CellPath elt)
-        {
+        private final transient CellPath element;
+
+        private Element(ColumnMetadata column, CellPath elt) {
             super(column);
             this.element = elt;
         }
 
-        protected Kind kind()
-        {
+        protected Kind kind() {
             return Kind.ELEMENT;
         }
 
-        public CellPath comparisonPath()
-        {
+        public CellPath comparisonPath() {
             return element;
         }
 
-        public int compareInclusionOf(CellPath path)
-        {
+        public int compareInclusionOf(CellPath path) {
             return column.cellPathComparator().compare(path, element);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             // This assert we're dealing with a collection since that's the only thing it's used for so far.
-            AbstractType<?> type = ((CollectionType<?>)column().type).nameComparator();
+            AbstractType<?> type = ((CollectionType<?>) column().type).nameComparator();
             return String.format("[%s]", type.getString(element.get(0)));
         }
     }
 
-    public static class Serializer
-    {
-        public void serialize(ColumnSubselection subSel, DataOutputPlus out, int version) throws IOException
-        {
+    public static class Serializer {
+
+        public void serialize(ColumnSubselection subSel, DataOutputPlus out, int version) throws IOException {
             ColumnMetadata column = subSel.column();
             ByteBufferUtil.writeWithShortLength(column.name.bytes, out);
             out.writeByte(subSel.kind().ordinal());
-            switch (subSel.kind())
-            {
+            switch(subSel.kind()) {
                 case SLICE:
-                    Slice slice = (Slice)subSel;
+                    Slice slice = (Slice) subSel;
                     column.cellPathSerializer().serialize(slice.from, out);
                     column.cellPathSerializer().serialize(slice.to, out);
                     break;
                 case ELEMENT:
-                    Element eltSelection = (Element)subSel;
+                    Element eltSelection = (Element) subSel;
                     column.cellPathSerializer().serialize(eltSelection.element, out);
                     break;
                 default:
@@ -187,12 +177,10 @@ public abstract class ColumnSubselection implements Comparable<ColumnSubselectio
             }
         }
 
-        public ColumnSubselection deserialize(DataInputPlus in, int version, TableMetadata metadata) throws IOException
-        {
+        public ColumnSubselection deserialize(DataInputPlus in, int version, TableMetadata metadata) throws IOException {
             ByteBuffer name = ByteBufferUtil.readWithShortLength(in);
             ColumnMetadata column = metadata.getColumn(name);
-            if (column == null)
-            {
+            if (column == null) {
                 // If we don't find the definition, it could be we have data for a dropped column, and we shouldn't
                 // fail deserialization because of that. So we grab a "fake" ColumnMetadata that ensure proper
                 // deserialization. The column will be ignore later on anyway.
@@ -200,10 +188,8 @@ public abstract class ColumnSubselection implements Comparable<ColumnSubselectio
                 if (column == null)
                     throw new UnknownColumnException("Unknown column " + UTF8Type.instance.getString(name) + " during deserialization");
             }
-
             Kind kind = Kind.values()[in.readUnsignedByte()];
-            switch (kind)
-            {
+            switch(kind) {
                 case SLICE:
                     CellPath from = column.cellPathSerializer().deserialize(in);
                     CellPath to = column.cellPathSerializer().deserialize(in);
@@ -215,22 +201,20 @@ public abstract class ColumnSubselection implements Comparable<ColumnSubselectio
             throw new AssertionError();
         }
 
-        public long serializedSize(ColumnSubselection subSel, int version)
-        {
+        public long serializedSize(ColumnSubselection subSel, int version) {
             long size = 0;
-
             ColumnMetadata column = subSel.column();
             size += TypeSizes.sizeofWithShortLength(column.name.bytes);
-            size += 1; // kind
-            switch (subSel.kind())
-            {
+            // kind
+            size += 1;
+            switch(subSel.kind()) {
                 case SLICE:
-                    Slice slice = (Slice)subSel;
+                    Slice slice = (Slice) subSel;
                     size += column.cellPathSerializer().serializedSize(slice.from);
                     size += column.cellPathSerializer().serializedSize(slice.to);
                     break;
                 case ELEMENT:
-                    Element element = (Element)subSel;
+                    Element element = (Element) subSel;
                     size += column.cellPathSerializer().serializedSize(element.element);
                     break;
             }

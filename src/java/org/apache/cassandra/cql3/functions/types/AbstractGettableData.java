@@ -22,14 +22,14 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import com.google.common.reflect.TypeToken;
-
 import org.apache.cassandra.transport.ProtocolVersion;
 
-public abstract class AbstractGettableData extends AbstractGettableByIndexData
-implements GettableData
-{
+public abstract class AbstractGettableData extends AbstractGettableByIndexData implements GettableData {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractGettableData.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractGettableData.class);
 
     /**
      * Creates a new AbstractGettableData object.
@@ -39,8 +39,7 @@ implements GettableData
      *                        correct value will be the value returned by {@code ProtocolOptions#getProtocolVersion}.
      * @throws IllegalArgumentException if {@code protocolVersion} is not a valid protocol version.
      */
-    AbstractGettableData(ProtocolVersion protocolVersion)
-    {
+    AbstractGettableData(ProtocolVersion protocolVersion) {
         super(protocolVersion);
     }
 
@@ -57,8 +56,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public boolean isNull(String name)
-    {
+    public boolean isNull(String name) {
         return isNull(getIndexOf(name));
     }
 
@@ -66,8 +64,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public boolean getBool(String name)
-    {
+    public boolean getBool(String name) {
         return getBool(getIndexOf(name));
     }
 
@@ -75,8 +72,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public byte getByte(String name)
-    {
+    public byte getByte(String name) {
         return getByte(getIndexOf(name));
     }
 
@@ -84,8 +80,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public short getShort(String name)
-    {
+    public short getShort(String name) {
         return getShort(getIndexOf(name));
     }
 
@@ -93,8 +88,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public int getInt(String name)
-    {
+    public int getInt(String name) {
         return getInt(getIndexOf(name));
     }
 
@@ -102,8 +96,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public long getLong(String name)
-    {
+    public long getLong(String name) {
         return getLong(getIndexOf(name));
     }
 
@@ -111,8 +104,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public Date getTimestamp(String name)
-    {
+    public Date getTimestamp(String name) {
         return getTimestamp(getIndexOf(name));
     }
 
@@ -120,8 +112,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public LocalDate getDate(String name)
-    {
+    public LocalDate getDate(String name) {
         return getDate(getIndexOf(name));
     }
 
@@ -129,8 +120,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public long getTime(String name)
-    {
+    public long getTime(String name) {
         return getTime(getIndexOf(name));
     }
 
@@ -138,8 +128,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public float getFloat(String name)
-    {
+    public float getFloat(String name) {
         return getFloat(getIndexOf(name));
     }
 
@@ -147,8 +136,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public double getDouble(String name)
-    {
+    public double getDouble(String name) {
         return getDouble(getIndexOf(name));
     }
 
@@ -156,8 +144,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public ByteBuffer getBytesUnsafe(String name)
-    {
+    public ByteBuffer getBytesUnsafe(String name) {
         return getBytesUnsafe(getIndexOf(name));
     }
 
@@ -165,8 +152,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public ByteBuffer getBytes(String name)
-    {
+    public ByteBuffer getBytes(String name) {
         return getBytes(getIndexOf(name));
     }
 
@@ -174,8 +160,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public String getString(String name)
-    {
+    public String getString(String name) {
         return getString(getIndexOf(name));
     }
 
@@ -183,8 +168,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public BigInteger getVarint(String name)
-    {
+    public BigInteger getVarint(String name) {
         return getVarint(getIndexOf(name));
     }
 
@@ -192,8 +176,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public BigDecimal getDecimal(String name)
-    {
+    public BigDecimal getDecimal(String name) {
         return getDecimal(getIndexOf(name));
     }
 
@@ -201,8 +184,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public UUID getUUID(String name)
-    {
+    public UUID getUUID(String name) {
         return getUUID(getIndexOf(name));
     }
 
@@ -210,8 +192,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public InetAddress getInet(String name)
-    {
+    public InetAddress getInet(String name) {
         return getInet(getIndexOf(name));
     }
 
@@ -219,8 +200,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public <T> List<T> getList(String name, Class<T> elementsClass)
-    {
+    public <T> List<T> getList(String name, Class<T> elementsClass) {
         return getList(getIndexOf(name), elementsClass);
     }
 
@@ -228,8 +208,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public <T> List<T> getList(String name, TypeToken<T> elementsType)
-    {
+    public <T> List<T> getList(String name, TypeToken<T> elementsType) {
         return getList(getIndexOf(name), elementsType);
     }
 
@@ -237,8 +216,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public <T> Set<T> getSet(String name, Class<T> elementsClass)
-    {
+    public <T> Set<T> getSet(String name, Class<T> elementsClass) {
         return getSet(getIndexOf(name), elementsClass);
     }
 
@@ -246,8 +224,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public <T> Set<T> getSet(String name, TypeToken<T> elementsType)
-    {
+    public <T> Set<T> getSet(String name, TypeToken<T> elementsType) {
         return getSet(getIndexOf(name), elementsType);
     }
 
@@ -255,8 +232,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public <K, V> Map<K, V> getMap(String name, Class<K> keysClass, Class<V> valuesClass)
-    {
+    public <K, V> Map<K, V> getMap(String name, Class<K> keysClass, Class<V> valuesClass) {
         return getMap(getIndexOf(name), keysClass, valuesClass);
     }
 
@@ -264,8 +240,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public <K, V> Map<K, V> getMap(String name, TypeToken<K> keysType, TypeToken<V> valuesType)
-    {
+    public <K, V> Map<K, V> getMap(String name, TypeToken<K> keysType, TypeToken<V> valuesType) {
         return getMap(getIndexOf(name), keysType, valuesType);
     }
 
@@ -273,8 +248,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public UDTValue getUDTValue(String name)
-    {
+    public UDTValue getUDTValue(String name) {
         return getUDTValue(getIndexOf(name));
     }
 
@@ -282,8 +256,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public TupleValue getTupleValue(String name)
-    {
+    public TupleValue getTupleValue(String name) {
         return getTupleValue(getIndexOf(name));
     }
 
@@ -291,8 +264,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public Object getObject(String name)
-    {
+    public Object getObject(String name) {
         return getObject(getIndexOf(name));
     }
 
@@ -300,8 +272,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public <T> T get(String name, Class<T> targetClass)
-    {
+    public <T> T get(String name, Class<T> targetClass) {
         return get(getIndexOf(name), targetClass);
     }
 
@@ -309,8 +280,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public <T> T get(String name, TypeToken<T> targetType)
-    {
+    public <T> T get(String name, TypeToken<T> targetType) {
         return get(getIndexOf(name), targetType);
     }
 
@@ -318,8 +288,7 @@ implements GettableData
      * {@inheritDoc}
      */
     @Override
-    public <T> T get(String name, TypeCodec<T> codec)
-    {
+    public <T> T get(String name, TypeCodec<T> codec) {
         return get(getIndexOf(name), codec);
     }
 }

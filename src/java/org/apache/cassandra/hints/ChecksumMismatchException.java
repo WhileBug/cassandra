@@ -19,10 +19,13 @@ package org.apache.cassandra.hints;
 
 import java.io.IOException;
 
-final class ChecksumMismatchException extends IOException
-{
-    ChecksumMismatchException(String message)
-    {
+final class ChecksumMismatchException extends IOException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ChecksumMismatchException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ChecksumMismatchException.class);
+
+    ChecksumMismatchException(String message) {
         super(message);
     }
 }

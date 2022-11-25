@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.streaming;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -27,7 +26,6 @@ import org.apache.cassandra.io.sstable.Component;
 import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
@@ -35,109 +33,88 @@ import java.util.*;
 /**
  * SSTable components and their sizes to be tranfered via entire-sstable-streaming
  */
-public final class ComponentManifest implements Iterable<Component>
-{
-    private static final List<Component> STREAM_COMPONENTS = ImmutableList.of(Component.DATA, Component.PRIMARY_INDEX, Component.STATS,
-                                                                             Component.COMPRESSION_INFO, Component.FILTER, Component.SUMMARY,
-                                                                             Component.DIGEST, Component.CRC);
+public final class ComponentManifest implements Iterable<Component> {
 
-    private final LinkedHashMap<Component, Long> components;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ComponentManifest.class);
 
-    public ComponentManifest(Map<Component, Long> components)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ComponentManifest.class);
+
+    private static final transient List<Component> STREAM_COMPONENTS = ImmutableList.of(Component.DATA, Component.PRIMARY_INDEX, Component.STATS, Component.COMPRESSION_INFO, Component.FILTER, Component.SUMMARY, Component.DIGEST, Component.CRC);
+
+    private final transient LinkedHashMap<Component, Long> components;
+
+    public ComponentManifest(Map<Component, Long> components) {
         this.components = new LinkedHashMap<>(components);
     }
 
     @VisibleForTesting
-    public static ComponentManifest create(Descriptor descriptor)
-    {
+    public static ComponentManifest create(Descriptor descriptor) {
         LinkedHashMap<Component, Long> components = new LinkedHashMap<>(STREAM_COMPONENTS.size());
-
-        for (Component component : STREAM_COMPONENTS)
-        {
+        for (Component component : STREAM_COMPONENTS) {
             File file = new File(descriptor.filenameFor(component));
             if (!file.exists())
                 continue;
-
             components.put(component, file.length());
         }
-
         return new ComponentManifest(components);
     }
 
-    public long sizeOf(Component component)
-    {
+    public long sizeOf(Component component) {
         Long size = components.get(component);
         if (size == null)
             throw new IllegalArgumentException("Component " + component + " is not present in the manifest");
         return size;
     }
 
-    public long totalSize()
-    {
+    public long totalSize() {
         long totalSize = 0;
-        for (Long size : components.values())
-            totalSize += size;
+        for (Long size : components.values()) totalSize += size;
         return totalSize;
     }
 
-    public List<Component> components()
-    {
+    public List<Component> components() {
         return new ArrayList<>(components.keySet());
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof ComponentManifest))
             return false;
-
         ComponentManifest that = (ComponentManifest) o;
         return components.equals(that.components);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return components.hashCode();
     }
 
-    public static final IVersionedSerializer<ComponentManifest> serializer = new IVersionedSerializer<ComponentManifest>()
-    {
-        public void serialize(ComponentManifest manifest, DataOutputPlus out, int version) throws IOException
-        {
+    public static final transient IVersionedSerializer<ComponentManifest> serializer = new IVersionedSerializer<ComponentManifest>() {
+
+        public void serialize(ComponentManifest manifest, DataOutputPlus out, int version) throws IOException {
             out.writeUnsignedVInt(manifest.components.size());
-            for (Map.Entry<Component, Long> entry : manifest.components.entrySet())
-            {
+            for (Map.Entry<Component, Long> entry : manifest.components.entrySet()) {
                 out.writeUTF(entry.getKey().name);
                 out.writeUnsignedVInt(entry.getValue());
             }
         }
 
-        public ComponentManifest deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public ComponentManifest deserialize(DataInputPlus in, int version) throws IOException {
             int size = (int) in.readUnsignedVInt();
-
             LinkedHashMap<Component, Long> components = new LinkedHashMap<>(size);
-
-            for (int i = 0; i < size; i++)
-            {
+            for (int i = 0; i < size; i++) {
                 Component component = Component.parse(in.readUTF());
                 long length = in.readUnsignedVInt();
                 components.put(component, length);
             }
-
             return new ComponentManifest(components);
         }
 
-        public long serializedSize(ComponentManifest manifest, int version)
-        {
+        public long serializedSize(ComponentManifest manifest, int version) {
             long size = TypeSizes.sizeofUnsignedVInt(manifest.components.size());
-            for (Map.Entry<Component, Long> entry : manifest.components.entrySet())
-            {
+            for (Map.Entry<Component, Long> entry : manifest.components.entrySet()) {
                 size += TypeSizes.sizeof(entry.getKey().name);
                 size += TypeSizes.sizeofUnsignedVInt(entry.getValue());
             }
@@ -146,8 +123,7 @@ public final class ComponentManifest implements Iterable<Component>
     };
 
     @Override
-    public Iterator<Component> iterator()
-    {
+    public Iterator<Component> iterator() {
         return Iterators.unmodifiableIterator(components.keySet().iterator());
     }
 }

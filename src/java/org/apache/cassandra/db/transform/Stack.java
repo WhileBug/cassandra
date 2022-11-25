@@ -22,63 +22,68 @@ package org.apache.cassandra.db.transform;
 
 import java.util.Arrays;
 
-class Stack
-{
-    public static final Transformation[] EMPTY_TRANSFORMATIONS = new Transformation[0];
-    public static final MoreContentsHolder[] EMPTY_MORE_CONTENTS_HOLDERS = new MoreContentsHolder[0];
-    static final Stack EMPTY = new Stack();
+class Stack {
 
-    Transformation[] stack;
-    int length; // number of used stack entries
-    MoreContentsHolder[] moreContents; // stack of more contents providers (if any; usually zero or one)
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Stack.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Stack.class);
+
+    public static final transient Transformation[] EMPTY_TRANSFORMATIONS = new Transformation[0];
+
+    public static final transient MoreContentsHolder[] EMPTY_MORE_CONTENTS_HOLDERS = new MoreContentsHolder[0];
+
+    static final transient Stack EMPTY = new Stack();
+
+    transient Transformation[] stack;
+
+    // number of used stack entries
+    transient int length;
+
+    // stack of more contents providers (if any; usually zero or one)
+    transient MoreContentsHolder[] moreContents;
 
     // an internal placeholder for a MoreContents, storing the associated stack length at time it was applied
-    static class MoreContentsHolder
-    {
-        final MoreContents moreContents;
-        int length;
-        private MoreContentsHolder(MoreContents moreContents, int length)
-        {
+    static class MoreContentsHolder {
+
+        final transient MoreContents moreContents;
+
+        transient int length;
+
+        private MoreContentsHolder(MoreContents moreContents, int length) {
             this.moreContents = moreContents;
             this.length = length;
         }
     }
 
-    Stack()
-    {
+    Stack() {
         stack = EMPTY_TRANSFORMATIONS;
         moreContents = EMPTY_MORE_CONTENTS_HOLDERS;
     }
 
-    Stack(Stack copy)
-    {
+    Stack(Stack copy) {
         stack = copy.stack;
         length = copy.length;
         moreContents = copy.moreContents;
     }
 
-    void add(Transformation add)
-    {
+    void add(Transformation add) {
         if (length == stack.length)
             stack = resize(stack);
         stack[length++] = add;
     }
 
-    void add(MoreContents more)
-    {
+    void add(MoreContents more) {
         this.moreContents = Arrays.copyOf(moreContents, moreContents.length + 1);
         this.moreContents[moreContents.length - 1] = new MoreContentsHolder(more, length);
     }
 
-    private static <E> E[] resize(E[] array)
-    {
+    private static <E> E[] resize(E[] array) {
         int newLen = array.length == 0 ? 5 : array.length * 2;
         return Arrays.copyOf(array, newLen);
     }
 
     // reinitialise the transformations after a moreContents applies
-    void refill(Stack prefix, MoreContentsHolder holder, int index)
-    {
+    void refill(Stack prefix, MoreContentsHolder holder, int index) {
         // drop the transformations that were present when the MoreContents was attached,
         // and prefix any transformations in the new contents (if it's a transformer)
         moreContents = splice(prefix.moreContents, prefix.moreContents.length, moreContents, index, moreContents.length);
@@ -87,8 +92,7 @@ class Stack
         holder.length = prefix.length;
     }
 
-    private static <E> E[] splice(E[] prefix, int prefixCount, E[] keep, int keepFrom, int keepTo)
-    {
+    private static <E> E[] splice(E[] prefix, int prefixCount, E[] keep, int keepFrom, int keepTo) {
         int keepCount = keepTo - keepFrom;
         int newCount = prefixCount + keepCount;
         if (newCount > keep.length)
@@ -100,4 +104,3 @@ class Stack
         return keep;
     }
 }
-

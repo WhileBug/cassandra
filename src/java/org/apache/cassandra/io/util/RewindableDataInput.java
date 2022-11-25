@@ -15,13 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.io.IOException;
 
-public interface RewindableDataInput extends DataInputPlus
-{
+public interface RewindableDataInput extends DataInputPlus {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RewindableDataInput.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RewindableDataInput.class);
+
     DataPosition mark();
 
     void reset(DataPosition mark) throws IOException;

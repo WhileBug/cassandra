@@ -22,26 +22,30 @@ import java.util.Arrays;
 /**
  * Simple class for constructing an EsimtatedHistogram from a set of predetermined values
  */
-public class HistogramBuilder
-{
+public class HistogramBuilder {
 
-    public static final long[] EMPTY_LONG_ARRAY = new long[]{};
-    public static final long[] ZERO = new long[]{ 0 };
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HistogramBuilder.class);
 
-    public HistogramBuilder() {}
-    public HistogramBuilder(long[] values)
-    {
-        for (long value : values)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HistogramBuilder.class);
+
+    public static final transient long[] EMPTY_LONG_ARRAY = new long[] {};
+
+    public static final transient long[] ZERO = new long[] { 0 };
+
+    public HistogramBuilder() {
+    }
+
+    public HistogramBuilder(long[] values) {
+        for (long value : values) {
             add(value);
         }
     }
 
-    private long[] values = new long[10];
-    int count = 0;
+    private transient long[] values = new long[10];
 
-    public void add(long value)
-    {
+    transient int count = 0;
+
+    public void add(long value) {
         if (count == values.length)
             values = Arrays.copyOf(values, values.length << 1);
         values[count++] = value;
@@ -51,8 +55,7 @@ public class HistogramBuilder
      * See {@link #buildWithStdevRangesAroundMean(int)}
      * @return buildWithStdevRangesAroundMean(3)
      */
-    public EstimatedHistogram buildWithStdevRangesAroundMean()
-    {
+    public EstimatedHistogram buildWithStdevRangesAroundMean() {
         return buildWithStdevRangesAroundMean(3);
     }
 
@@ -67,21 +70,16 @@ public class HistogramBuilder
      * @param maxdevs
      * @return
      */
-    public EstimatedHistogram buildWithStdevRangesAroundMean(int maxdevs)
-    {
+    public EstimatedHistogram buildWithStdevRangesAroundMean(int maxdevs) {
         if (maxdevs < 0)
             throw new IllegalArgumentException("maxdevs must be greater than or equal to zero");
-
         final int count = this.count;
         final long[] values = this.values;
-
         if (count == 0)
             return new EstimatedHistogram(EMPTY_LONG_ARRAY, ZERO);
-
         long min = Long.MAX_VALUE, max = Long.MIN_VALUE;
         double sum = 0, sumsq = 0;
-        for (int i = 0 ; i < count ; i++)
-        {
+        for (int i = 0; i < count; i++) {
             final long value = values[i];
             sum += value;
             sumsq += value * value;
@@ -90,46 +88,39 @@ public class HistogramBuilder
             if (value > max)
                 max = value;
         }
-
         final long mean = Math.round(sum / count);
-        final double stdev =
-                Math.sqrt((sumsq / count) - (mean * (double) mean));
-
+        final double stdev = Math.sqrt((sumsq / count) - (mean * (double) mean));
         // build the ranges either side of the mean
         final long[] lowhalf = buildRange(mean, min, true, stdev, maxdevs);
         final long[] highhalf = buildRange(mean, max, false, stdev, maxdevs);
-
         // combine the ranges
         final long[] ranges = new long[lowhalf.length + highhalf.length + 1];
         System.arraycopy(lowhalf, 0, ranges, 0, lowhalf.length);
         ranges[lowhalf.length] = mean;
         System.arraycopy(highhalf, 0, ranges, lowhalf.length + 1, highhalf.length);
-
         final EstimatedHistogram hist = new EstimatedHistogram(ranges, new long[ranges.length + 1]);
-        for (int i = 0 ; i < count ; i++)
-            hist.add(values[i]);
+        for (int i = 0; i < count; i++) hist.add(values[i]);
         return hist;
     }
 
-    private static long[] buildRange(long mean, long minormax, boolean ismin, double stdev, int maxdevs)
-    {
+    private static long[] buildRange(long mean, long minormax, boolean ismin, double stdev, int maxdevs) {
         if (minormax == mean)
             // minormax == mean we have no range to produce, but given the exclusive starts
             // that begin at zero by default (or -Inf) in EstimatedHistogram we have to generate a min range
             // to indicate where we start from
             return ismin ? new long[] { mean - 1 } : EMPTY_LONG_ARRAY;
-
-        if (stdev < 1)
-        {
+        if (stdev < 1) {
             // deal with stdevs too small to generate sensible ranges
-            return ismin ? new long[] { minormax - 1, mean - 1 } :
-                           new long[] { minormax };
+            return ismin ? new long[] { minormax - 1, mean - 1 } : new long[] { minormax };
         }
-
         long larger, smaller;
-        if (ismin) { larger = mean;     smaller = minormax; }
-        else       { larger = minormax; smaller = mean;     }
-
+        if (ismin) {
+            larger = mean;
+            smaller = minormax;
+        } else {
+            larger = minormax;
+            smaller = mean;
+        }
         double stdevsTo = (larger - smaller) / stdev;
         if (stdevsTo > 0 && stdevsTo < 1)
             // always round up if there's just one non-empty range
@@ -137,21 +128,16 @@ public class HistogramBuilder
         else
             // otherwise round to the nearest half stdev, to avoid tiny ranges at the start/end
             stdevsTo = Math.round(stdevsTo);
-
         // limit to 4 stdev ranges - last range will contain everything to boundary
         final int len = Math.min(maxdevs + 1, (int) stdevsTo);
         final long[] range = new long[len];
         long next = ismin ? minormax - 1 : minormax;
-        for (int i = 0 ; i < range.length ; i++)
-        {
+        for (int i = 0; i < range.length; i++) {
             long delta = (range.length - (i + 1)) * (long) stdev;
-            if (ismin)
-            {
+            if (ismin) {
                 range[i] = next;
                 next = mean - delta;
-            }
-            else
-            {
+            } else {
                 range[len - 1 - i] = next;
                 next = mean + delta;
             }

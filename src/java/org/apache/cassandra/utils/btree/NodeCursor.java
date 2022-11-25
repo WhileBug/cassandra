@@ -20,7 +20,6 @@ package org.apache.cassandra.utils.btree;
 
 import java.util.Arrays;
 import java.util.Comparator;
-
 import static org.apache.cassandra.utils.btree.BTree.*;
 
 /**
@@ -32,21 +31,28 @@ import static org.apache.cassandra.utils.btree.BTree.*;
  * us to a different node pass us the node we should move to, from which we continue our operations.
  * @param <K>
  */
-class NodeCursor<K>
-{
-    // TODO: consider splitting forwards from backwards
-    final NodeCursor<K> parent, child;
-    final Comparator<? super K> comparator;
+class NodeCursor<K> {
 
-    boolean inChild;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NodeCursor.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NodeCursor.class);
+
+    // TODO: consider splitting forwards from backwards
+    final transient NodeCursor<K> parent, child;
+
+    final transient Comparator<? super K> comparator;
+
+    transient boolean inChild;
+
     // if !inChild, this is the key position we are currently on;
     // if inChild, this is the child position we are currently descending into
-    int position;
-    Object[] node;
-    int nodeOffset;
+    transient int position;
 
-    NodeCursor(Object[] node, NodeCursor<K> parent, Comparator<? super K> comparator)
-    {
+    transient Object[] node;
+
+    transient int nodeOffset;
+
+    NodeCursor(Object[] node, NodeCursor<K> parent, Comparator<? super K> comparator) {
         this.node = node;
         this.parent = parent;
         this.comparator = comparator;
@@ -55,8 +61,7 @@ class NodeCursor<K>
         this.child = BTree.isLeaf(node) ? null : new NodeCursor<>((Object[]) node[getChildStart(node)], this, comparator);
     }
 
-    void resetNode(Object[] node, int nodeOffset)
-    {
+    void resetNode(Object[] node, int nodeOffset) {
         this.node = node;
         this.nodeOffset = nodeOffset;
     }
@@ -64,8 +69,7 @@ class NodeCursor<K>
     /**
      * adapt child position to key position within branch, knowing it is safe to do so
      */
-    void safeAdvanceIntoBranchFromChild(boolean forwards)
-    {
+    void safeAdvanceIntoBranchFromChild(boolean forwards) {
         if (!forwards)
             --position;
     }
@@ -73,22 +77,18 @@ class NodeCursor<K>
     /**
      * adapt child position to key position within branch, and return if this was successful or we're now out of bounds
      */
-    boolean advanceIntoBranchFromChild(boolean forwards)
-    {
+    boolean advanceIntoBranchFromChild(boolean forwards) {
         return forwards ? position < getBranchKeyEnd(node) : --position >= 0;
     }
 
-    boolean advanceLeafNode(boolean forwards)
-    {
-        return forwards ? ++position < getLeafKeyEnd(node)
-                        : --position >= 0;
+    boolean advanceLeafNode(boolean forwards) {
+        return forwards ? ++position < getLeafKeyEnd(node) : --position >= 0;
     }
 
     /**
      * @return the upper/lower bound of the child we are currently descended in
      */
-    K bound(boolean upper)
-    {
+    K bound(boolean upper) {
         return (K) node[position - (upper ? 0 : 1)];
     }
 
@@ -98,12 +98,9 @@ class NodeCursor<K>
      * @param upper
      * @return the NodeCursor parent that can tell us the upper/lower bound of ourselves
      */
-    NodeCursor<K> boundIterator(boolean upper)
-    {
+    NodeCursor<K> boundIterator(boolean upper) {
         NodeCursor<K> bound = this.parent;
-        while (bound != null && (upper ? bound.position >= getChildCount(bound.node) - 1
-                                       : bound.position <= 0))
-            bound = bound.parent;
+        while (bound != null && (upper ? bound.position >= getChildCount(bound.node) - 1 : bound.position <= 0)) bound = bound.parent;
         return bound;
     }
 
@@ -118,41 +115,32 @@ class NodeCursor<K>
      *   2: we already check the bounds as we search upwards for our natural parent;
      *   3: we want to cheaply check sequential access, so we always check the first key we're on anyway (if it can be done easily)
      */
-    boolean seekInNode(K key, boolean forwards)
-    {
+    boolean seekInNode(K key, boolean forwards) {
         int position = this.position;
         int lb, ub;
-        if (forwards)
-        {
+        if (forwards) {
             lb = position + 1;
             ub = getKeyEnd(node);
-        }
-        else
-        {
+        } else {
             ub = position;
             lb = 0;
         }
-
         int find = Arrays.binarySearch((K[]) node, lb, ub, key, comparator);
-        if (find >= 0)
-        {
+        if (find >= 0) {
             // exact key match, so we're in the correct node already. return success
             this.position = find;
             inChild = false;
             return true;
         }
-
         // if we are a branch, and we are an inequality match, the direction of travel doesn't matter
         // so we only need to modify if we are going backwards on a leaf node, to produce floor semantics
         int delta = isLeaf() & !forwards ? -1 : 0;
-        this.position = delta -1 -find;
+        this.position = delta - 1 - find;
         return false;
     }
 
-    NodeCursor<K> descendToFirstChild(boolean forwards)
-    {
-        if (isLeaf())
-        {
+    NodeCursor<K> descendToFirstChild(boolean forwards) {
+        if (isLeaf()) {
             position = forwards ? 0 : getLeafKeyEnd(node) - 1;
             return null;
         }
@@ -162,8 +150,7 @@ class NodeCursor<K>
     }
 
     // descend into the child at "position"
-    NodeCursor<K> descend()
-    {
+    NodeCursor<K> descend() {
         Object[] childNode = (Object[]) node[position + getChildStart(node)];
         int childOffset = nodeOffset + treeIndexOffsetOfChild(node, position);
         child.resetNode(childNode, childOffset);
@@ -171,28 +158,23 @@ class NodeCursor<K>
         return child;
     }
 
-    boolean isLeaf()
-    {
+    boolean isLeaf() {
         return child == null;
     }
 
-    int globalIndex()
-    {
+    int globalIndex() {
         return nodeOffset + treeIndexOfKey(node, position);
     }
 
-    int globalLeafIndex()
-    {
+    int globalLeafIndex() {
         return nodeOffset + treeIndexOfLeafKey(position);
     }
 
-    int globalBranchIndex()
-    {
+    int globalBranchIndex() {
         return nodeOffset + treeIndexOfBranchKey(node, position);
     }
 
-    K value()
-    {
+    K value() {
         return (K) node[position];
     }
 }

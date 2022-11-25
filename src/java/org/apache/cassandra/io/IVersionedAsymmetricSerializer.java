@@ -18,12 +18,15 @@
 package org.apache.cassandra.io;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 
-public interface IVersionedAsymmetricSerializer<In, Out>
-{
+public interface IVersionedAsymmetricSerializer<In, Out> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IVersionedAsymmetricSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IVersionedAsymmetricSerializer.class);
+
     /**
      * Serialize the specified type into the specified DataOutputStream instance.
      *

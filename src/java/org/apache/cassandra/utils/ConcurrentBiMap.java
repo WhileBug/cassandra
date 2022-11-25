@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- *
  * A variant of BiMap that permits concurrent access, and expects uniqueness of values in both domain and range.
  * We synchronize on _modifications only_, and use ConcurrentHashMap so that readers can lookup safely. This does mean there
  * could be races to lookup the inverse, but we aren't too worried about that.
@@ -33,99 +32,90 @@ import java.util.concurrent.ConcurrentHashMap;
  * @param <K>
  * @param <V>
  */
-public class ConcurrentBiMap<K, V> implements Map<K, V>
-{
-    protected final Map<K, V> forwardMap;
-    protected final Map<V, K> reverseMap;
+public class ConcurrentBiMap<K, V> implements Map<K, V> {
 
-    public ConcurrentBiMap()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ConcurrentBiMap.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ConcurrentBiMap.class);
+
+    protected final transient Map<K, V> forwardMap;
+
+    protected final transient Map<V, K> reverseMap;
+
+    public ConcurrentBiMap() {
         this(new ConcurrentHashMap<K, V>(16, 0.5f, 1), new ConcurrentHashMap<V, K>(16, 0.5f, 1));
     }
 
-    protected ConcurrentBiMap(Map<K, V> forwardMap, Map<V, K> reverseMap)
-    {
+    protected ConcurrentBiMap(Map<K, V> forwardMap, Map<V, K> reverseMap) {
         this.forwardMap = forwardMap;
         this.reverseMap = reverseMap;
     }
 
-    public Map<V, K> inverse()
-    {
+    public Map<V, K> inverse() {
         return Collections.unmodifiableMap(reverseMap);
     }
 
-    public void clear()
-    {
+    public void clear() {
         forwardMap.clear();
         reverseMap.clear();
     }
 
-    public boolean containsKey(Object key)
-    {
+    public boolean containsKey(Object key) {
         return forwardMap.containsKey(key);
     }
 
-    public boolean containsValue(Object value)
-    {
+    public boolean containsValue(Object value) {
         return reverseMap.containsKey(value);
     }
 
-    public Set<Entry<K, V>> entrySet()
-    {
+    public Set<Entry<K, V>> entrySet() {
         return forwardMap.entrySet();
     }
 
-    public V get(Object key)
-    {
+    public V get(Object key) {
         return forwardMap.get(key);
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return forwardMap.isEmpty();
     }
 
-    public Set<K> keySet()
-    {
+    public Set<K> keySet() {
         return forwardMap.keySet();
     }
 
-    public synchronized V put(K key, V value)
-    {
+    public synchronized V put(K key, V value) {
         K oldKey = reverseMap.get(value);
         if (oldKey != null && !key.equals(oldKey))
             throw new IllegalArgumentException(value + " is already bound in reverseMap to " + oldKey);
         V oldVal = forwardMap.put(key, value);
         if (oldVal != null && !Objects.equals(reverseMap.remove(oldVal), key))
-            throw new IllegalStateException(); // for the prior mapping to be correct, we MUST get back the key from the reverseMap
+            // for the prior mapping to be correct, we MUST get back the key from the reverseMap
+            throw new IllegalStateException();
         reverseMap.put(value, key);
         return oldVal;
     }
 
-    public synchronized void putAll(Map<? extends K, ? extends V> m)
-    {
-        for (Entry<? extends K, ? extends V> entry : m.entrySet())
-            put(entry.getKey(), entry.getValue());
+    public synchronized void putAll(Map<? extends K, ? extends V> m) {
+        for (Entry<? extends K, ? extends V> entry : m.entrySet()) put(entry.getKey(), entry.getValue());
     }
 
-    public synchronized V remove(Object key)
-    {
+    public synchronized V remove(Object key) {
         V oldVal = forwardMap.remove(key);
         if (oldVal == null)
             return null;
         Object oldKey = reverseMap.remove(oldVal);
         if (oldKey == null || !oldKey.equals(key))
-            throw new IllegalStateException(); // for the prior mapping to be correct, we MUST get back the key from the reverseMap
+            // for the prior mapping to be correct, we MUST get back the key from the reverseMap
+            throw new IllegalStateException();
         return oldVal;
     }
 
-    public int size()
-    {
+    public int size() {
         return forwardMap.size();
     }
 
-    public Collection<V> values()
-    {
+    public Collection<V> values() {
         return reverseMap.keySet();
     }
 }

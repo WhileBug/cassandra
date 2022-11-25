@@ -15,36 +15,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import org.apache.cassandra.utils.ObjectSizes;
 
-public class ArrayClustering extends AbstractArrayClusteringPrefix implements Clustering<byte[]>
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new ArrayClustering(EMPTY_VALUES_ARRAY));
+public class ArrayClustering extends AbstractArrayClusteringPrefix implements Clustering<byte[]> {
 
-    public ArrayClustering(byte[]... values)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ArrayClustering.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ArrayClustering.class);
+
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new ArrayClustering(EMPTY_VALUES_ARRAY));
+
+    public ArrayClustering(byte[]... values) {
         super(Kind.CLUSTERING, values);
     }
 
-    public long unsharedHeapSize()
-    {
+    public long unsharedHeapSize() {
         long arrayRefSize = ObjectSizes.sizeOfArray(values);
         long elementsSize = 0;
-        for (int i = 0; i < values.length; i++)
-            elementsSize += ObjectSizes.sizeOfArray(values[i]);
+        for (int i = 0; i < values.length; i++) elementsSize += ObjectSizes.sizeOfArray(values[i]);
         return EMPTY_SIZE + arrayRefSize + elementsSize;
     }
 
-    public long unsharedHeapSizeExcludingData()
-    {
+    public long unsharedHeapSizeExcludingData() {
         return EMPTY_SIZE + ObjectSizes.sizeOfArray(values);
     }
 
-    public static ArrayClustering make(byte[]... values)
-    {
+    public static ArrayClustering make(byte[]... values) {
         return new ArrayClustering(values);
     }
 }

@@ -22,16 +22,19 @@ import java.nio.ByteBuffer;
 
 /**
  * Cloner class that can be use to clone partition elements on heap.
- *
  */
-public final class HeapCloner extends ByteBufferCloner
-{
-    public static final HeapCloner instance = new HeapCloner();
+public final class HeapCloner extends ByteBufferCloner {
 
-    private HeapCloner() {}
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HeapCloner.class);
 
-    public ByteBuffer allocate(int size)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HeapCloner.class);
+
+    public static final transient HeapCloner instance = new HeapCloner();
+
+    private HeapCloner() {
+    }
+
+    public ByteBuffer allocate(int size) {
         return ByteBuffer.allocate(size);
     }
 }

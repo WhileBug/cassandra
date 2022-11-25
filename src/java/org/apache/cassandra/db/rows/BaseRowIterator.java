@@ -27,8 +27,12 @@ import org.apache.cassandra.utils.CloseableIterator;
  * A common interface for Row and Unfiltered, that permits sharing of the (majority) common
  * methods and functionality
  */
-public interface BaseRowIterator<U extends Unfiltered> extends CloseableIterator<U>
-{
+public interface BaseRowIterator<U extends Unfiltered> extends CloseableIterator<U> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BaseRowIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BaseRowIterator.class);
+
     /**
      * The metadata for the table this iterator on.
      */

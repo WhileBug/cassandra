@@ -23,14 +23,17 @@ import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "setsnapshotthrottle", description = "Set the snapshot_links_per_second cap for snapshot and clearsnapshot throttling")
-public class SetSnapshotThrottle extends NodeToolCmd
-{
+public class SetSnapshotThrottle extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetSnapshotThrottle.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetSnapshotThrottle.class);
+
     @Arguments(title = "setsnapshotthrottle", usage = "<throttle>", description = "Value represents hardlinks per second ( snapshot_links_per_second ) , 0 to disable throttling", required = true)
-    private Long snapshotThrottle = null;
+    private transient Long snapshotThrottle = null;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.setSnapshotLinksPerSecond(snapshotThrottle);
     }
 }

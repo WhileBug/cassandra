@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service;
 
 import com.google.common.collect.ImmutableSet;
-
 import org.apache.cassandra.io.sstable.format.VersionAndType;
 import org.apache.cassandra.notifications.INotification;
 
@@ -30,21 +28,23 @@ import org.apache.cassandra.notifications.INotification;
  * <p>The notification includes the set of sstable versions in use when the notification is triggered (so the result
  * of the change triggering that notification).
  */
-public class SSTablesVersionsInUseChangeNotification implements INotification
-{
+public class SSTablesVersionsInUseChangeNotification implements INotification {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTablesVersionsInUseChangeNotification.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTablesVersionsInUseChangeNotification.class);
+
     /**
      * The set of all sstable versions in use on this node at the time of this notification.
      */
-    public final ImmutableSet<VersionAndType> versionsInUse;
+    public final transient ImmutableSet<VersionAndType> versionsInUse;
 
-    SSTablesVersionsInUseChangeNotification(ImmutableSet<VersionAndType> versionsInUse)
-    {
+    SSTablesVersionsInUseChangeNotification(ImmutableSet<VersionAndType> versionsInUse) {
         this.versionsInUse = versionsInUse;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("SSTablesInUseChangeNotification(%s)", versionsInUse);
     }
 }

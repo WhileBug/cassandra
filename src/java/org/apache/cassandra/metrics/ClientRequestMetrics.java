@@ -20,29 +20,29 @@
  */
 package org.apache.cassandra.metrics;
 
-
 import com.codahale.metrics.Meter;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
+public class ClientRequestMetrics extends LatencyMetrics {
 
-public class ClientRequestMetrics extends LatencyMetrics
-{
-    public final Meter timeouts;
-    public final Meter unavailables;
-    public final Meter failures;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientRequestMetrics.class);
 
-    public ClientRequestMetrics(String scope)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientRequestMetrics.class);
+
+    public final transient Meter timeouts;
+
+    public final transient Meter unavailables;
+
+    public final transient Meter failures;
+
+    public ClientRequestMetrics(String scope) {
         super("ClientRequest", scope);
-
         timeouts = Metrics.meter(factory.createMetricName("Timeouts"));
         unavailables = Metrics.meter(factory.createMetricName("Unavailables"));
         failures = Metrics.meter(factory.createMetricName("Failures"));
     }
 
-    public void release()
-    {
+    public void release() {
         super.release();
         Metrics.remove(factory.createMetricName("Timeouts"));
         Metrics.remove(factory.createMetricName("Unavailables"));

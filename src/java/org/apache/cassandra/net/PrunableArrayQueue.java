@@ -18,7 +18,6 @@
 package org.apache.cassandra.net;
 
 import java.util.function.Predicate;
-
 import org.apache.cassandra.utils.Throwables;
 
 /**
@@ -29,10 +28,14 @@ import org.apache.cassandra.utils.Throwables;
  *
  * The latter has to perform O(n*n) shifts, whereas {@link #prune(Pruner)} only needs O(n) shifts at worst.
  */
-final class PrunableArrayQueue<E>
-{
-    public interface Pruner<E>
-    {
+final class PrunableArrayQueue<E> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrunableArrayQueue.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrunableArrayQueue.class);
+
+    public interface Pruner<E> {
+
         /**
          * @return whether the element should be pruned
          *  if {@code true},  the element will be removed from the queue, and {@link #onPruned(Object)} will be invoked,
@@ -41,62 +44,57 @@ final class PrunableArrayQueue<E>
         boolean shouldPrune(E e);
 
         void onPruned(E e);
+
         void onKept(E e);
     }
 
-    private int capacity;
-    private E[] buffer;
+    private transient int capacity;
+
+    private transient E[] buffer;
 
     /*
      * mask = capacity - 1;
      * since capacity is a power of 2, value % capacity == value & (capacity - 1) == value & mask
      */
-    private int mask;
+    private transient int mask;
 
-    private int head = 0;
-    private int tail = 0;
+    private transient int head = 0;
+
+    private transient int tail = 0;
 
     @SuppressWarnings("unchecked")
-    PrunableArrayQueue(int requestedCapacity)
-    {
+    PrunableArrayQueue(int requestedCapacity) {
         capacity = Math.max(8, findNextPositivePowerOfTwo(requestedCapacity));
         mask = capacity - 1;
         buffer = (E[]) new Object[capacity];
     }
 
     @SuppressWarnings("UnusedReturnValue")
-    boolean offer(E e)
-    {
+    boolean offer(E e) {
         buffer[tail] = e;
         if ((tail = (tail + 1) & mask) == head)
             doubleCapacity();
         return true;
     }
 
-    E peek()
-    {
+    E peek() {
         return buffer[head];
     }
 
-    E poll()
-    {
+    E poll() {
         E result = buffer[head];
         if (null == result)
             return null;
-
         buffer[head] = null;
         head = (head + 1) & mask;
-
         return result;
     }
 
-    int size()
-    {
+    int size() {
         return (tail - head) & mask;
     }
 
-    boolean isEmpty()
-    {
+    boolean isEmpty() {
         return head == tail;
     }
 
@@ -106,110 +104,76 @@ final class PrunableArrayQueue<E>
      * @return count of removed elements.
      */
     @SuppressWarnings("ThrowFromFinallyBlock")
-    int prune(Pruner<E> pruner)
-    {
+    int prune(Pruner<E> pruner) {
         E e;
         int removed = 0;
         Throwable error = null;
-
-        try
-        {
+        try {
             int size = size();
-            for (int i = 0; i < size; i++)
-            {
+            for (int i = 0; i < size; i++) {
                 /*
                  * We start at the tail and work backwards to minimise the number of copies
                  * as we expect to primarily prune from the front.
                  */
                 int k = (tail - 1 - i) & mask;
                 e = buffer[k];
-
                 boolean shouldPrune = false;
-
                 // If any error has been thrown from the Pruner callbacks, don't bother asking the
                 // pruner. Just move any elements that need to be moved, correct the head, and rethrow.
-                if (error == null)
-                {
-                    try
-                    {
+                if (error == null) {
+                    try {
                         shouldPrune = pruner.shouldPrune(e);
-                    }
-                    catch (Throwable t)
-                    {
+                    } catch (Throwable t) {
                         error = t;
                     }
                 }
-
-                if (shouldPrune)
-                {
+                if (shouldPrune) {
                     buffer[k] = null;
                     removed++;
-
-                    try
-                    {
+                    try {
                         pruner.onPruned(e);
-                    }
-                    catch (Throwable t)
-                    {
+                    } catch (Throwable t) {
                         error = t;
                     }
-                }
-                else
-                {
-                    if (removed > 0)
-                    {
+                } else {
+                    if (removed > 0) {
                         buffer[(k + removed) & mask] = e;
                         buffer[k] = null;
                     }
-
-                    try
-                    {
+                    try {
                         pruner.onKept(e);
-                    }
-                    catch (Throwable t)
-                    {
-                        if (error == null)
-                        {
+                    } catch (Throwable t) {
+                        if (error == null) {
                             error = t;
                         }
                     }
                 }
             }
-        }
-        finally
-        {
+        } finally {
             head = (head + removed) & mask;
-
             // Rethrow any error(s) from the Pruner callbacks, but only after the queue state is valid.
             if (error != null)
                 throw Throwables.unchecked(error);
         }
-
         return removed;
     }
 
     @SuppressWarnings("unchecked")
-    private void doubleCapacity()
-    {
+    private void doubleCapacity() {
         assert head == tail;
-
         int newCapacity = capacity << 1;
         E[] newBuffer = (E[]) new Object[newCapacity];
-
         int headPortionLen = capacity - head;
         System.arraycopy(buffer, head, newBuffer, 0, headPortionLen);
         System.arraycopy(buffer, 0, newBuffer, headPortionLen, tail);
-
         head = 0;
         tail = capacity;
-
         capacity = newCapacity;
         mask = newCapacity - 1;
         buffer = newBuffer;
     }
 
-    private static int findNextPositivePowerOfTwo(int value)
-    {
+    private static int findNextPositivePowerOfTwo(int value) {
         return 1 << (32 - Integer.numberOfLeadingZeros(value - 1));
     }
 }

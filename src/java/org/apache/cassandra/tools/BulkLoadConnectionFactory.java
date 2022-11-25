@@ -15,38 +15,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools;
 
 import java.io.IOException;
-
 import io.netty.channel.Channel;
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.net.OutboundConnectionSettings;
 import org.apache.cassandra.streaming.DefaultConnectionFactory;
 import org.apache.cassandra.streaming.StreamConnectionFactory;
 
-public class BulkLoadConnectionFactory extends DefaultConnectionFactory implements StreamConnectionFactory
-{
-    private final int storagePort;
-    private final EncryptionOptions.ServerEncryptionOptions encryptionOptions;
+public class BulkLoadConnectionFactory extends DefaultConnectionFactory implements StreamConnectionFactory {
 
-    public BulkLoadConnectionFactory(EncryptionOptions.ServerEncryptionOptions encryptionOptions, int storagePort)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BulkLoadConnectionFactory.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BulkLoadConnectionFactory.class);
+
+    private final transient int storagePort;
+
+    private final transient EncryptionOptions.ServerEncryptionOptions encryptionOptions;
+
+    public BulkLoadConnectionFactory(EncryptionOptions.ServerEncryptionOptions encryptionOptions, int storagePort) {
         this.storagePort = storagePort;
         this.encryptionOptions = encryptionOptions;
     }
 
-    public Channel createConnection(OutboundConnectionSettings template, int messagingVersion) throws IOException
-    {
+    public Channel createConnection(OutboundConnectionSettings template, int messagingVersion) throws IOException {
         // storage port can handle both encrypted and unencrypted traffic from 4.0
         // so from sstableloader's point of view we can use just storage port for both cases
-
         template = template.withConnectTo(template.to.withPort(storagePort));
-
         if (encryptionOptions != null && encryptionOptions.internode_encryption != EncryptionOptions.ServerEncryptionOptions.InternodeEncryption.none)
             template = template.withEncryption(encryptionOptions);
-
         return super.createConnection(template, messagingVersion);
     }
 }

@@ -15,19 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.auth;
 
 import org.apache.cassandra.exceptions.ConfigurationException;
 
-public interface INetworkAuthorizer
-{
+public interface INetworkAuthorizer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(INetworkAuthorizer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(INetworkAuthorizer.class);
+
     /**
      * Whether or not the authorizer will attempt authorization.
      * If false the authorizer will not be called for authorization of resources.
      */
-    default boolean requireAuthorization()
-    {
+    default boolean requireAuthorization() {
         return true;
     }
 

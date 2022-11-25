@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.cql3.functions;
 
 import org.apache.cassandra.cql3.functions.types.TupleValue;
@@ -27,8 +26,12 @@ import org.apache.cassandra.cql3.functions.types.UDTValue;
  * {@code udfContext} field, scripted UDFs can get it using the {@code udfContext}
  * binding.
  */
-public interface UDFContext
-{
+public interface UDFContext {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UDFContext.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UDFContext.class);
+
     /**
      * Creates a new {@code UDTValue} instance for an argument.
      *

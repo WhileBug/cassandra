@@ -18,34 +18,32 @@
 package org.apache.cassandra.index.sasi.sa;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.index.sasi.disk.TokenTreeBuilder;
 import org.apache.cassandra.db.marshal.AbstractType;
 
-public class ByteTerm extends Term<ByteBuffer>
-{
-    public ByteTerm(int position, ByteBuffer value, TokenTreeBuilder tokens)
-    {
+public class ByteTerm extends Term<ByteBuffer> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ByteTerm.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ByteTerm.class);
+
+    public ByteTerm(int position, ByteBuffer value, TokenTreeBuilder tokens) {
         super(position, value, tokens);
     }
 
-    public ByteBuffer getTerm()
-    {
+    public ByteBuffer getTerm() {
         return value.duplicate();
     }
 
-    public ByteBuffer getSuffix(int start)
-    {
+    public ByteBuffer getSuffix(int start) {
         return (ByteBuffer) value.duplicate().position(value.position() + start);
     }
 
-    public int compareTo(AbstractType<?> comparator, Term other)
-    {
+    public int compareTo(AbstractType<?> comparator, Term other) {
         return comparator.compare(value, (ByteBuffer) other.value);
     }
 
-    public int length()
-    {
+    public int length() {
         return value.remaining();
     }
 }

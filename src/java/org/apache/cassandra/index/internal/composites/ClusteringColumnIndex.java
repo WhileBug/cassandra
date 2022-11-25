@@ -18,7 +18,6 @@
 package org.apache.cassandra.index.internal.composites;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.CellPath;
 import org.apache.cassandra.db.rows.Row;
@@ -36,7 +35,7 @@ import org.apache.cassandra.schema.IndexMetadata;
  * has no impact) and v the cell value.
  *
  * Such a cell is always indexed by this index (or rather, it is indexed if
- * {@code 
+ * {@code
  * n >= columnDef.componentIndex, which will always be the case in practice)
  * and it will generate (makeIndexColumnName()) an index entry whose:
  *   - row key will be ck_i (getIndexedValue()) where i == columnDef.componentIndex.
@@ -45,61 +44,42 @@ import org.apache.cassandra.schema.IndexMetadata;
  *     where rk is the row key of the initial cell and i == columnDef.componentIndex.
  * }
  */
-public class ClusteringColumnIndex extends CassandraIndex
-{
-    private final boolean enforceStrictLiveness;
+public class ClusteringColumnIndex extends CassandraIndex {
 
-    public ClusteringColumnIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringColumnIndex.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringColumnIndex.class);
+
+    private final transient boolean enforceStrictLiveness;
+
+    public ClusteringColumnIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef) {
         super(baseCfs, indexDef);
         this.enforceStrictLiveness = baseCfs.metadata.get().enforceStrictLiveness();
     }
 
-
-    public ByteBuffer getIndexedValue(ByteBuffer partitionKey,
-                                      Clustering<?> clustering,
-                                      CellPath path, ByteBuffer cellValue)
-    {
+    public ByteBuffer getIndexedValue(ByteBuffer partitionKey, Clustering<?> clustering, CellPath path, ByteBuffer cellValue) {
         return clustering.bufferAt(indexedColumn.position());
     }
 
-    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey,
-                                                   ClusteringPrefix<T> prefix,
-                                                   CellPath path)
-    {
+    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey, ClusteringPrefix<T> prefix, CellPath path) {
         CBuilder builder = CBuilder.create(getIndexComparator());
         builder.add(partitionKey);
-        for (int i = 0; i < Math.min(indexedColumn.position(), prefix.size()); i++)
-            builder.add(prefix.get(i), prefix.accessor());
-        for (int i = indexedColumn.position() + 1; i < prefix.size(); i++)
-            builder.add(prefix.get(i), prefix.accessor());
+        for (int i = 0; i < Math.min(indexedColumn.position(), prefix.size()); i++) builder.add(prefix.get(i), prefix.accessor());
+        for (int i = indexedColumn.position() + 1; i < prefix.size(); i++) builder.add(prefix.get(i), prefix.accessor());
         return builder;
     }
 
-    public IndexEntry decodeEntry(DecoratedKey indexedValue,
-                                  Row indexEntry)
-    {
+    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry) {
         int ckCount = baseCfs.metadata().clusteringColumns().size();
-
         Clustering<?> clustering = indexEntry.clustering();
         CBuilder builder = CBuilder.create(baseCfs.getComparator());
-        for (int i = 0; i < indexedColumn.position(); i++)
-            builder.add(clustering, i + 1);
-
+        for (int i = 0; i < indexedColumn.position(); i++) builder.add(clustering, i + 1);
         builder.add(indexedValue.getKey());
-
-        for (int i = indexedColumn.position() + 1; i < ckCount; i++)
-            builder.add(clustering, i);
-
-        return new IndexEntry(indexedValue,
-                              clustering,
-                              indexEntry.primaryKeyLivenessInfo().timestamp(),
-                              clustering.bufferAt(0),
-                              builder.build());
+        for (int i = indexedColumn.position() + 1; i < ckCount; i++) builder.add(clustering, i);
+        return new IndexEntry(indexedValue, clustering, indexEntry.primaryKeyLivenessInfo().timestamp(), clustering.bufferAt(0), builder.build());
     }
 
-    public boolean isStale(Row data, ByteBuffer indexValue, int nowInSec)
-    {
+    public boolean isStale(Row data, ByteBuffer indexValue, int nowInSec) {
         return !data.hasLiveData(nowInSec, enforceStrictLiveness);
     }
 }

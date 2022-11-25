@@ -15,44 +15,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-public class RangesByEndpoint extends ReplicaMultimap<InetAddressAndPort, RangesAtEndpoint>
-{
-    public RangesByEndpoint(Map<InetAddressAndPort, RangesAtEndpoint> map)
-    {
+public class RangesByEndpoint extends ReplicaMultimap<InetAddressAndPort, RangesAtEndpoint> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RangesByEndpoint.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RangesByEndpoint.class);
+
+    public RangesByEndpoint(Map<InetAddressAndPort, RangesAtEndpoint> map) {
         super(map);
     }
 
-    public RangesAtEndpoint get(InetAddressAndPort endpoint)
-    {
+    public RangesAtEndpoint get(InetAddressAndPort endpoint) {
         Preconditions.checkNotNull(endpoint);
         return map.getOrDefault(endpoint, RangesAtEndpoint.empty(endpoint));
     }
 
-    public static class Builder extends ReplicaMultimap.Builder<InetAddressAndPort, RangesAtEndpoint.Builder>
-    {
+    public static class Builder extends ReplicaMultimap.Builder<InetAddressAndPort, RangesAtEndpoint.Builder> {
+
         @Override
-        protected RangesAtEndpoint.Builder newBuilder(InetAddressAndPort endpoint)
-        {
+        protected RangesAtEndpoint.Builder newBuilder(InetAddressAndPort endpoint) {
             return new RangesAtEndpoint.Builder(endpoint);
         }
 
-        public RangesByEndpoint build()
-        {
-            return new RangesByEndpoint(
-                    ImmutableMap.copyOf(
-                            Maps.transformValues(this.map, RangesAtEndpoint.Builder::build)));
+        public RangesByEndpoint build() {
+            return new RangesByEndpoint(ImmutableMap.copyOf(Maps.transformValues(this.map, RangesAtEndpoint.Builder::build)));
         }
     }
-
 }

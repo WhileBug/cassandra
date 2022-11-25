@@ -32,27 +32,28 @@ import java.io.IOException;
  * In the client code simply create a new EmbeddedCassandraService and start it.
  * Example:
  * <pre>
-
-        cassandra = new EmbeddedCassandraService();
-        cassandra.start();
-
+ *
+ *        cassandra = new EmbeddedCassandraService();
+ *        cassandra.start();
+ *
  * </pre>
  */
-public class EmbeddedCassandraService
-{
+public class EmbeddedCassandraService {
 
-    CassandraDaemon cassandraDaemon;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EmbeddedCassandraService.class);
 
-    public void start() throws IOException
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EmbeddedCassandraService.class);
+
+    transient CassandraDaemon cassandraDaemon;
+
+    public void start() throws IOException {
         cassandraDaemon = CassandraDaemon.instance;
         cassandraDaemon.applyConfig();
         cassandraDaemon.init(null);
         cassandraDaemon.start();
     }
 
-    public void stop()
-    {
+    public void stop() {
         cassandraDaemon.stop();
     }
 }

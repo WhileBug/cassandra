@@ -22,41 +22,43 @@ package org.apache.cassandra.db.transform;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
 import net.nicoulaj.compilecommand.annotations.DontInline;
 import org.apache.cassandra.utils.CloseableIterator;
-
 import static org.apache.cassandra.utils.Throwables.maybeFail;
 import static org.apache.cassandra.utils.Throwables.merge;
 
-abstract class BaseIterator<V, I extends CloseableIterator<? extends V>, O extends V> extends Stack implements AutoCloseable, Iterator<O>
-{
-    I input;
-    V next;
+abstract class BaseIterator<V, I extends CloseableIterator<? extends V>, O extends V> extends Stack implements AutoCloseable, Iterator<O> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BaseIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BaseIterator.class);
+
+    transient I input;
+
+    transient V next;
 
     // We require two stop signals for correctness, since the `stop` reference of the base iterator can "leak"
     // into the transformations stack. Using a single `stop` signal may result into the inconsistent state,
     // since stopping transformation would stop only the child iterator.
-
     // Signals that the base iterator has been signalled to stop. Applies at the end of the current next().
-    Stop stop;
+    transient Stop stop;
+
     // Signals that the current child iterator has been signalled to stop.
-    Stop stopChild;
+    transient Stop stopChild;
 
     // Multiple call to close can have some side effects on the Transformations. By consequence if the iterator is
     // already closed we want to ignore extra calls to close.
-    private boolean closed;
+    private transient boolean closed;
 
-    static class Stop
-    {
+    static class Stop {
+
         // TODO: consider moving "next" into here, so that a stop() when signalled outside of a function call (e.g. in attach)
         // can take effect immediately; this doesn't seem to be necessary at the moment, but it might cause least surprise in future
-        boolean isSignalled;
+        transient boolean isSignalled;
     }
 
     // responsibility for initialising next lies with the subclass
-    BaseIterator(BaseIterator<? extends V, ? extends I, ?> copyFrom)
-    {
+    BaseIterator(BaseIterator<? extends V, ? extends I, ?> copyFrom) {
         super(copyFrom);
         this.input = copyFrom.input;
         this.next = copyFrom.next;
@@ -64,8 +66,7 @@ abstract class BaseIterator<V, I extends CloseableIterator<? extends V>, O exten
         this.stopChild = copyFrom.stopChild;
     }
 
-    BaseIterator(I input)
-    {
+    BaseIterator(I input) {
         this.input = input;
         this.stop = new Stop();
         this.stopChild = this.stop;
@@ -85,41 +86,30 @@ abstract class BaseIterator<V, I extends CloseableIterator<? extends V>, O exten
      */
     protected abstract V applyOne(V value, Transformation transformation);
 
-    public final void close()
-    {
+    public final void close() {
         // If close has already been called we want to ignore other calls
         if (closed)
             return;
-
         closed = true;
         Throwable fail = runOnClose(length);
-        if (next instanceof AutoCloseable)
-        {
-            try 
-            {
+        if (next instanceof AutoCloseable) {
+            try {
                 ((AutoCloseable) next).close();
-            }
-            catch (Throwable t)
-            {
+            } catch (Throwable t) {
                 fail = merge(fail, t);
             }
         }
-        try
-        {
+        try {
             input.close();
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             fail = merge(fail, t);
         }
         maybeFail(fail);
     }
 
-    public final O next()
-    {
+    public final O next() {
         if (next == null && !hasNext())
             throw new NoSuchElementException();
-
         O next = (O) this.next;
         this.next = null;
         return next;
@@ -127,55 +117,45 @@ abstract class BaseIterator<V, I extends CloseableIterator<? extends V>, O exten
 
     // may set next != null if the next contents are a transforming iterator that already has data to return,
     // in which case we immediately have more contents to yield
-    protected final boolean hasMoreContents()
-    {
+    protected final boolean hasMoreContents() {
         return moreContents.length > 0 && tryGetMoreContents();
     }
 
     @DontInline
-    private boolean tryGetMoreContents()
-    {
-        for (int i = 0 ; i < moreContents.length ; i++)
-        {
+    private boolean tryGetMoreContents() {
+        for (int i = 0; i < moreContents.length; i++) {
             MoreContentsHolder holder = moreContents[i];
             MoreContents provider = holder.moreContents;
             I newContents = (I) provider.moreContents();
             if (newContents == null)
                 continue;
-
             input.close();
             input = newContents;
             Stack prefix = EMPTY;
-            if (newContents instanceof BaseIterator)
-            {
+            if (newContents instanceof BaseIterator) {
                 // we're refilling with transformed contents, so swap in its internals directly
                 // TODO: ensure that top-level data is consistent. i.e. staticRow, partitionlevelDeletion etc are same?
                 BaseIterator abstr = (BaseIterator) newContents;
                 prefix = abstr;
                 input = (I) abstr.input;
                 stopChild = abstr.stop;
-                next = apply((V) abstr.next, holder.length); // must apply all remaining functions to the next, if any
+                // must apply all remaining functions to the next, if any
+                next = apply((V) abstr.next, holder.length);
             }
-
             // since we're truncating our transformation stack to only those occurring after the extend transformation
             // we have to run any prior runOnClose methods
             maybeFail(runOnClose(holder.length));
             refill(prefix, holder, i);
-
             if (next != null || input.hasNext())
                 return true;
-
             i = -1;
         }
         return false;
     }
 
     // apply the functions [from..length)
-    private V apply(V next, int from)
-    {
-        while (next != null & from < length)
-            next = applyOne(next, stack[from++]);
+    private V apply(V next, int from) {
+        while (next != null & from < length) next = applyOne(next, stack[from++]);
         return next;
     }
 }
-

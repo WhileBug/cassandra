@@ -22,15 +22,20 @@ import org.apache.cassandra.schema.TableId;
 /**
  * StreamTask is an abstraction of the streaming task performed over specific ColumnFamily.
  */
-public abstract class StreamTask
-{
-    /** StreamSession that this task belongs */
-    protected final StreamSession session;
+public abstract class StreamTask {
 
-    protected final TableId tableId;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamTask.class);
 
-    protected StreamTask(StreamSession session, TableId tableId)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamTask.class);
+
+    /**
+     * StreamSession that this task belongs
+     */
+    protected final transient StreamSession session;
+
+    protected final transient TableId tableId;
+
+    protected StreamTask(StreamSession session, TableId tableId) {
         this.session = session;
         this.tableId = tableId;
     }
@@ -54,8 +59,7 @@ public abstract class StreamTask
     /**
      * @return StreamSummary that describes this task
      */
-    public StreamSummary getSummary()
-    {
+    public StreamSummary getSummary() {
         return new StreamSummary(tableId, getTotalNumberOfFiles(), getTotalSize());
     }
 }

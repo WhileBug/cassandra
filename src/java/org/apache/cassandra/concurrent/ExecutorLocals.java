@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.concurrent;
 
 import java.util.Arrays;
-
 import org.apache.cassandra.service.ClientWarn;
 import org.apache.cassandra.tracing.TraceState;
 import org.apache.cassandra.tracing.Tracing;
@@ -30,24 +28,27 @@ import org.apache.cassandra.tracing.Tracing;
  *
  * We don't enumerate the ExecutorLocal.all array each time because it would be much slower.
  */
-public class ExecutorLocals
-{
-    private static final ExecutorLocal<TraceState> tracing = Tracing.instance;
-    private static final ExecutorLocal<ClientWarn.State> clientWarn = ClientWarn.instance;
+public class ExecutorLocals {
 
-    public final TraceState traceState;
-    public final ClientWarn.State clientWarnState;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExecutorLocals.class);
 
-    private ExecutorLocals(TraceState traceState, ClientWarn.State clientWarnState)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExecutorLocals.class);
+
+    private static final transient ExecutorLocal<TraceState> tracing = Tracing.instance;
+
+    private static final transient ExecutorLocal<ClientWarn.State> clientWarn = ClientWarn.instance;
+
+    public final transient TraceState traceState;
+
+    public final transient ClientWarn.State clientWarnState;
+
+    private ExecutorLocals(TraceState traceState, ClientWarn.State clientWarnState) {
         this.traceState = traceState;
         this.clientWarnState = clientWarnState;
     }
 
-    static
-    {
-        assert Arrays.equals(ExecutorLocal.all, new ExecutorLocal[]{ tracing, clientWarn })
-        : "ExecutorLocals has not been updated to reflect new ExecutorLocal.all";
+    static {
+        assert Arrays.equals(ExecutorLocal.all, new ExecutorLocal[] { tracing, clientWarn }) : "ExecutorLocals has not been updated to reflect new ExecutorLocal.all";
     }
 
     /**
@@ -58,27 +59,37 @@ public class ExecutorLocals
      *         {@link AbstractLocalAwareExecutorService#newTaskFor(Runnable, Object, ExecutorLocals)}, preventing
      *         unnecessarily calling {@link ExecutorLocals#set(ExecutorLocals)}.
      */
-    public static ExecutorLocals create()
-    {
+    public static ExecutorLocals create() {
         TraceState traceState = tracing.get();
         ClientWarn.State clientWarnState = clientWarn.get();
-        if (traceState == null && clientWarnState == null)
+        if (traceState == null && clientWarnState == null) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.traceState]=" + org.json.simple.JSONValue.toJSONString(traceState).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.tracing]=" + org.json.simple.JSONValue.toJSONString(tracing).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.traceState]=" + org.json.simple.JSONValue.toJSONString(traceState).replace("\n", "").replace("\r", ""));
             return null;
-        else
+        } else {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.traceState]=" + org.json.simple.JSONValue.toJSONString(traceState).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.tracing]=" + org.json.simple.JSONValue.toJSONString(tracing).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.traceState]=" + org.json.simple.JSONValue.toJSONString(traceState).replace("\n", "").replace("\r", ""));
             return new ExecutorLocals(traceState, clientWarnState);
+        }
     }
 
-    public static ExecutorLocals create(TraceState traceState)
-    {
+    public static ExecutorLocals create(TraceState traceState) {
         ClientWarn.State clientWarnState = clientWarn.get();
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.traceState]=" + org.json.simple.JSONValue.toJSONString(traceState).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.traceState]=" + org.json.simple.JSONValue.toJSONString(traceState).replace("\n", "").replace("\r", ""));
         return new ExecutorLocals(traceState, clientWarnState);
     }
 
-    public static void set(ExecutorLocals locals)
-    {
+    public static void set(ExecutorLocals locals) {
         TraceState traceState = locals == null ? null : locals.traceState;
         ClientWarn.State clientWarnState = locals == null ? null : locals.clientWarnState;
         tracing.set(traceState);
         clientWarn.set(clientWarnState);
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.traceState]=" + org.json.simple.JSONValue.toJSONString(traceState).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.tracing]=" + org.json.simple.JSONValue.toJSONString(tracing).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.traceState]=" + org.json.simple.JSONValue.toJSONString(traceState).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.ExecutorLocals.tracing]=" + org.json.simple.JSONValue.toJSONString(tracing).replace("\n", "").replace("\r", ""));
     }
 }

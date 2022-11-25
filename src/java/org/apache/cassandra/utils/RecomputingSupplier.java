@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 import java.util.concurrent.CompletableFuture;
@@ -35,88 +34,74 @@ import java.util.function.Supplier;
  * Calling {@link RecomputingSupplier#recompute()} won't reset value for the already
  * waiting consumers, but instead will schedule one recomputation as soon as current one is done.
  */
-public class RecomputingSupplier<T>
-{
-    private final Supplier<T> supplier;
-    private final AtomicReference<CompletableFuture<T>> cached = new AtomicReference<>(null);
-    private final AtomicBoolean workInProgress = new AtomicBoolean(false);
-    private final ExecutorService executor;
+public class RecomputingSupplier<T> {
 
-    public RecomputingSupplier(Supplier<T> supplier, ExecutorService executor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RecomputingSupplier.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RecomputingSupplier.class);
+
+    private final transient Supplier<T> supplier;
+
+    private final transient AtomicReference<CompletableFuture<T>> cached = new AtomicReference<>(null);
+
+    private final transient AtomicBoolean workInProgress = new AtomicBoolean(false);
+
+    private final transient ExecutorService executor;
+
+    public RecomputingSupplier(Supplier<T> supplier, ExecutorService executor) {
         this.supplier = supplier;
         this.executor = executor;
     }
 
-    public void recompute()
-    {
+    public void recompute() {
         CompletableFuture<T> current = cached.get();
         boolean origWip = workInProgress.get();
-
-        if (origWip || (current != null && !current.isDone()))
-        {
+        if (origWip || (current != null && !current.isDone())) {
             if (cached.get() != current)
                 executor.submit(this::recompute);
-            return; // if work is has not started yet, schedule task for the future
+            // if work is has not started yet, schedule task for the future
+            return;
         }
-
         assert current == null || current.isDone();
-
         // The work is not in progress, and current future is done. Try to submit a new task.
         CompletableFuture<T> lazyValue = new CompletableFuture<>();
         if (cached.compareAndSet(current, lazyValue))
             executor.submit(() -> doWork(lazyValue));
         else
-            executor.submit(this::recompute); // Lost CAS, resubmit
+            // Lost CAS, resubmit
+            executor.submit(this::recompute);
     }
 
-    private void doWork(CompletableFuture<T> lazyValue)
-    {
+    private void doWork(CompletableFuture<T> lazyValue) {
         T value = null;
         Throwable err = null;
-        try
-        {
+        try {
             sanityCheck(workInProgress.compareAndSet(false, true));
             value = supplier.get();
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             err = t;
-        }
-        finally
-        {
+        } finally {
             sanityCheck(workInProgress.compareAndSet(true, false));
         }
-
         if (err == null)
             lazyValue.complete(value);
         else
             lazyValue.completeExceptionally(err);
     }
 
-    private static void sanityCheck(boolean check)
-    {
+    private static void sanityCheck(boolean check) {
         assert check : "At most one task should be executing using this executor";
     }
 
-    public T get(long timeout, TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException
-    {
+    public T get(long timeout, TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
         CompletableFuture<T> lazyValue = cached.get();
-
         // recompute was never called yet, return null.
         if (lazyValue == null)
             return null;
-
         return lazyValue.get(timeout, timeUnit);
     }
 
-    public String toString()
-    {
-        return "RecomputingSupplier{" +
-               "supplier=" + supplier +
-               ", cached=" + cached +
-               ", workInProgress=" + workInProgress +
-               ", executor=" + executor +
-               '}';
+    public String toString() {
+        return "RecomputingSupplier{" + "supplier=" + supplier + ", cached=" + cached + ", workInProgress=" + workInProgress + ", executor=" + executor + '}';
     }
 }

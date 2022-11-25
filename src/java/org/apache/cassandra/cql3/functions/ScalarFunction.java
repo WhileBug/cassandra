@@ -19,15 +19,18 @@ package org.apache.cassandra.cql3.functions;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
  * Determines a single output value based on a single input value.
  */
-public interface ScalarFunction extends Function
-{
+public interface ScalarFunction extends Function {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ScalarFunction.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ScalarFunction.class);
+
     public boolean isCalledOnNullInput();
 
     /**

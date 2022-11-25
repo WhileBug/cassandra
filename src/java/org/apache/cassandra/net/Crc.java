@@ -20,55 +20,52 @@ package org.apache.cassandra.net;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.util.concurrent.FastThreadLocal;
 
-public class Crc
-{
-    private static final FastThreadLocal<CRC32> crc32 = new FastThreadLocal<CRC32>()
-    {
+public class Crc {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Crc.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Crc.class);
+
+    private static final transient FastThreadLocal<CRC32> crc32 = new FastThreadLocal<CRC32>() {
+
         @Override
-        protected CRC32 initialValue()
-        {
+        protected CRC32 initialValue() {
             return new CRC32();
         }
     };
 
-    private static final byte[] initialBytes = new byte[] { (byte) 0xFA, (byte) 0x2D, (byte) 0x55, (byte) 0xCA };
+    private static final transient byte[] initialBytes = new byte[] { (byte) 0xFA, (byte) 0x2D, (byte) 0x55, (byte) 0xCA };
 
-    public static final class InvalidCrc extends IOException
-    {
-        public InvalidCrc(int read, int computed)
-        {
+    public static final class InvalidCrc extends IOException {
+
+        public InvalidCrc(int read, int computed) {
             super(String.format("Read %d, Computed %d", read, computed));
         }
     }
 
-    static CRC32 crc32()
-    {
+    static CRC32 crc32() {
         CRC32 crc = crc32.get();
         crc.reset();
         crc.update(initialBytes);
         return crc;
     }
 
-    static int computeCrc32(ByteBuf buffer, int startReaderIndex, int endReaderIndex)
-    {
+    static int computeCrc32(ByteBuf buffer, int startReaderIndex, int endReaderIndex) {
         CRC32 crc = crc32();
         crc.update(buffer.internalNioBuffer(startReaderIndex, endReaderIndex - startReaderIndex));
         return (int) crc.getValue();
     }
 
-    static int computeCrc32(ByteBuffer buffer, int start, int end)
-    {
+    static int computeCrc32(ByteBuffer buffer, int start, int end) {
         CRC32 crc = crc32();
         updateCrc32(crc, buffer, start, end);
         return (int) crc.getValue();
     }
 
-    static void updateCrc32(CRC32 crc, ByteBuffer buffer, int start, int end)
-    {
+    static void updateCrc32(CRC32 crc, ByteBuffer buffer, int start, int end) {
         int savePosition = buffer.position();
         int saveLimit = buffer.limit();
         buffer.limit(end);
@@ -78,7 +75,8 @@ public class Crc
         buffer.position(savePosition);
     }
 
-    private static final int CRC24_INIT = 0x875060;
+    private static final transient int CRC24_INIT = 0x875060;
+
     /**
      * Polynomial chosen from https://users.ece.cmu.edu/~koopman/crc/index.html, by Philip Koopman
      *
@@ -92,7 +90,7 @@ public class Crc
      * This polynomial provides hamming distance of 8 for messages up to length 105 bits;
      * we only support 8-64 bits at present, with an expected range of 40-48.
      */
-    private static final int CRC24_POLY = 0x1974F0B;
+    private static final transient int CRC24_POLY = 0x1974F0B;
 
     /**
      * NOTE: the order of bytes must reach the wire in the same order the CRC is computed, with the CRC
@@ -116,16 +114,12 @@ public class Crc
      * @param len   the number of bytes, greater than 0 and fewer than 9, to be read from bytes
      * @return      the least-significant bit AND byte order crc24 using the CRC24_POLY polynomial
      */
-    static int crc24(long bytes, int len)
-    {
+    static int crc24(long bytes, int len) {
         int crc = CRC24_INIT;
-        while (len-- > 0)
-        {
+        while (len-- > 0) {
             crc ^= (bytes & 0xff) << 16;
             bytes >>= 8;
-
-            for (int i = 0; i < 8; i++)
-            {
+            for (int i = 0; i < 8; i++) {
                 crc <<= 1;
                 if ((crc & 0x1000000) != 0)
                     crc ^= CRC24_POLY;

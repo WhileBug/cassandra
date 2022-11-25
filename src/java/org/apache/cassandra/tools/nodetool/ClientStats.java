@@ -23,7 +23,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
 import org.apache.cassandra.tools.NodeProbe;
@@ -33,89 +32,64 @@ import org.apache.cassandra.transport.ClientStat;
 import org.apache.cassandra.transport.ConnectedClient;
 
 @Command(name = "clientstats", description = "Print information about connected clients")
-public class ClientStats extends NodeToolCmd
-{
+public class ClientStats extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientStats.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientStats.class);
+
     @Option(title = "list_connections", name = "--all", description = "Lists all connections")
-    private boolean listConnections = false;
+    private transient boolean listConnections = false;
 
     @Option(title = "by_protocol", name = "--by-protocol", description = "Lists most recent client connections by protocol version")
-    private boolean connectionsByProtocolVersion = false;
+    private transient boolean connectionsByProtocolVersion = false;
 
     @Option(title = "clear_history", name = "--clear-history", description = "Clear the history of connected clients")
-    private boolean clearConnectionHistory = false;
+    private transient boolean clearConnectionHistory = false;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         PrintStream out = probe.output().out;
-        if (clearConnectionHistory)
-        {
+        if (clearConnectionHistory) {
             out.println("Clearing connection history");
             probe.clearConnectionHistory();
             return;
         }
-
-        if (connectionsByProtocolVersion)
-        {
+        if (connectionsByProtocolVersion) {
             SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy HH:mm:ss");
-
             out.println("Clients by protocol version");
             out.println();
-
             List<Map<String, String>> clients = (List<Map<String, String>>) probe.getClientMetric("clientsByProtocolVersion");
-
-            if (!clients.isEmpty())
-            {
+            if (!clients.isEmpty()) {
                 TableBuilder table = new TableBuilder();
                 table.add("Protocol-Version", "IP-Address", "Last-Seen");
-
-                for (Map<String, String> client : clients)
-                {
-                    table.add(client.get(ClientStat.PROTOCOL_VERSION),
-                              client.get(ClientStat.INET_ADDRESS),
-                              sdf.format(new Date(Long.valueOf(client.get(ClientStat.LAST_SEEN_TIME)))));
+                for (Map<String, String> client : clients) {
+                    table.add(client.get(ClientStat.PROTOCOL_VERSION), client.get(ClientStat.INET_ADDRESS), sdf.format(new Date(Long.valueOf(client.get(ClientStat.LAST_SEEN_TIME)))));
                 }
-
                 table.printTo(out);
                 out.println();
             }
-
             return;
         }
-
-        if (listConnections)
-        {
+        if (listConnections) {
             List<Map<String, String>> clients = (List<Map<String, String>>) probe.getClientMetric("connections");
-            if (!clients.isEmpty())
-            {
+            if (!clients.isEmpty()) {
                 TableBuilder table = new TableBuilder();
                 table.add("Address", "SSL", "Cipher", "Protocol", "Version", "User", "Keyspace", "Requests", "Driver-Name", "Driver-Version");
-                for (Map<String, String> conn : clients)
-                {
-                    table.add(conn.get(ConnectedClient.ADDRESS),
-                              conn.get(ConnectedClient.SSL),
-                              conn.get(ConnectedClient.CIPHER),
-                              conn.get(ConnectedClient.PROTOCOL),
-                              conn.get(ConnectedClient.VERSION),
-                              conn.get(ConnectedClient.USER),
-                              conn.get(ConnectedClient.KEYSPACE),
-                              conn.get(ConnectedClient.REQUESTS),
-                              conn.get(ConnectedClient.DRIVER_NAME),
-                              conn.get(ConnectedClient.DRIVER_VERSION));
+                for (Map<String, String> conn : clients) {
+                    table.add(conn.get(ConnectedClient.ADDRESS), conn.get(ConnectedClient.SSL), conn.get(ConnectedClient.CIPHER), conn.get(ConnectedClient.PROTOCOL), conn.get(ConnectedClient.VERSION), conn.get(ConnectedClient.USER), conn.get(ConnectedClient.KEYSPACE), conn.get(ConnectedClient.REQUESTS), conn.get(ConnectedClient.DRIVER_NAME), conn.get(ConnectedClient.DRIVER_VERSION));
                 }
                 table.printTo(out);
                 out.println();
             }
         }
-
         Map<String, Integer> connectionsByUser = (Map<String, Integer>) probe.getClientMetric("connectedNativeClientsByUser");
         int total = connectionsByUser.values().stream().reduce(0, Integer::sum);
         out.println("Total connected clients: " + total);
         out.println();
         TableBuilder table = new TableBuilder();
         table.add("User", "Connections");
-        for (Entry<String, Integer> entry : connectionsByUser.entrySet())
-        {
+        for (Entry<String, Integer> entry : connectionsByUser.entrySet()) {
             table.add(entry.getKey(), entry.getValue().toString());
         }
         table.printTo(out);

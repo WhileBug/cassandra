@@ -13,7 +13,6 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-
 package org.apache.cassandra.index.sasi.utils.trie;
 
 import java.util.Comparator;
@@ -25,30 +24,33 @@ import java.util.Comparator;
  * on rkapsi/patricia-trie project) only supports String keys)
  * but unfortunately is not deployed to the maven central as a downloadable artifact.
  */
-
 /**
  * The {@link KeyAnalyzer} provides bit-level access to keys
  * for the {@link PatriciaTrie}.
  */
-public interface KeyAnalyzer<K> extends Comparator<K>
-{
+public interface KeyAnalyzer<K> extends Comparator<K> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyAnalyzer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyAnalyzer.class);
+
     /**
      * Returned by {@link #bitIndex(Object, Object)} if a key's
      * bits were all zero (0).
      */
-    int NULL_BIT_KEY = -1;
+    transient int NULL_BIT_KEY = -1;
 
     /**
      * Returned by {@link #bitIndex(Object, Object)} if a the
      * bits of two keys were all equal.
      */
-    int EQUAL_BIT_KEY = -2;
+    transient int EQUAL_BIT_KEY = -2;
 
     /**
      * Returned by {@link #bitIndex(Object, Object)} if a keys
      * indices are out of bounds.
      */
-    int OUT_OF_BOUNDS_BIT_KEY = -3;
+    transient int OUT_OF_BOUNDS_BIT_KEY = -3;
 
     /**
      * Returns the key's length in bits.

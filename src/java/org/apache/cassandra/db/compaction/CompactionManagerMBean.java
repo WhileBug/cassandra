@@ -21,15 +21,25 @@ import java.util.List;
 import java.util.Map;
 import javax.management.openmbean.TabularData;
 
-public interface CompactionManagerMBean
-{
-    /** List of running compaction objects. */
+public interface CompactionManagerMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionManagerMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionManagerMBean.class);
+
+    /**
+     * List of running compaction objects.
+     */
     public List<Map<String, String>> getCompactions();
 
-    /** List of running compaction summary strings. */
+    /**
+     * List of running compaction summary strings.
+     */
     public List<String> getCompactionSummary();
 
-    /** compaction history **/
+    /**
+     * compaction history *
+     */
     public TabularData getCompactionHistory();
 
     /**
@@ -52,7 +62,6 @@ public interface CompactionManagerMBean
      *                  must contain keyspace and columnfamily name in path(for 2.1+) or file name itself.
      */
     public void forceUserDefinedCleanup(String dataFiles);
-
 
     /**
      * Stop all running compaction-like tasks having the provided {@code type}.
@@ -126,6 +135,7 @@ public interface CompactionManagerMBean
      * Enable / disable STCS in L0
      */
     public boolean getDisableSTCSInL0();
+
     public void setDisableSTCSInL0(boolean disabled);
 
     /**
@@ -149,6 +159,7 @@ public interface CompactionManagerMBean
      * Get automatic sstable upgrade enabled
      */
     public boolean getAutomaticSSTableUpgradeEnabled();
+
     /**
      * Set if automatic sstable upgrade should be enabled
      */

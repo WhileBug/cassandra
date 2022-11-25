@@ -20,31 +20,29 @@ package org.apache.cassandra.utils;
 import java.util.Collection;
 import java.util.SortedMap;
 import java.util.TreeMap;
-
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.TreeMultimap;
 
-public class SortedBiMultiValMap<K, V> extends BiMultiValMap<K, V>
-{
-    protected SortedBiMultiValMap(SortedMap<K, V> forwardMap, SortedSetMultimap<V, K> reverseMap)
-    {
+public class SortedBiMultiValMap<K, V> extends BiMultiValMap<K, V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SortedBiMultiValMap.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SortedBiMultiValMap.class);
+
+    protected SortedBiMultiValMap(SortedMap<K, V> forwardMap, SortedSetMultimap<V, K> reverseMap) {
         super(forwardMap, reverseMap);
     }
 
-    public static <K extends Comparable<K>, V extends Comparable<V>> SortedBiMultiValMap<K, V> create()
-    {
-        return new SortedBiMultiValMap<K, V>(new TreeMap<K,V>(), TreeMultimap.<V, K>create());
+    public static <K extends Comparable<K>, V extends Comparable<V>> SortedBiMultiValMap<K, V> create() {
+        return new SortedBiMultiValMap<K, V>(new TreeMap<K, V>(), TreeMultimap.<V, K>create());
     }
 
-    public static <K extends Comparable<K>, V extends Comparable<V>> SortedBiMultiValMap<K, V> create(BiMultiValMap<K, V> map)
-    {
-        SortedBiMultiValMap<K, V> newMap = SortedBiMultiValMap.<K,V>create();
+    public static <K extends Comparable<K>, V extends Comparable<V>> SortedBiMultiValMap<K, V> create(BiMultiValMap<K, V> map) {
+        SortedBiMultiValMap<K, V> newMap = SortedBiMultiValMap.<K, V>create();
         newMap.forwardMap.putAll(map.forwardMap);
         // Put each individual TreeSet instead of Multimap#putAll(Multimap) to get linear complexity
         // See CASSANDRA-14660
-        for (Entry<V, Collection<K>> entry : map.inverse().asMap().entrySet())
-            newMap.reverseMap.putAll(entry.getKey(), entry.getValue());
+        for (Entry<V, Collection<K>> entry : map.inverse().asMap().entrySet()) newMap.reverseMap.putAll(entry.getKey(), entry.getValue());
         return newMap;
     }
-
 }

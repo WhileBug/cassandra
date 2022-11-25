@@ -1,4 +1,5 @@
 package org.apache.cassandra.service.paxos;
+
 /*
  * 
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -23,17 +24,19 @@ import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
 
-public class ProposeVerbHandler implements IVerbHandler<Commit>
-{
-    public static final ProposeVerbHandler instance = new ProposeVerbHandler();
+public class ProposeVerbHandler implements IVerbHandler<Commit> {
 
-    public static Boolean doPropose(Commit proposal)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProposeVerbHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProposeVerbHandler.class);
+
+    public static final transient ProposeVerbHandler instance = new ProposeVerbHandler();
+
+    public static Boolean doPropose(Commit proposal) {
         return PaxosState.propose(proposal);
     }
 
-    public void doVerb(Message<Commit> message)
-    {
+    public void doVerb(Message<Commit> message) {
         Message<Boolean> reply = message.responseWith(doPropose(message.payload));
         MessagingService.instance().send(reply, message.from());
     }

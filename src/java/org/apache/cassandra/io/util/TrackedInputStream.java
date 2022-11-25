@@ -24,51 +24,48 @@ import java.io.InputStream;
 /**
  * This class is to track bytes read from given DataInputStream
  */
-public class TrackedInputStream extends FilterInputStream implements BytesReadTracker
-{
-    private long bytesRead;
+public class TrackedInputStream extends FilterInputStream implements BytesReadTracker {
 
-    public TrackedInputStream(InputStream source)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TrackedInputStream.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TrackedInputStream.class);
+
+    private transient long bytesRead;
+
+    public TrackedInputStream(InputStream source) {
         super(source);
     }
 
-    public long getBytesRead()
-    {
+    public long getBytesRead() {
         return bytesRead;
     }
 
     /**
      * reset counter to @param count
      */
-    public void reset(long count)
-    {
+    public void reset(long count) {
         bytesRead = count;
     }
 
-    public int read() throws IOException
-    {
+    public int read() throws IOException {
         int read = super.read();
         bytesRead += 1;
         return read;
     }
 
-    public int read(byte[] b, int off, int len) throws IOException
-    {
+    public int read(byte[] b, int off, int len) throws IOException {
         int read = super.read(b, off, len);
         bytesRead += read;
         return read;
     }
 
-    public int read(byte[] b) throws IOException
-    {
+    public int read(byte[] b) throws IOException {
         int read = super.read(b);
         bytesRead += read;
         return read;
     }
 
-    public long skip(long n) throws IOException
-    {
+    public long skip(long n) throws IOException {
         long skip = super.skip(n);
         bytesRead += skip;
         return skip;

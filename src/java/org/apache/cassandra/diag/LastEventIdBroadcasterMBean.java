@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.diag;
 
 import java.util.Map;
@@ -44,8 +43,12 @@ import java.util.Map;
  * <p>Clients may either retrieve the current list of all events IDs, or make conditional requests for event IDs
  * based on the timestamp of the last update (much in the sense of e.g. HTTP's If-Modified-Since semantics).</p>
  */
-public interface LastEventIdBroadcasterMBean
-{
+public interface LastEventIdBroadcasterMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LastEventIdBroadcasterMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LastEventIdBroadcasterMBean.class);
+
     /**
      * Retrieves a list of all event types and their highest IDs.
      */

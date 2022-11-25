@@ -19,20 +19,22 @@ package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "setinterdcstreamthroughput", description = "Set the Mb/s throughput cap for inter-datacenter streaming in the system, or 0 to disable throttling")
-public class SetInterDCStreamThroughput extends NodeToolCmd
-{
+public class SetInterDCStreamThroughput extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetInterDCStreamThroughput.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetInterDCStreamThroughput.class);
+
     @SuppressWarnings("UnusedDeclaration")
     @Arguments(title = "inter_dc_stream_throughput", usage = "<value_in_mb>", description = "Value in Mb, 0 to disable throttling", required = true)
-    private int interDCStreamThroughput;
+    private transient int interDCStreamThroughput;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.setInterDCStreamThroughput(interDCStreamThroughput);
     }
 }

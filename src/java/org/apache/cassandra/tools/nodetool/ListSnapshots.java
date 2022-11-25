@@ -22,53 +22,44 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.management.openmbean.TabularData;
-
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 import org.apache.cassandra.tools.nodetool.formatter.TableBuilder;
 
 @Command(name = "listsnapshots", description = "Lists all the snapshots along with the size on disk and true size. True size is the total size of all SSTables which are not backed up to disk. Size on disk is total size of the snapshot on disk. Total TrueDiskSpaceUsed does not make any SSTable deduplication.")
-public class ListSnapshots extends NodeToolCmd
-{
-    @Override
-    public void execute(NodeProbe probe)
-    {
-        PrintStream out = probe.output().out;
-        try
-        {
-            out.println("Snapshot Details: ");
+public class ListSnapshots extends NodeToolCmd {
 
-            final Map<String,TabularData> snapshotDetails = probe.getSnapshotDetails();
-            if (snapshotDetails.isEmpty())
-            {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ListSnapshots.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ListSnapshots.class);
+
+    @Override
+    public void execute(NodeProbe probe) {
+        PrintStream out = probe.output().out;
+        try {
+            out.println("Snapshot Details: ");
+            final Map<String, TabularData> snapshotDetails = probe.getSnapshotDetails();
+            if (snapshotDetails.isEmpty()) {
                 out.println("There are no snapshots");
                 return;
             }
-
             final long trueSnapshotsSize = probe.trueSnapshotsSize();
             TableBuilder table = new TableBuilder();
             // display column names only once
             final List<String> indexNames = snapshotDetails.entrySet().iterator().next().getValue().getTabularType().getIndexNames();
             table.add(indexNames.toArray(new String[indexNames.size()]));
-
-            for (final Map.Entry<String, TabularData> snapshotDetail : snapshotDetails.entrySet())
-            {
+            for (final Map.Entry<String, TabularData> snapshotDetail : snapshotDetails.entrySet()) {
                 Set<?> values = snapshotDetail.getValue().keySet();
-                for (Object eachValue : values)
-                {
+                for (Object eachValue : values) {
                     final List<?> value = (List<?>) eachValue;
                     table.add(value.toArray(new String[value.size()]));
                 }
             }
             table.printTo(out);
-
             out.println("\nTotal TrueDiskSpaceUsed: " + FileUtils.stringifyFileSize(trueSnapshotsSize) + "\n");
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new RuntimeException("Error during list snapshot", e);
         }
     }

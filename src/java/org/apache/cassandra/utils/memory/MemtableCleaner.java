@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils.memory;
 
 import java.util.concurrent.CompletableFuture;
@@ -24,8 +23,12 @@ import java.util.concurrent.CompletableFuture;
  * The cleaner is used by {@link MemtableCleanerThread} in order to reclaim space from memtables, normally
  * by flushing the largest memtable.
  */
-public interface MemtableCleaner
-{
+public interface MemtableCleaner {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemtableCleaner.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemtableCleaner.class);
+
     /**
      * This is a function that schedules a cleaning task, normally flushing of the largest sstable.
      * The future will complete once the operation has completed and it will have a value set to true if
@@ -34,7 +37,6 @@ public interface MemtableCleaner
      * found, then the value will be false.
      *
      * The future will complete with an error if the cleaning operation encounters an error.
-     *
      */
     CompletableFuture<Boolean> clean();
 }

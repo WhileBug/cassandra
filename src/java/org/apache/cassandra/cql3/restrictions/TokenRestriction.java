@@ -19,9 +19,7 @@ package org.apache.cassandra.cql3.restrictions;
 
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import com.google.common.base.Joiner;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.cql3.QueryOptions;
@@ -31,111 +29,99 @@ import org.apache.cassandra.cql3.statements.Bound;
 import org.apache.cassandra.db.filter.RowFilter;
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.index.IndexRegistry;
-
 import static org.apache.cassandra.cql3.statements.RequestValidations.invalidRequest;
 
 /**
  * <code>Restriction</code> using the token function.
  */
-public abstract class TokenRestriction implements PartitionKeyRestrictions
-{
+public abstract class TokenRestriction implements PartitionKeyRestrictions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenRestriction.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenRestriction.class);
+
     /**
      * The definition of the columns to which apply the token restriction.
      */
-    protected final List<ColumnMetadata> columnDefs;
+    protected final transient List<ColumnMetadata> columnDefs;
 
-    protected final TableMetadata metadata;
+    protected final transient TableMetadata metadata;
 
     /**
      * Creates a new <code>TokenRestriction</code> that apply to the specified columns.
      *
      * @param columnDefs the definition of the columns to which apply the token restriction
      */
-    public TokenRestriction(TableMetadata metadata, List<ColumnMetadata> columnDefs)
-    {
+    public TokenRestriction(TableMetadata metadata, List<ColumnMetadata> columnDefs) {
         this.columnDefs = columnDefs;
         this.metadata = metadata;
     }
 
-    public boolean hasIN()
-    {
+    public boolean hasIN() {
         return false;
     }
 
-    public boolean hasOnlyEqualityRestrictions()
-    {
+    public boolean hasOnlyEqualityRestrictions() {
         return false;
     }
 
     @Override
-    public Set<Restriction> getRestrictions(ColumnMetadata columnDef)
-    {
+    public Set<Restriction> getRestrictions(ColumnMetadata columnDef) {
         return Collections.singleton(this);
     }
 
     @Override
-    public final boolean isOnToken()
-    {
+    public final boolean isOnToken() {
         return true;
     }
 
     @Override
-    public boolean needFiltering(TableMetadata table)
-    {
+    public boolean needFiltering(TableMetadata table) {
         return false;
     }
 
     @Override
-    public boolean hasSlice()
-    {
+    public boolean hasSlice() {
         return false;
     }
 
     @Override
-    public boolean hasUnrestrictedPartitionKeyComponents(TableMetadata table)
-    {
+    public boolean hasUnrestrictedPartitionKeyComponents(TableMetadata table) {
         return false;
     }
 
     @Override
-    public List<ColumnMetadata> getColumnDefs()
-    {
+    public List<ColumnMetadata> getColumnDefs() {
         return columnDefs;
     }
 
     @Override
-    public ColumnMetadata getFirstColumn()
-    {
+    public ColumnMetadata getFirstColumn() {
         return columnDefs.get(0);
     }
 
     @Override
-    public ColumnMetadata getLastColumn()
-    {
+    public ColumnMetadata getLastColumn() {
         return columnDefs.get(columnDefs.size() - 1);
     }
 
     @Override
-    public boolean hasSupportingIndex(IndexRegistry indexRegistry)
-    {
+    public boolean hasSupportingIndex(IndexRegistry indexRegistry) {
         return false;
     }
 
     @Override
-    public void addRowFilterTo(RowFilter filter, IndexRegistry indexRegistry, QueryOptions options)
-    {
+    public void addRowFilterTo(RowFilter filter, IndexRegistry indexRegistry, QueryOptions options) {
         throw new UnsupportedOperationException("Index expression cannot be created for token restriction");
     }
 
     @Override
-    public final boolean isEmpty()
-    {
+    public final boolean isEmpty() {
         return getColumnDefs().isEmpty();
     }
 
     @Override
-    public final int size()
-    {
+    public final int size() {
         return getColumnDefs().size();
     }
 
@@ -144,17 +130,14 @@ public abstract class TokenRestriction implements PartitionKeyRestrictions
      *
      * @return the column names as a comma separated <code>String</code>.
      */
-    protected final String getColumnNamesAsString()
-    {
+    protected final String getColumnNamesAsString() {
         return Joiner.on(", ").join(ColumnMetadata.toIdentifiers(columnDefs));
     }
 
     @Override
-    public final PartitionKeyRestrictions mergeWith(Restriction otherRestriction) throws InvalidRequestException
-    {
+    public final PartitionKeyRestrictions mergeWith(Restriction otherRestriction) throws InvalidRequestException {
         if (!otherRestriction.isOnToken())
             return new TokenFilter(toPartitionKeyRestrictions(otherRestriction), this);
-
         return doMergeWith((TokenRestriction) otherRestriction);
     }
 
@@ -171,146 +154,117 @@ public abstract class TokenRestriction implements PartitionKeyRestrictions
      * @return a <code>PartitionKeyRestrictions</code>
      * @throws InvalidRequestException if a problem occurs while converting the restriction
      */
-    private PartitionKeyRestrictions toPartitionKeyRestrictions(Restriction restriction) throws InvalidRequestException
-    {
+    private PartitionKeyRestrictions toPartitionKeyRestrictions(Restriction restriction) throws InvalidRequestException {
         if (restriction instanceof PartitionKeyRestrictions)
             return (PartitionKeyRestrictions) restriction;
-
         return new PartitionKeySingleRestrictionSet(metadata.partitionKeyAsClusteringComparator()).mergeWith(restriction);
     }
 
-    public static final class EQRestriction extends TokenRestriction
-    {
-        private final Term value;
+    public static final class EQRestriction extends TokenRestriction {
 
-        public EQRestriction(TableMetadata table, List<ColumnMetadata> columnDefs, Term value)
-        {
+        private final transient Term value;
+
+        public EQRestriction(TableMetadata table, List<ColumnMetadata> columnDefs, Term value) {
             super(table, columnDefs);
             this.value = value;
         }
 
         @Override
-        public void addFunctionsTo(List<Function> functions)
-        {
+        public void addFunctionsTo(List<Function> functions) {
             value.addFunctionsTo(functions);
         }
 
         @Override
-        protected PartitionKeyRestrictions doMergeWith(TokenRestriction otherRestriction) throws InvalidRequestException
-        {
-            throw invalidRequest("%s cannot be restricted by more than one relation if it includes an Equal",
-                                 Joiner.on(", ").join(ColumnMetadata.toIdentifiers(columnDefs)));
+        protected PartitionKeyRestrictions doMergeWith(TokenRestriction otherRestriction) throws InvalidRequestException {
+            throw invalidRequest("%s cannot be restricted by more than one relation if it includes an Equal", Joiner.on(", ").join(ColumnMetadata.toIdentifiers(columnDefs)));
         }
 
         @Override
-        public List<ByteBuffer> bounds(Bound b, QueryOptions options) throws InvalidRequestException
-        {
+        public List<ByteBuffer> bounds(Bound b, QueryOptions options) throws InvalidRequestException {
             return values(options);
         }
 
         @Override
-        public boolean hasBound(Bound b)
-        {
+        public boolean hasBound(Bound b) {
             return true;
         }
 
         @Override
-        public boolean isInclusive(Bound b)
-        {
+        public boolean isInclusive(Bound b) {
             return true;
         }
 
         @Override
-        public List<ByteBuffer> values(QueryOptions options) throws InvalidRequestException
-        {
+        public List<ByteBuffer> values(QueryOptions options) throws InvalidRequestException {
             return Collections.singletonList(value.bindAndGet(options));
         }
 
-        public boolean hasContains()
-        {
+        public boolean hasContains() {
             return false;
         }
     }
 
-    public static class SliceRestriction extends TokenRestriction
-    {
-        private final TermSlice slice;
+    public static class SliceRestriction extends TokenRestriction {
 
-        public SliceRestriction(TableMetadata table, List<ColumnMetadata> columnDefs, Bound bound, boolean inclusive, Term term)
-        {
+        private final transient TermSlice slice;
+
+        public SliceRestriction(TableMetadata table, List<ColumnMetadata> columnDefs, Bound bound, boolean inclusive, Term term) {
             super(table, columnDefs);
             slice = TermSlice.newInstance(bound, inclusive, term);
         }
 
-        public boolean hasContains()
-        {
+        public boolean hasContains() {
             return false;
         }
 
         @Override
-        public boolean hasSlice()
-        {
+        public boolean hasSlice() {
             return true;
         }
 
         @Override
-        public List<ByteBuffer> values(QueryOptions options) throws InvalidRequestException
-        {
+        public List<ByteBuffer> values(QueryOptions options) throws InvalidRequestException {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public boolean hasBound(Bound b)
-        {
+        public boolean hasBound(Bound b) {
             return slice.hasBound(b);
         }
 
         @Override
-        public List<ByteBuffer> bounds(Bound b, QueryOptions options) throws InvalidRequestException
-        {
+        public List<ByteBuffer> bounds(Bound b, QueryOptions options) throws InvalidRequestException {
             return Collections.singletonList(slice.bound(b).bindAndGet(options));
         }
 
         @Override
-        public void addFunctionsTo(List<Function> functions)
-        {
+        public void addFunctionsTo(List<Function> functions) {
             slice.addFunctionsTo(functions);
         }
 
         @Override
-        public boolean isInclusive(Bound b)
-        {
+        public boolean isInclusive(Bound b) {
             return slice.isInclusive(b);
         }
 
         @Override
-        protected PartitionKeyRestrictions doMergeWith(TokenRestriction otherRestriction)
-        throws InvalidRequestException
-        {
+        protected PartitionKeyRestrictions doMergeWith(TokenRestriction otherRestriction) throws InvalidRequestException {
             if (!(otherRestriction instanceof SliceRestriction))
-                throw invalidRequest("Columns \"%s\" cannot be restricted by both an equality and an inequality relation",
-                                     getColumnNamesAsString());
-
+                throw invalidRequest("Columns \"%s\" cannot be restricted by both an equality and an inequality relation", getColumnNamesAsString());
             TokenRestriction.SliceRestriction otherSlice = (TokenRestriction.SliceRestriction) otherRestriction;
-
             if (hasBound(Bound.START) && otherSlice.hasBound(Bound.START))
-                throw invalidRequest("More than one restriction was found for the start bound on %s",
-                                     getColumnNamesAsString());
-
+                throw invalidRequest("More than one restriction was found for the start bound on %s", getColumnNamesAsString());
             if (hasBound(Bound.END) && otherSlice.hasBound(Bound.END))
-                throw invalidRequest("More than one restriction was found for the end bound on %s",
-                                     getColumnNamesAsString());
-
+                throw invalidRequest("More than one restriction was found for the end bound on %s", getColumnNamesAsString());
             return new SliceRestriction(metadata, columnDefs, slice.merge(otherSlice.slice));
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return String.format("SLICE%s", slice);
         }
-        private SliceRestriction(TableMetadata table, List<ColumnMetadata> columnDefs, TermSlice slice)
-        {
+
+        private SliceRestriction(TableMetadata table, List<ColumnMetadata> columnDefs, TermSlice slice) {
             super(table, columnDefs);
             this.slice = slice;
         }

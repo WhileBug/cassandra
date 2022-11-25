@@ -19,51 +19,48 @@ package org.apache.cassandra.index.sasi.analyzer;
 
 import java.util.Map;
 
-/** Simple tokenizer based on a specified delimiter (rather than whitespace).
+/**
+ * Simple tokenizer based on a specified delimiter (rather than whitespace).
  */
-public class DelimiterTokenizingOptions
-{
-    public static final String DELIMITER = "delimiter";
+public class DelimiterTokenizingOptions {
 
-    private final char delimiter;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DelimiterTokenizingOptions.class);
 
-    private DelimiterTokenizingOptions(char delimiter)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DelimiterTokenizingOptions.class);
+
+    public static final transient String DELIMITER = "delimiter";
+
+    private final transient char delimiter;
+
+    private DelimiterTokenizingOptions(char delimiter) {
         this.delimiter = delimiter;
     }
 
-    char getDelimiter()
-    {
+    char getDelimiter() {
         return delimiter;
     }
 
-    private static class OptionsBuilder
-    {
-        private char delimiter = ',';
+    private static class OptionsBuilder {
 
-        public DelimiterTokenizingOptions build()
-        {
+        private transient char delimiter = ',';
+
+        public DelimiterTokenizingOptions build() {
             return new DelimiterTokenizingOptions(delimiter);
         }
     }
 
-    static DelimiterTokenizingOptions buildFromMap(Map<String, String> optionsMap)
-    {
+    static DelimiterTokenizingOptions buildFromMap(Map<String, String> optionsMap) {
         OptionsBuilder optionsBuilder = new OptionsBuilder();
-
-        for (Map.Entry<String, String> entry : optionsMap.entrySet())
-        {
-            switch (entry.getKey())
-            {
+        for (Map.Entry<String, String> entry : optionsMap.entrySet()) {
+            switch(entry.getKey()) {
                 case DELIMITER:
-                {
-                    String value = entry.getValue();
-                    if (1 != value.length())
-                        throw new IllegalArgumentException(String.format("Only single character delimiters supported, was %s", value));
-
-                    optionsBuilder.delimiter = entry.getValue().charAt(0);
-                    break;
-                }
+                    {
+                        String value = entry.getValue();
+                        if (1 != value.length())
+                            throw new IllegalArgumentException(String.format("Only single character delimiters supported, was %s", value));
+                        optionsBuilder.delimiter = entry.getValue().charAt(0);
+                        break;
+                    }
             }
         }
         return optionsBuilder.build();

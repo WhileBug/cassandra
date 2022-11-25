@@ -15,26 +15,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.index.transactions.UpdateTransaction;
 import org.apache.cassandra.tracing.Tracing;
 
-public class CassandraTableWriteHandler implements TableWriteHandler
-{
-    private final ColumnFamilyStore cfs;
+public class CassandraTableWriteHandler implements TableWriteHandler {
 
-    public CassandraTableWriteHandler(ColumnFamilyStore cfs)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraTableWriteHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraTableWriteHandler.class);
+
+    private final transient ColumnFamilyStore cfs;
+
+    public CassandraTableWriteHandler(ColumnFamilyStore cfs) {
         this.cfs = cfs;
     }
 
     @Override
     @SuppressWarnings("resource")
-    public void write(PartitionUpdate update, WriteContext context, UpdateTransaction updateTransaction)
-    {
+    public void write(PartitionUpdate update, WriteContext context, UpdateTransaction updateTransaction) {
         CassandraWriteContext ctx = CassandraWriteContext.fromContext(context);
         Tracing.trace("Adding to {} memtable", update.metadata().name);
         cfs.apply(update, updateTransaction, ctx.getGroup(), ctx.getPosition());

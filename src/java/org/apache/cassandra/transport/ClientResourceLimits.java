@@ -15,18 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.transport;
 
 import java.net.InetAddress;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.codahale.metrics.Reservoir;
 import com.codahale.metrics.Snapshot;
 import org.apache.cassandra.config.DatabaseDescriptor;
@@ -34,62 +31,58 @@ import org.apache.cassandra.metrics.DecayingEstimatedHistogramReservoir;
 import org.apache.cassandra.net.AbstractMessageHandler;
 import org.apache.cassandra.net.ResourceLimits;
 
-public class ClientResourceLimits
-{
-    private static final Logger logger = LoggerFactory.getLogger(ClientResourceLimits.class);
+public class ClientResourceLimits {
 
-    private static final ResourceLimits.Concurrent GLOBAL_LIMIT = new ResourceLimits.Concurrent(getGlobalLimit());
-    private static final AbstractMessageHandler.WaitQueue GLOBAL_QUEUE = AbstractMessageHandler.WaitQueue.global(GLOBAL_LIMIT);
-    private static final ConcurrentMap<InetAddress, Allocator> PER_ENDPOINT_ALLOCATORS = new ConcurrentHashMap<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientResourceLimits.class);
 
-    public static Allocator getAllocatorForEndpoint(InetAddress endpoint)
-    {
-        while (true)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientResourceLimits.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(ClientResourceLimits.class);
+
+    private static final transient ResourceLimits.Concurrent GLOBAL_LIMIT = new ResourceLimits.Concurrent(getGlobalLimit());
+
+    private static final transient AbstractMessageHandler.WaitQueue GLOBAL_QUEUE = AbstractMessageHandler.WaitQueue.global(GLOBAL_LIMIT);
+
+    private static final transient ConcurrentMap<InetAddress, Allocator> PER_ENDPOINT_ALLOCATORS = new ConcurrentHashMap<>();
+
+    public static Allocator getAllocatorForEndpoint(InetAddress endpoint) {
+        while (true) {
             Allocator result = PER_ENDPOINT_ALLOCATORS.computeIfAbsent(endpoint, Allocator::new);
             if (result.acquire())
                 return result;
-
             PER_ENDPOINT_ALLOCATORS.remove(endpoint, result);
         }
     }
 
-    public static long getGlobalLimit()
-    {
+    public static long getGlobalLimit() {
         return DatabaseDescriptor.getNativeTransportMaxConcurrentRequestsInBytes();
     }
 
-    public static void setGlobalLimit(long newLimit)
-    {
+    public static void setGlobalLimit(long newLimit) {
         DatabaseDescriptor.setNativeTransportMaxConcurrentRequestsInBytes(newLimit);
         long existingLimit = GLOBAL_LIMIT.setLimit(getGlobalLimit());
         logger.info("Changed native_max_transport_requests_in_bytes from {} to {}", existingLimit, newLimit);
     }
 
-    public static long getCurrentGlobalUsage()
-    {
+    public static long getCurrentGlobalUsage() {
         return GLOBAL_LIMIT.using();
     }
 
-    public static long getEndpointLimit()
-    {
+    public static long getEndpointLimit() {
         return DatabaseDescriptor.getNativeTransportMaxConcurrentRequestsInBytesPerIp();
     }
 
-    public static void setEndpointLimit(long newLimit)
-    {
+    public static void setEndpointLimit(long newLimit) {
         long existingLimit = DatabaseDescriptor.getNativeTransportMaxConcurrentRequestsInBytesPerIp();
-        DatabaseDescriptor.setNativeTransportMaxConcurrentRequestsInBytesPerIp(newLimit); // ensure new instances get the new limit
-        for (Allocator allocator : PER_ENDPOINT_ALLOCATORS.values())
-            existingLimit = allocator.endpointAndGlobal.endpoint().setLimit(newLimit);
+        // ensure new instances get the new limit
+        DatabaseDescriptor.setNativeTransportMaxConcurrentRequestsInBytesPerIp(newLimit);
+        for (Allocator allocator : PER_ENDPOINT_ALLOCATORS.values()) existingLimit = allocator.endpointAndGlobal.endpoint().setLimit(newLimit);
         logger.info("Changed native_max_transport_requests_in_bytes_per_ip from {} to {}", existingLimit, newLimit);
     }
 
-    public static Snapshot getCurrentIpUsage()
-    {
+    public static Snapshot getCurrentIpUsage() {
         DecayingEstimatedHistogramReservoir histogram = new DecayingEstimatedHistogramReservoir();
-        for (Allocator allocator : PER_ENDPOINT_ALLOCATORS.values())
-        {
+        for (Allocator allocator : PER_ENDPOINT_ALLOCATORS.values()) {
             histogram.update(allocator.endpointAndGlobal.endpoint().using());
         }
         return histogram.getSnapshot();
@@ -99,22 +92,18 @@ public class ClientResourceLimits
      * This will recompute the ip usage histo on each query of the snapshot when requested instead of trying to keep
      * a histogram up to date with each request
      */
-    public static Reservoir ipUsageReservoir()
-    {
-        return new Reservoir()
-        {
-            public int size()
-            {
+    public static Reservoir ipUsageReservoir() {
+        return new Reservoir() {
+
+            public int size() {
                 return PER_ENDPOINT_ALLOCATORS.size();
             }
 
-            public void update(long l)
-            {
+            public void update(long l) {
                 throw new IllegalStateException();
             }
 
-            public Snapshot getSnapshot()
-            {
+            public Snapshot getSnapshot() {
                 return getCurrentIpUsage();
             }
         };
@@ -125,27 +114,27 @@ public class ClientResourceLimits
      * selected. V5 connections convert this to a {@link ResourceProvider} and use the global/endpoint
      * limits and queues directly.
      */
-    static class Allocator
-    {
-        private final AtomicInteger refCount = new AtomicInteger(0);
-        private final InetAddress endpoint;
+    static class Allocator {
 
-        private final ResourceLimits.EndpointAndGlobal endpointAndGlobal;
+        private final transient AtomicInteger refCount = new AtomicInteger(0);
+
+        private final transient InetAddress endpoint;
+
+        private final transient ResourceLimits.EndpointAndGlobal endpointAndGlobal;
+
         // This is not used or exposed by instances of this class, but it is used for V5+
         // client connections so it's initialized here as the same queue must be shared
         // across all clients from the same remote address.
-        private final AbstractMessageHandler.WaitQueue waitQueue;
+        private final transient AbstractMessageHandler.WaitQueue waitQueue;
 
-        private Allocator(InetAddress endpoint)
-        {
+        private Allocator(InetAddress endpoint) {
             this.endpoint = endpoint;
             ResourceLimits.Concurrent limit = new ResourceLimits.Concurrent(getEndpointLimit());
             endpointAndGlobal = new ResourceLimits.EndpointAndGlobal(limit, GLOBAL_LIMIT);
             waitQueue = AbstractMessageHandler.WaitQueue.endpoint(limit);
         }
 
-        private boolean acquire()
-        {
+        private boolean acquire() {
             return 0 < refCount.updateAndGet(i -> i < 0 ? i : i + 1);
         }
 
@@ -153,8 +142,7 @@ public class ClientResourceLimits
          * Decrement the reference count, possibly removing the instance from the cache
          * if this is its final reference
          */
-        void release()
-        {
+        void release() {
             if (-1 == refCount.updateAndGet(i -> i == 1 ? -1 : i - 1))
                 PER_ENDPOINT_ALLOCATORS.remove(endpoint, this);
         }
@@ -169,8 +157,7 @@ public class ClientResourceLimits
          * either INSUFFICIENT_GLOBAL or INSUFFICIENT_ENPOINT to indicate which reserve rejected
          * the allocation request.
          */
-        ResourceLimits.Outcome tryAllocate(long amount)
-        {
+        ResourceLimits.Outcome tryAllocate(long amount) {
             return endpointAndGlobal.tryAllocate(amount);
         }
 
@@ -180,8 +167,7 @@ public class ClientResourceLimits
          * which may lead to either or both reserves going over their limits.
          * @param amount number permits to allocate
          */
-        void allocate(long amount)
-        {
+        void allocate(long amount) {
             endpointAndGlobal.allocate(amount);
         }
 
@@ -194,30 +180,22 @@ public class ClientResourceLimits
          * the operation completes or, BELOW_LIMIT if neither is.
          * rejected the allocation request.
          */
-        ResourceLimits.Outcome release(long amount)
-        {
+        ResourceLimits.Outcome release(long amount) {
             return endpointAndGlobal.release(amount);
         }
 
         @VisibleForTesting
-        long endpointUsing()
-        {
-           return endpointAndGlobal.endpoint().using();
+        long endpointUsing() {
+            return endpointAndGlobal.endpoint().using();
         }
 
         @VisibleForTesting
-        long globallyUsing()
-        {
-           return endpointAndGlobal.global().using();
+        long globallyUsing() {
+            return endpointAndGlobal.global().using();
         }
 
-        public String toString()
-        {
-            return String.format("InflightEndpointRequestPayload: %d/%d, InflightOverallRequestPayload: %d/%d",
-                                 endpointAndGlobal.endpoint().using(),
-                                 endpointAndGlobal.endpoint().limit(),
-                                 endpointAndGlobal.global().using(),
-                                 endpointAndGlobal.global().limit());
+        public String toString() {
+            return String.format("InflightEndpointRequestPayload: %d/%d, InflightOverallRequestPayload: %d/%d", endpointAndGlobal.endpoint().using(), endpointAndGlobal.endpoint().limit(), endpointAndGlobal.global().using(), endpointAndGlobal.global().limit());
         }
     }
 
@@ -228,45 +206,43 @@ public class ClientResourceLimits
      * {@link org.apache.cassandra.net.AbstractMessageHandler.WaitQueue} directly.
      * Provided as an interface and single implementation for testing (see CQLConnectionTest)
      */
-    interface ResourceProvider
-    {
+    interface ResourceProvider {
+
         ResourceLimits.Limit globalLimit();
+
         AbstractMessageHandler.WaitQueue globalWaitQueue();
+
         ResourceLimits.Limit endpointLimit();
+
         AbstractMessageHandler.WaitQueue endpointWaitQueue();
+
         void release();
 
-        static class Default implements ResourceProvider
-        {
-            private final Allocator limits;
+        static class Default implements ResourceProvider {
 
-            Default(Allocator limits)
-            {
+            private final transient Allocator limits;
+
+            Default(Allocator limits) {
                 this.limits = limits;
             }
 
-            public ResourceLimits.Limit globalLimit()
-            {
+            public ResourceLimits.Limit globalLimit() {
                 return limits.endpointAndGlobal.global();
             }
 
-            public AbstractMessageHandler.WaitQueue globalWaitQueue()
-            {
+            public AbstractMessageHandler.WaitQueue globalWaitQueue() {
                 return GLOBAL_QUEUE;
             }
 
-            public ResourceLimits.Limit endpointLimit()
-            {
+            public ResourceLimits.Limit endpointLimit() {
                 return limits.endpointAndGlobal.endpoint();
             }
 
-            public AbstractMessageHandler.WaitQueue endpointWaitQueue()
-            {
+            public AbstractMessageHandler.WaitQueue endpointWaitQueue() {
                 return limits.waitQueue;
             }
 
-            public void release()
-            {
+            public void release() {
                 limits.release();
             }
         }

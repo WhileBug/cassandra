@@ -15,19 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AbstractFuture;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
@@ -36,24 +32,30 @@ import org.apache.cassandra.repair.messages.RepairMessage;
 import org.apache.cassandra.repair.messages.SyncRequest;
 import org.apache.cassandra.streaming.PreviewKind;
 import org.apache.cassandra.tracing.Tracing;
-
 import static org.apache.cassandra.net.Verb.SYNC_REQ;
 
-public abstract class SyncTask extends AbstractFuture<SyncStat> implements Runnable
-{
-    private static final Logger logger = LoggerFactory.getLogger(SyncTask.class);
+public abstract class SyncTask extends AbstractFuture<SyncStat> implements Runnable {
 
-    protected final RepairJobDesc desc;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SyncTask.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SyncTask.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(SyncTask.class);
+
+    protected final transient RepairJobDesc desc;
+
     @VisibleForTesting
-    public final List<Range<Token>> rangesToSync;
-    protected final PreviewKind previewKind;
-    protected final SyncNodePair nodePair;
+    public final transient List<Range<Token>> rangesToSync;
 
-    protected volatile long startTime = Long.MIN_VALUE;
-    protected final SyncStat stat;
+    protected final transient PreviewKind previewKind;
 
-    protected SyncTask(RepairJobDesc desc, InetAddressAndPort primaryEndpoint, InetAddressAndPort peer, List<Range<Token>> rangesToSync, PreviewKind previewKind)
-    {
+    protected final transient SyncNodePair nodePair;
+
+    protected volatile transient long startTime = Long.MIN_VALUE;
+
+    protected final transient SyncStat stat;
+
+    protected SyncTask(RepairJobDesc desc, InetAddressAndPort primaryEndpoint, InetAddressAndPort peer, List<Range<Token>> rangesToSync, PreviewKind previewKind) {
         Preconditions.checkArgument(!peer.equals(primaryEndpoint), "Sending and receiving node are the same: %s", peer);
         this.desc = desc;
         this.rangesToSync = rangesToSync;
@@ -64,53 +66,42 @@ public abstract class SyncTask extends AbstractFuture<SyncStat> implements Runna
 
     protected abstract void startSync();
 
-    public SyncNodePair nodePair()
-    {
+    public SyncNodePair nodePair() {
         return nodePair;
     }
 
     /**
      * Compares trees, and triggers repairs for any ranges that mismatch.
      */
-    public final void run()
-    {
+    public final void run() {
         startTime = System.currentTimeMillis();
-
-
         // choose a repair method based on the significance of the difference
         String format = String.format("%s Endpoints %s and %s %%s for %s", previewKind.logPrefix(desc.sessionId), nodePair.coordinator, nodePair.peer, desc.columnFamily);
-        if (rangesToSync.isEmpty())
-        {
+        if (rangesToSync.isEmpty()) {
             logger.info(String.format(format, "are consistent"));
             Tracing.traceRepair("Endpoint {} is consistent with {} for {}", nodePair.coordinator, nodePair.peer, desc.columnFamily);
             set(stat);
             return;
         }
-
         // non-0 difference: perform streaming repair
         logger.info(String.format(format, "have " + rangesToSync.size() + " range(s) out of sync"));
         Tracing.traceRepair("Endpoint {} has {} range(s) out of sync with {} for {}", nodePair.coordinator, rangesToSync.size(), nodePair.peer, desc.columnFamily);
         startSync();
     }
 
-    public boolean isLocal()
-    {
+    public boolean isLocal() {
         return false;
     }
 
-    protected void finished()
-    {
+    protected void finished() {
         if (startTime != Long.MIN_VALUE)
             Keyspace.open(desc.keyspace).getColumnFamilyStore(desc.columnFamily).metric.repairSyncTime.update(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS);
     }
 
-    public void abort() {}
+    public void abort() {
+    }
 
-    void sendRequest(SyncRequest request, InetAddressAndPort to)
-    {
-        RepairMessage.sendMessageWithFailureCB(request,
-                                               SYNC_REQ,
-                                               to,
-                                               this::setException);
+    void sendRequest(SyncRequest request, InetAddressAndPort to) {
+        RepairMessage.sendMessageWithFailureCB(request, SYNC_REQ, to, this::setException);
     }
 }

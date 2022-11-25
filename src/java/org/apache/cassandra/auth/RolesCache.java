@@ -20,22 +20,16 @@ package org.apache.cassandra.auth;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 
-public class RolesCache extends AuthCache<RoleResource, Set<Role>>
-{
-    public RolesCache(IRoleManager roleManager, BooleanSupplier enableCache)
-    {
-        super("RolesCache",
-              DatabaseDescriptor::setRolesValidity,
-              DatabaseDescriptor::getRolesValidity,
-              DatabaseDescriptor::setRolesUpdateInterval,
-              DatabaseDescriptor::getRolesUpdateInterval,
-              DatabaseDescriptor::setRolesCacheMaxEntries,
-              DatabaseDescriptor::getRolesCacheMaxEntries,
-              roleManager::getRoleDetails,
-              enableCache);
+public class RolesCache extends AuthCache<RoleResource, Set<Role>> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RolesCache.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RolesCache.class);
+
+    public RolesCache(IRoleManager roleManager, BooleanSupplier enableCache) {
+        super("RolesCache", DatabaseDescriptor::setRolesValidity, DatabaseDescriptor::getRolesValidity, DatabaseDescriptor::setRolesUpdateInterval, DatabaseDescriptor::getRolesUpdateInterval, DatabaseDescriptor::setRolesCacheMaxEntries, DatabaseDescriptor::getRolesCacheMaxEntries, roleManager::getRoleDetails, enableCache);
     }
 
     /**
@@ -44,11 +38,8 @@ public class RolesCache extends AuthCache<RoleResource, Set<Role>>
      * @param primaryRole identifier for the primary role
      * @return the set of identifiers of all the roles granted to (directly or through inheritance) the primary role
      */
-    Set<RoleResource> getRoleResources(RoleResource primaryRole)
-    {
-        return get(primaryRole).stream()
-                               .map(r -> r.resource)
-                               .collect(Collectors.toSet());
+    Set<RoleResource> getRoleResources(RoleResource primaryRole) {
+        return get(primaryRole).stream().map(r -> r.resource).collect(Collectors.toSet());
     }
 
     /**
@@ -58,8 +49,7 @@ public class RolesCache extends AuthCache<RoleResource, Set<Role>>
      * @return the set of Role objects containing info of all roles granted to (directly or through inheritance)
      * the primary role.
      */
-    Set<Role> getRoles(RoleResource primaryRole)
-    {
+    Set<Role> getRoles(RoleResource primaryRole) {
         return get(primaryRole);
     }
 }

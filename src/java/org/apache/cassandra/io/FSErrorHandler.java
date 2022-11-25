@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io;
 
 import org.apache.cassandra.io.sstable.CorruptSSTableException;
@@ -23,8 +22,13 @@ import org.apache.cassandra.io.sstable.CorruptSSTableException;
 /**
  * Interface for handling file system errors.
  */
-public interface FSErrorHandler
-{
+public interface FSErrorHandler {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FSErrorHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FSErrorHandler.class);
+
     void handleCorruptSSTable(CorruptSSTableException e);
+
     void handleFSError(FSError e);
 }

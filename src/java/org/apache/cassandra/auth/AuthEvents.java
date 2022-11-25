@@ -15,72 +15,61 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.auth;
 
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
-
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.cql3.QueryEvents;
 import org.apache.cassandra.service.QueryState;
 
-public class AuthEvents
-{
-    private static final Logger logger = LoggerFactory.getLogger(QueryEvents.class);
+public class AuthEvents {
 
-    public static final AuthEvents instance = new AuthEvents();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthEvents.class);
 
-    private final Set<Listener> listeners = new CopyOnWriteArraySet<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthEvents.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(QueryEvents.class);
+
+    public static final transient AuthEvents instance = new AuthEvents();
+
+    private final transient Set<Listener> listeners = new CopyOnWriteArraySet<>();
 
     @VisibleForTesting
-    public int listenerCount()
-    {
+    public int listenerCount() {
         return listeners.size();
     }
 
-    public void registerListener(Listener listener)
-    {
+    public void registerListener(Listener listener) {
         listeners.add(listener);
     }
 
-    public void unregisterListener(Listener listener)
-    {
+    public void unregisterListener(Listener listener) {
         listeners.remove(listener);
     }
 
-    public void notifyAuthSuccess(QueryState state)
-    {
-        try
-        {
-            for (Listener listener : listeners)
-                listener.authSuccess(state);
-        }
-        catch (Exception e)
-        {
+    public void notifyAuthSuccess(QueryState state) {
+        try {
+            for (Listener listener : listeners) listener.authSuccess(state);
+        } catch (Exception e) {
             logger.error("Failed notifying listeners", e);
         }
     }
 
-    public void notifyAuthFailure(QueryState state, Exception cause)
-    {
-        try
-        {
-            for (Listener listener : listeners)
-                listener.authFailure(state, cause);
-        }
-        catch (Exception e)
-        {
+    public void notifyAuthFailure(QueryState state, Exception cause) {
+        try {
+            for (Listener listener : listeners) listener.authFailure(state, cause);
+        } catch (Exception e) {
             logger.error("Failed notifying listeners", e);
         }
     }
 
-    public static interface Listener
-    {
+    public static interface Listener {
+
         void authSuccess(QueryState state);
+
         void authFailure(QueryState state, Exception cause);
     }
 }

@@ -22,18 +22,19 @@ package org.apache.cassandra.cql3.functions.types.exceptions;
  * operation (serialization, deserialization, parsing or formatting) because the object or the byte
  * buffer content being processed does not comply with the expected Java and/or CQL type.
  */
-public class InvalidTypeException extends DriverException
-{
+public class InvalidTypeException extends DriverException {
 
-    private static final long serialVersionUID = 0;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InvalidTypeException.class);
 
-    public InvalidTypeException(String msg)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InvalidTypeException.class);
+
+    private static final transient long serialVersionUID = 0;
+
+    public InvalidTypeException(String msg) {
         super(msg);
     }
 
-    public InvalidTypeException(String msg, Throwable cause)
-    {
+    public InvalidTypeException(String msg, Throwable cause) {
         super(msg, cause);
     }
 }

@@ -15,13 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collector;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -30,25 +28,21 @@ import com.google.common.collect.ImmutableSet;
  *
  * Named Collectors3 just in case Guava ever makes a Collectors2
  */
-public class Collectors3
-{
-    private static final Collector.Characteristics[] LIST_CHARACTERISTICS = new Collector.Characteristics[] { };
-    public static <T>  Collector<T, ?, List<T>> toImmutableList()
-    {
-        return Collector.of(ImmutableList.Builder<T>::new,
-                            ImmutableList.Builder<T>::add,
-                            (l, r) -> l.addAll(r.build()),
-                            ImmutableList.Builder<T>::build,
-                            LIST_CHARACTERISTICS);
+public class Collectors3 {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Collectors3.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Collectors3.class);
+
+    private static final transient Collector.Characteristics[] LIST_CHARACTERISTICS = new Collector.Characteristics[] {};
+
+    public static <T> Collector<T, ?, List<T>> toImmutableList() {
+        return Collector.of(ImmutableList.Builder<T>::new, ImmutableList.Builder<T>::add, (l, r) -> l.addAll(r.build()), ImmutableList.Builder<T>::build, LIST_CHARACTERISTICS);
     }
 
-    private static final Collector.Characteristics[] SET_CHARACTERISTICS = new Collector.Characteristics[] { Collector.Characteristics.UNORDERED };
-    public static <T>  Collector<T, ?, Set<T>> toImmutableSet()
-    {
-        return Collector.of(ImmutableSet.Builder<T>::new,
-                            ImmutableSet.Builder<T>::add,
-                            (l, r) -> l.addAll(r.build()),
-                            ImmutableSet.Builder<T>::build,
-                            SET_CHARACTERISTICS);
+    private static final transient Collector.Characteristics[] SET_CHARACTERISTICS = new Collector.Characteristics[] { Collector.Characteristics.UNORDERED };
+
+    public static <T> Collector<T, ?, Set<T>> toImmutableSet() {
+        return Collector.of(ImmutableSet.Builder<T>::new, ImmutableSet.Builder<T>::add, (l, r) -> l.addAll(r.build()), ImmutableSet.Builder<T>::build, SET_CHARACTERISTICS);
     }
 }

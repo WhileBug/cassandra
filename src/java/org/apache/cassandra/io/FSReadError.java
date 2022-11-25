@@ -19,21 +19,22 @@ package org.apache.cassandra.io;
 
 import java.io.File;
 
-public class FSReadError extends FSError
-{
-    public FSReadError(Throwable cause, File path)
-    {
+public class FSReadError extends FSError {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FSReadError.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FSReadError.class);
+
+    public FSReadError(Throwable cause, File path) {
         super(cause, path);
     }
 
-    public FSReadError(Throwable cause, String path)
-    {
+    public FSReadError(Throwable cause, String path) {
         this(cause, new File(path));
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "FSReadError in " + path;
     }
 }

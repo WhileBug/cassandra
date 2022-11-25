@@ -15,20 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.metrics;
 
 import com.codahale.metrics.Counter;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
-public class RepairMetrics
-{
-    public static final String TYPE_NAME = "Repair";
-    public static final Counter previewFailures = Metrics.counter(DefaultNameFactory.createMetricName(TYPE_NAME, "PreviewFailures", null));
+public class RepairMetrics {
 
-    public static void init()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairMetrics.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairMetrics.class);
+
+    public static final transient String TYPE_NAME = "Repair";
+
+    public static final transient Counter previewFailures = Metrics.counter(DefaultNameFactory.createMetricName(TYPE_NAME, "PreviewFailures", null));
+
+    public static void init() {
         // noop
     }
 }

@@ -17,55 +17,46 @@
  */
 package org.apache.cassandra.cql3.statements;
 
-public enum StatementType
-{
-    INSERT
-    {
+public enum StatementType {
+
+    INSERT {
+
         @Override
-        public boolean allowClusteringColumnSlices()
-        {
+        public boolean allowClusteringColumnSlices() {
             return false;
         }
-    },
-    UPDATE
-    {
+    }
+    , UPDATE {
 
         @Override
-        public boolean allowClusteringColumnSlices()
-        {
+        public boolean allowClusteringColumnSlices() {
             return false;
         }
-    },
-    DELETE
-    {
-    },
-    SELECT
-    {
+    }
+    , DELETE, SELECT {
+
         @Override
-        public boolean allowPartitionKeyRanges()
-        {
+        public boolean allowPartitionKeyRanges() {
             return true;
         }
 
         @Override
-        public boolean allowNonPrimaryKeyInWhereClause()
-        {
+        public boolean allowNonPrimaryKeyInWhereClause() {
             return true;
         }
 
         @Override
-        public boolean allowUseOfSecondaryIndices()
-        {
+        public boolean allowUseOfSecondaryIndices() {
             return true;
         }
-    };
+    }
+    ;
 
     /**
      * Checks if this type is an insert.
      * @return <code>true</code> if this type is an insert, <code>false</code> otherwise.
      */
-    public boolean isInsert()
-    {
+    public boolean isInsert() {
         return this == INSERT;
     }
 
@@ -73,8 +64,7 @@ public enum StatementType
      * Checks if this type is an update.
      * @return <code>true</code> if this type is an update, <code>false</code> otherwise.
      */
-    public boolean isUpdate()
-    {
+    public boolean isUpdate() {
         return this == UPDATE;
     }
 
@@ -82,8 +72,7 @@ public enum StatementType
      * Checks if this type is a delete.
      * @return <code>true</code> if this type is a delete, <code>false</code> otherwise.
      */
-    public boolean isDelete()
-    {
+    public boolean isDelete() {
         return this == DELETE;
     }
 
@@ -91,8 +80,7 @@ public enum StatementType
      * Checks if this type is a select.
      * @return <code>true</code> if this type is a select, <code>false</code> otherwise.
      */
-    public boolean isSelect()
-    {
+    public boolean isSelect() {
         return this == SELECT;
     }
 
@@ -101,8 +89,7 @@ public enum StatementType
      * @return <code>true</code> if this statement allow the where clause to contains missing partition key components
      * or token relation, <code>false</code> otherwise.
      */
-    public boolean allowPartitionKeyRanges()
-    {
+    public boolean allowPartitionKeyRanges() {
         return false;
     }
 
@@ -111,8 +98,7 @@ public enum StatementType
      * @return <code>true</code> if this type of statement allow the where clause to contains clustering column slices,
      * <code>false</code> otherwise.
      */
-    public boolean allowClusteringColumnSlices()
-    {
+    public boolean allowClusteringColumnSlices() {
         return true;
     }
 
@@ -121,8 +107,7 @@ public enum StatementType
      * @return <code>true</code> if this type of statement allow non primary key in the where clause,
      * <code>false</code> otherwise.
      */
-    public boolean allowNonPrimaryKeyInWhereClause()
-    {
+    public boolean allowNonPrimaryKeyInWhereClause() {
         return false;
     }
 
@@ -131,8 +116,7 @@ public enum StatementType
      * @return <code>true</code> if this type of statement allow the use of secondary indices,
      * <code>false</code> otherwise.
      */
-    public boolean allowUseOfSecondaryIndices()
-    {
+    public boolean allowUseOfSecondaryIndices() {
         return false;
     }
 }

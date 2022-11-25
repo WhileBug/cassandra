@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.security;
 
 import java.util.Set;
@@ -23,31 +22,33 @@ import java.util.Set;
 /**
  * Used by {@link ThreadAwareSecurityManager} to determine whether access-control checks needs to be performed.
  */
-public final class SecurityThreadGroup extends ThreadGroup
-{
-    private final Set<String> allowedPackages;
-    private final ThreadInitializer threadInitializer;
+public final class SecurityThreadGroup extends ThreadGroup {
 
-    public SecurityThreadGroup(String name, Set<String> allowedPackages, ThreadInitializer threadInitializer)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SecurityThreadGroup.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SecurityThreadGroup.class);
+
+    private final transient Set<String> allowedPackages;
+
+    private final transient ThreadInitializer threadInitializer;
+
+    public SecurityThreadGroup(String name, Set<String> allowedPackages, ThreadInitializer threadInitializer) {
         super(name);
         this.allowedPackages = allowedPackages;
         this.threadInitializer = threadInitializer;
     }
 
-    public void initializeThread()
-    {
+    public void initializeThread() {
         threadInitializer.initializeThread();
     }
 
-    public boolean isPackageAllowed(String pkg)
-    {
+    public boolean isPackageAllowed(String pkg) {
         return allowedPackages == null || allowedPackages.contains(pkg);
     }
 
     @FunctionalInterface
-    public interface ThreadInitializer
-    {
+    public interface ThreadInitializer {
+
         void initializeThread();
     }
 }

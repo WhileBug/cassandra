@@ -18,47 +18,47 @@
 package org.apache.cassandra.streaming.messages;
 
 import java.io.*;
-
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputStreamPlus;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.streaming.StreamSession;
 
-public class ReceivedMessage extends StreamMessage
-{
-    public static Serializer<ReceivedMessage> serializer = new Serializer<ReceivedMessage>()
-    {
-        @SuppressWarnings("resource") // Not closing constructed DataInputPlus's as the channel needs to remain open.
-        public ReceivedMessage deserialize(DataInputPlus input, int version) throws IOException
-        {
+public class ReceivedMessage extends StreamMessage {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReceivedMessage.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReceivedMessage.class);
+
+    public static transient Serializer<ReceivedMessage> serializer = new Serializer<ReceivedMessage>() {
+
+        // Not closing constructed DataInputPlus's as the channel needs to remain open.
+        @SuppressWarnings("resource")
+        public ReceivedMessage deserialize(DataInputPlus input, int version) throws IOException {
             return new ReceivedMessage(TableId.deserialize(input), input.readInt());
         }
 
-        public void serialize(ReceivedMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException
-        {
+        public void serialize(ReceivedMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException {
             message.tableId.serialize(out);
             out.writeInt(message.sequenceNumber);
         }
 
-        public long serializedSize(ReceivedMessage message, int version)
-        {
+        public long serializedSize(ReceivedMessage message, int version) {
             return message.tableId.serializedSize() + 4;
         }
     };
 
-    public final TableId tableId;
-    public final int sequenceNumber;
+    public final transient TableId tableId;
 
-    public ReceivedMessage(TableId tableId, int sequenceNumber)
-    {
+    public final transient int sequenceNumber;
+
+    public ReceivedMessage(TableId tableId, int sequenceNumber) {
         super(Type.RECEIVED);
         this.tableId = tableId;
         this.sequenceNumber = sequenceNumber;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         final StringBuilder sb = new StringBuilder("Received (");
         sb.append(tableId).append(", #").append(sequenceNumber).append(')');
         return sb.toString();

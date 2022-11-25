@@ -21,31 +21,32 @@ import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputStreamPlus;
 import org.apache.cassandra.streaming.StreamSession;
 
-public class CompleteMessage extends StreamMessage
-{
-    public static Serializer<CompleteMessage> serializer = new Serializer<CompleteMessage>()
-    {
-        public CompleteMessage deserialize(DataInputPlus in, int version)
-        {
+public class CompleteMessage extends StreamMessage {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompleteMessage.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompleteMessage.class);
+
+    public static transient Serializer<CompleteMessage> serializer = new Serializer<CompleteMessage>() {
+
+        public CompleteMessage deserialize(DataInputPlus in, int version) {
             return new CompleteMessage();
         }
 
-        public void serialize(CompleteMessage message, DataOutputStreamPlus out, int version, StreamSession session) {}
+        public void serialize(CompleteMessage message, DataOutputStreamPlus out, int version, StreamSession session) {
+        }
 
-        public long serializedSize(CompleteMessage message, int version)
-        {
+        public long serializedSize(CompleteMessage message, int version) {
             return 0;
         }
     };
 
-    public CompleteMessage()
-    {
+    public CompleteMessage() {
         super(Type.COMPLETE);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "Complete";
     }
 }

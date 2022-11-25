@@ -26,13 +26,11 @@ import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.DebuggableScheduledThreadPoolExecutor;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.ColumnFamilyStore;
@@ -55,71 +53,60 @@ import org.apache.cassandra.utils.WrappedRunnable;
  * Manages the fixed-size memory pool for index summaries, periodically resizing them
  * in order to give more memory to hot sstables and less memory to cold sstables.
  */
-public class IndexSummaryManager implements IndexSummaryManagerMBean
-{
-    private static final Logger logger = LoggerFactory.getLogger(IndexSummaryManager.class);
-    public static final String MBEAN_NAME = "org.apache.cassandra.db:type=IndexSummaries";
-    public static final IndexSummaryManager instance;
+public class IndexSummaryManager implements IndexSummaryManagerMBean {
 
-    private long memoryPoolBytes;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexSummaryManager.class);
 
-    private final DebuggableScheduledThreadPoolExecutor executor;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexSummaryManager.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(IndexSummaryManager.class);
+
+    public static final transient String MBEAN_NAME = "org.apache.cassandra.db:type=IndexSummaries";
+
+    public static final transient IndexSummaryManager instance;
+
+    private transient long memoryPoolBytes;
+
+    private final transient DebuggableScheduledThreadPoolExecutor executor;
 
     // our next scheduled resizing run
-    private ScheduledFuture future;
+    private transient ScheduledFuture future;
 
-    static
-    {
+    static {
         instance = new IndexSummaryManager();
         MBeanWrapper.instance.registerMBean(instance, MBEAN_NAME);
     }
 
-    private IndexSummaryManager()
-    {
+    private IndexSummaryManager() {
         executor = new DebuggableScheduledThreadPoolExecutor(1, "IndexSummaryManager", Thread.MIN_PRIORITY);
-
         long indexSummarySizeInMB = DatabaseDescriptor.getIndexSummaryCapacityInMB();
         int interval = DatabaseDescriptor.getIndexSummaryResizeIntervalInMinutes();
-        logger.info("Initializing index summary manager with a memory pool size of {} MB and a resize interval of {} minutes",
-                    indexSummarySizeInMB, interval);
-
+        logger.info("Initializing index summary manager with a memory pool size of {} MB and a resize interval of {} minutes", indexSummarySizeInMB, interval);
         setMemoryPoolCapacityInMB(DatabaseDescriptor.getIndexSummaryCapacityInMB());
         setResizeIntervalInMinutes(DatabaseDescriptor.getIndexSummaryResizeIntervalInMinutes());
     }
 
-    public int getResizeIntervalInMinutes()
-    {
+    public int getResizeIntervalInMinutes() {
         return DatabaseDescriptor.getIndexSummaryResizeIntervalInMinutes();
     }
 
-    public void setResizeIntervalInMinutes(int resizeIntervalInMinutes)
-    {
+    public void setResizeIntervalInMinutes(int resizeIntervalInMinutes) {
         int oldInterval = getResizeIntervalInMinutes();
         DatabaseDescriptor.setIndexSummaryResizeIntervalInMinutes(resizeIntervalInMinutes);
-
         long initialDelay;
-        if (future != null)
-        {
-            initialDelay = oldInterval < 0
-                           ? resizeIntervalInMinutes
-                           : Math.max(0, resizeIntervalInMinutes - (oldInterval - future.getDelay(TimeUnit.MINUTES)));
+        if (future != null) {
+            initialDelay = oldInterval < 0 ? resizeIntervalInMinutes : Math.max(0, resizeIntervalInMinutes - (oldInterval - future.getDelay(TimeUnit.MINUTES)));
             future.cancel(false);
-        }
-        else
-        {
+        } else {
             initialDelay = resizeIntervalInMinutes;
         }
-
-        if (resizeIntervalInMinutes < 0)
-        {
+        if (resizeIntervalInMinutes < 0) {
             future = null;
             return;
         }
+        future = executor.scheduleWithFixedDelay(new WrappedRunnable() {
 
-        future = executor.scheduleWithFixedDelay(new WrappedRunnable()
-        {
-            protected void runMayThrow() throws Exception
-            {
+            protected void runMayThrow() throws Exception {
                 redistributeSummaries();
             }
         }, initialDelay, resizeIntervalInMinutes, TimeUnit.MINUTES);
@@ -127,40 +114,31 @@ public class IndexSummaryManager implements IndexSummaryManagerMBean
 
     // for testing only
     @VisibleForTesting
-    Long getTimeToNextResize(TimeUnit timeUnit)
-    {
+    Long getTimeToNextResize(TimeUnit timeUnit) {
         if (future == null)
             return null;
-
         return future.getDelay(timeUnit);
     }
 
-    public long getMemoryPoolCapacityInMB()
-    {
+    public long getMemoryPoolCapacityInMB() {
         return memoryPoolBytes / 1024L / 1024L;
     }
 
-    public Map<String, Integer> getIndexIntervals()
-    {
+    public Map<String, Integer> getIndexIntervals() {
         List<SSTableReader> sstables = getAllSSTables();
         Map<String, Integer> intervals = new HashMap<>(sstables.size());
-        for (SSTableReader sstable : sstables)
-            intervals.put(sstable.getFilename(), (int) Math.round(sstable.getEffectiveIndexInterval()));
-
+        for (SSTableReader sstable : sstables) intervals.put(sstable.getFilename(), (int) Math.round(sstable.getEffectiveIndexInterval()));
         return intervals;
     }
 
-    public double getAverageIndexInterval()
-    {
+    public double getAverageIndexInterval() {
         List<SSTableReader> sstables = getAllSSTables();
         double total = 0.0;
-        for (SSTableReader sstable : sstables)
-            total += sstable.getEffectiveIndexInterval();
+        for (SSTableReader sstable : sstables) total += sstable.getEffectiveIndexInterval();
         return total / sstables.size();
     }
 
-    public void setMemoryPoolCapacityInMB(long memoryPoolCapacityInMB)
-    {
+    public void setMemoryPoolCapacityInMB(long memoryPoolCapacityInMB) {
         this.memoryPoolBytes = memoryPoolCapacityInMB * 1024L * 1024L;
     }
 
@@ -168,23 +146,17 @@ public class IndexSummaryManager implements IndexSummaryManagerMBean
      * Returns the actual space consumed by index summaries for all sstables.
      * @return space currently used in MB
      */
-    public double getMemoryPoolSizeInMB()
-    {
+    public double getMemoryPoolSizeInMB() {
         long total = 0;
-        for (SSTableReader sstable : getAllSSTables())
-            total += sstable.getIndexSummaryOffHeapSize();
+        for (SSTableReader sstable : getAllSSTables()) total += sstable.getIndexSummaryOffHeapSize();
         return total / 1024.0 / 1024.0;
     }
 
-    private List<SSTableReader> getAllSSTables()
-    {
+    private List<SSTableReader> getAllSSTables() {
         List<SSTableReader> result = new ArrayList<>();
-        for (Keyspace ks : Keyspace.all())
-        {
-            for (ColumnFamilyStore cfStore: ks.getColumnFamilyStores())
-                result.addAll(cfStore.getLiveSSTables());
+        for (Keyspace ks : Keyspace.all()) {
+            for (ColumnFamilyStore cfStore : ks.getColumnFamilyStores()) result.addAll(cfStore.getLiveSSTables());
         }
-
         return result;
     }
 
@@ -196,24 +168,18 @@ public class IndexSummaryManager implements IndexSummaryManagerMBean
      *          right: the transactions, keyed by table id.
      */
     @SuppressWarnings("resource")
-    private Pair<Long, Map<TableId, LifecycleTransaction>> getRestributionTransactions()
-    {
+    private Pair<Long, Map<TableId, LifecycleTransaction>> getRestributionTransactions() {
         List<SSTableReader> allCompacting = new ArrayList<>();
         Map<TableId, LifecycleTransaction> allNonCompacting = new HashMap<>();
-        for (Keyspace ks : Keyspace.all())
-        {
-            for (ColumnFamilyStore cfStore: ks.getColumnFamilyStores())
-            {
+        for (Keyspace ks : Keyspace.all()) {
+            for (ColumnFamilyStore cfStore : ks.getColumnFamilyStores()) {
                 Set<SSTableReader> nonCompacting, allSSTables;
                 LifecycleTransaction txn;
-                do
-                {
+                do {
                     View view = cfStore.getTracker().getView();
                     allSSTables = ImmutableSet.copyOf(view.select(SSTableSet.CANONICAL));
                     nonCompacting = ImmutableSet.copyOf(view.getUncompacting(allSSTables));
-                }
-                while (null == (txn = cfStore.getTracker().tryModify(nonCompacting, OperationType.INDEX_SUMMARY)));
-
+                } while (null == (txn = cfStore.getTracker().tryModify(nonCompacting, OperationType.INDEX_SUMMARY)));
                 allNonCompacting.put(cfStore.metadata.id, txn);
                 allCompacting.addAll(Sets.difference(allSSTables, nonCompacting));
             }
@@ -222,39 +188,25 @@ public class IndexSummaryManager implements IndexSummaryManagerMBean
         return Pair.create(nonRedistributingOffHeapSize, allNonCompacting);
     }
 
-    public void redistributeSummaries() throws IOException
-    {
+    public void redistributeSummaries() throws IOException {
         if (CompactionManager.instance.isGlobalCompactionPaused())
             return;
         Pair<Long, Map<TableId, LifecycleTransaction>> redistributionTransactionInfo = getRestributionTransactions();
         Map<TableId, LifecycleTransaction> transactions = redistributionTransactionInfo.right;
         long nonRedistributingOffHeapSize = redistributionTransactionInfo.left;
-        try
-        {
-            redistributeSummaries(new IndexSummaryRedistribution(transactions,
-                                                                 nonRedistributingOffHeapSize,
-                                                                 this.memoryPoolBytes));
-        }
-        catch (Exception e)
-        {
-            if (e instanceof CompactionInterruptedException)
-            {
+        try {
+            redistributeSummaries(new IndexSummaryRedistribution(transactions, nonRedistributingOffHeapSize, this.memoryPoolBytes));
+        } catch (Exception e) {
+            if (e instanceof CompactionInterruptedException) {
                 logger.info("Index summary interrupted: {}", e.getMessage());
-            }
-            else
-            {
+            } else {
                 logger.error("Got exception during index summary redistribution", e);
                 throw e;
             }
-        }
-        finally
-        {
-            try
-            {
+        } finally {
+            try {
                 FBUtilities.closeAll(transactions.values());
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
@@ -269,14 +221,12 @@ public class IndexSummaryManager implements IndexSummaryManagerMBean
      * @return a list of new SSTableReader instances
      */
     @VisibleForTesting
-    public static List<SSTableReader> redistributeSummaries(IndexSummaryRedistribution redistribution) throws IOException
-    {
+    public static List<SSTableReader> redistributeSummaries(IndexSummaryRedistribution redistribution) throws IOException {
         return CompactionManager.instance.runIndexSummaryRedistribution(redistribution);
     }
 
     @VisibleForTesting
-    public void shutdownAndWait(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException
-    {
+    public void shutdownAndWait(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException {
         ExecutorUtils.shutdownAndWait(timeout, unit, executor);
     }
 }

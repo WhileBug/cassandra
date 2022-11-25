@@ -15,26 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.compaction;
 
-
 import java.util.Set;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 
-public class TimeWindowCompactionController extends CompactionController
-{
-    private static final Logger logger = LoggerFactory.getLogger(TimeWindowCompactionController.class);
+public class TimeWindowCompactionController extends CompactionController {
 
-    private final boolean ignoreOverlaps;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TimeWindowCompactionController.class);
 
-    public TimeWindowCompactionController(ColumnFamilyStore cfs, Set<SSTableReader> compacting, int gcBefore, boolean ignoreOverlaps)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TimeWindowCompactionController.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(TimeWindowCompactionController.class);
+
+    private final transient boolean ignoreOverlaps;
+
+    public TimeWindowCompactionController(ColumnFamilyStore cfs, Set<SSTableReader> compacting, int gcBefore, boolean ignoreOverlaps) {
         super(cfs, compacting, gcBefore);
         this.ignoreOverlaps = ignoreOverlaps;
         if (ignoreOverlaps)
@@ -42,8 +41,7 @@ public class TimeWindowCompactionController extends CompactionController
     }
 
     @Override
-    protected boolean ignoreOverlaps()
-    {
+    protected boolean ignoreOverlaps() {
         return ignoreOverlaps;
     }
 }

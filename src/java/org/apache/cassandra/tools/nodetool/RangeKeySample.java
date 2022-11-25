@@ -18,22 +18,22 @@
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
-
 import java.util.List;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "rangekeysample", description = "Shows the sampled keys held across all keyspaces")
-public class RangeKeySample extends NodeToolCmd
-{
+public class RangeKeySample extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RangeKeySample.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RangeKeySample.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.output().out.println("RangeKeySample: ");
         List<String> tokenStrings = probe.sampleKeyRange();
-        for (String tokenString : tokenStrings)
-        {
+        for (String tokenString : tokenStrings) {
             probe.output().out.println("\t" + tokenString);
         }
     }

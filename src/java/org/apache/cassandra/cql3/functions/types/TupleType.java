@@ -19,9 +19,7 @@ package org.apache.cassandra.cql3.functions.types;
 
 import java.util.Arrays;
 import java.util.List;
-
 import com.google.common.collect.ImmutableList;
-
 import org.apache.cassandra.transport.ProtocolVersion;
 import org.apache.cassandra.cql3.functions.types.exceptions.InvalidTypeException;
 
@@ -30,15 +28,19 @@ import org.apache.cassandra.cql3.functions.types.exceptions.InvalidTypeException
  *
  * <p>A tuple type is a essentially a list of types.
  */
-public class TupleType extends DataType
-{
+public class TupleType extends DataType {
 
-    private final List<DataType> types;
-    private final ProtocolVersion protocolVersion;
-    private final CodecRegistry codecRegistry;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TupleType.class);
 
-    TupleType(List<DataType> types, ProtocolVersion protocolVersion, CodecRegistry codecRegistry)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TupleType.class);
+
+    private final transient List<DataType> types;
+
+    private final transient ProtocolVersion protocolVersion;
+
+    private final transient CodecRegistry codecRegistry;
+
+    TupleType(List<DataType> types, ProtocolVersion protocolVersion, CodecRegistry codecRegistry) {
         super(DataType.Name.TUPLE);
         this.types = ImmutableList.copyOf(types);
         this.protocolVersion = protocolVersion;
@@ -60,9 +62,7 @@ public class TupleType extends DataType
      * @param types           the types for the tuple type.
      * @return the newly created tuple type.
      */
-    public static TupleType of(
-    ProtocolVersion protocolVersion, CodecRegistry codecRegistry, DataType... types)
-    {
+    public static TupleType of(ProtocolVersion protocolVersion, CodecRegistry codecRegistry, DataType... types) {
         return new TupleType(Arrays.asList(types), protocolVersion, codecRegistry);
     }
 
@@ -71,8 +71,7 @@ public class TupleType extends DataType
      *
      * @return the (immutable) list of types composing this tuple type.
      */
-    List<DataType> getComponentTypes()
-    {
+    List<DataType> getComponentTypes() {
         return types;
     }
 
@@ -81,8 +80,7 @@ public class TupleType extends DataType
      *
      * @return an empty (with all component to {@code null}) value for this user type definition.
      */
-    public TupleValue newValue()
-    {
+    public TupleValue newValue() {
         return new TupleValue(this);
     }
 
@@ -100,28 +98,22 @@ public class TupleType extends DataType
      * @throws InvalidTypeException     if any of the provided value is not of the correct type for the
      *                                  component.
      */
-    public TupleValue newValue(Object... values)
-    {
+    public TupleValue newValue(Object... values) {
         if (values.length != types.size())
-            throw new IllegalArgumentException(
-            String.format(
-            "Invalid number of values. Expecting %d but got %d", types.size(), values.length));
-
+            throw new IllegalArgumentException(String.format("Invalid number of values. Expecting %d but got %d", types.size(), values.length));
         TupleValue t = newValue();
-        for (int i = 0; i < values.length; i++)
-        {
+        for (int i = 0; i < values.length; i++) {
             DataType dataType = types.get(i);
-            if (values[i] == null) t.setValue(i, null);
+            if (values[i] == null)
+                t.setValue(i, null);
             else
-                t.setValue(
-                i, codecRegistry.codecFor(dataType, values[i]).serialize(values[i], protocolVersion));
+                t.setValue(i, codecRegistry.codecFor(dataType, values[i]).serialize(values[i], protocolVersion));
         }
         return t;
     }
 
     @Override
-    public boolean isFrozen()
-    {
+    public boolean isFrozen() {
         return true;
     }
 
@@ -134,27 +126,23 @@ public class TupleType extends DataType
      * @return the protocol version that has been used to deserialize this tuple type, or that will be
      * used to serialize it.
      */
-    ProtocolVersion getProtocolVersion()
-    {
+    ProtocolVersion getProtocolVersion() {
         return protocolVersion;
     }
 
-    CodecRegistry getCodecRegistry()
-    {
+    CodecRegistry getCodecRegistry() {
         return codecRegistry;
     }
 
     @Override
-    public int hashCode()
-    {
-        return Arrays.hashCode(new Object[]{ name, types });
+    public int hashCode() {
+        return Arrays.hashCode(new Object[] { name, types });
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (!(o instanceof TupleType)) return false;
-
+    public boolean equals(Object o) {
+        if (!(o instanceof TupleType))
+            return false;
         TupleType d = (TupleType) o;
         return name == d.name && types.equals(d.types);
     }
@@ -174,25 +162,23 @@ public class TupleType extends DataType
      * @return {@code true} if this tuple type contains the given tuple type, and {@code false}
      * otherwise.
      */
-    public boolean contains(TupleType other)
-    {
-        if (this.equals(other)) return true;
-        if (other.types.size() > this.types.size()) return false;
+    public boolean contains(TupleType other) {
+        if (this.equals(other))
+            return true;
+        if (other.types.size() > this.types.size())
+            return false;
         return types.subList(0, other.types.size()).equals(other.types);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "frozen<" + asFunctionParameterString() + '>';
     }
 
     @Override
-    public String asFunctionParameterString()
-    {
+    public String asFunctionParameterString() {
         StringBuilder sb = new StringBuilder();
-        for (DataType type : types)
-        {
+        for (DataType type : types) {
             sb.append(sb.length() == 0 ? "tuple<" : ", ");
             sb.append(type.asFunctionParameterString());
         }

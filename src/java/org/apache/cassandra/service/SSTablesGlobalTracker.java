@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service;
 
 import java.util.Collections;
@@ -25,13 +24,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.lifecycle.Tracker;
 import org.apache.cassandra.io.sstable.Descriptor;
@@ -51,10 +48,15 @@ import org.apache.cassandra.utils.NoSpamLogger;
  * <p>Each table tracks its own SSTables in {@link ColumnFamilyStore} (through {@link Tracker}) for most purposes, but
  * this class groups information we need on all the sstables the node has.
  */
-public class SSTablesGlobalTracker implements INotificationConsumer
-{
-    private static final Logger logger = LoggerFactory.getLogger(SSTablesGlobalTracker.class);
-    private static final NoSpamLogger noSpamLogger = NoSpamLogger.getLogger(logger, 5L, TimeUnit.MINUTES);
+public class SSTablesGlobalTracker implements INotificationConsumer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTablesGlobalTracker.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTablesGlobalTracker.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(SSTablesGlobalTracker.class);
+
+    private static final transient NoSpamLogger noSpamLogger = NoSpamLogger.getLogger(logger, 5L, TimeUnit.MINUTES);
 
     /*
      * As of CASSANDRA-15897, the only thing we track here is the set of sstable versions in use.
@@ -75,27 +77,26 @@ public class SSTablesGlobalTracker implements INotificationConsumer
      * of the data structures of this class are only updated together within a synchronized block when handling new
      * sstables additions/removals.
      */
+    private final transient Set<Descriptor> allSSTables = ConcurrentHashMap.newKeySet();
 
-    private final Set<Descriptor> allSSTables = ConcurrentHashMap.newKeySet();
+    private final transient VersionAndType currentVersion;
 
-    private final VersionAndType currentVersion;
-    private int sstablesForCurrentVersion;
-    private final Map<VersionAndType, Integer> sstablesForOtherVersions = new HashMap<>();
+    private transient int sstablesForCurrentVersion;
 
-    private volatile ImmutableSet<VersionAndType> versionsInUse = ImmutableSet.of();
+    private final transient Map<VersionAndType, Integer> sstablesForOtherVersions = new HashMap<>();
 
-    private final Set<INotificationConsumer> subscribers = new CopyOnWriteArraySet<>();
+    private volatile transient ImmutableSet<VersionAndType> versionsInUse = ImmutableSet.of();
 
-    public SSTablesGlobalTracker(SSTableFormat.Type currentSSTableFormat)
-    {
+    private final transient Set<INotificationConsumer> subscribers = new CopyOnWriteArraySet<>();
+
+    public SSTablesGlobalTracker(SSTableFormat.Type currentSSTableFormat) {
         this.currentVersion = new VersionAndType(currentSSTableFormat.info.getLatestVersion(), currentSSTableFormat);
     }
 
     /**
      * The set of all sstable versions currently in use on this node.
      */
-    public Set<VersionAndType> versionsInUse()
-    {
+    public Set<VersionAndType> versionsInUse() {
         return versionsInUse;
     }
 
@@ -110,8 +111,7 @@ public class SSTablesGlobalTracker implements INotificationConsumer
      * change).
      * @return whether the subscriber was register (so whether it was not already registered).
      */
-    public boolean register(INotificationConsumer subscriber)
-    {
+    public boolean register(INotificationConsumer subscriber) {
         return subscribers.add(subscriber);
     }
 
@@ -121,30 +121,25 @@ public class SSTablesGlobalTracker implements INotificationConsumer
      * @param subscriber the subscriber to unregister. If this subscriber is not registered, this method does nothing.
      * @return whether the subscriber was unregistered (so whether it was registered subscriber of this tracker).
      */
-    public boolean unregister(INotificationConsumer subscriber)
-    {
+    public boolean unregister(INotificationConsumer subscriber) {
         return subscribers.remove(subscriber);
     }
 
     @Override
-    public void handleNotification(INotification notification, Object sender)
-    {
+    public void handleNotification(INotification notification, Object sender) {
         Iterable<Descriptor> removed = removedSSTables(notification);
         Iterable<Descriptor> added = addedSSTables(notification);
         if (Iterables.isEmpty(removed) && Iterables.isEmpty(added))
             return;
-
         boolean triggerUpdate = handleSSTablesChange(removed, added);
-        if (triggerUpdate)
-        {
+        if (triggerUpdate) {
             SSTablesVersionsInUseChangeNotification changeNotification = new SSTablesVersionsInUseChangeNotification(versionsInUse);
             subscribers.forEach(s -> s.handleNotification(changeNotification, this));
         }
     }
 
     @VisibleForTesting
-    boolean handleSSTablesChange(Iterable<Descriptor> removed, Iterable<Descriptor> added)
-    {
+    boolean handleSSTablesChange(Iterable<Descriptor> removed, Iterable<Descriptor> added) {
         /*
          We collect changes to 'sstablesForCurrentVersion' and 'sstablesForOtherVersions' as delta first, and then
          apply those delta within a synchronized block below. The goal being to reduce the work done in that
@@ -156,48 +151,37 @@ public class SSTablesGlobalTracker implements INotificationConsumer
          Note: we deal with removes first as if a notification both removes and adds, it's a compaction and while
          it should never remove and add the same descriptor in practice, doing the remove first is more logical.
         */
-        for (Descriptor desc  : removed)
-        {
+        for (Descriptor desc : removed) {
             if (!allSSTables.remove(desc))
                 continue;
-
             VersionAndType version = version(desc);
             if (currentVersion.equals(version))
                 --currentDelta;
             else
                 othersDelta = update(othersDelta, version, -1);
         }
-        for (Descriptor desc : added)
-        {
+        for (Descriptor desc : added) {
             if (!allSSTables.add(desc))
                 continue;
-
             VersionAndType version = version(desc);
             if (currentVersion.equals(version))
                 ++currentDelta;
             else
                 othersDelta = update(othersDelta, version, +1);
         }
-
         if (currentDelta == 0 && (othersDelta == null))
             return false;
-
         /*
          Set to true if the set of versions in use is changed by this update. That is, if a version having no
          version prior now has some, or if the count for some version reaches 0.
         */
         boolean triggerUpdate;
-        synchronized (this)
-        {
-            triggerUpdate = (currentDelta > 0 && sstablesForCurrentVersion == 0)
-                            || (currentDelta < 0 && sstablesForCurrentVersion <= -currentDelta);
+        synchronized (this) {
+            triggerUpdate = (currentDelta > 0 && sstablesForCurrentVersion == 0) || (currentDelta < 0 && sstablesForCurrentVersion <= -currentDelta);
             sstablesForCurrentVersion += currentDelta;
             sstablesForCurrentVersion = sanitizeSSTablesCount(sstablesForCurrentVersion, currentVersion);
-
-            if (othersDelta != null)
-            {
-                for (Map.Entry<VersionAndType, Integer> entry : othersDelta.entrySet())
-                {
+            if (othersDelta != null) {
+                for (Map.Entry<VersionAndType, Integer> entry : othersDelta.entrySet()) {
                     VersionAndType version = entry.getKey();
                     int delta = entry.getValue();
                     /*
@@ -214,15 +198,13 @@ public class SSTablesGlobalTracker implements INotificationConsumer
                         sstablesForOtherVersions.put(version, newValue);
                 }
             }
-
             if (triggerUpdate)
                 versionsInUse = computeVersionsInUse(sstablesForCurrentVersion, currentVersion, sstablesForOtherVersions);
         }
         return triggerUpdate;
     }
 
-    private static ImmutableSet<VersionAndType> computeVersionsInUse(int sstablesForCurrentVersion, VersionAndType currentVersion, Map<VersionAndType, Integer> sstablesForOtherVersions)
-    {
+    private static ImmutableSet<VersionAndType> computeVersionsInUse(int sstablesForCurrentVersion, VersionAndType currentVersion, Map<VersionAndType, Integer> sstablesForOtherVersions) {
         ImmutableSet.Builder<VersionAndType> builder = ImmutableSet.builder();
         if (sstablesForCurrentVersion > 0)
             builder.add(currentVersion);
@@ -230,55 +212,45 @@ public class SSTablesGlobalTracker implements INotificationConsumer
         return builder.build();
     }
 
-    private static int sanitizeSSTablesCount(int sstableCount, VersionAndType version)
-    {
+    private static int sanitizeSSTablesCount(int sstableCount, VersionAndType version) {
         if (sstableCount >= 0)
             return sstableCount;
-
         /*
          This shouldn't happen and indicate a bug either in the tracking of this class, or on the passed notification.
          That said, it's not worth bringing the node down, so we log the problem but otherwise "correct" it.
         */
-        noSpamLogger.error("Invalid state while handling sstables change notification: the number of sstables for " +
-                           "version {} was computed to {}. This indicate a bug and please report it, but it should " +
-                           "not have adverse consequences.", version, sstableCount, new RuntimeException());
+        noSpamLogger.error("Invalid state while handling sstables change notification: the number of sstables for " + "version {} was computed to {}. This indicate a bug and please report it, but it should " + "not have adverse consequences.", version, sstableCount, new RuntimeException());
         return 0;
     }
 
-    private static Iterable<Descriptor> addedSSTables(INotification notification)
-    {
+    private static Iterable<Descriptor> addedSSTables(INotification notification) {
         if (notification instanceof SSTableAddedNotification)
-            return Iterables.transform(((SSTableAddedNotification)notification).added, s -> s.descriptor);
+            return Iterables.transform(((SSTableAddedNotification) notification).added, s -> s.descriptor);
         if (notification instanceof SSTableListChangedNotification)
-            return Iterables.transform(((SSTableListChangedNotification)notification).added, s -> s.descriptor);
+            return Iterables.transform(((SSTableListChangedNotification) notification).added, s -> s.descriptor);
         if (notification instanceof InitialSSTableAddedNotification)
-            return Iterables.transform(((InitialSSTableAddedNotification)notification).added, s -> s.descriptor);
+            return Iterables.transform(((InitialSSTableAddedNotification) notification).added, s -> s.descriptor);
         else
             return Collections.emptyList();
     }
 
-    private static Iterable<Descriptor> removedSSTables(INotification notification)
-    {
+    private static Iterable<Descriptor> removedSSTables(INotification notification) {
         if (notification instanceof SSTableDeletingNotification)
-            return Collections.singletonList(((SSTableDeletingNotification)notification).deleting.descriptor);
+            return Collections.singletonList(((SSTableDeletingNotification) notification).deleting.descriptor);
         if (notification instanceof SSTableListChangedNotification)
-            return Iterables.transform(((SSTableListChangedNotification)notification).removed, s -> s.descriptor);
+            return Iterables.transform(((SSTableListChangedNotification) notification).removed, s -> s.descriptor);
         else
             return Collections.emptyList();
     }
 
-    private static Map<VersionAndType, Integer> update(Map<VersionAndType, Integer> counts,
-                                                       VersionAndType toUpdate,
-                                                       int delta)
-    {
+    private static Map<VersionAndType, Integer> update(Map<VersionAndType, Integer> counts, VersionAndType toUpdate, int delta) {
         Map<VersionAndType, Integer> m = counts == null ? new HashMap<>() : counts;
         m.merge(toUpdate, delta, (a, b) -> (a + b == 0) ? null : (a + b));
         return m;
     }
 
     @VisibleForTesting
-    static VersionAndType version(Descriptor sstable)
-    {
+    static VersionAndType version(Descriptor sstable) {
         return new VersionAndType(sstable.version, sstable.formatType);
     }
 }

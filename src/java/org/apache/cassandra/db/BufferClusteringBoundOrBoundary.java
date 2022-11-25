@@ -15,19 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
-
 import com.google.common.base.Preconditions;
 
-public abstract class BufferClusteringBoundOrBoundary extends AbstractBufferClusteringPrefix implements ClusteringBoundOrBoundary<ByteBuffer>
-{
-    BufferClusteringBoundOrBoundary(Kind kind, ByteBuffer[] values)
-    {
+public abstract class BufferClusteringBoundOrBoundary extends AbstractBufferClusteringPrefix implements ClusteringBoundOrBoundary<ByteBuffer> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BufferClusteringBoundOrBoundary.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BufferClusteringBoundOrBoundary.class);
+
+    BufferClusteringBoundOrBoundary(Kind kind, ByteBuffer[] values) {
         super(kind, values);
-        Preconditions.checkArgument(values.length > 0 || !kind.isBoundary(),
-                                    "Cannot create bounds/boundary objects without clustering values");
+        Preconditions.checkArgument(values.length > 0 || !kind.isBoundary(), "Cannot create bounds/boundary objects without clustering values");
     }
 }

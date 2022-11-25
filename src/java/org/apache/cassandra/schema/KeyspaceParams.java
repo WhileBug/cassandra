@@ -18,7 +18,6 @@
 package org.apache.cassandra.schema;
 
 import java.util.Map;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
@@ -26,9 +25,13 @@ import com.google.common.base.Objects;
 /**
  * An immutable class representing keyspace parameters (durability and replication).
  */
-public final class KeyspaceParams
-{
-    public static final boolean DEFAULT_DURABLE_WRITES = true;
+public final class KeyspaceParams {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyspaceParams.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyspaceParams.class);
+
+    public static final transient boolean DEFAULT_DURABLE_WRITES = true;
 
     /**
      * This determines durable writes for the {@link org.apache.cassandra.schema.SchemaConstants#SCHEMA_KEYSPACE_NAME}
@@ -36,90 +39,72 @@ public final class KeyspaceParams
      * the only reason it is not final is for commitlog unit tests. It should only be changed for testing purposes.
      */
     @VisibleForTesting
-    public static boolean DEFAULT_LOCAL_DURABLE_WRITES = true;
+    public static transient boolean DEFAULT_LOCAL_DURABLE_WRITES = true;
 
-    public enum Option
-    {
-        DURABLE_WRITES,
-        REPLICATION;
+    public enum Option {
+
+        DURABLE_WRITES, REPLICATION;
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return name().toLowerCase();
         }
     }
 
-    public final boolean durableWrites;
-    public final ReplicationParams replication;
+    public final transient boolean durableWrites;
 
-    public KeyspaceParams(boolean durableWrites, ReplicationParams replication)
-    {
+    public final transient ReplicationParams replication;
+
+    public KeyspaceParams(boolean durableWrites, ReplicationParams replication) {
         this.durableWrites = durableWrites;
         this.replication = replication;
     }
 
-    public static KeyspaceParams create(boolean durableWrites, Map<String, String> replication)
-    {
+    public static KeyspaceParams create(boolean durableWrites, Map<String, String> replication) {
         return new KeyspaceParams(durableWrites, ReplicationParams.fromMap(replication));
     }
 
-    public static KeyspaceParams local()
-    {
+    public static KeyspaceParams local() {
         return new KeyspaceParams(DEFAULT_LOCAL_DURABLE_WRITES, ReplicationParams.local());
     }
 
-    public static KeyspaceParams simple(int replicationFactor)
-    {
+    public static KeyspaceParams simple(int replicationFactor) {
         return new KeyspaceParams(true, ReplicationParams.simple(replicationFactor));
     }
 
-    public static KeyspaceParams simple(String replicationFactor)
-    {
+    public static KeyspaceParams simple(String replicationFactor) {
         return new KeyspaceParams(true, ReplicationParams.simple(replicationFactor));
     }
 
-    public static KeyspaceParams simpleTransient(int replicationFactor)
-    {
+    public static KeyspaceParams simpleTransient(int replicationFactor) {
         return new KeyspaceParams(false, ReplicationParams.simple(replicationFactor));
     }
 
-    public static KeyspaceParams nts(Object... args)
-    {
+    public static KeyspaceParams nts(Object... args) {
         return new KeyspaceParams(true, ReplicationParams.nts(args));
     }
 
-    public void validate(String name)
-    {
+    public void validate(String name) {
         replication.validate(name);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof KeyspaceParams))
             return false;
-
         KeyspaceParams p = (KeyspaceParams) o;
-
         return durableWrites == p.durableWrites && replication.equals(p.replication);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(durableWrites, replication);
     }
 
     @Override
-    public String toString()
-    {
-        return MoreObjects.toStringHelper(this)
-                          .add(Option.DURABLE_WRITES.toString(), durableWrites)
-                          .add(Option.REPLICATION.toString(), replication)
-                          .toString();
+    public String toString() {
+        return MoreObjects.toStringHelper(this).add(Option.DURABLE_WRITES.toString(), durableWrites).add(Option.REPLICATION.toString(), replication).toString();
     }
 }

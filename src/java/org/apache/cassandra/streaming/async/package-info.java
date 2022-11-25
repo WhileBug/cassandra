@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 /**
  * <h1>Non-blocking streaming with netty</h1>
  * This document describes the implementation details of the streaming protocol. A listener for a streaming
@@ -33,7 +32,6 @@
  * <h2>Session setup and management</h2>
  *
  * The full details of the session lifecycle are documented in {@link org.apache.cassandra.streaming.StreamSession}.
- *
  */
 package org.apache.cassandra.streaming.async;
 

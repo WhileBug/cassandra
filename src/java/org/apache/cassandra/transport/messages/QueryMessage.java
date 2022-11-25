@@ -18,7 +18,6 @@
 package org.apache.cassandra.transport.messages;
 
 import com.google.common.collect.ImmutableMap;
-
 import io.netty.buffer.ByteBuf;
 import org.apache.cassandra.cql3.CQLStatement;
 import org.apache.cassandra.cql3.QueryEvents;
@@ -38,18 +37,20 @@ import org.apache.cassandra.utils.JVMStabilityInspector;
 /**
  * A CQL query
  */
-public class QueryMessage extends Message.Request
-{
-    public static final Message.Codec<QueryMessage> codec = new Message.Codec<QueryMessage>()
-    {
-        public QueryMessage decode(ByteBuf body, ProtocolVersion version)
-        {
+public class QueryMessage extends Message.Request {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QueryMessage.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QueryMessage.class);
+
+    public static final transient Message.Codec<QueryMessage> codec = new Message.Codec<QueryMessage>() {
+
+        public QueryMessage decode(ByteBuf body, ProtocolVersion version) {
             String query = CBUtil.readLongString(body);
             return new QueryMessage(query, QueryOptions.codec.decode(body, version));
         }
 
-        public void encode(QueryMessage msg, ByteBuf dest, ProtocolVersion version)
-        {
+        public void encode(QueryMessage msg, ByteBuf dest, ProtocolVersion version) {
             CBUtil.writeLongString(msg.query, dest);
             if (version == ProtocolVersion.V1)
                 CBUtil.writeConsistencyLevel(msg.options.getConsistency(), dest);
@@ -57,64 +58,49 @@ public class QueryMessage extends Message.Request
                 QueryOptions.codec.encode(msg.options, dest, version);
         }
 
-        public int encodedSize(QueryMessage msg, ProtocolVersion version)
-        {
+        public int encodedSize(QueryMessage msg, ProtocolVersion version) {
             int size = CBUtil.sizeOfLongString(msg.query);
-
-            if (version == ProtocolVersion.V1)
-            {
+            if (version == ProtocolVersion.V1) {
                 size += CBUtil.sizeOfConsistencyLevel(msg.options.getConsistency());
-            }
-            else
-            {
+            } else {
                 size += QueryOptions.codec.encodedSize(msg.options, version);
             }
             return size;
         }
     };
 
-    public final String query;
-    public final QueryOptions options;
+    public final transient String query;
 
-    public QueryMessage(String query, QueryOptions options)
-    {
+    public final transient QueryOptions options;
+
+    public QueryMessage(String query, QueryOptions options) {
         super(Type.QUERY);
         this.query = query;
         this.options = options;
     }
 
     @Override
-    protected boolean isTraceable()
-    {
+    protected boolean isTraceable() {
         return true;
     }
 
     @Override
-    protected Message.Response execute(QueryState state, long queryStartNanoTime, boolean traceRequest)
-    {
+    protected Message.Response execute(QueryState state, long queryStartNanoTime, boolean traceRequest) {
         CQLStatement statement = null;
-        try
-        {
+        try {
             if (options.getPageSize() == 0)
                 throw new ProtocolException("The page size cannot be 0");
-
             if (traceRequest)
                 traceQuery(state);
-
             long queryStartTime = System.currentTimeMillis();
-
             QueryHandler queryHandler = ClientState.getCQLQueryHandler();
             statement = queryHandler.parse(query, state, options);
             Message.Response response = queryHandler.process(statement, state, options, getCustomPayload(), queryStartNanoTime);
             QueryEvents.instance.notifyQuerySuccess(statement, query, options, state, queryStartTime, response);
-
             if (options.skipMetadata() && response instanceof ResultMessage.Rows)
-                ((ResultMessage.Rows)response).result.metadata.setSkipMetadata();
-
+                ((ResultMessage.Rows) response).result.metadata.setSkipMetadata();
             return response;
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             QueryEvents.instance.notifyQueryFailure(statement, query, options, state, e);
             JVMStabilityInspector.inspectThrowable(e);
             if (!((e instanceof RequestValidationException) || (e instanceof RequestExecutionException)))
@@ -123,8 +109,7 @@ public class QueryMessage extends Message.Request
         }
     }
 
-    private void traceQuery(QueryState state)
-    {
+    private void traceQuery(QueryState state) {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         builder.put("query", query);
         if (options.getPageSize() > 0)
@@ -133,13 +118,11 @@ public class QueryMessage extends Message.Request
             builder.put("consistency_level", options.getConsistency().name());
         if (options.getSerialConsistency() != null)
             builder.put("serial_consistency_level", options.getSerialConsistency().name());
-
         Tracing.instance.begin("Execute CQL3 query", state.getClientAddress(), builder.build());
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("QUERY %s [pageSize = %d]", query, options.getPageSize());
     }
 }

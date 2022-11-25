@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair;
 
 /**
@@ -25,7 +24,11 @@ package org.apache.cassandra.repair;
  * The expected behavior is that when this is thrown, this error should be ignored from history table and not used
  * for notifications
  */
-public class SomeRepairFailedException extends RuntimeException
-{
-    public static final SomeRepairFailedException INSTANCE = new SomeRepairFailedException();
+public class SomeRepairFailedException extends RuntimeException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SomeRepairFailedException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SomeRepairFailedException.class);
+
+    public static final transient SomeRepairFailedException INSTANCE = new SomeRepairFailedException();
 }

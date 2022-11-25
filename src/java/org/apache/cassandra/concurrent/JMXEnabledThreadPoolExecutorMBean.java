@@ -17,8 +17,12 @@
  */
 package org.apache.cassandra.concurrent;
 
-public interface JMXEnabledThreadPoolExecutorMBean extends ResizableThreadPool
-{
+public interface JMXEnabledThreadPoolExecutorMBean extends ResizableThreadPool {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(JMXEnabledThreadPoolExecutorMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(JMXEnabledThreadPoolExecutorMBean.class);
+
     /**
      * Returns core pool size of thread pool.
      * Deprecated, use getCorePoolSize instead.

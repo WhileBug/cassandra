@@ -15,18 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.streaming;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.sstable.SSTableMultiWriter;
 import org.apache.cassandra.io.util.DataInputPlus;
 
 /**
  * This is the interface is used by the streaming code read a SSTable stream off a channel.
  */
-public interface IStreamReader
-{
+public interface IStreamReader {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IStreamReader.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IStreamReader.class);
+
     public SSTableMultiWriter read(DataInputPlus inputPlus) throws IOException;
 }

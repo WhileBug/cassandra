@@ -20,17 +20,22 @@ package org.apache.cassandra.cql3.functions;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
-
 import org.apache.cassandra.cql3.AssignmentTestable;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.schema.Difference;
 import org.github.jamm.Unmetered;
 
 @Unmetered
-public interface Function extends AssignmentTestable
-{
+public interface Function extends AssignmentTestable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Function.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Function.class);
+
     public FunctionName name();
+
     public List<AbstractType<?>> argTypes();
+
     public AbstractType<?> returnType();
 
     /**
@@ -59,8 +64,7 @@ public interface Function extends AssignmentTestable
      */
     public String columnName(List<String> columnNames);
 
-    public default Optional<Difference> compare(Function other)
-    {
+    public default Optional<Difference> compare(Function other) {
         throw new UnsupportedOperationException();
     }
 }

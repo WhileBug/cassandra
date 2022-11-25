@@ -20,7 +20,6 @@ package org.apache.cassandra.db.rows;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
-
 import org.apache.cassandra.db.Digest;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -31,33 +30,34 @@ import org.apache.cassandra.utils.memory.ByteBufferCloner;
 /**
  * A path for a cell belonging to a complex column type (non-frozen collection or UDT).
  */
-public abstract class CellPath
-{
-    public static final CellPath BOTTOM = new EmptyCellPath();
-    public static final CellPath TOP = new EmptyCellPath();
+public abstract class CellPath {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CellPath.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CellPath.class);
+
+    public static final transient CellPath BOTTOM = new EmptyCellPath();
+
+    public static final transient CellPath TOP = new EmptyCellPath();
 
     public abstract int size();
+
     public abstract ByteBuffer get(int i);
 
     // The only complex paths we currently have are collections and UDTs, which both have a depth of one
-    public static CellPath create(ByteBuffer value)
-    {
+    public static CellPath create(ByteBuffer value) {
         assert value != null;
         return new SingleItemCellPath(value);
     }
 
-    public int dataSize()
-    {
+    public int dataSize() {
         int size = 0;
-        for (int i = 0; i < size(); i++)
-            size += get(i).remaining();
+        for (int i = 0; i < size(); i++) size += get(i).remaining();
         return size;
     }
 
-    public void digest(Digest digest)
-    {
-        for (int i = 0; i < size(); i++)
-            digest.update(get(i));
+    public void digest(Digest digest) {
+        for (int i = 0; i < size(); i++) digest.update(get(i));
     }
 
     public abstract CellPath clone(ByteBufferCloner cloner);
@@ -65,93 +65,80 @@ public abstract class CellPath
     public abstract long unsharedHeapSizeExcludingData();
 
     @Override
-    public final int hashCode()
-    {
+    public final int hashCode() {
         int result = 31;
-        for (int i = 0; i < size(); i++)
-            result += 31 * Objects.hash(get(i));
+        for (int i = 0; i < size(); i++) result += 31 * Objects.hash(get(i));
         return result;
     }
 
     @Override
-    public final boolean equals(Object o)
-    {
-        if(!(o instanceof CellPath))
+    public final boolean equals(Object o) {
+        if (!(o instanceof CellPath))
             return false;
-
-        CellPath that = (CellPath)o;
+        CellPath that = (CellPath) o;
         if (this.size() != that.size())
             return false;
-
-        for (int i = 0; i < size(); i++)
-            if (!Objects.equals(this.get(i), that.get(i)))
-                return false;
-
+        for (int i = 0; i < size(); i++) if (!Objects.equals(this.get(i), that.get(i)))
+            return false;
         return true;
     }
 
-    public interface Serializer
-    {
+    public interface Serializer {
+
         public void serialize(CellPath path, DataOutputPlus out) throws IOException;
+
         public CellPath deserialize(DataInputPlus in) throws IOException;
+
         public long serializedSize(CellPath path);
+
         public void skip(DataInputPlus in) throws IOException;
     }
 
-    private static class SingleItemCellPath extends CellPath
-    {
-        private static final long EMPTY_SIZE = ObjectSizes.measure(new SingleItemCellPath(ByteBufferUtil.EMPTY_BYTE_BUFFER));
+    private static class SingleItemCellPath extends CellPath {
 
-        protected final ByteBuffer value;
+        private static final transient long EMPTY_SIZE = ObjectSizes.measure(new SingleItemCellPath(ByteBufferUtil.EMPTY_BYTE_BUFFER));
 
-        private SingleItemCellPath(ByteBuffer value)
-        {
+        protected final transient ByteBuffer value;
+
+        private SingleItemCellPath(ByteBuffer value) {
             this.value = value;
         }
 
-        public int size()
-        {
+        public int size() {
             return 1;
         }
 
-        public ByteBuffer get(int i)
-        {
+        public ByteBuffer get(int i) {
             assert i == 0;
             return value;
         }
 
         @Override
-        public CellPath clone(ByteBufferCloner cloner)
-        {
+        public CellPath clone(ByteBufferCloner cloner) {
             return new SingleItemCellPath(cloner.clone(value));
         }
 
-        public long unsharedHeapSizeExcludingData()
-        {
+        public long unsharedHeapSizeExcludingData() {
             return EMPTY_SIZE + ObjectSizes.sizeOnHeapExcludingData(value);
         }
     }
 
-    private static class EmptyCellPath extends CellPath
-    {
-        public int size()
-        {
+    private static class EmptyCellPath extends CellPath {
+
+        public int size() {
             return 0;
         }
 
-        public ByteBuffer get(int i)
-        {
+        public ByteBuffer get(int i) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CellPath clone(ByteBufferCloner cloner)
-        {
+        public CellPath clone(ByteBufferCloner cloner) {
             return this;
         }
 
-        public long unsharedHeapSizeExcludingData()
-        {
+        public long unsharedHeapSizeExcludingData() {
             return 0;
         }
     }

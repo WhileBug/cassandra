@@ -24,28 +24,31 @@ import java.util.Arrays;
 /**
  * Simple utility methods to make working with bytes (blob) easier.
  */
-public final class Bytes
-{
+public final class Bytes {
 
-    private Bytes()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Bytes.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Bytes.class);
+
+    private Bytes() {
     }
 
-    private static final byte[] charToByte = new byte[256];
-    private static final char[] byteToChar = new char[16];
+    private static final transient byte[] charToByte = new byte[256];
 
-    static
-    {
-        for (char c = 0; c < charToByte.length; ++c)
-        {
-            if (c >= '0' && c <= '9') charToByte[c] = (byte) (c - '0');
-            else if (c >= 'A' && c <= 'F') charToByte[c] = (byte) (c - 'A' + 10);
-            else if (c >= 'a' && c <= 'f') charToByte[c] = (byte) (c - 'a' + 10);
-            else charToByte[c] = (byte) -1;
+    private static final transient char[] byteToChar = new char[16];
+
+    static {
+        for (char c = 0; c < charToByte.length; ++c) {
+            if (c >= '0' && c <= '9')
+                charToByte[c] = (byte) (c - '0');
+            else if (c >= 'A' && c <= 'F')
+                charToByte[c] = (byte) (c - 'A' + 10);
+            else if (c >= 'a' && c <= 'f')
+                charToByte[c] = (byte) (c - 'a' + 10);
+            else
+                charToByte[c] = (byte) -1;
         }
-
-        for (int i = 0; i < 16; ++i)
-        {
+        for (int i = 0; i < 16; ++i) {
             byteToChar[i] = Integer.toHexString(i).charAt(0);
         }
     }
@@ -55,36 +58,27 @@ public final class Bytes
      * (if available) so we can build avoid copy when creating hex strings.
      * That's stolen from Cassandra's code.
      */
-    private static final Constructor<String> stringConstructor;
+    private static final transient Constructor<String> stringConstructor;
 
-    static
-    {
+    static {
         Constructor<String> c;
-        try
-        {
+        try {
             c = String.class.getDeclaredConstructor(int.class, int.class, char[].class);
             c.setAccessible(true);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             c = null;
         }
         stringConstructor = c;
     }
 
-    private static String wrapCharArray(char[] c)
-    {
-        if (c == null) return null;
-
+    private static String wrapCharArray(char[] c) {
+        if (c == null)
+            return null;
         String s = null;
-        if (stringConstructor != null)
-        {
-            try
-            {
+        if (stringConstructor != null) {
+            try {
                 s = stringConstructor.newInstance(0, c.length, c);
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 // Swallowing as we'll just use a copying constructor
             }
         }
@@ -101,12 +95,11 @@ public final class Bytes
      * @return the CQL string representation of {@code bytes}. If {@code bytes} is {@code null}, this
      * method returns {@code null}.
      */
-    public static String toHexString(ByteBuffer bytes)
-    {
-        if (bytes == null) return null;
-
-        if (bytes.remaining() == 0) return "0x";
-
+    public static String toHexString(ByteBuffer bytes) {
+        if (bytes == null)
+            return null;
+        if (bytes.remaining() == 0)
+            return "0x";
         char[] array = new char[2 * (bytes.remaining() + 1)];
         array[0] = '0';
         array[1] = 'x';
@@ -123,8 +116,7 @@ public final class Bytes
      * @return the CQL string representation of {@code bytes}. If {@code bytes} is {@code null}, this
      * method returns {@code null}.
      */
-    public static String toHexString(byte[] byteArray)
-    {
+    public static String toHexString(byte[] byteArray) {
         return toHexString(ByteBuffer.wrap(byteArray));
     }
 
@@ -139,15 +131,11 @@ public final class Bytes
      * returns {@code null}.
      * @throws IllegalArgumentException if {@code str} is not a valid CQL blob string.
      */
-    public static ByteBuffer fromHexString(String str)
-    {
+    public static ByteBuffer fromHexString(String str) {
         if ((str.length() & 1) == 1)
-            throw new IllegalArgumentException(
-            "A CQL blob string must have an even length (since one byte is always 2 hexadecimal character)");
-
+            throw new IllegalArgumentException("A CQL blob string must have an even length (since one byte is always 2 hexadecimal character)");
         if (str.charAt(0) != '0' || str.charAt(1) != 'x')
             throw new IllegalArgumentException("A CQL blob string must start with \"0x\"");
-
         return ByteBuffer.wrap(fromRawHexString(str, 2));
     }
 
@@ -163,15 +151,14 @@ public final class Bytes
      * @return a byte array with the content of {@code bytes}. That array may be the array backing
      * {@code bytes} if this can avoid a copy.
      */
-    public static byte[] getArray(ByteBuffer bytes)
-    {
+    public static byte[] getArray(ByteBuffer bytes) {
         int length = bytes.remaining();
-
-        if (bytes.hasArray())
-        {
+        if (bytes.hasArray()) {
             int boff = bytes.arrayOffset() + bytes.position();
-            if (boff == 0 && length == bytes.array().length) return bytes.array();
-            else return Arrays.copyOfRange(bytes.array(), boff, boff + length);
+            if (boff == 0 && length == bytes.array().length)
+                return bytes.array();
+            else
+                return Arrays.copyOfRange(bytes.array(), boff, boff + length);
         }
         // else, DirectByteBuffer.get() is the fastest route
         byte[] array = new byte[length];
@@ -179,13 +166,11 @@ public final class Bytes
         return array;
     }
 
-    private static String toRawHexString(ByteBuffer bytes, char[] array, int offset)
-    {
+    private static String toRawHexString(ByteBuffer bytes, char[] array, int offset) {
         int size = bytes.remaining();
         int bytesOffset = bytes.position();
         assert array.length >= offset + 2 * size;
-        for (int i = 0; i < size; i++)
-        {
+        for (int i = 0; i < size; i++) {
             int bint = bytes.get(i + bytesOffset);
             array[offset + i * 2] = byteToChar[(bint & 0xf0) >> 4];
             array[offset + 1 + i * 2] = byteToChar[bint & 0x0f];
@@ -203,11 +188,9 @@ public final class Bytes
      * @param strOffset he offset for starting the string conversion
      * @return the byte array which the String was representing.
      */
-    private static byte[] fromRawHexString(String str, int strOffset)
-    {
+    private static byte[] fromRawHexString(String str, int strOffset) {
         byte[] bytes = new byte[(str.length() - strOffset) / 2];
-        for (int i = 0; i < bytes.length; i++)
-        {
+        for (int i = 0; i < bytes.length; i++) {
             byte halfByte1 = charToByte[str.charAt(strOffset + i * 2)];
             byte halfByte2 = charToByte[str.charAt(strOffset + i * 2 + 1)];
             if (halfByte1 == -1 || halfByte2 == -1)

@@ -15,15 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.asymmetric;
 
 import java.util.Set;
-
 import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -31,22 +28,24 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 /**
  * Tracks incoming streams for a single host
  */
-public class IncomingRepairStreamTracker
-{
-    private static final Logger logger = LoggerFactory.getLogger(IncomingRepairStreamTracker.class);
-    private final DifferenceHolder differences;
-    private final RangeMap<StreamFromOptions> incoming = new RangeMap<>();
+public class IncomingRepairStreamTracker {
 
-    public IncomingRepairStreamTracker(DifferenceHolder differences)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IncomingRepairStreamTracker.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IncomingRepairStreamTracker.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(IncomingRepairStreamTracker.class);
+
+    private final transient DifferenceHolder differences;
+
+    private final transient RangeMap<StreamFromOptions> incoming = new RangeMap<>();
+
+    public IncomingRepairStreamTracker(DifferenceHolder differences) {
         this.differences = differences;
     }
 
-    public String toString()
-    {
-        return "IncomingStreamTracker{" +
-               "incoming=" + incoming +
-               '}';
+    public String toString() {
+        return "IncomingStreamTracker{" + "incoming=" + incoming + '}';
     }
 
     /**
@@ -58,20 +57,13 @@ public class IncomingRepairStreamTracker
      * @param range the range we need to stream from streamFromNode
      * @param streamFromNode the node we should stream from
      */
-    public void addIncomingRangeFrom(Range<Token> range, InetAddressAndPort streamFromNode)
-    {
+    public void addIncomingRangeFrom(Range<Token> range, InetAddressAndPort streamFromNode) {
         logger.trace("adding incoming range {} from {}", range, streamFromNode);
         Set<Range<Token>> newInput = RangeDenormalizer.denormalize(range, incoming);
-        for (Range<Token> input : newInput)
-            incoming.computeIfAbsent(input, (newRange) -> new StreamFromOptions(differences, newRange)).add(streamFromNode);
+        for (Range<Token> input : newInput) incoming.computeIfAbsent(input, (newRange) -> new StreamFromOptions(differences, newRange)).add(streamFromNode);
     }
 
-    public ImmutableMap<Range<Token>, StreamFromOptions> getIncoming()
-    {
+    public ImmutableMap<Range<Token>, StreamFromOptions> getIncoming() {
         return ImmutableMap.copyOf(incoming);
     }
 }
-
-
-
-

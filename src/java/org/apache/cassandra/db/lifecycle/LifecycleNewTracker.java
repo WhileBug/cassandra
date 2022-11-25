@@ -15,8 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-
 package org.apache.cassandra.db.lifecycle;
 
 import org.apache.cassandra.db.compaction.OperationType;
@@ -25,14 +23,17 @@ import org.apache.cassandra.io.sstable.SSTable;
 /**
  * An interface for tracking new sstables added to a LifecycleTransaction, possibly through some proxy.
  */
-public interface LifecycleNewTracker
-{
+public interface LifecycleNewTracker {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LifecycleNewTracker.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LifecycleNewTracker.class);
+
     /**
      * Called when a new table is about to be created, so that this table can be tracked by a transaction.
      * @param table - the new table to be tracked
      */
     void trackNew(SSTable table);
-
 
     /**
      * Called when a new table is no longer required, so that this table can be untracked by a transaction.

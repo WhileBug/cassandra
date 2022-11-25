@@ -18,43 +18,33 @@
 package org.apache.cassandra.tools.nodetool;
 
 import java.io.PrintStream;
-
 import static java.lang.String.format;
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "proxyhistograms", description = "Print statistic histograms for network operations")
-public class ProxyHistograms extends NodeToolCmd
-{
+public class ProxyHistograms extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProxyHistograms.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProxyHistograms.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         PrintStream out = probe.output().out;
-        String[] percentiles = {"50%", "75%", "95%", "98%", "99%", "Min", "Max"};
+        String[] percentiles = { "50%", "75%", "95%", "98%", "99%", "Min", "Max" };
         Double[] readLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("Read"));
         Double[] writeLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("Write"));
         Double[] rangeLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("RangeSlice"));
         Double[] casReadLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("CASRead"));
         Double[] casWriteLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("CASWrite"));
         Double[] viewWriteLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("ViewWrite"));
-
         out.println("proxy histograms");
-        out.println(format("%-10s%19s%19s%19s%19s%19s%19s",
-                "Percentile", "Read Latency", "Write Latency", "Range Latency", "CAS Read Latency", "CAS Write Latency", "View Write Latency"));
-        out.println(format("%-10s%19s%19s%19s%19s%19s%19s",
-                "", "(micros)", "(micros)", "(micros)", "(micros)", "(micros)", "(micros)"));
-        for (int i = 0; i < percentiles.length; i++)
-        {
-            out.println(format("%-10s%19.2f%19.2f%19.2f%19.2f%19.2f%19.2f",
-                    percentiles[i],
-                    readLatency[i],
-                    writeLatency[i],
-                    rangeLatency[i],
-                    casReadLatency[i],
-                    casWriteLatency[i],
-                    viewWriteLatency[i]));
+        out.println(format("%-10s%19s%19s%19s%19s%19s%19s", "Percentile", "Read Latency", "Write Latency", "Range Latency", "CAS Read Latency", "CAS Write Latency", "View Write Latency"));
+        out.println(format("%-10s%19s%19s%19s%19s%19s%19s", "", "(micros)", "(micros)", "(micros)", "(micros)", "(micros)", "(micros)"));
+        for (int i = 0; i < percentiles.length; i++) {
+            out.println(format("%-10s%19.2f%19.2f%19.2f%19.2f%19.2f%19.2f", percentiles[i], readLatency[i], writeLatency[i], rangeLatency[i], casReadLatency[i], casWriteLatency[i], viewWriteLatency[i]));
         }
         out.println();
     }

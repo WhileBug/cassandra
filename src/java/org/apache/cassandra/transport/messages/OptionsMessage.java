@@ -21,9 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import io.netty.buffer.ByteBuf;
-
 import org.apache.cassandra.cql3.QueryProcessor;
 import org.apache.cassandra.service.QueryState;
 import org.apache.cassandra.transport.Compressor;
@@ -33,53 +31,48 @@ import org.apache.cassandra.transport.ProtocolVersion;
 /**
  * Message to indicate that the server is ready to receive requests.
  */
-public class OptionsMessage extends Message.Request
-{
-    public static final Message.Codec<OptionsMessage> codec = new Message.Codec<OptionsMessage>()
-    {
-        public OptionsMessage decode(ByteBuf body, ProtocolVersion version)
-        {
+public class OptionsMessage extends Message.Request {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OptionsMessage.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OptionsMessage.class);
+
+    public static final transient Message.Codec<OptionsMessage> codec = new Message.Codec<OptionsMessage>() {
+
+        public OptionsMessage decode(ByteBuf body, ProtocolVersion version) {
             return new OptionsMessage();
         }
 
-        public void encode(OptionsMessage msg, ByteBuf dest, ProtocolVersion version)
-        {
+        public void encode(OptionsMessage msg, ByteBuf dest, ProtocolVersion version) {
         }
 
-        public int encodedSize(OptionsMessage msg, ProtocolVersion version)
-        {
+        public int encodedSize(OptionsMessage msg, ProtocolVersion version) {
             return 0;
         }
     };
 
-    public OptionsMessage()
-    {
+    public OptionsMessage() {
         super(Message.Type.OPTIONS);
     }
 
     @Override
-    protected Message.Response execute(QueryState state, long queryStartNanoTime, boolean traceRequest)
-    {
+    protected Message.Response execute(QueryState state, long queryStartNanoTime, boolean traceRequest) {
         List<String> cqlVersions = new ArrayList<String>();
         cqlVersions.add(QueryProcessor.CQL_VERSION.toString());
-
         List<String> compressions = new ArrayList<String>();
         if (Compressor.SnappyCompressor.instance != null)
             compressions.add("snappy");
         // LZ4 is always available since worst case scenario it default to a pure JAVA implem.
         compressions.add("lz4");
-
         Map<String, List<String>> supported = new HashMap<String, List<String>>();
         supported.put(StartupMessage.CQL_VERSION, cqlVersions);
         supported.put(StartupMessage.COMPRESSION, compressions);
         supported.put(StartupMessage.PROTOCOL_VERSIONS, ProtocolVersion.supportedVersions());
-
         return new SupportedMessage(supported);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "OPTIONS";
     }
 }

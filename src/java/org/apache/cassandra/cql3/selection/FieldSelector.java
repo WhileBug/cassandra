@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.selection;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.db.filter.ColumnFilter;
@@ -27,65 +26,60 @@ import org.apache.cassandra.db.marshal.UserType;
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.transport.ProtocolVersion;
 
-final class FieldSelector extends Selector
-{
-    private final UserType type;
-    private final int field;
-    private final Selector selected;
+final class FieldSelector extends Selector {
 
-    public static Factory newFactory(final UserType type, final int field, final Selector.Factory factory)
-    {
-        return new Factory()
-        {
-            protected String getColumnName()
-            {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FieldSelector.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FieldSelector.class);
+
+    private final transient UserType type;
+
+    private final transient int field;
+
+    private final transient Selector selected;
+
+    public static Factory newFactory(final UserType type, final int field, final Selector.Factory factory) {
+        return new Factory() {
+
+            protected String getColumnName() {
                 return String.format("%s.%s", factory.getColumnName(), type.fieldName(field));
             }
 
-            protected AbstractType<?> getReturnType()
-            {
+            protected AbstractType<?> getReturnType() {
                 return type.fieldType(field);
             }
 
-            protected void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn)
-            {
+            protected void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn) {
                 factory.addColumnMapping(mapping, resultsColumn);
             }
 
-            public Selector newInstance(QueryOptions options) throws InvalidRequestException
-            {
+            public Selector newInstance(QueryOptions options) throws InvalidRequestException {
                 return new FieldSelector(type, field, factory.newInstance(options));
             }
 
-            public boolean isAggregateSelectorFactory()
-            {
+            public boolean isAggregateSelectorFactory() {
                 return factory.isAggregateSelectorFactory();
             }
 
-            public boolean areAllFetchedColumnsKnown()
-            {
+            public boolean areAllFetchedColumnsKnown() {
                 return factory.areAllFetchedColumnsKnown();
             }
 
-            public void addFetchedColumns(ColumnFilter.Builder builder)
-            {
+            public void addFetchedColumns(ColumnFilter.Builder builder) {
                 factory.addFetchedColumns(builder);
             }
         };
     }
 
-    public void addFetchedColumns(ColumnFilter.Builder builder)
-    {
+    public void addFetchedColumns(ColumnFilter.Builder builder) {
         selected.addFetchedColumns(builder);
     }
 
-    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException
-    {
+    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException {
         selected.addInput(protocolVersion, rs);
     }
 
-    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException
-    {
+    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException {
         ByteBuffer value = selected.getOutput(protocolVersion);
         if (value == null)
             return null;
@@ -93,24 +87,20 @@ final class FieldSelector extends Selector
         return field < buffers.length ? buffers[field] : null;
     }
 
-    public AbstractType<?> getType()
-    {
+    public AbstractType<?> getType() {
         return type.fieldType(field);
     }
 
-    public void reset()
-    {
+    public void reset() {
         selected.reset();
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("%s.%s", selected, type.fieldName(field));
     }
 
-    private FieldSelector(UserType type, int field, Selector selected)
-    {
+    private FieldSelector(UserType type, int field, Selector selected) {
         this.type = type;
         this.field = field;
         this.selected = selected;

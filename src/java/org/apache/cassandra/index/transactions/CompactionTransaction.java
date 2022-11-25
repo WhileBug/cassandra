@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.index.transactions;
 
 import org.apache.cassandra.db.rows.Row;
@@ -30,14 +29,23 @@ import org.apache.cassandra.db.rows.Row;
  * Instances are currently scoped to a single row within a partition, but this could be improved to batch process
  * multiple rows within a single partition.
  */
-public interface CompactionTransaction extends IndexTransaction
-{
-    void onRowMerge(Row merged, Row...versions);
+public interface CompactionTransaction extends IndexTransaction {
 
-    CompactionTransaction NO_OP = new CompactionTransaction()
-    {
-        public void start(){}
-        public void onRowMerge(Row merged, Row...versions){}
-        public void commit(){}
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionTransaction.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionTransaction.class);
+
+    void onRowMerge(Row merged, Row... versions);
+
+    transient CompactionTransaction NO_OP = new CompactionTransaction() {
+
+        public void start() {
+        }
+
+        public void onRowMerge(Row merged, Row... versions) {
+        }
+
+        public void commit() {
+        }
     };
 }

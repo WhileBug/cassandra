@@ -21,10 +21,14 @@ import com.codahale.metrics.Snapshot;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.schema.TableParams;
 
-public interface SpeculativeRetryPolicy
-{
-    public enum Kind
-    {
+public interface SpeculativeRetryPolicy {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SpeculativeRetryPolicy.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SpeculativeRetryPolicy.class);
+
+    public enum Kind {
+
         NEVER, FIXED, PERCENTILE, HYBRID, ALWAYS
     }
 
@@ -32,23 +36,17 @@ public interface SpeculativeRetryPolicy
 
     Kind kind();
 
-    public static SpeculativeRetryPolicy fromString(String str)
-    {
+    public static SpeculativeRetryPolicy fromString(String str) {
         if (AlwaysSpeculativeRetryPolicy.stringMatches(str))
             return AlwaysSpeculativeRetryPolicy.INSTANCE;
-
         if (NeverSpeculativeRetryPolicy.stringMatches(str))
             return NeverSpeculativeRetryPolicy.INSTANCE;
-
         if (PercentileSpeculativeRetryPolicy.stringMatches(str))
             return PercentileSpeculativeRetryPolicy.fromString(str);
-
         if (FixedSpeculativeRetryPolicy.stringMatches(str))
             return FixedSpeculativeRetryPolicy.fromString(str);
-
         if (HybridSpeculativeRetryPolicy.stringMatches(str))
             return HybridSpeculativeRetryPolicy.fromString(str);
-
         throw new ConfigurationException(String.format("Invalid value %s for option '%s'", str, TableParams.Option.SPECULATIVE_RETRY));
     }
 }

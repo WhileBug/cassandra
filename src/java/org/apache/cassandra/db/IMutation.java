@@ -19,27 +19,34 @@ package org.apache.cassandra.db;
 
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.schema.TableId;
 
-public interface IMutation
-{
-    public long MAX_MUTATION_SIZE = DatabaseDescriptor.getMaxMutationSize();
+public interface IMutation {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IMutation.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IMutation.class);
+
+    public transient long MAX_MUTATION_SIZE = DatabaseDescriptor.getMaxMutationSize();
 
     public void apply();
+
     public String getKeyspaceName();
+
     public Collection<TableId> getTableIds();
+
     public DecoratedKey key();
+
     public long getTimeout(TimeUnit unit);
+
     public String toString(boolean shallow);
+
     public Collection<PartitionUpdate> getPartitionUpdates();
 
-    public default void validateIndexedColumns()
-    {
-        for (PartitionUpdate pu : getPartitionUpdates())
-            pu.validateIndexedColumns();
+    public default void validateIndexedColumns() {
+        for (PartitionUpdate pu : getPartitionUpdates()) pu.validateIndexedColumns();
     }
 
     /**
@@ -49,7 +56,7 @@ public interface IMutation
      *                see {@link org.apache.cassandra.net.MessagingService#current_version}
      * @param overhead overhadd to add for mutation size to validate. Pass zero if not required but not a negative value.
      * @throws {@link MutationExceededMaxSizeException} if {@link DatabaseDescriptor#getMaxMutationSize()} is exceeded
-      */
+     */
     public void validateSize(int version, int overhead);
 
     /**
@@ -57,13 +64,10 @@ public interface IMutation
      * @param mutations the mutations
      * @return the total data size of the specified mutations
      */
-    public static long dataSize(Collection<? extends IMutation> mutations)
-    {
+    public static long dataSize(Collection<? extends IMutation> mutations) {
         long size = 0;
-        for (IMutation mutation : mutations)
-        {
-            for (PartitionUpdate update : mutation.getPartitionUpdates())
-                size += update.dataSize();
+        for (IMutation mutation : mutations) {
+            for (PartitionUpdate update : mutation.getPartitionUpdates()) size += update.dataSize();
         }
         return size;
     }

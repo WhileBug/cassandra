@@ -18,55 +18,75 @@
 package org.apache.cassandra.metrics;
 
 import java.util.concurrent.ThreadPoolExecutor;
-
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import org.apache.cassandra.concurrent.LocalAwareExecutorService;
 import org.apache.cassandra.metrics.CassandraMetricsRegistry.MetricName;
-
 import static java.lang.String.format;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
 /**
  * Metrics for {@link ThreadPoolExecutor}.
  */
-public class ThreadPoolMetrics
-{
-    public static final String ACTIVE_TASKS = "ActiveTasks";
-    public static final String PENDING_TASKS = "PendingTasks";
-    public static final String COMPLETED_TASKS = "CompletedTasks";
-    public static final String CURRENTLY_BLOCKED_TASKS = "CurrentlyBlockedTasks";
-    public static final String TOTAL_BLOCKED_TASKS = "TotalBlockedTasks";
-    public static final String MAX_POOL_SIZE = "MaxPoolSize";
-    public static final String MAX_TASKS_QUEUED = "MaxTasksQueued";
+public class ThreadPoolMetrics {
 
-    /** Number of active tasks. */
-    public final Gauge<Integer> activeTasks;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ThreadPoolMetrics.class);
 
-    /** Number of tasks waiting to be executed. */
-    public final Gauge<Integer> pendingTasks;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ThreadPoolMetrics.class);
 
-    /** Number of completed tasks. */
-    public final Gauge<Long> completedTasks;
+    public static final transient String ACTIVE_TASKS = "ActiveTasks";
+
+    public static final transient String PENDING_TASKS = "PendingTasks";
+
+    public static final transient String COMPLETED_TASKS = "CompletedTasks";
+
+    public static final transient String CURRENTLY_BLOCKED_TASKS = "CurrentlyBlockedTasks";
+
+    public static final transient String TOTAL_BLOCKED_TASKS = "TotalBlockedTasks";
+
+    public static final transient String MAX_POOL_SIZE = "MaxPoolSize";
+
+    public static final transient String MAX_TASKS_QUEUED = "MaxTasksQueued";
+
+    /**
+     * Number of active tasks.
+     */
+    public final transient Gauge<Integer> activeTasks;
+
+    /**
+     * Number of tasks waiting to be executed.
+     */
+    public final transient Gauge<Integer> pendingTasks;
+
+    /**
+     * Number of completed tasks.
+     */
+    public final transient Gauge<Long> completedTasks;
 
     /**
      * Number of tasks currently blocked, waiting to be accepted by
      * the executor (because all threads are busy and the backing queue is full).
      */
-    public final Counter currentBlocked;
+    public final transient Counter currentBlocked;
 
-    /** Number of tasks that had blocked before being accepted (or rejected). */
-    public final Counter totalBlocked;
+    /**
+     * Number of tasks that had blocked before being accepted (or rejected).
+     */
+    public final transient Counter totalBlocked;
 
-    /** Maximum number of threads before it will start queuing tasks */
-    public final Gauge<Integer> maxPoolSize;
+    /**
+     * Maximum number of threads before it will start queuing tasks
+     */
+    public final transient Gauge<Integer> maxPoolSize;
 
-    /** Maximum number of tasks queued before a task get blocked */
-    public final Gauge<Integer> maxTasksQueued;
+    /**
+     * Maximum number of tasks queued before a task get blocked
+     */
+    public final transient Gauge<Integer> maxTasksQueued;
 
-    public final String path;
-    public final String poolName;
+    public final transient String path;
+
+    public final transient String poolName;
 
     /**
      * Create metrics for given ThreadPoolExecutor.
@@ -75,11 +95,9 @@ public class ThreadPoolMetrics
      * @param path Type of thread pool
      * @param poolName Name of thread pool to identify metrics
      */
-    public ThreadPoolMetrics(LocalAwareExecutorService executor, String path, String poolName)
-    {
+    public ThreadPoolMetrics(LocalAwareExecutorService executor, String path, String poolName) {
         this.path = path;
         this.poolName = poolName;
-
         totalBlocked = new Counter();
         currentBlocked = new Counter();
         activeTasks = executor::getActiveTaskCount;
@@ -89,8 +107,7 @@ public class ThreadPoolMetrics
         maxTasksQueued = executor::getMaxTasksQueued;
     }
 
-    public ThreadPoolMetrics register()
-    {
+    public ThreadPoolMetrics register() {
         Metrics.register(makeMetricName(path, poolName, ACTIVE_TASKS), activeTasks);
         Metrics.register(makeMetricName(path, poolName, PENDING_TASKS), pendingTasks);
         Metrics.register(makeMetricName(path, poolName, COMPLETED_TASKS), completedTasks);
@@ -101,8 +118,7 @@ public class ThreadPoolMetrics
         return Metrics.register(this);
     }
 
-    public void release()
-    {
+    public void release() {
         Metrics.remove(makeMetricName(path, poolName, ACTIVE_TASKS));
         Metrics.remove(makeMetricName(path, poolName, PENDING_TASKS));
         Metrics.remove(makeMetricName(path, poolName, COMPLETED_TASKS));
@@ -113,13 +129,7 @@ public class ThreadPoolMetrics
         Metrics.remove(this);
     }
 
-    private static MetricName makeMetricName(String path, String poolName, String metricName)
-    {
-        return new MetricName("org.apache.cassandra.metrics",
-                              "ThreadPools",
-                              metricName,
-                              path + '.' + poolName,
-                              format("org.apache.cassandra.metrics:type=ThreadPools,path=%s,scope=%s,name=%s",
-                                     path, poolName, metricName));
+    private static MetricName makeMetricName(String path, String poolName, String metricName) {
+        return new MetricName("org.apache.cassandra.metrics", "ThreadPools", metricName, path + '.' + poolName, format("org.apache.cassandra.metrics:type=ThreadPools,path=%s,scope=%s,name=%s", path, poolName, metricName));
     }
 }

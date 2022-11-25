@@ -25,9 +25,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.Operator;
 import org.apache.cassandra.db.DecoratedKey;
@@ -51,27 +49,33 @@ import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.schema.IndexMetadata;
 import org.apache.cassandra.utils.FBUtilities;
 
-public class ColumnIndex
-{
-    private static final String FILE_NAME_FORMAT = "SI_%s.db";
+public class ColumnIndex {
 
-    private final AbstractType<?> keyValidator;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnIndex.class);
 
-    private final ColumnMetadata column;
-    private final Optional<IndexMetadata> config;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnIndex.class);
 
-    private final AtomicReference<IndexMemtable> memtable;
-    private final ConcurrentMap<Memtable, IndexMemtable> pendingFlush = new ConcurrentHashMap<>();
+    private static final transient String FILE_NAME_FORMAT = "SI_%s.db";
 
-    private final IndexMode mode;
+    private final transient AbstractType<?> keyValidator;
 
-    private final Component component;
-    private final DataTracker tracker;
+    private final transient ColumnMetadata column;
 
-    private final boolean isTokenized;
+    private final transient Optional<IndexMetadata> config;
 
-    public ColumnIndex(AbstractType<?> keyValidator, ColumnMetadata column, IndexMetadata metadata)
-    {
+    private final transient AtomicReference<IndexMemtable> memtable;
+
+    private final transient ConcurrentMap<Memtable, IndexMemtable> pendingFlush = new ConcurrentHashMap<>();
+
+    private final transient IndexMode mode;
+
+    private final transient Component component;
+
+    private final transient DataTracker tracker;
+
+    private final transient boolean isTokenized;
+
+    public ColumnIndex(AbstractType<?> keyValidator, ColumnMetadata column, IndexMetadata metadata) {
         this.keyValidator = keyValidator;
         this.column = column;
         this.config = metadata == null ? Optional.empty() : Optional.of(metadata);
@@ -89,160 +93,128 @@ public class ColumnIndex
      *
      * @return A collection of sstables which don't have this specific index attached to them.
      */
-    public Iterable<SSTableReader> init(Set<SSTableReader> sstables)
-    {
+    public Iterable<SSTableReader> init(Set<SSTableReader> sstables) {
         return tracker.update(Collections.emptySet(), sstables);
     }
 
-    public AbstractType<?> keyValidator()
-    {
+    public AbstractType<?> keyValidator() {
         return keyValidator;
     }
 
-    public long index(DecoratedKey key, Row row)
-    {
+    public long index(DecoratedKey key, Row row) {
         return getCurrentMemtable().index(key, getValueOf(column, row, FBUtilities.nowInSeconds()));
     }
 
-    public void switchMemtable()
-    {
+    public void switchMemtable() {
         // discard current memtable with all of it's data, useful on truncate
         memtable.set(new IndexMemtable(this));
     }
 
-    public void switchMemtable(Memtable parent)
-    {
+    public void switchMemtable(Memtable parent) {
         pendingFlush.putIfAbsent(parent, memtable.getAndSet(new IndexMemtable(this)));
     }
 
-    public void discardMemtable(Memtable parent)
-    {
+    public void discardMemtable(Memtable parent) {
         pendingFlush.remove(parent);
     }
 
     @VisibleForTesting
-    public IndexMemtable getCurrentMemtable()
-    {
+    public IndexMemtable getCurrentMemtable() {
         return memtable.get();
     }
 
     @VisibleForTesting
-    public Collection<IndexMemtable> getPendingMemtables()
-    {
+    public Collection<IndexMemtable> getPendingMemtables() {
         return pendingFlush.values();
     }
 
-    public RangeIterator<Long, Token> searchMemtable(Expression e)
-    {
+    public RangeIterator<Long, Token> searchMemtable(Expression e) {
         RangeIterator.Builder<Long, Token> builder = new RangeUnionIterator.Builder<>();
         builder.add(getCurrentMemtable().search(e));
-        for (IndexMemtable memtable : getPendingMemtables())
-            builder.add(memtable.search(e));
-
+        for (IndexMemtable memtable : getPendingMemtables()) builder.add(memtable.search(e));
         return builder.build();
     }
 
-    public void update(Collection<SSTableReader> oldSSTables, Collection<SSTableReader> newSSTables)
-    {
+    public void update(Collection<SSTableReader> oldSSTables, Collection<SSTableReader> newSSTables) {
         tracker.update(oldSSTables, newSSTables);
     }
 
-    public ColumnMetadata getDefinition()
-    {
+    public ColumnMetadata getDefinition() {
         return column;
     }
 
-    public AbstractType<?> getValidator()
-    {
+    public AbstractType<?> getValidator() {
         return column.cellValueType();
     }
 
-    public Component getComponent()
-    {
+    public Component getComponent() {
         return component;
     }
 
-    public IndexMode getMode()
-    {
+    public IndexMode getMode() {
         return mode;
     }
 
-    public String getColumnName()
-    {
+    public String getColumnName() {
         return column.name.toString();
     }
 
-    public String getIndexName()
-    {
+    public String getIndexName() {
         return config.isPresent() ? config.get().name : "undefined";
     }
 
-    public AbstractAnalyzer getAnalyzer()
-    {
+    public AbstractAnalyzer getAnalyzer() {
         AbstractAnalyzer analyzer = mode.getAnalyzer(getValidator());
         analyzer.init(config.isPresent() ? config.get().options : Collections.emptyMap(), column.cellValueType());
         return analyzer;
     }
 
-    public View getView()
-    {
+    public View getView() {
         return tracker.getView();
     }
 
-    public boolean hasSSTable(SSTableReader sstable)
-    {
+    public boolean hasSSTable(SSTableReader sstable) {
         return tracker.hasSSTable(sstable);
     }
 
-    public void dropData(Collection<SSTableReader> sstablesToRebuild)
-    {
+    public void dropData(Collection<SSTableReader> sstablesToRebuild) {
         tracker.dropData(sstablesToRebuild);
     }
 
-    public void dropData(long truncateUntil)
-    {
+    public void dropData(long truncateUntil) {
         switchMemtable();
         tracker.dropData(truncateUntil);
     }
 
-    public boolean isIndexed()
-    {
+    public boolean isIndexed() {
         return mode != IndexMode.NOT_INDEXED;
     }
 
-    public boolean isLiteral()
-    {
+    public boolean isLiteral() {
         AbstractType<?> validator = getValidator();
         return isIndexed() ? mode.isLiteral : (validator instanceof UTF8Type || validator instanceof AsciiType);
     }
 
-    public boolean supports(Operator op)
-    {
+    public boolean supports(Operator op) {
         if (op == Operator.LIKE)
             return isLiteral();
-
         Op operator = Op.valueOf(op);
-        return !(isTokenized && operator == Op.EQ) // EQ is only applicable to non-tokenized indexes
-               && !(isTokenized && mode.mode == OnDiskIndexBuilder.Mode.CONTAINS && operator == Op.PREFIX) // PREFIX not supported on tokenized CONTAINS mode indexes
-               && !(isLiteral() && operator == Op.RANGE) // RANGE only applicable to indexes non-literal indexes
-               && mode.supports(operator); // for all other cases let's refer to index itself
-
+        return // EQ is only applicable to non-tokenized indexes
+        // PREFIX not supported on tokenized CONTAINS mode indexes
+        !(isTokenized && operator == Op.EQ) && // RANGE only applicable to indexes non-literal indexes
+        !(isTokenized && mode.mode == OnDiskIndexBuilder.Mode.CONTAINS && operator == Op.PREFIX) && // for all other cases let's refer to index itself
+        !(isLiteral() && operator == Op.RANGE) && mode.supports(operator);
     }
 
-    public static ByteBuffer getValueOf(ColumnMetadata column, Row row, int nowInSecs)
-    {
+    public static ByteBuffer getValueOf(ColumnMetadata column, Row row, int nowInSecs) {
         if (row == null)
             return null;
-
-        switch (column.kind)
-        {
+        switch(column.kind) {
             case CLUSTERING:
                 // skip indexing of static clustering when regular column is indexed
                 if (row.isStatic())
                     return null;
-
                 return row.clustering().bufferAt(column.position());
-
             // treat static cell retrieval the same was as regular
             // only if row kind is STATIC otherwise return null
             case STATIC:
@@ -251,7 +223,6 @@ public class ColumnIndex
             case REGULAR:
                 Cell<?> cell = row.getCell(column);
                 return cell == null || !cell.isLive(nowInSecs) ? null : cell.buffer();
-
             default:
                 return null;
         }

@@ -17,12 +17,15 @@
  */
 package org.apache.cassandra.db.compaction;
 
-public class CompactionInterruptedException extends RuntimeException
-{
-    private static final long serialVersionUID = -8651427062512310398L;
+public class CompactionInterruptedException extends RuntimeException {
 
-    public CompactionInterruptedException(CompactionInfo info)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionInterruptedException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionInterruptedException.class);
+
+    private static final transient long serialVersionUID = -8651427062512310398L;
+
+    public CompactionInterruptedException(CompactionInfo info) {
         super("Compaction interrupted: " + info);
     }
 }

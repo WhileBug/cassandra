@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3.functions;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.CBuilder;
@@ -27,30 +26,29 @@ import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.transport.ProtocolVersion;
 
-public class TokenFct extends NativeScalarFunction
-{
-    private final TableMetadata metadata;
+public class TokenFct extends NativeScalarFunction {
 
-    public TokenFct(TableMetadata metadata)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenFct.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenFct.class);
+
+    private final transient TableMetadata metadata;
+
+    public TokenFct(TableMetadata metadata) {
         super("token", metadata.partitioner.getTokenValidator(), getKeyTypes(metadata));
         this.metadata = metadata;
     }
 
-    private static AbstractType[] getKeyTypes(TableMetadata metadata)
-    {
+    private static AbstractType[] getKeyTypes(TableMetadata metadata) {
         AbstractType[] types = new AbstractType[metadata.partitionKeyColumns().size()];
         int i = 0;
-        for (ColumnMetadata def : metadata.partitionKeyColumns())
-            types[i++] = def.type;
+        for (ColumnMetadata def : metadata.partitionKeyColumns()) types[i++] = def.type;
         return types;
     }
 
-    public ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters) throws InvalidRequestException
-    {
+    public ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters) throws InvalidRequestException {
         CBuilder builder = CBuilder.create(metadata.partitionKeyAsClusteringComparator());
-        for (int i = 0; i < parameters.size(); i++)
-        {
+        for (int i = 0; i < parameters.size(); i++) {
             ByteBuffer bb = parameters.get(i);
             if (bb == null)
                 return null;

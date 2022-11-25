@@ -20,77 +20,69 @@ package org.apache.cassandra.streaming.messages;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Collection;
-
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputStreamPlus;
 import org.apache.cassandra.streaming.StreamRequest;
 import org.apache.cassandra.streaming.StreamSession;
 import org.apache.cassandra.streaming.StreamSummary;
 
-public class PrepareSynMessage extends StreamMessage
-{
-    public static Serializer<PrepareSynMessage> serializer = new Serializer<PrepareSynMessage>()
-    {
-        public PrepareSynMessage deserialize(DataInputPlus input, int version) throws IOException
-        {
+public class PrepareSynMessage extends StreamMessage {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareSynMessage.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareSynMessage.class);
+
+    public static transient Serializer<PrepareSynMessage> serializer = new Serializer<PrepareSynMessage>() {
+
+        public PrepareSynMessage deserialize(DataInputPlus input, int version) throws IOException {
             PrepareSynMessage message = new PrepareSynMessage();
             // requests
             int numRequests = input.readInt();
-            for (int i = 0; i < numRequests; i++)
-                message.requests.add(StreamRequest.serializer.deserialize(input, version));
+            for (int i = 0; i < numRequests; i++) message.requests.add(StreamRequest.serializer.deserialize(input, version));
             // summaries
             int numSummaries = input.readInt();
-            for (int i = 0; i < numSummaries; i++)
-                message.summaries.add(StreamSummary.serializer.deserialize(input, version));
+            for (int i = 0; i < numSummaries; i++) message.summaries.add(StreamSummary.serializer.deserialize(input, version));
             return message;
         }
 
-        public long serializedSize(PrepareSynMessage message, int version)
-        {
-            long size = 4 + 4; // count of requests and count of summaries
-            for (StreamRequest request : message.requests)
-                size += StreamRequest.serializer.serializedSize(request, version);
-            for (StreamSummary summary : message.summaries)
-                size += StreamSummary.serializer.serializedSize(summary, version);
+        public long serializedSize(PrepareSynMessage message, int version) {
+            // count of requests and count of summaries
+            long size = 4 + 4;
+            for (StreamRequest request : message.requests) size += StreamRequest.serializer.serializedSize(request, version);
+            for (StreamSummary summary : message.summaries) size += StreamSummary.serializer.serializedSize(summary, version);
             return size;
         }
 
-        public void serialize(PrepareSynMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException
-        {
+        public void serialize(PrepareSynMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException {
             // requests
             out.writeInt(message.requests.size());
-            for (StreamRequest request : message.requests)
-                StreamRequest.serializer.serialize(request, out, version);
+            for (StreamRequest request : message.requests) StreamRequest.serializer.serialize(request, out, version);
             // summaries
             out.writeInt(message.summaries.size());
-            for (StreamSummary summary : message.summaries)
-                StreamSummary.serializer.serialize(summary, out, version);
+            for (StreamSummary summary : message.summaries) StreamSummary.serializer.serialize(summary, out, version);
         }
     };
 
     /**
      * Streaming requests
      */
-    public final Collection<StreamRequest> requests = new ArrayList<>();
+    public final transient Collection<StreamRequest> requests = new ArrayList<>();
 
     /**
      * Summaries of streaming out
      */
-    public final Collection<StreamSummary> summaries = new ArrayList<>();
+    public final transient Collection<StreamSummary> summaries = new ArrayList<>();
 
-    public PrepareSynMessage()
-    {
+    public PrepareSynMessage() {
         super(Type.PREPARE_SYN);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         final StringBuilder sb = new StringBuilder("Prepare SYN (");
         sb.append(requests.size()).append(" requests, ");
         int totalFile = 0;
-        for (StreamSummary summary : summaries)
-            totalFile += summary.files;
+        for (StreamSummary summary : summaries) totalFile += summary.files;
         sb.append(" ").append(totalFile).append(" files");
         sb.append('}');
         return sb.toString();

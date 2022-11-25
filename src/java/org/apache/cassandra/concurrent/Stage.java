@@ -35,82 +35,73 @@ import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.net.Verb;
 import org.apache.cassandra.utils.ExecutorUtils;
-
 import org.apache.cassandra.utils.FBUtilities;
-
 import static java.util.stream.Collectors.toMap;
 
-public enum Stage
-{
-    READ              (false, "ReadStage",             "request",  DatabaseDescriptor::getConcurrentReaders,        DatabaseDescriptor::setConcurrentReaders,        Stage::multiThreadedLowSignalStage),
-    MUTATION          (true,  "MutationStage",         "request",  DatabaseDescriptor::getConcurrentWriters,        DatabaseDescriptor::setConcurrentWriters,        Stage::multiThreadedLowSignalStage),
-    COUNTER_MUTATION  (true,  "CounterMutationStage",  "request",  DatabaseDescriptor::getConcurrentCounterWriters, DatabaseDescriptor::setConcurrentCounterWriters, Stage::multiThreadedLowSignalStage),
-    VIEW_MUTATION     (true,  "ViewMutationStage",     "request",  DatabaseDescriptor::getConcurrentViewWriters,    DatabaseDescriptor::setConcurrentViewWriters,    Stage::multiThreadedLowSignalStage),
-    GOSSIP            (true,  "GossipStage",           "internal", () -> 1,                                         null,                                            Stage::singleThreadedStage),
-    REQUEST_RESPONSE  (false, "RequestResponseStage",  "request",  FBUtilities::getAvailableProcessors,             null,                                            Stage::multiThreadedLowSignalStage),
-    ANTI_ENTROPY      (false, "AntiEntropyStage",      "internal", () -> 1,                                         null,                                            Stage::singleThreadedStage),
-    MIGRATION         (false, "MigrationStage",        "internal", () -> 1,                                         null,                                            Stage::singleThreadedStage),
-    MISC              (false, "MiscStage",             "internal", () -> 1,                                         null,                                            Stage::singleThreadedStage),
-    TRACING           (false, "TracingStage",          "internal", () -> 1,                                         null,                                            Stage::tracingExecutor),
-    INTERNAL_RESPONSE (false, "InternalResponseStage", "internal", FBUtilities::getAvailableProcessors,             null,                                            Stage::multiThreadedStage),
-    IMMEDIATE         (false, "ImmediateStage",        "internal", () -> 0,                                         null,                                            Stage::immediateExecutor);
+public enum Stage {
 
-    public static final long KEEP_ALIVE_SECONDS = 60; // seconds to keep "extra" threads alive for when idle
+    READ(false, "ReadStage", "request", DatabaseDescriptor::getConcurrentReaders, DatabaseDescriptor::setConcurrentReaders, Stage::multiThreadedLowSignalStage),
+    MUTATION(true, "MutationStage", "request", DatabaseDescriptor::getConcurrentWriters, DatabaseDescriptor::setConcurrentWriters, Stage::multiThreadedLowSignalStage),
+    COUNTER_MUTATION(true, "CounterMutationStage", "request", DatabaseDescriptor::getConcurrentCounterWriters, DatabaseDescriptor::setConcurrentCounterWriters, Stage::multiThreadedLowSignalStage),
+    VIEW_MUTATION(true, "ViewMutationStage", "request", DatabaseDescriptor::getConcurrentViewWriters, DatabaseDescriptor::setConcurrentViewWriters, Stage::multiThreadedLowSignalStage),
+    GOSSIP(true, "GossipStage", "internal", () -> 1, null, Stage::singleThreadedStage),
+    REQUEST_RESPONSE(false, "RequestResponseStage", "request", FBUtilities::getAvailableProcessors, null, Stage::multiThreadedLowSignalStage),
+    ANTI_ENTROPY(false, "AntiEntropyStage", "internal", () -> 1, null, Stage::singleThreadedStage),
+    MIGRATION(false, "MigrationStage", "internal", () -> 1, null, Stage::singleThreadedStage),
+    MISC(false, "MiscStage", "internal", () -> 1, null, Stage::singleThreadedStage),
+    TRACING(false, "TracingStage", "internal", () -> 1, null, Stage::tracingExecutor),
+    INTERNAL_RESPONSE(false, "InternalResponseStage", "internal", FBUtilities::getAvailableProcessors, null, Stage::multiThreadedStage),
+    IMMEDIATE(false, "ImmediateStage", "internal", () -> 0, null, Stage::immediateExecutor);
+
+    // seconds to keep "extra" threads alive for when idle
+    public static final long KEEP_ALIVE_SECONDS = 60;
+
     public final String jmxName;
-    /** Set true if this executor should be gracefully shutdown before stopping
+
+    /**
+     * Set true if this executor should be gracefully shutdown before stopping
      * the commitlog allocator. Tasks on executors that issue mutations may
      * block indefinitely waiting for a new commitlog segment, preventing a
      * clean drain/shutdown.
      */
     public final boolean shutdownBeforeCommitlog;
+
     private final Supplier<LocalAwareExecutorService> initialiser;
+
     private volatile LocalAwareExecutorService executor = null;
 
-    Stage(Boolean shutdownBeforeCommitlog, String jmxName, String jmxType, IntSupplier numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize, ExecutorServiceInitialiser initialiser)
-    {
+    Stage(Boolean shutdownBeforeCommitlog, String jmxName, String jmxType, IntSupplier numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize, ExecutorServiceInitialiser initialiser) {
         this.shutdownBeforeCommitlog = shutdownBeforeCommitlog;
         this.jmxName = jmxName;
-        this.initialiser = () -> initialiser.init(jmxName,jmxType, numThreads.getAsInt(), onSetMaximumPoolSize);
+        this.initialiser = () -> initialiser.init(jmxName, jmxType, numThreads.getAsInt(), onSetMaximumPoolSize);
     }
 
-    private static String normalizeName(String stageName)
-    {
+    private static String normalizeName(String stageName) {
         // Handle discrepancy between JMX names and actual pool names
         String upperStageName = stageName.toUpperCase();
-        if (upperStageName.endsWith("STAGE"))
-        {
+        if (upperStageName.endsWith("STAGE")) {
             upperStageName = upperStageName.substring(0, stageName.length() - 5);
         }
         return upperStageName;
     }
 
-    private static final Map<String,Stage> nameMap = Arrays.stream(values())
-                                                           .collect(toMap(s -> Stage.normalizeName(s.jmxName),
-                                                                          s -> s));
+    private static final Map<String, Stage> nameMap = Arrays.stream(values()).collect(toMap(s -> Stage.normalizeName(s.jmxName), s -> s));
 
-    public static Stage fromPoolName(String stageName)
-    {
+    public static Stage fromPoolName(String stageName) {
         String upperStageName = normalizeName(stageName);
-
         Stage result = nameMap.get(upperStageName);
         if (result != null)
             return result;
-
-        try
-        {
+        try {
             return valueOf(upperStageName);
-        }
-        catch (IllegalArgumentException e)
-        {
-            switch(upperStageName) // Handle discrepancy between configuration file and stage names
-            {
+        } catch (IllegalArgumentException e) {
+            switch(// Handle discrepancy between configuration file and stage names
+            upperStageName) {
                 case "CONCURRENT_READS":
                     return READ;
                 case "CONCURRENT_WRITERS":
@@ -120,29 +111,40 @@ public enum Stage
                 case "CONCURRENT_MATERIALIZED_VIEW_WRITES":
                     return VIEW_MUTATION;
                 default:
-                    throw new IllegalStateException("Must be one of " + Arrays.stream(values())
-                                                                              .map(Enum::toString)
-                                                                              .collect(Collectors.joining(",")));
+                    throw new IllegalStateException("Must be one of " + Arrays.stream(values()).map(Enum::toString).collect(Collectors.joining(",")));
             }
         }
     }
 
     // Convenience functions to execute on this stage
-    public void execute(Runnable command) { executor().execute(command); }
-    public void execute(Runnable command, ExecutorLocals locals) { executor().execute(command, locals); }
-    public void maybeExecuteImmediately(Runnable command) { executor().maybeExecuteImmediately(command); }
-    public <T> Future<T> submit(Callable<T> task) { return executor().submit(task); }
-    public Future<?> submit(Runnable task) { return executor().submit(task); }
-    public <T> Future<T> submit(Runnable task, T result) { return executor().submit(task, result); }
+    public void execute(Runnable command) {
+        executor().execute(command);
+    }
 
-    public LocalAwareExecutorService executor()
-    {
-        if (executor == null)
-        {
-            synchronized (this)
-            {
-                if (executor == null)
-                {
+    public void execute(Runnable command, ExecutorLocals locals) {
+        executor().execute(command, locals);
+    }
+
+    public void maybeExecuteImmediately(Runnable command) {
+        executor().maybeExecuteImmediately(command);
+    }
+
+    public <T> Future<T> submit(Callable<T> task) {
+        return executor().submit(task);
+    }
+
+    public Future<?> submit(Runnable task) {
+        return executor().submit(task);
+    }
+
+    public <T> Future<T> submit(Runnable task, T result) {
+        return executor().submit(task, result);
+    }
+
+    public LocalAwareExecutorService executor() {
+        if (executor == null) {
+            synchronized (this) {
+                if (executor == null) {
                     executor = initialiser.get();
                 }
             }
@@ -150,154 +152,126 @@ public enum Stage
         return executor;
     }
 
-    private static List<ExecutorService> executors()
-    {
-        return Stream.of(Stage.values())
-                     .map(Stage::executor)
-                     .collect(Collectors.toList());
+    private static List<ExecutorService> executors() {
+        return Stream.of(Stage.values()).map(Stage::executor).collect(Collectors.toList());
     }
 
-    private static List<ExecutorService> mutatingExecutors()
-    {
-        return Stream.of(Stage.values())
-                     .filter(stage -> stage.shutdownBeforeCommitlog)
-                     .map(Stage::executor)
-                     .collect(Collectors.toList());
+    private static List<ExecutorService> mutatingExecutors() {
+        return Stream.of(Stage.values()).filter(stage -> stage.shutdownBeforeCommitlog).map(Stage::executor).collect(Collectors.toList());
     }
 
     /**
      * This method shuts down all registered stages.
      */
-    public static void shutdownNow()
-    {
+    public static void shutdownNow() {
         ExecutorUtils.shutdownNow(executors());
     }
 
-    public static void shutdownAndAwaitMutatingExecutors(boolean interrupt, long timeout, TimeUnit units) throws InterruptedException, TimeoutException
-    {
+    public static void shutdownAndAwaitMutatingExecutors(boolean interrupt, long timeout, TimeUnit units) throws InterruptedException, TimeoutException {
         List<ExecutorService> executors = mutatingExecutors();
         ExecutorUtils.shutdown(interrupt, executors);
         ExecutorUtils.awaitTermination(timeout, units, executors);
     }
 
-    public static boolean areMutationExecutorsTerminated()
-    {
+    public static boolean areMutationExecutorsTerminated() {
         return mutatingExecutors().stream().allMatch(ExecutorService::isTerminated);
     }
 
     @VisibleForTesting
-    public static void shutdownAndWait(long timeout, TimeUnit units) throws InterruptedException, TimeoutException
-    {
+    public static void shutdownAndWait(long timeout, TimeUnit units) throws InterruptedException, TimeoutException {
         List<ExecutorService> executors = executors();
         ExecutorUtils.shutdownNow(executors);
         ExecutorUtils.awaitTermination(timeout, units, executors);
     }
 
-    static LocalAwareExecutorService tracingExecutor(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize)
-    {
+    static LocalAwareExecutorService tracingExecutor(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize) {
         RejectedExecutionHandler reh = (r, executor) -> MessagingService.instance().metrics.recordSelfDroppedMessage(Verb._TRACE);
-        return new TracingExecutor(1,
-                                   1,
-                                   KEEP_ALIVE_SECONDS,
-                                   TimeUnit.SECONDS,
-                                   new ArrayBlockingQueue<>(1000),
-                                   new NamedThreadFactory(jmxName),
-                                   reh);
+        return new TracingExecutor(1, 1, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS, new ArrayBlockingQueue<>(1000), new NamedThreadFactory(jmxName), reh);
     }
 
-    static LocalAwareExecutorService multiThreadedStage(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize)
-    {
-        return new JMXEnabledThreadPoolExecutor(numThreads,
-                                                KEEP_ALIVE_SECONDS,
-                                                TimeUnit.SECONDS,
-                                                new LinkedBlockingQueue<>(),
-                                                new NamedThreadFactory(jmxName),
-                                                jmxType);
+    static LocalAwareExecutorService multiThreadedStage(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize) {
+        return new JMXEnabledThreadPoolExecutor(numThreads, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), new NamedThreadFactory(jmxName), jmxType);
     }
 
-    static LocalAwareExecutorService multiThreadedLowSignalStage(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize)
-    {
+    static LocalAwareExecutorService multiThreadedLowSignalStage(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize) {
         return SharedExecutorPool.SHARED.newExecutor(numThreads, onSetMaximumPoolSize, jmxType, jmxName);
     }
 
-    static LocalAwareExecutorService singleThreadedStage(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize)
-    {
+    static LocalAwareExecutorService singleThreadedStage(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize) {
         return new JMXEnabledSingleThreadExecutor(jmxName, jmxType);
     }
 
-    static LocalAwareExecutorService immediateExecutor(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize)
-    {
+    static LocalAwareExecutorService immediateExecutor(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize) {
         return ImmediateExecutor.INSTANCE;
     }
 
     @FunctionalInterface
-    public interface ExecutorServiceInitialiser
-    {
+    public interface ExecutorServiceInitialiser {
+
+        public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExecutorServiceInitialiser.class);
+
+        public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExecutorServiceInitialiser.class);
+
         public LocalAwareExecutorService init(String jmxName, String jmxType, int numThreads, LocalAwareExecutorService.MaximumPoolSizeListener onSetMaximumPoolSize);
     }
 
     /**
      * Returns core thread pool size
      */
-    public int getCorePoolSize()
-    {
+    public int getCorePoolSize() {
         return executor().getCorePoolSize();
     }
 
     /**
      * Allows user to resize core thread pool size
      */
-    public void setCorePoolSize(int newCorePoolSize)
-    {
+    public void setCorePoolSize(int newCorePoolSize) {
         executor().setCorePoolSize(newCorePoolSize);
     }
 
     /**
      * Returns maximum pool size of thread pool.
      */
-    public int getMaximumPoolSize()
-    {
+    public int getMaximumPoolSize() {
         return executor().getMaximumPoolSize();
     }
 
     /**
      * Allows user to resize maximum size of the thread pool.
      */
-    public void setMaximumPoolSize(int newMaximumPoolSize)
-    {
+    public void setMaximumPoolSize(int newMaximumPoolSize) {
         executor().setMaximumPoolSize(newMaximumPoolSize);
     }
 
     /**
      * The executor used for tracing.
      */
-    private static class TracingExecutor extends ThreadPoolExecutor implements LocalAwareExecutorService
-    {
-        TracingExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, RejectedExecutionHandler handler)
-        {
+    private static class TracingExecutor extends ThreadPoolExecutor implements LocalAwareExecutorService {
+
+        public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TracingExecutor.class);
+
+        public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TracingExecutor.class);
+
+        TracingExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, RejectedExecutionHandler handler) {
             super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
         }
 
-        public void execute(Runnable command, ExecutorLocals locals)
-        {
+        public void execute(Runnable command, ExecutorLocals locals) {
             assert locals == null;
             super.execute(command);
         }
 
-        public void maybeExecuteImmediately(Runnable command)
-        {
+        public void maybeExecuteImmediately(Runnable command) {
             execute(command);
         }
 
         @Override
-        public int getActiveTaskCount()
-        {
+        public int getActiveTaskCount() {
             return getActiveCount();
         }
 
         @Override
-        public int getPendingTaskCount()
-        {
+        public int getPendingTaskCount() {
             return getQueue().size();
         }
     }

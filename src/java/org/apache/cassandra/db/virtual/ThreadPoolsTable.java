@@ -24,62 +24,48 @@ import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.dht.LocalPartitioner;
 import org.apache.cassandra.metrics.ThreadPoolMetrics;
 import org.apache.cassandra.schema.TableMetadata;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
-final class ThreadPoolsTable extends AbstractVirtualTable
-{
-    private static final String NAME = "name";
-    private static final String ACTIVE_TASKS = "active_tasks";
-    private static final String ACTIVE_TASKS_LIMIT = "active_tasks_limit";
-    private static final String PENDING_TASKS = "pending_tasks";
-    private static final String COMPLETED_TASKS = "completed_tasks";
-    private static final String BLOCKED_TASKS = "blocked_tasks";
-    private static final String BLOCKED_TASKS_ALL_TIME = "blocked_tasks_all_time";
+final class ThreadPoolsTable extends AbstractVirtualTable {
 
-    ThreadPoolsTable(String keyspace)
-    {
-        super(TableMetadata.builder(keyspace, "thread_pools")
-                           .kind(TableMetadata.Kind.VIRTUAL)
-                           .partitioner(new LocalPartitioner(UTF8Type.instance))
-                           .addPartitionKeyColumn(NAME, UTF8Type.instance)
-                           .addRegularColumn(ACTIVE_TASKS, Int32Type.instance)
-                           .addRegularColumn(ACTIVE_TASKS_LIMIT, Int32Type.instance)
-                           .addRegularColumn(PENDING_TASKS, Int32Type.instance)
-                           .addRegularColumn(COMPLETED_TASKS, LongType.instance)
-                           .addRegularColumn(BLOCKED_TASKS, LongType.instance)
-                           .addRegularColumn(BLOCKED_TASKS_ALL_TIME, LongType.instance)
-                           .build());
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ThreadPoolsTable.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ThreadPoolsTable.class);
+
+    private static final transient String NAME = "name";
+
+    private static final transient String ACTIVE_TASKS = "active_tasks";
+
+    private static final transient String ACTIVE_TASKS_LIMIT = "active_tasks_limit";
+
+    private static final transient String PENDING_TASKS = "pending_tasks";
+
+    private static final transient String COMPLETED_TASKS = "completed_tasks";
+
+    private static final transient String BLOCKED_TASKS = "blocked_tasks";
+
+    private static final transient String BLOCKED_TASKS_ALL_TIME = "blocked_tasks_all_time";
+
+    ThreadPoolsTable(String keyspace) {
+        super(TableMetadata.builder(keyspace, "thread_pools").kind(TableMetadata.Kind.VIRTUAL).partitioner(new LocalPartitioner(UTF8Type.instance)).addPartitionKeyColumn(NAME, UTF8Type.instance).addRegularColumn(ACTIVE_TASKS, Int32Type.instance).addRegularColumn(ACTIVE_TASKS_LIMIT, Int32Type.instance).addRegularColumn(PENDING_TASKS, Int32Type.instance).addRegularColumn(COMPLETED_TASKS, LongType.instance).addRegularColumn(BLOCKED_TASKS, LongType.instance).addRegularColumn(BLOCKED_TASKS_ALL_TIME, LongType.instance).build());
     }
 
     @Override
-    public DataSet data(DecoratedKey partitionKey)
-    {
+    public DataSet data(DecoratedKey partitionKey) {
         String poolName = UTF8Type.instance.compose(partitionKey.getKey());
-
         SimpleDataSet result = new SimpleDataSet(metadata());
-        Metrics.getThreadPoolMetrics(poolName)
-               .ifPresent(metrics -> addRow(result, metrics));
+        Metrics.getThreadPoolMetrics(poolName).ifPresent(metrics -> addRow(result, metrics));
         return result;
     }
 
     @Override
-    public DataSet data()
-    {
+    public DataSet data() {
         SimpleDataSet result = new SimpleDataSet(metadata());
-        Metrics.allThreadPoolMetrics()
-               .forEach(metrics -> addRow(result, metrics));
+        Metrics.allThreadPoolMetrics().forEach(metrics -> addRow(result, metrics));
         return result;
     }
 
-    private void addRow(SimpleDataSet dataSet, ThreadPoolMetrics metrics)
-    {
-        dataSet.row(metrics.poolName)
-               .column(ACTIVE_TASKS, metrics.activeTasks.getValue())
-               .column(ACTIVE_TASKS_LIMIT, metrics.maxPoolSize.getValue())
-               .column(PENDING_TASKS, metrics.pendingTasks.getValue())
-               .column(COMPLETED_TASKS, metrics.completedTasks.getValue())
-               .column(BLOCKED_TASKS, metrics.currentBlocked.getCount())
-               .column(BLOCKED_TASKS_ALL_TIME, metrics.totalBlocked.getCount());
+    private void addRow(SimpleDataSet dataSet, ThreadPoolMetrics metrics) {
+        dataSet.row(metrics.poolName).column(ACTIVE_TASKS, metrics.activeTasks.getValue()).column(ACTIVE_TASKS_LIMIT, metrics.maxPoolSize.getValue()).column(PENDING_TASKS, metrics.pendingTasks.getValue()).column(COMPLETED_TASKS, metrics.completedTasks.getValue()).column(BLOCKED_TASKS, metrics.currentBlocked.getCount()).column(BLOCKED_TASKS_ALL_TIME, metrics.totalBlocked.getCount());
     }
 }

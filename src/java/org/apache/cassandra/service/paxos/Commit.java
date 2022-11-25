@@ -1,4 +1,5 @@
 package org.apache.cassandra.service.paxos;
+
 /*
  *
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,13 +20,9 @@ package org.apache.cassandra.service.paxos;
  * under the License.
  *
  */
-
-
 import java.io.IOException;
 import java.util.UUID;
-
 import com.google.common.base.Objects;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.*;
@@ -36,101 +33,96 @@ import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.utils.UUIDGen;
 import org.apache.cassandra.utils.UUIDSerializer;
 
-public class Commit
-{
-    public static final CommitSerializer serializer = new CommitSerializer();
+public class Commit {
 
-    public final UUID ballot;
-    public final PartitionUpdate update;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Commit.class);
 
-    public Commit(UUID ballot, PartitionUpdate update)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Commit.class);
+
+    public static final transient CommitSerializer serializer = new CommitSerializer();
+
+    public final transient UUID ballot;
+
+    public final transient PartitionUpdate update;
+
+    public Commit(UUID ballot, PartitionUpdate update) {
         assert ballot != null;
         assert update != null;
-
         this.ballot = ballot;
         this.update = update;
     }
 
-    public static Commit newPrepare(DecoratedKey key, TableMetadata metadata, UUID ballot)
-    {
+    public static Commit newPrepare(DecoratedKey key, TableMetadata metadata, UUID ballot) {
         return new Commit(ballot, PartitionUpdate.emptyUpdate(metadata, key));
     }
 
-    public static Commit newProposal(UUID ballot, PartitionUpdate update)
-    {
+    public static Commit newProposal(UUID ballot, PartitionUpdate update) {
         PartitionUpdate withNewTimestamp = new PartitionUpdate.Builder(update, 0).updateAllTimestamp(UUIDGen.microsTimestamp(ballot)).build();
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.paxos.Commit.update]=" + org.json.simple.JSONValue.toJSONString(update).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.paxos.Commit.update]=" + org.json.simple.JSONValue.toJSONString(update).replace("\n", "").replace("\r", ""));
         return new Commit(ballot, withNewTimestamp);
     }
 
-    public static Commit emptyCommit(DecoratedKey key, TableMetadata metadata)
-    {
+    public static Commit emptyCommit(DecoratedKey key, TableMetadata metadata) {
         return new Commit(UUIDGen.minTimeUUID(0), PartitionUpdate.emptyUpdate(metadata, key));
     }
 
-    public boolean isAfter(Commit other)
-    {
+    public boolean isAfter(Commit other) {
         return ballot.timestamp() > other.ballot.timestamp();
     }
 
-    public boolean hasBallot(UUID ballot)
-    {
+    public boolean hasBallot(UUID ballot) {
         return this.ballot.equals(ballot);
     }
 
-    /** Whether this is an empty commit, that is one with no updates. */
-    public boolean isEmpty()
-    {
+    /**
+     * Whether this is an empty commit, that is one with no updates.
+     */
+    public boolean isEmpty() {
         return update.isEmpty();
     }
 
-    public Mutation makeMutation()
-    {
+    public Mutation makeMutation() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.paxos.Commit.update]=" + org.json.simple.JSONValue.toJSONString(update).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.paxos.Commit.update]=" + org.json.simple.JSONValue.toJSONString(update).replace("\n", "").replace("\r", ""));
         return new Mutation(update);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         Commit commit = (Commit) o;
-
         return ballot.equals(commit.ballot) && update.equals(commit.update);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(ballot, update);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("Commit(%s, %s)", ballot, update);
     }
 
-    public static class CommitSerializer implements IVersionedSerializer<Commit>
-    {
-        public void serialize(Commit commit, DataOutputPlus out, int version) throws IOException
-        {
+    public static class CommitSerializer implements IVersionedSerializer<Commit> {
+
+        public void serialize(Commit commit, DataOutputPlus out, int version) throws IOException {
             UUIDSerializer.serializer.serialize(commit.ballot, out, version);
             PartitionUpdate.serializer.serialize(commit.update, out, version);
         }
 
-        public Commit deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public Commit deserialize(DataInputPlus in, int version) throws IOException {
             UUID ballot = UUIDSerializer.serializer.deserialize(in, version);
             PartitionUpdate update = PartitionUpdate.serializer.deserialize(in, version, DeserializationHelper.Flag.LOCAL);
             return new Commit(ballot, update);
         }
 
-        public long serializedSize(Commit commit, int version)
-        {
-            return UUIDSerializer.serializer.serializedSize(commit.ballot, version)
-                 + PartitionUpdate.serializer.serializedSize(commit.update, version);
+        public long serializedSize(Commit commit, int version) {
+            return UUIDSerializer.serializer.serializedSize(commit.ballot, version) + PartitionUpdate.serializer.serializedSize(commit.update, version);
         }
     }
 }

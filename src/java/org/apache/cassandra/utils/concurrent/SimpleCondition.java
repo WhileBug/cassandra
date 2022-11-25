@@ -25,16 +25,20 @@ import java.util.concurrent.locks.Condition;
 // fulfils the Condition interface without spurious wakeup problems
 // (or lost notify problems either: that is, even if you call await()
 // _after_ signal(), it will work as desired.)
-public class SimpleCondition implements Condition
-{
-    private static final AtomicReferenceFieldUpdater<SimpleCondition, WaitQueue> waitingUpdater = AtomicReferenceFieldUpdater.newUpdater(SimpleCondition.class, WaitQueue.class, "waiting");
+public class SimpleCondition implements Condition {
 
-    private volatile WaitQueue waiting;
-    private volatile boolean signaled = false;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SimpleCondition.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SimpleCondition.class);
+
+    private static final transient AtomicReferenceFieldUpdater<SimpleCondition, WaitQueue> waitingUpdater = AtomicReferenceFieldUpdater.newUpdater(SimpleCondition.class, WaitQueue.class, "waiting");
+
+    private volatile transient WaitQueue waiting;
+
+    private volatile transient boolean signaled = false;
 
     @Override
-    public void await() throws InterruptedException
-    {
+    public void await() throws InterruptedException {
         if (isSignaled())
             return;
         if (waiting == null)
@@ -47,59 +51,50 @@ public class SimpleCondition implements Condition
         assert isSignaled();
     }
 
-    public boolean await(long time, TimeUnit unit) throws InterruptedException
-    {
+    public boolean await(long time, TimeUnit unit) throws InterruptedException {
         long start = System.nanoTime();
         long until = start + unit.toNanos(time);
         return awaitUntil(until);
     }
 
-    public boolean awaitUntil(long deadlineNanos) throws InterruptedException
-    {
+    public boolean awaitUntil(long deadlineNanos) throws InterruptedException {
         if (isSignaled())
             return true;
         if (waiting == null)
             waitingUpdater.compareAndSet(this, null, new WaitQueue());
         WaitQueue.Signal s = waiting.register();
-        if (isSignaled())
-        {
+        if (isSignaled()) {
             s.cancel();
             return true;
         }
         return s.awaitUntil(deadlineNanos) || isSignaled();
     }
 
-    public void signal()
-    {
+    public void signal() {
         throw new UnsupportedOperationException();
     }
 
-    public boolean isSignaled()
-    {
+    public boolean isSignaled() {
         return signaled;
     }
 
-    public void signalAll()
-    {
+    public void signalAll() {
         signaled = true;
         if (waiting != null)
             waiting.signalAll();
     }
 
-    public void awaitUninterruptibly()
-    {
+    public void awaitUninterruptibly() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public long awaitNanos(long nanosTimeout)
-    {
+    public long awaitNanos(long nanosTimeout) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean awaitUntil(Date deadline)
-    {
+    public boolean awaitUntil(Date deadline) {
         throw new UnsupportedOperationException();
     }
 }

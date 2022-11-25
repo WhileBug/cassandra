@@ -15,28 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 /**
  * Simple wrapper for native boolean type
  */
-public class WrappedBoolean
-{
-    private boolean value;
+public class WrappedBoolean {
 
-    public WrappedBoolean(boolean initial)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WrappedBoolean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WrappedBoolean.class);
+
+    private transient boolean value;
+
+    public WrappedBoolean(boolean initial) {
         this.value = initial;
     }
 
-    public boolean get()
-    {
+    public boolean get() {
         return value;
     }
 
-    public void set(boolean value)
-    {
+    public void set(boolean value) {
         this.value = value;
     }
 }

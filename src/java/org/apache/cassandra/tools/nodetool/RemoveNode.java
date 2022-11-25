@@ -20,21 +20,22 @@ package org.apache.cassandra.tools.nodetool;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "removenode", description = "Show status of current node removal, force completion of pending removal or remove provided ID")
-public class RemoveNode extends NodeToolCmd
-{
+public class RemoveNode extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RemoveNode.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RemoveNode.class);
+
     @Arguments(title = "remove_operation", usage = "<status>|<force>|<ID>", description = "Show status of current node removal, force completion of pending removal, or remove provided ID", required = true)
-    private String removeOperation = EMPTY;
+    private transient String removeOperation = EMPTY;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
-        switch (removeOperation)
-        {
+    public void execute(NodeProbe probe) {
+        switch(removeOperation) {
             case "status":
                 probe.output().out.println("RemovalStatus: " + probe.getRemovalStatus(printPort));
                 break;

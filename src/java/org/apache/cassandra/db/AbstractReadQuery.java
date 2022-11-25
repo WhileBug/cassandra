@@ -28,17 +28,23 @@ import org.apache.cassandra.schema.TableMetadata;
 /**
  * Base class for {@code ReadQuery} implementations.
  */
-abstract class AbstractReadQuery extends MonitorableImpl implements ReadQuery
-{
-    private final TableMetadata metadata;
-    private final int nowInSec;
+abstract class AbstractReadQuery extends MonitorableImpl implements ReadQuery {
 
-    private final ColumnFilter columnFilter;
-    private final RowFilter rowFilter;
-    private final DataLimits limits;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractReadQuery.class);
 
-    protected AbstractReadQuery(TableMetadata metadata, int nowInSec, ColumnFilter columnFilter, RowFilter rowFilter, DataLimits limits)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractReadQuery.class);
+
+    private final transient TableMetadata metadata;
+
+    private final transient int nowInSec;
+
+    private final transient ColumnFilter columnFilter;
+
+    private final transient RowFilter rowFilter;
+
+    private final transient DataLimits limits;
+
+    protected AbstractReadQuery(TableMetadata metadata, int nowInSec, ColumnFilter columnFilter, RowFilter rowFilter, DataLimits limits) {
         this.metadata = metadata;
         this.nowInSec = nowInSec;
         this.columnFilter = columnFilter;
@@ -47,44 +53,37 @@ abstract class AbstractReadQuery extends MonitorableImpl implements ReadQuery
     }
 
     @Override
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return metadata;
     }
 
     // Monitorable interface
-    public String name()
-    {
+    public String name() {
         return toCQLString();
     }
 
     @Override
-    public PartitionIterator executeInternal(ReadExecutionController controller)
-    {
+    public PartitionIterator executeInternal(ReadExecutionController controller) {
         return UnfilteredPartitionIterators.filter(executeLocally(controller), nowInSec());
     }
 
     @Override
-    public DataLimits limits()
-    {
+    public DataLimits limits() {
         return limits;
     }
 
     @Override
-    public int nowInSec()
-    {
+    public int nowInSec() {
         return nowInSec;
     }
 
     @Override
-    public RowFilter rowFilter()
-    {
+    public RowFilter rowFilter() {
         return rowFilter;
     }
 
     @Override
-    public ColumnFilter columnFilter()
-    {
+    public ColumnFilter columnFilter() {
         return columnFilter;
     }
 
@@ -97,16 +96,9 @@ abstract class AbstractReadQuery extends MonitorableImpl implements ReadQuery
      * we query them all). So this shouldn't be relied too strongly, but this should be good enough for
      * debugging purpose which is what this is for.
      */
-    public String toCQLString()
-    {
-        StringBuilder sb = new StringBuilder().append("SELECT ")
-                                              .append(columnFilter().toCQLString())
-                                              .append(" FROM ")
-                                              .append(metadata().keyspace)
-                                              .append('.')
-                                              .append(metadata().name);
+    public String toCQLString() {
+        StringBuilder sb = new StringBuilder().append("SELECT ").append(columnFilter().toCQLString()).append(" FROM ").append(metadata().keyspace).append('.').append(metadata().name);
         appendCQLWhereClause(sb);
-
         if (limits() != DataLimits.NONE)
             sb.append(' ').append(limits());
         return sb.toString();

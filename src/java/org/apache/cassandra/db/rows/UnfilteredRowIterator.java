@@ -43,8 +43,12 @@ import org.apache.cassandra.db.*;
  * the returned objects for longer than the iteration, it must make a copy of
  * it explicitly.
  */
-public interface UnfilteredRowIterator extends BaseRowIterator<Unfiltered>
-{
+public interface UnfilteredRowIterator extends BaseRowIterator<Unfiltered> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnfilteredRowIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnfilteredRowIterator.class);
+
     /**
      * The partition level deletion for the partition this iterate over.
      */
@@ -60,10 +64,7 @@ public interface UnfilteredRowIterator extends BaseRowIterator<Unfiltered>
     /**
      * Returns whether this iterator has no data (including no deletion data).
      */
-    public default boolean isEmpty()
-    {
-        return partitionLevelDeletion().isLive()
-            && staticRow().isEmpty()
-            && !hasNext();
+    public default boolean isEmpty() {
+        return partitionLevelDeletion().isLive() && staticRow().isEmpty() && !hasNext();
     }
 }

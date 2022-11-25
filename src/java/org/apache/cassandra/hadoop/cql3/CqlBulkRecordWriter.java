@@ -26,11 +26,9 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.*;
-
 import com.google.common.net.HostAndPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.statements.schema.CreateTableStatement;
 import org.apache.cassandra.dht.IPartitioner;
@@ -50,13 +48,12 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.util.Progressable;
-
 import static org.apache.cassandra.config.CassandraRelevantProperties.JAVA_IO_TMPDIR;
 
 /**
  * The <code>CqlBulkRecordWriter</code> maps the output &lt;key, value&gt;
  * pairs to a Cassandra column family. In particular, it applies the binded variables
- * in the value to the prepared statement, which it associates with the key, and in 
+ * in the value to the prepared statement, which it associates with the key, and in
  * turn the responsible endpoint.
  *
  * <p>
@@ -67,135 +64,128 @@ import static org.apache.cassandra.config.CassandraRelevantProperties.JAVA_IO_TM
  *
  * @see CqlBulkOutputFormat
  */
-public class CqlBulkRecordWriter extends RecordWriter<Object, List<ByteBuffer>>
-        implements org.apache.hadoop.mapred.RecordWriter<Object, List<ByteBuffer>>
-{
-    public final static String OUTPUT_LOCATION = "mapreduce.output.bulkoutputformat.localdir";
-    public final static String BUFFER_SIZE_IN_MB = "mapreduce.output.bulkoutputformat.buffersize";
-    public final static String STREAM_THROTTLE_MBITS = "mapreduce.output.bulkoutputformat.streamthrottlembits";
-    public final static String MAX_FAILED_HOSTS = "mapreduce.output.bulkoutputformat.maxfailedhosts";
-    public final static String IGNORE_HOSTS = "mapreduce.output.bulkoutputformat.ignorehosts";
+public class CqlBulkRecordWriter extends RecordWriter<Object, List<ByteBuffer>> implements org.apache.hadoop.mapred.RecordWriter<Object, List<ByteBuffer>> {
 
-    private final Logger logger = LoggerFactory.getLogger(CqlBulkRecordWriter.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CqlBulkRecordWriter.class);
 
-    protected final Configuration conf;
-    protected final int maxFailures;
-    protected final int bufferSize;
-    protected Closeable writer;
-    protected SSTableLoader loader;
-    protected Progressable progress;
-    protected TaskAttemptContext context;
-    protected final Set<InetAddressAndPort> ignores = new HashSet<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CqlBulkRecordWriter.class);
 
-    private String keyspace;
-    private String table;
-    private String schema;
-    private String insertStatement;
-    private File outputDir;
-    private boolean deleteSrc;
-    private IPartitioner partitioner;
+    public final static transient String OUTPUT_LOCATION = "mapreduce.output.bulkoutputformat.localdir";
 
-    CqlBulkRecordWriter(TaskAttemptContext context) throws IOException
-    {
+    public final static transient String BUFFER_SIZE_IN_MB = "mapreduce.output.bulkoutputformat.buffersize";
+
+    public final static transient String STREAM_THROTTLE_MBITS = "mapreduce.output.bulkoutputformat.streamthrottlembits";
+
+    public final static transient String MAX_FAILED_HOSTS = "mapreduce.output.bulkoutputformat.maxfailedhosts";
+
+    public final static transient String IGNORE_HOSTS = "mapreduce.output.bulkoutputformat.ignorehosts";
+
+    private final transient Logger logger = LoggerFactory.getLogger(CqlBulkRecordWriter.class);
+
+    protected final transient Configuration conf;
+
+    protected final transient int maxFailures;
+
+    protected final transient int bufferSize;
+
+    protected transient Closeable writer;
+
+    protected transient SSTableLoader loader;
+
+    protected transient Progressable progress;
+
+    protected transient TaskAttemptContext context;
+
+    protected final transient Set<InetAddressAndPort> ignores = new HashSet<>();
+
+    private transient String keyspace;
+
+    private transient String table;
+
+    private transient String schema;
+
+    private transient String insertStatement;
+
+    private transient File outputDir;
+
+    private transient boolean deleteSrc;
+
+    private transient IPartitioner partitioner;
+
+    CqlBulkRecordWriter(TaskAttemptContext context) throws IOException {
         this(HadoopCompat.getConfiguration(context));
         this.context = context;
         setConfigs();
     }
 
-    CqlBulkRecordWriter(Configuration conf, Progressable progress) throws IOException
-    {
+    CqlBulkRecordWriter(Configuration conf, Progressable progress) throws IOException {
         this(conf);
         this.progress = progress;
         setConfigs();
     }
 
-    CqlBulkRecordWriter(Configuration conf) throws IOException
-    {
+    CqlBulkRecordWriter(Configuration conf) throws IOException {
         this.conf = conf;
         DatabaseDescriptor.setStreamThroughputOutboundMegabitsPerSec(Integer.parseInt(conf.get(STREAM_THROTTLE_MBITS, "0")));
         maxFailures = Integer.parseInt(conf.get(MAX_FAILED_HOSTS, "0"));
         bufferSize = Integer.parseInt(conf.get(BUFFER_SIZE_IN_MB, "64"));
         setConfigs();
     }
-    
-    private void setConfigs() throws IOException
-    {
+
+    private void setConfigs() throws IOException {
         // if anything is missing, exceptions will be thrown here, instead of on write()
         keyspace = ConfigHelper.getOutputKeyspace(conf);
         table = ConfigHelper.getOutputColumnFamily(conf);
-        
         // check if table is aliased
         String aliasedCf = CqlBulkOutputFormat.getTableForAlias(conf, table);
         if (aliasedCf != null)
             table = aliasedCf;
-        
         schema = CqlBulkOutputFormat.getTableSchema(conf, table);
         insertStatement = CqlBulkOutputFormat.getTableInsertStatement(conf, table);
         outputDir = getTableDirectory();
         deleteSrc = CqlBulkOutputFormat.getDeleteSourceOnSuccess(conf);
-        try
-        {
+        try {
             partitioner = ConfigHelper.getInputPartitioner(conf);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             partitioner = Murmur3Partitioner.instance;
         }
-        try
-        {
-            for (String hostToIgnore : CqlBulkOutputFormat.getIgnoreHosts(conf))
-                ignores.add(InetAddressAndPort.getByName(hostToIgnore));
-        }
-        catch (UnknownHostException e)
-        {
+        try {
+            for (String hostToIgnore : CqlBulkOutputFormat.getIgnoreHosts(conf)) ignores.add(InetAddressAndPort.getByName(hostToIgnore));
+        } catch (UnknownHostException e) {
             throw new RuntimeException(("Unknown host: " + e.getMessage()));
         }
     }
 
-    protected String getOutputLocation() throws IOException
-    {
+    protected String getOutputLocation() throws IOException {
         String dir = conf.get(OUTPUT_LOCATION, JAVA_IO_TMPDIR.getString());
         if (dir == null)
             throw new IOException("Output directory not defined, if hadoop is not setting java.io.tmpdir then define " + OUTPUT_LOCATION);
         return dir;
     }
 
-    private void prepareWriter() throws IOException
-    {
-        if (writer == null)
-        {
-            writer = CQLSSTableWriter.builder()
-                                     .forTable(schema)
-                                     .using(insertStatement)
-                                     .withPartitioner(ConfigHelper.getOutputPartitioner(conf))
-                                     .inDirectory(outputDir)
-                                     .withBufferSizeInMB(Integer.parseInt(conf.get(BUFFER_SIZE_IN_MB, "64")))
-                                     .withPartitioner(partitioner)
-                                     .build();
+    private void prepareWriter() throws IOException {
+        if (writer == null) {
+            writer = CQLSSTableWriter.builder().forTable(schema).using(insertStatement).withPartitioner(ConfigHelper.getOutputPartitioner(conf)).inDirectory(outputDir).withBufferSizeInMB(Integer.parseInt(conf.get(BUFFER_SIZE_IN_MB, "64"))).withPartitioner(partitioner).build();
         }
-
-        if (loader == null)
-        {
+        if (loader == null) {
             ExternalClient externalClient = new ExternalClient(conf);
             externalClient.setTableMetadata(TableMetadataRef.forOfflineTools(CreateTableStatement.parse(schema, keyspace).build()));
+            loader = new SSTableLoader(outputDir, externalClient, new NullOutputHandler()) {
 
-            loader = new SSTableLoader(outputDir, externalClient, new NullOutputHandler())
-            {
                 @Override
-                public void onSuccess(StreamState finalState)
-                {
+                public void onSuccess(StreamState finalState) {
                     if (deleteSrc)
                         FileUtils.deleteRecursive(outputDir);
                 }
             };
         }
     }
-    
+
     /**
      * <p>
      * The column values must correspond to the order in which
-     * they appear in the insert stored procedure. 
-     * 
+     * they appear in the insert stored procedure.
+     *
      * Key is not used, so it can be null or any object.
      * </p>
      *
@@ -206,76 +196,58 @@ public class CqlBulkRecordWriter extends RecordWriter<Object, List<ByteBuffer>>
      * @throws IOException
      */
     @Override
-    public void write(Object key, List<ByteBuffer> values) throws IOException
-    {
+    public void write(Object key, List<ByteBuffer> values) throws IOException {
         prepareWriter();
-        try
-        {
+        try {
             ((CQLSSTableWriter) writer).rawAddRow(values);
-            
             if (null != progress)
                 progress.progress();
             if (null != context)
                 HadoopCompat.progress(context);
-        } 
-        catch (InvalidRequestException e)
-        {
+        } catch (InvalidRequestException e) {
             throw new IOException("Error adding row with key: " + key, e);
         }
     }
-    
-    private File getTableDirectory() throws IOException
-    {
+
+    private File getTableDirectory() throws IOException {
         File dir = new File(String.format("%s%s%s%s%s-%s", getOutputLocation(), File.separator, keyspace, File.separator, table, UUID.randomUUID().toString()));
-        
-        if (!dir.exists() && !dir.mkdirs())
-        {
+        if (!dir.exists() && !dir.mkdirs()) {
             throw new IOException("Failed to created output directory: " + dir);
         }
-        
         return dir;
     }
 
     @Override
-    public void close(TaskAttemptContext context) throws IOException, InterruptedException
-    {
+    public void close(TaskAttemptContext context) throws IOException, InterruptedException {
         close();
     }
 
-    /** Fills the deprecated RecordWriter interface for streaming. */
+    /**
+     * Fills the deprecated RecordWriter interface for streaming.
+     */
     @Deprecated
-    public void close(org.apache.hadoop.mapred.Reporter reporter) throws IOException
-    {
+    public void close(org.apache.hadoop.mapred.Reporter reporter) throws IOException {
         close();
     }
 
-    private void close() throws IOException
-    {
-        if (writer != null)
-        {
+    private void close() throws IOException {
+        if (writer != null) {
             writer.close();
             Future<StreamState> future = loader.stream(ignores);
-            while (true)
-            {
-                try
-                {
+            while (true) {
+                try {
                     future.get(1000, TimeUnit.MILLISECONDS);
                     break;
-                }
-                catch (ExecutionException | TimeoutException te)
-                {
+                } catch (ExecutionException | TimeoutException te) {
                     if (null != progress)
                         progress.progress();
                     if (null != context)
                         HadoopCompat.progress(context);
-                }
-                catch (InterruptedException e)
-                {
+                } catch (InterruptedException e) {
                     throw new IOException(e);
                 }
             }
-            if (loader.getFailedHosts().size() > 0)
-            {
+            if (loader.getFailedHosts().size() > 0) {
                 if (loader.getFailedHosts().size() > maxFailures)
                     throw new IOException("Too many hosts failed: " + loader.getFailedHosts());
                 else
@@ -283,44 +255,40 @@ public class CqlBulkRecordWriter extends RecordWriter<Object, List<ByteBuffer>>
             }
         }
     }
-    
-    public static class ExternalClient extends NativeSSTableLoaderClient
-    {
-        public ExternalClient(Configuration conf)
-        {
-            super(resolveHostAddresses(conf),
-                  ConfigHelper.getOutputInitialPort(conf),
-                  ConfigHelper.getOutputKeyspaceUserName(conf),
-                  ConfigHelper.getOutputKeyspacePassword(conf),
-                  CqlConfigHelper.getSSLOptions(conf).orNull());
+
+    public static class ExternalClient extends NativeSSTableLoaderClient {
+
+        public ExternalClient(Configuration conf) {
+            super(resolveHostAddresses(conf), ConfigHelper.getOutputInitialPort(conf), ConfigHelper.getOutputKeyspaceUserName(conf), ConfigHelper.getOutputKeyspacePassword(conf), CqlConfigHelper.getSSLOptions(conf).orNull());
         }
 
-        private static Collection<InetSocketAddress> resolveHostAddresses(Configuration conf)
-        {
+        private static Collection<InetSocketAddress> resolveHostAddresses(Configuration conf) {
             Set<InetSocketAddress> addresses = new HashSet<>();
             int port = CqlConfigHelper.getOutputNativePort(conf);
-            for (String host : ConfigHelper.getOutputInitialAddress(conf).split(","))
-            {
-                try
-                {
+            for (String host : ConfigHelper.getOutputInitialAddress(conf).split(",")) {
+                try {
                     HostAndPort hap = HostAndPort.fromString(host);
                     addresses.add(new InetSocketAddress(InetAddress.getByName(hap.getHost()), hap.getPortOrDefault(port)));
-                }
-                catch (UnknownHostException e)
-                {
+                } catch (UnknownHostException e) {
                     throw new RuntimeException(e);
                 }
             }
-
             return addresses;
         }
     }
 
-    public static class NullOutputHandler implements OutputHandler
-    {
-        public void output(String msg) {}
-        public void debug(String msg) {}
-        public void warn(String msg) {}
-        public void warn(String msg, Throwable th) {}
+    public static class NullOutputHandler implements OutputHandler {
+
+        public void output(String msg) {
+        }
+
+        public void debug(String msg) {
+        }
+
+        public void warn(String msg) {
+        }
+
+        public void warn(String msg, Throwable th) {
+        }
     }
 }

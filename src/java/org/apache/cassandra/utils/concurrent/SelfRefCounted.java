@@ -18,7 +18,11 @@
 */
 package org.apache.cassandra.utils.concurrent;
 
-public interface SelfRefCounted<T extends SelfRefCounted<T>> extends RefCounted<T>
-{
+public interface SelfRefCounted<T extends SelfRefCounted<T>> extends RefCounted<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SelfRefCounted.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SelfRefCounted.class);
+
     public Ref<T> selfRef();
 }

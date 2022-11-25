@@ -32,7 +32,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,58 +52,52 @@ import org.slf4j.LoggerFactory;
  *   threads and the queue is full, we want the enqueuer to block.  But to allow the number of threads to drop if a
  *   stage is less busy, core thread timeout is enabled.
  */
-public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements LocalAwareExecutorService
-{
-    protected static final Logger logger = LoggerFactory.getLogger(DebuggableThreadPoolExecutor.class);
-    public static final RejectedExecutionHandler blockingExecutionHandler = new RejectedExecutionHandler()
-    {
-        public void rejectedExecution(Runnable task, ThreadPoolExecutor executor)
-        {
+public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements LocalAwareExecutorService {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DebuggableThreadPoolExecutor.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DebuggableThreadPoolExecutor.class);
+
+    protected static final transient Logger logger = LoggerFactory.getLogger(DebuggableThreadPoolExecutor.class);
+
+    public static final transient RejectedExecutionHandler blockingExecutionHandler = new RejectedExecutionHandler() {
+
+        public void rejectedExecution(Runnable task, ThreadPoolExecutor executor) {
             ((DebuggableThreadPoolExecutor) executor).onInitialRejection(task);
             BlockingQueue<Runnable> queue = executor.getQueue();
-            while (true)
-            {
-                if (executor.isShutdown())
-                {
+            while (true) {
+                if (executor.isShutdown()) {
                     ((DebuggableThreadPoolExecutor) executor).onFinalRejection(task);
                     throw new RejectedExecutionException("ThreadPoolExecutor has shut down");
                 }
-                try
-                {
-                    if (queue.offer(task, 1000, TimeUnit.MILLISECONDS))
-                    {
+                try {
+                    if (queue.offer(task, 1000, TimeUnit.MILLISECONDS)) {
                         ((DebuggableThreadPoolExecutor) executor).onFinalAccept(task);
                         break;
                     }
-                }
-                catch (InterruptedException e)
-                {
+                } catch (InterruptedException e) {
                     throw new AssertionError(e);
                 }
             }
         }
     };
 
-    public DebuggableThreadPoolExecutor(String threadPoolName, int priority)
-    {
+    public DebuggableThreadPoolExecutor(String threadPoolName, int priority) {
         this(1, Integer.MAX_VALUE, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(threadPoolName, priority));
     }
 
-    public DebuggableThreadPoolExecutor(int corePoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> queue, ThreadFactory factory)
-    {
+    public DebuggableThreadPoolExecutor(int corePoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> queue, ThreadFactory factory) {
         this(corePoolSize, corePoolSize, keepAliveTime, unit, queue, factory);
     }
 
-    public DebuggableThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory)
-    {
+    public DebuggableThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
         allowCoreThreadTimeOut(true);
-
         // block task submissions until queue has room.
         // this is fighting TPE's design a bit because TPE rejects if queue.offer reports a full queue.
         // we'll just override this with a handler that retries until it gets in.  ugly, but effective.
         // (there is an extensive analysis of the options here at
-        //  http://today.java.net/pub/a/today/2008/10/23/creating-a-notifying-blocking-thread-pool-executor.html)
+        // http://today.java.net/pub/a/today/2008/10/23/creating-a-notifying-blocking-thread-pool-executor.html)
         this.setRejectedExecutionHandler(blockingExecutionHandler);
     }
 
@@ -115,12 +108,8 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
      * @param threadPoolName the name of the threads created by this executor
      * @return The new DebuggableThreadPoolExecutor
      */
-    public static DebuggableThreadPoolExecutor createCachedThreadpoolWithMaxSize(String threadPoolName)
-    {
-        return new DebuggableThreadPoolExecutor(0, Integer.MAX_VALUE,
-                                                60L, TimeUnit.SECONDS,
-                                                new SynchronousQueue<Runnable>(),
-                                                new NamedThreadFactory(threadPoolName));
+    public static DebuggableThreadPoolExecutor createCachedThreadpoolWithMaxSize(String threadPoolName) {
+        return new DebuggableThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(), new NamedThreadFactory(threadPoolName));
     }
 
     /**
@@ -131,8 +120,7 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
      * @param size the fixed number of threads for this executor
      * @return the new DebuggableThreadPoolExecutor
      */
-    public static DebuggableThreadPoolExecutor createWithFixedPoolSize(String threadPoolName, int size)
-    {
+    public static DebuggableThreadPoolExecutor createWithFixedPoolSize(String threadPoolName, int size) {
         return createWithMaximumPoolSize(threadPoolName, size, Integer.MAX_VALUE, TimeUnit.SECONDS);
     }
 
@@ -146,45 +134,40 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
      * @param unit tht time unit for {@code keepAliveTime}
      * @return the new DebuggableThreadPoolExecutor
      */
-    public static DebuggableThreadPoolExecutor createWithMaximumPoolSize(String threadPoolName, int size, int keepAliveTime, TimeUnit unit)
-    {
+    public static DebuggableThreadPoolExecutor createWithMaximumPoolSize(String threadPoolName, int size, int keepAliveTime, TimeUnit unit) {
         return new DebuggableThreadPoolExecutor(size, Integer.MAX_VALUE, keepAliveTime, unit, new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(threadPoolName));
     }
 
-    protected void onInitialRejection(Runnable task) {}
-    protected void onFinalAccept(Runnable task) {}
-    protected void onFinalRejection(Runnable task) {}
-
-    public void execute(Runnable command, ExecutorLocals locals)
-    {
-        super.execute(locals == null || command instanceof LocalSessionWrapper
-                      ? command
-                      : LocalSessionWrapper.create(command, null, locals));
+    protected void onInitialRejection(Runnable task) {
     }
 
-    public void maybeExecuteImmediately(Runnable command)
-    {
+    protected void onFinalAccept(Runnable task) {
+    }
+
+    protected void onFinalRejection(Runnable task) {
+    }
+
+    public void execute(Runnable command, ExecutorLocals locals) {
+        super.execute(locals == null || command instanceof LocalSessionWrapper ? command : LocalSessionWrapper.create(command, null, locals));
+    }
+
+    public void maybeExecuteImmediately(Runnable command) {
         execute(command);
     }
 
-    private ExecutorLocals maybeCreateExecutorLocals(Object command)
-    {
+    private ExecutorLocals maybeCreateExecutorLocals(Object command) {
         return command instanceof LocalSessionWrapper ? null : ExecutorLocals.create();
     }
 
     // execute does not call newTaskFor
     @Override
-    public void execute(Runnable command)
-    {
+    public void execute(Runnable command) {
         ExecutorLocals locals = maybeCreateExecutorLocals(command);
-        super.execute(locals != null
-                      ? LocalSessionWrapper.create(command, locals)
-                      : command);
+        super.execute(locals != null ? LocalSessionWrapper.create(command, locals) : command);
     }
 
     @Override
-    protected <T> RunnableFuture<T> newTaskFor(Runnable runnable, T result)
-    {
+    protected <T> RunnableFuture<T> newTaskFor(Runnable runnable, T result) {
         ExecutorLocals locals = maybeCreateExecutorLocals(runnable);
         if (locals != null)
             return LocalSessionWrapper.create(runnable, result, locals);
@@ -194,8 +177,7 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
     }
 
     @Override
-    protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable)
-    {
+    protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable) {
         ExecutorLocals locals = maybeCreateExecutorLocals(callable);
         if (locals != null)
             return LocalSessionWrapper.create(callable, locals);
@@ -203,18 +185,14 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
     }
 
     @Override
-    protected void afterExecute(Runnable r, Throwable t)
-    {
+    protected void afterExecute(Runnable r, Throwable t) {
         super.afterExecute(r, t);
-
         maybeResetLocalSessionWrapper(r);
         logExceptionsAfterExecute(r, t);
     }
 
-    protected static void maybeResetLocalSessionWrapper(Runnable r)
-    {
-        if (r instanceof LocalSessionWrapper)
-        {
+    protected static void maybeResetLocalSessionWrapper(Runnable r) {
+        if (r instanceof LocalSessionWrapper) {
             LocalSessionWrapper tsw = (LocalSessionWrapper) r;
             // we have to reset trace state as its presence is what denotes the current thread is tracing
             // and if left this thread might start tracing unrelated tasks
@@ -223,23 +201,19 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
     }
 
     @Override
-    protected void beforeExecute(Thread t, Runnable r)
-    {
+    protected void beforeExecute(Thread t, Runnable r) {
         if (r instanceof LocalSessionWrapper)
             ((LocalSessionWrapper) r).setupContext();
-
         super.beforeExecute(t, r);
     }
 
     @Override
-    public int getActiveTaskCount()
-    {
+    public int getActiveTaskCount() {
         return getActiveCount();
     }
 
     @Override
-    public int getPendingTaskCount()
-    {
+    public int getPendingTaskCount() {
         return getQueue().size();
     }
 
@@ -247,12 +221,10 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
      * Send @param t and any exception wrapped by @param r to the default uncaught exception handler,
      * or log them if none such is set up
      */
-    public static void logExceptionsAfterExecute(Runnable r, Throwable t)
-    {
+    public static void logExceptionsAfterExecute(Runnable r, Throwable t) {
         Throwable hiddenThrowable = extractThrowable(r);
         if (hiddenThrowable != null)
             handleOrLog(hiddenThrowable);
-
         // ThreadPoolExecutor will re-throw exceptions thrown by its Task (which will be seen by
         // the default uncaught exception handler) so we only need to do anything if that handler
         // isn't set up yet.
@@ -263,8 +235,7 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
     /**
      * Send @param t to the default uncaught exception handler, or log it if none such is set up
      */
-    public static void handleOrLog(Throwable t)
-    {
+    public static void handleOrLog(Throwable t) {
         if (Thread.getDefaultUncaughtExceptionHandler() == null)
             logger.error("Error in ThreadPoolExecutor", t);
         else
@@ -274,45 +245,32 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
     /**
      * @return any exception wrapped by @param runnable, i.e., if it is a FutureTask
      */
-    public static Throwable extractThrowable(Runnable runnable)
-    {
+    public static Throwable extractThrowable(Runnable runnable) {
         // Check for exceptions wrapped by FutureTask or tasks which wrap FutureTask (HasDelegateFuture interface)
         Throwable throwable = null;
-        if (runnable instanceof Future<?>)
-        {
+        if (runnable instanceof Future<?>) {
             throwable = extractThrowable(((Future<?>) runnable));
         }
-        if (throwable == null && runnable instanceof HasDelegateFuture)
-        {
-            throwable =  extractThrowable(((HasDelegateFuture) runnable).getDelegate());
+        if (throwable == null && runnable instanceof HasDelegateFuture) {
+            throwable = extractThrowable(((HasDelegateFuture) runnable).getDelegate());
         }
-
         return throwable;
     }
 
-    private static Throwable extractThrowable(Future<?> future)
-    {
+    private static Throwable extractThrowable(Future<?> future) {
         // Check for exceptions wrapped by Future.  We do this by calling get(), which will
         // cause it to throw any saved exception.
-        //
+        // 
         // Complicating things, calling get() on a ScheduledFutureTask will block until the task
         // is cancelled.  Hence, the extra isDone check beforehand.
-        if (future.isDone())
-        {
-            try
-            {
+        if (future.isDone()) {
+            try {
                 future.get();
-            }
-            catch (InterruptedException e)
-            {
+            } catch (InterruptedException e) {
                 throw new AssertionError(e);
-            }
-            catch (CancellationException e)
-            {
+            } catch (CancellationException e) {
                 logger.trace("Task cancelled", e);
-            }
-            catch (ExecutionException e)
-            {
+            } catch (ExecutionException e) {
                 return e.getCause();
             }
         }
@@ -323,8 +281,8 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
      * If a task wraps a {@link Future} then it should implement this interface to expose the underlining future for
      * {@link #extractThrowable(Runnable)} to handle.
      */
-    private interface HasDelegateFuture
-    {
+    private interface HasDelegateFuture {
+
         Future<?> getDelegate();
     }
 
@@ -345,65 +303,66 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
      *
      * @param <T>
      */
-    private static class LocalSessionWrapper<T> extends FutureTask<T>
-    {
-        private final ExecutorLocals locals;
+    private static class LocalSessionWrapper<T> extends FutureTask<T> {
 
-        private LocalSessionWrapper(Callable<T> callable, ExecutorLocals locals)
-        {
+        private final transient ExecutorLocals locals;
+
+        private LocalSessionWrapper(Callable<T> callable, ExecutorLocals locals) {
             super(callable);
             this.locals = locals;
         }
 
-        static LocalSessionWrapper<Object> create(Runnable command)
-        {
+        static LocalSessionWrapper<Object> create(Runnable command) {
             return create(command, null, ExecutorLocals.create());
         }
 
-        static LocalSessionWrapper<Object> create(Runnable command, ExecutorLocals locals)
-        {
+        static LocalSessionWrapper<Object> create(Runnable command, ExecutorLocals locals) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
             return create(command, null, locals);
         }
 
-        static <T> LocalSessionWrapper<T> create(Runnable command, T result)
-        {
+        static <T> LocalSessionWrapper<T> create(Runnable command, T result) {
             return create(command, result, ExecutorLocals.create());
         }
 
-        static <T> LocalSessionWrapper<T> create(Runnable command, T result, ExecutorLocals locals)
-        {
-            if (command instanceof RunnableFuture)
+        static <T> LocalSessionWrapper<T> create(Runnable command, T result, ExecutorLocals locals) {
+            if (command instanceof RunnableFuture) {
+                logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
+                logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
                 return new FutureLocalSessionWrapper<>((RunnableFuture) command, result, locals);
+            }
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
             return new LocalSessionWrapper<>(Executors.callable(command, result), locals);
         }
 
-        static <T> LocalSessionWrapper<T> create(Callable<T> command)
-        {
+        static <T> LocalSessionWrapper<T> create(Callable<T> command) {
             return new LocalSessionWrapper<>(command, ExecutorLocals.create());
         }
 
-        static <T> LocalSessionWrapper<T> create(Callable<T> command, ExecutorLocals locals)
-        {
+        static <T> LocalSessionWrapper<T> create(Callable<T> command, ExecutorLocals locals) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
             return new LocalSessionWrapper<>(command, locals);
         }
 
-        private void setupContext()
-        {
+        private void setupContext() {
             ExecutorLocals.set(locals);
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.concurrent.DebuggableThreadPoolExecutor.LocalSessionWrapper.locals]=" + org.json.simple.JSONValue.toJSONString(locals).replace("\n", "").replace("\r", ""));
         }
 
-        private void reset()
-        {
+        private void reset() {
             ExecutorLocals.set(null);
         }
     }
 
-    private static class FutureLocalSessionWrapper<T> extends LocalSessionWrapper<T> implements HasDelegateFuture
-    {
-        private final RunnableFuture<T> delegate;
+    private static class FutureLocalSessionWrapper<T> extends LocalSessionWrapper<T> implements HasDelegateFuture {
 
-        private FutureLocalSessionWrapper(RunnableFuture command, T result, ExecutorLocals locals)
-        {
+        private final transient RunnableFuture<T> delegate;
+
+        private FutureLocalSessionWrapper(RunnableFuture command, T result, ExecutorLocals locals) {
             super(() -> {
                 command.run();
                 return result;
@@ -411,8 +370,7 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
             this.delegate = command;
         }
 
-        public Future<T> getDelegate()
-        {
+        public Future<T> getDelegate() {
             return delegate;
         }
     }
@@ -424,18 +382,16 @@ public class DebuggableThreadPoolExecutor extends ThreadPoolExecutor implements 
      *
      * @param <T>
      */
-    private static class ForwardingRunnableFuture<T> extends FutureTask<T> implements HasDelegateFuture
-    {
-        private final RunnableFuture<T> delegate;
+    private static class ForwardingRunnableFuture<T> extends FutureTask<T> implements HasDelegateFuture {
 
-        public ForwardingRunnableFuture(RunnableFuture<T> delegate, T result)
-        {
+        private final transient RunnableFuture<T> delegate;
+
+        public ForwardingRunnableFuture(RunnableFuture<T> delegate, T result) {
             super(delegate, result);
             this.delegate = delegate;
         }
 
-        public Future<T> getDelegate()
-        {
+        public Future<T> getDelegate() {
             return delegate;
         }
     }

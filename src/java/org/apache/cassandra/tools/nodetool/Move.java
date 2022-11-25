@@ -20,26 +20,25 @@ package org.apache.cassandra.tools.nodetool;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
-
 import java.io.IOException;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "move", description = "Move node on the token ring to a new token")
-public class Move extends NodeToolCmd
-{
+public class Move extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Move.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Move.class);
+
     @Arguments(usage = "<new token>", description = "The new token.", required = true)
-    private String newToken = EMPTY;
+    private transient String newToken = EMPTY;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
-        try
-        {
+    public void execute(NodeProbe probe) {
+        try {
             probe.move(newToken);
-        } catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException("Error during moving node", e);
         }
     }

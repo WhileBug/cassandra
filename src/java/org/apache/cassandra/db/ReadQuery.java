@@ -32,87 +32,76 @@ import org.apache.cassandra.utils.FBUtilities;
 /**
  * Generic abstraction for read queries.
  */
-public interface ReadQuery
-{
-    public static ReadQuery empty(final TableMetadata metadata)
-    {
-        return new ReadQuery()
-        {
-            public TableMetadata metadata()
-            {
+public interface ReadQuery {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadQuery.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadQuery.class);
+
+    public static ReadQuery empty(final TableMetadata metadata) {
+        return new ReadQuery() {
+
+            public TableMetadata metadata() {
                 return metadata;
             }
 
-            public ReadExecutionController executionController()
-            {
+            public ReadExecutionController executionController() {
                 return ReadExecutionController.empty();
             }
 
-            public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState, long queryStartNanoTime) throws RequestExecutionException
-            {
+            public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState, long queryStartNanoTime) throws RequestExecutionException {
                 return EmptyIterators.partition();
             }
 
-            public PartitionIterator executeInternal(ReadExecutionController controller)
-            {
+            public PartitionIterator executeInternal(ReadExecutionController controller) {
                 return EmptyIterators.partition();
             }
 
-            public UnfilteredPartitionIterator executeLocally(ReadExecutionController executionController)
-            {
+            public UnfilteredPartitionIterator executeLocally(ReadExecutionController executionController) {
                 return EmptyIterators.unfilteredPartition(executionController.metadata());
             }
 
-            public DataLimits limits()
-            {
+            public DataLimits limits() {
                 // What we return here doesn't matter much in practice. However, returning DataLimits.NONE means
                 // "no particular limit", which makes SelectStatement.execute() take the slightly more complex "paging"
                 // path. Not a big deal but it's easy enough to return a limit of 0 rows which avoids this.
                 return DataLimits.cqlLimits(0);
             }
 
-            public QueryPager getPager(PagingState state, ProtocolVersion protocolVersion)
-            {
+            public QueryPager getPager(PagingState state, ProtocolVersion protocolVersion) {
                 return QueryPager.EMPTY;
             }
 
-            public boolean selectsKey(DecoratedKey key)
-            {
+            public boolean selectsKey(DecoratedKey key) {
                 return false;
             }
 
-            public boolean selectsClustering(DecoratedKey key, Clustering<?> clustering)
-            {
+            public boolean selectsClustering(DecoratedKey key, Clustering<?> clustering) {
                 return false;
             }
 
             @Override
-            public int nowInSec()
-            {
+            public int nowInSec() {
                 return FBUtilities.nowInSeconds();
             }
 
             @Override
-            public boolean selectsFullPartition()
-            {
+            public boolean selectsFullPartition() {
                 return false;
             }
 
             @Override
-            public boolean isEmpty()
-            {
+            public boolean isEmpty() {
                 return true;
             }
 
             @Override
-            public RowFilter rowFilter()
-            {
+            public RowFilter rowFilter() {
                 return RowFilter.NONE;
             }
 
             @Override
-            public ColumnFilter columnFilter()
-            {
+            public ColumnFilter columnFilter() {
                 return ColumnFilter.NONE;
             }
         };
@@ -240,8 +229,7 @@ public interface ReadQuery
      *
      * @return if this method is guaranteed to return no results whatsoever.
      */
-    public default boolean isEmpty()
-    {
+    public default boolean isEmpty() {
         return false;
     }
 
@@ -251,7 +239,6 @@ public interface ReadQuery
      * validation method to check that nothing in this query's parameters
      * violates the implementation specific validation rules.
      */
-    default void maybeValidateIndex()
-    {
+    default void maybeValidateIndex() {
     }
 }

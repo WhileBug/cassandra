@@ -19,10 +19,13 @@ package org.apache.cassandra.db;
 
 import org.apache.cassandra.exceptions.InvalidRequestException;
 
-public class KeyspaceNotDefinedException extends InvalidRequestException
-{
-    public KeyspaceNotDefinedException(String why)
-    {
+public class KeyspaceNotDefinedException extends InvalidRequestException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyspaceNotDefinedException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyspaceNotDefinedException.class);
+
+    public KeyspaceNotDefinedException(String why) {
         super(why);
     }
 }

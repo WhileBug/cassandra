@@ -20,9 +20,7 @@ package org.apache.cassandra.db.virtual;
 import java.util.Iterator;
 import java.util.NavigableMap;
 import java.util.function.Supplier;
-
 import com.google.common.collect.AbstractIterator;
-
 import org.apache.cassandra.db.DataRange;
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.EmptyIterators;
@@ -41,20 +39,21 @@ import org.apache.cassandra.schema.TableMetadata;
 /**
  * An abstract virtual table implementation that builds the resultset on demand.
  */
-public abstract class AbstractVirtualTable implements VirtualTable
-{
-    protected final TableMetadata metadata;
+public abstract class AbstractVirtualTable implements VirtualTable {
 
-    protected AbstractVirtualTable(TableMetadata metadata)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractVirtualTable.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractVirtualTable.class);
+
+    protected final transient TableMetadata metadata;
+
+    protected AbstractVirtualTable(TableMetadata metadata) {
         if (!metadata.isVirtual())
             throw new IllegalArgumentException();
-
         this.metadata = metadata;
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return metadata;
     }
 
@@ -67,76 +66,66 @@ public abstract class AbstractVirtualTable implements VirtualTable
      * Provide a {@link DataSet} that is potentially restricted to the provided partition - but is allowed to contain
      * other partitions.
      */
-    public DataSet data(DecoratedKey partitionKey)
-    {
+    public DataSet data(DecoratedKey partitionKey) {
         return data();
     }
 
     @Override
     @SuppressWarnings("resource")
-    public final UnfilteredPartitionIterator select(DecoratedKey partitionKey, ClusteringIndexFilter clusteringIndexFilter, ColumnFilter columnFilter)
-    {
+    public final UnfilteredPartitionIterator select(DecoratedKey partitionKey, ClusteringIndexFilter clusteringIndexFilter, ColumnFilter columnFilter) {
         Partition partition = data(partitionKey).getPartition(partitionKey);
-
         if (null == partition)
             return EmptyIterators.unfilteredPartition(metadata);
-
         long now = System.currentTimeMillis();
         UnfilteredRowIterator rowIterator = partition.toRowIterator(metadata(), clusteringIndexFilter, columnFilter, now);
         return new SingletonUnfilteredPartitionIterator(rowIterator);
     }
 
     @Override
-    public final UnfilteredPartitionIterator select(DataRange dataRange, ColumnFilter columnFilter)
-    {
+    public final UnfilteredPartitionIterator select(DataRange dataRange, ColumnFilter columnFilter) {
         DataSet data = data();
-
         if (data.isEmpty())
             return EmptyIterators.unfilteredPartition(metadata);
-
         Iterator<Partition> iterator = data.getPartitions(dataRange);
-
         long now = System.currentTimeMillis();
+        return new AbstractUnfilteredPartitionIterator() {
 
-        return new AbstractUnfilteredPartitionIterator()
-        {
             @Override
-            public UnfilteredRowIterator next()
-            {
+            public UnfilteredRowIterator next() {
                 Partition partition = iterator.next();
                 return partition.toRowIterator(metadata, dataRange.clusteringIndexFilter(partition.key()), columnFilter, now);
             }
 
             @Override
-            public boolean hasNext()
-            {
+            public boolean hasNext() {
                 return iterator.hasNext();
             }
 
             @Override
-            public TableMetadata metadata()
-            {
+            public TableMetadata metadata() {
                 return metadata;
             }
         };
     }
 
     @Override
-    public void apply(PartitionUpdate update)
-    {
+    public void apply(PartitionUpdate update) {
         throw new InvalidRequestException("Modification is not supported by table " + metadata);
     }
 
-    public interface DataSet
-    {
+    public interface DataSet {
+
         boolean isEmpty();
+
         Partition getPartition(DecoratedKey partitionKey);
+
         Iterator<Partition> getPartitions(DataRange range);
     }
 
-    public interface Partition
-    {
+    public interface Partition {
+
         DecoratedKey key();
+
         UnfilteredRowIterator toRowIterator(TableMetadata metadata, ClusteringIndexFilter clusteringIndexFilter, ColumnFilter columnFilter, long now);
     }
 
@@ -144,94 +133,73 @@ public abstract class AbstractVirtualTable implements VirtualTable
      * An abstract, map-backed DataSet implementation. Can be backed by any {@link NavigableMap}, then either maintained
      * persistently, or built on demand and thrown away after use, depending on the implementing class.
      */
-    public static abstract class AbstractDataSet implements DataSet
-    {
-        protected final NavigableMap<DecoratedKey, Partition> partitions;
+    public static abstract class AbstractDataSet implements DataSet {
 
-        protected AbstractDataSet(NavigableMap<DecoratedKey, Partition> partitions)
-        {
+        protected final transient NavigableMap<DecoratedKey, Partition> partitions;
+
+        protected AbstractDataSet(NavigableMap<DecoratedKey, Partition> partitions) {
             this.partitions = partitions;
         }
 
-        public boolean isEmpty()
-        {
+        public boolean isEmpty() {
             return partitions.isEmpty();
         }
 
-        public Partition getPartition(DecoratedKey key)
-        {
+        public Partition getPartition(DecoratedKey key) {
             return partitions.get(key);
         }
 
-        public Iterator<Partition> getPartitions(DataRange dataRange)
-        {
+        public Iterator<Partition> getPartitions(DataRange dataRange) {
             AbstractBounds<PartitionPosition> keyRange = dataRange.keyRange();
             PartitionPosition startKey = keyRange.left;
             PartitionPosition endKey = keyRange.right;
-
             NavigableMap<DecoratedKey, Partition> selection = partitions;
-
             if (startKey.isMinimum() && endKey.isMinimum())
                 return selection.values().iterator();
-
             if (startKey.isMinimum() && endKey instanceof DecoratedKey)
                 return selection.headMap((DecoratedKey) endKey, keyRange.isEndInclusive()).values().iterator();
-
-            if (startKey instanceof DecoratedKey && endKey instanceof DecoratedKey)
-            {
-                return selection.subMap((DecoratedKey) startKey, keyRange.isStartInclusive(), (DecoratedKey) endKey, keyRange.isEndInclusive())
-                                .values()
-                                .iterator();
+            if (startKey instanceof DecoratedKey && endKey instanceof DecoratedKey) {
+                return selection.subMap((DecoratedKey) startKey, keyRange.isStartInclusive(), (DecoratedKey) endKey, keyRange.isEndInclusive()).values().iterator();
             }
-
             if (startKey instanceof DecoratedKey)
                 selection = selection.tailMap((DecoratedKey) startKey, keyRange.isStartInclusive());
-
             if (endKey instanceof DecoratedKey)
                 selection = selection.headMap((DecoratedKey) endKey, keyRange.isEndInclusive());
-
             // If we have reach this point it means that one of the PartitionPosition is a KeyBound and we have
             // to use filtering for eliminating the unwanted partitions.
             Iterator<Partition> iterator = selection.values().iterator();
+            return new AbstractIterator<Partition>() {
 
-            return new AbstractIterator<Partition>()
-            {
                 private boolean encounteredPartitionsWithinRange;
 
                 @Override
-                protected Partition computeNext()
-                {
-                    while (iterator.hasNext())
-                    {
+                protected Partition computeNext() {
+                    while (iterator.hasNext()) {
                         Partition partition = iterator.next();
-                        if (dataRange.contains(partition.key()))
-                        {
+                        if (dataRange.contains(partition.key())) {
                             encounteredPartitionsWithinRange = true;
                             return partition;
                         }
-
                         // we encountered some partitions within the range, but the last one is outside of the range: we are done
                         if (encounteredPartitionsWithinRange)
                             return endOfData();
                     }
-
                     return endOfData();
                 }
             };
         }
     }
 
-    public static class SimpleTable extends AbstractVirtualTable
-    {
-        private final Supplier<? extends AbstractVirtualTable.DataSet> supplier;
-        public SimpleTable(TableMetadata metadata, Supplier<AbstractVirtualTable.DataSet> supplier)
-        {
+    public static class SimpleTable extends AbstractVirtualTable {
+
+        private final transient Supplier<? extends AbstractVirtualTable.DataSet> supplier;
+
+        public SimpleTable(TableMetadata metadata, Supplier<AbstractVirtualTable.DataSet> supplier) {
             super(metadata);
             this.supplier = supplier;
         }
 
-        public AbstractVirtualTable.DataSet data()
-        {
+        public AbstractVirtualTable.DataSet data() {
             return supplier.get();
         }
     }

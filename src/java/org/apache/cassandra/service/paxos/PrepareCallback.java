@@ -1,4 +1,5 @@
 package org.apache.cassandra.service.paxos;
+
 /*
  * 
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,71 +20,63 @@ package org.apache.cassandra.service.paxos;
  * under the License.
  * 
  */
-
-
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
-
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.DecoratedKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.SystemKeyspace;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.utils.UUIDGen;
 
-public class PrepareCallback extends AbstractPaxosCallback<PrepareResponse>
-{
-    private static final Logger logger = LoggerFactory.getLogger(PrepareCallback.class);
+public class PrepareCallback extends AbstractPaxosCallback<PrepareResponse> {
 
-    public boolean promised = true;
-    public Commit mostRecentCommit;
-    public Commit mostRecentInProgressCommit;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareCallback.class);
 
-    private final Map<InetAddressAndPort, Commit> commitsByReplica = new ConcurrentHashMap<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareCallback.class);
 
-    public PrepareCallback(DecoratedKey key, TableMetadata metadata, int targets, ConsistencyLevel consistency, long queryStartNanoTime)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(PrepareCallback.class);
+
+    public transient boolean promised = true;
+
+    public transient Commit mostRecentCommit;
+
+    public transient Commit mostRecentInProgressCommit;
+
+    private final transient Map<InetAddressAndPort, Commit> commitsByReplica = new ConcurrentHashMap<>();
+
+    public PrepareCallback(DecoratedKey key, TableMetadata metadata, int targets, ConsistencyLevel consistency, long queryStartNanoTime) {
         super(targets, consistency, queryStartNanoTime);
         // need to inject the right key in the empty commit so comparing with empty commits in the response works as expected
         mostRecentCommit = Commit.emptyCommit(key, metadata);
         mostRecentInProgressCommit = Commit.emptyCommit(key, metadata);
     }
 
-    public synchronized void onResponse(Message<PrepareResponse> message)
-    {
+    public synchronized void onResponse(Message<PrepareResponse> message) {
         PrepareResponse response = message.payload;
         logger.trace("Prepare response {} from {}", response, message.from());
-
         // We set the mostRecentInProgressCommit even if we're not promised as, in that case, the ballot of that commit
         // will be used to avoid generating a ballot that has not chance to win on retry (think clock skew).
         if (response.inProgressCommit.isAfter(mostRecentInProgressCommit))
             mostRecentInProgressCommit = response.inProgressCommit;
-
-        if (!response.promised)
-        {
+        if (!response.promised) {
             promised = false;
-            while (latch.getCount() > 0)
-                latch.countDown();
+            while (latch.getCount() > 0) latch.countDown();
             return;
         }
-
         commitsByReplica.put(message.from(), response.mostRecentCommit);
         if (response.mostRecentCommit.isAfter(mostRecentCommit))
             mostRecentCommit = response.mostRecentCommit;
-
         latch.countDown();
     }
 
-    public Iterable<InetAddressAndPort> replicasMissingMostRecentCommit(TableMetadata metadata, int nowInSec)
-    {
+    public Iterable<InetAddressAndPort> replicasMissingMostRecentCommit(TableMetadata metadata, int nowInSec) {
         // In general, we need every replicas that have answered to the prepare (a quorum) to agree on the MRC (see
         // coment in StorageProxy.beginAndRepairPaxos(), but basically we need to make sure at least a quorum of nodes
         // have learn a commit before commit a new one otherwise that previous commit is not guaranteed to have reach a
@@ -96,11 +89,9 @@ public class PrepareCallback extends AbstractPaxosCallback<PrepareResponse>
         long paxosTtlSec = SystemKeyspace.paxosTtlSec(metadata);
         if (UUIDGen.unixTimestampInSec(mostRecentCommit.ballot) + paxosTtlSec < nowInSec)
             return Collections.emptySet();
+        return Iterables.filter(commitsByReplica.keySet(), new Predicate<InetAddressAndPort>() {
 
-        return Iterables.filter(commitsByReplica.keySet(), new Predicate<InetAddressAndPort>()
-        {
-            public boolean apply(InetAddressAndPort inetAddress)
-            {
+            public boolean apply(InetAddressAndPort inetAddress) {
                 return (!commitsByReplica.get(inetAddress).ballot.equals(mostRecentCommit.ballot));
             }
         });

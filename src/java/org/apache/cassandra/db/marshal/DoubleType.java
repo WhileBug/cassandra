@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.marshal;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.cql3.CQL3Type;
 import org.apache.cassandra.cql3.Constants;
 import org.apache.cassandra.cql3.Term;
@@ -28,64 +27,57 @@ import org.apache.cassandra.serializers.MarshalException;
 import org.apache.cassandra.transport.ProtocolVersion;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class DoubleType extends NumberType<Double>
-{
-    public static final DoubleType instance = new DoubleType();
+public class DoubleType extends NumberType<Double> {
 
-    DoubleType() {super(ComparisonType.CUSTOM);} // singleton
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DoubleType.class);
 
-    public boolean isEmptyValueMeaningless()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DoubleType.class);
+
+    public static final transient DoubleType instance = new DoubleType();
+
+    // singleton
+    DoubleType() {
+        super(ComparisonType.CUSTOM);
+    }
+
+    public boolean isEmptyValueMeaningless() {
         return true;
     }
 
     @Override
-    public boolean isFloatingPoint()
-    {
+    public boolean isFloatingPoint() {
         return true;
     }
 
-    public <VL, VR> int compareCustom(VL left, ValueAccessor<VL> accessorL, VR right, ValueAccessor<VR> accessorR)
-    {
+    public <VL, VR> int compareCustom(VL left, ValueAccessor<VL> accessorL, VR right, ValueAccessor<VR> accessorR) {
         return compareComposed(left, accessorL, right, accessorR, this);
     }
 
-    public ByteBuffer fromString(String source) throws MarshalException
-    {
-      // Return an empty ByteBuffer for an empty string.
-      if (source.isEmpty())
-          return ByteBufferUtil.EMPTY_BYTE_BUFFER;
-
-      try
-      {
-          return decompose(Double.valueOf(source));
-      }
-      catch (NumberFormatException e1)
-      {
-          throw new MarshalException(String.format("Unable to make double from '%s'", source), e1);
-      }
+    public ByteBuffer fromString(String source) throws MarshalException {
+        // Return an empty ByteBuffer for an empty string.
+        if (source.isEmpty())
+            return ByteBufferUtil.EMPTY_BYTE_BUFFER;
+        try {
+            return decompose(Double.valueOf(source));
+        } catch (NumberFormatException e1) {
+            throw new MarshalException(String.format("Unable to make double from '%s'", source), e1);
+        }
     }
 
     @Override
-    public Term fromJSONObject(Object parsed) throws MarshalException
-    {
-        try
-        {
+    public Term fromJSONObject(Object parsed) throws MarshalException {
+        try {
             if (parsed instanceof String)
                 return new Constants.Value(fromString((String) parsed));
             else
                 return new Constants.Value(getSerializer().serialize(((Number) parsed).doubleValue()));
-        }
-        catch (ClassCastException exc)
-        {
-            throw new MarshalException(String.format(
-                    "Expected a double value, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
+        } catch (ClassCastException exc) {
+            throw new MarshalException(String.format("Expected a double value, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
         }
     }
 
     @Override
-    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion)
-    {
+    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion) {
         Double value = getSerializer().deserialize(buffer);
         if (value == null)
             return "\"\"";
@@ -95,73 +87,60 @@ public class DoubleType extends NumberType<Double>
         return value.toString();
     }
 
-    public CQL3Type asCQL3Type()
-    {
+    public CQL3Type asCQL3Type() {
         return CQL3Type.Native.DOUBLE;
     }
 
-    public TypeSerializer<Double> getSerializer()
-    {
+    public TypeSerializer<Double> getSerializer() {
         return DoubleSerializer.instance;
     }
 
     @Override
-    public int valueLengthIfFixed()
-    {
+    public int valueLengthIfFixed() {
         return 8;
     }
 
     @Override
-    protected int toInt(ByteBuffer value)
-    {
+    protected int toInt(ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    protected float toFloat(ByteBuffer value)
-    {
+    protected float toFloat(ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    protected long toLong(ByteBuffer value)
-    {
+    protected long toLong(ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    protected double toDouble(ByteBuffer value)
-    {
+    protected double toDouble(ByteBuffer value) {
         return ByteBufferUtil.toDouble(value);
     }
 
-    public ByteBuffer add(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer add(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toDouble(left) + rightType.toDouble(right));
     }
 
-    public ByteBuffer substract(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer substract(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toDouble(left) - rightType.toDouble(right));
     }
 
-    public ByteBuffer multiply(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer multiply(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toDouble(left) * rightType.toDouble(right));
     }
 
-    public ByteBuffer divide(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer divide(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toDouble(left) / rightType.toDouble(right));
     }
 
-    public ByteBuffer mod(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer mod(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toDouble(left) % rightType.toDouble(right));
     }
 
-    public ByteBuffer negate(ByteBuffer input)
-    {
+    public ByteBuffer negate(ByteBuffer input) {
         return ByteBufferUtil.bytes(-toDouble(input));
     }
 }

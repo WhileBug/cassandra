@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils.concurrent;
 
 import java.util.Collection;
@@ -25,7 +24,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,45 +43,44 @@ import org.slf4j.LoggerFactory;
  * In the interests of not writing unit tests for methods no one uses there is a lot of UnsupportedOperationException.
  * If you need them then add them and add proper unit tests to WeightedQueueTest. "Good" tests. 100% coverage including
  * exception paths and resource leaks.
- **/
-public class WeightedQueue<T> implements BlockingQueue<T>
-{
-    private static final Logger logger = LoggerFactory.getLogger(WeightedQueue.class);
-    public static final Weigher NATURAL_WEIGHER = (Weigher<Object>) weighable ->
-    {
-        if (weighable instanceof Weighable)
-        {
-            return ((Weighable)weighable).weight();
+ */
+public class WeightedQueue<T> implements BlockingQueue<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WeightedQueue.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WeightedQueue.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(WeightedQueue.class);
+
+    public static final transient Weigher NATURAL_WEIGHER = (Weigher<Object>) weighable -> {
+        if (weighable instanceof Weighable) {
+            return ((Weighable) weighable).weight();
         }
         return 1;
     };
 
-    private final Weigher<T> weigher;
-    private final BlockingQueue<T> queue;
-    private final int maxWeight;
-    final Semaphore availableWeight;
+    private final transient Weigher<T> weigher;
 
-    public boolean add(T e)
-    {
+    private final transient BlockingQueue<T> queue;
+
+    private final transient int maxWeight;
+
+    final transient Semaphore availableWeight;
+
+    public boolean add(T e) {
         throw new UnsupportedOperationException();
     }
 
-    public boolean offer(T t)
-    {
+    public boolean offer(T t) {
         Preconditions.checkNotNull(t);
         boolean acquired = tryAcquireWeight(t);
-        if (acquired)
-        {
+        if (acquired) {
             boolean offered = false;
-            try
-            {
+            try {
                 offered = queue.offer(t);
                 return offered;
-            }
-            finally
-            {
-                if (!offered)
-                {
+            } finally {
+                if (!offered) {
                     releaseWeight(t);
                 }
             }
@@ -91,64 +88,49 @@ public class WeightedQueue<T> implements BlockingQueue<T>
         return false;
     }
 
-    public T remove()
-    {
+    public T remove() {
         throw new UnsupportedOperationException();
     }
 
-    public T poll()
-    {
+    public T poll() {
         T retval = queue.poll();
         releaseWeight(retval);
         return retval;
     }
 
-    public T element()
-    {
+    public T element() {
         throw new UnsupportedOperationException();
     }
 
-    public T peek()
-    {
+    public T peek() {
         throw new UnsupportedOperationException();
     }
 
-    public void put(T t) throws InterruptedException
-    {
+    public void put(T t) throws InterruptedException {
         Preconditions.checkNotNull(t);
         acquireWeight(t, 0, null);
         boolean put = false;
-        try
-        {
+        try {
             queue.put(t);
             put = true;
-        }
-        finally
-        {
-            if (!put)
-            {
+        } finally {
+            if (!put) {
                 releaseWeight(t);
             }
         }
     }
 
-    public boolean offer(T t, long timeout, TimeUnit unit) throws InterruptedException
-    {
+    public boolean offer(T t, long timeout, TimeUnit unit) throws InterruptedException {
         Preconditions.checkNotNull(t);
         Preconditions.checkNotNull(unit);
         boolean acquired = acquireWeight(t, timeout, unit);
-        if (acquired)
-        {
+        if (acquired) {
             boolean offered = false;
-            try
-            {
+            try {
                 offered = queue.offer(t, timeout, unit);
                 return offered;
-            }
-            finally
-            {
-                if (!offered)
-                {
+            } finally {
+                if (!offered) {
                     releaseWeight(t);
                 }
             }
@@ -156,117 +138,97 @@ public class WeightedQueue<T> implements BlockingQueue<T>
         return false;
     }
 
-    public T take() throws InterruptedException
-    {
+    public T take() throws InterruptedException {
         T retval = queue.take();
         releaseWeight(retval);
         return retval;
     }
 
-    public T poll(long timeout, TimeUnit unit) throws InterruptedException
-    {
+    public T poll(long timeout, TimeUnit unit) throws InterruptedException {
         throw new UnsupportedOperationException();
     }
 
-    public int remainingCapacity()
-    {
+    public int remainingCapacity() {
         throw new UnsupportedOperationException("Seems like a bad idea");
     }
 
-    public boolean remove(Object o)
-    {
+    public boolean remove(Object o) {
         throw new UnsupportedOperationException();
     }
 
-    public boolean containsAll(Collection<?> c)
-    {
+    public boolean containsAll(Collection<?> c) {
         throw new UnsupportedOperationException("Seems like a bad idea");
     }
 
-    public boolean addAll(Collection<? extends T> c)
-    {
+    public boolean addAll(Collection<? extends T> c) {
         throw new UnsupportedOperationException();
     }
 
-    public boolean removeAll(Collection<?> c)
-    {
+    public boolean removeAll(Collection<?> c) {
         throw new UnsupportedOperationException("Seems like a bad idea");
     }
 
-    public boolean retainAll(Collection<?> c)
-    {
+    public boolean retainAll(Collection<?> c) {
         throw new UnsupportedOperationException("Seems like a bad idea");
     }
 
-    public void clear()
-    {
+    public void clear() {
         throw new UnsupportedOperationException();
     }
 
-    public int size()
-    {
+    public int size() {
         throw new UnsupportedOperationException();
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         throw new UnsupportedOperationException();
     }
 
-    public boolean contains(Object o)
-    {
+    public boolean contains(Object o) {
         throw new UnsupportedOperationException("Seems like a bad idea");
     }
 
-    public Iterator<T> iterator()
-    {
+    public Iterator<T> iterator() {
         throw new UnsupportedOperationException();
     }
 
-    public Object[] toArray()
-    {
+    public Object[] toArray() {
         throw new UnsupportedOperationException();
     }
 
-    public <T1> T1[] toArray(T1[] a)
-    {
+    public <T1> T1[] toArray(T1[] a) {
         throw new UnsupportedOperationException();
     }
 
-    public int drainTo(Collection<? super T> c)
-    {
+    public int drainTo(Collection<? super T> c) {
         throw new UnsupportedOperationException();
     }
 
-    public int drainTo(Collection<? super T> c, int maxElements)
-    {
+    public int drainTo(Collection<? super T> c, int maxElements) {
         int count = 0;
         T o;
-        while(count < maxElements && (o = poll()) != null)
-        {
+        while (count < maxElements && (o = poll()) != null) {
             c.add(o);
             count++;
         }
         return count;
     }
 
-    public interface Weigher<T>
-    {
+    public interface Weigher<T> {
+
         int weigh(T weighable);
     }
 
-    public interface Weighable
-    {
+    public interface Weighable {
+
         int weight();
     }
 
-    public WeightedQueue(int maxWeight)
-    {
+    public WeightedQueue(int maxWeight) {
         this(maxWeight, new LinkedBlockingQueue<T>(), NATURAL_WEIGHER);
     }
 
-    public WeightedQueue(int maxWeight, BlockingQueue<T> queue, Weigher<T> weigher)
-    {
+    public WeightedQueue(int maxWeight, BlockingQueue<T> queue, Weigher<T> weigher) {
         Preconditions.checkNotNull(queue);
         Preconditions.checkNotNull(weigher);
         Preconditions.checkArgument(maxWeight > 0);
@@ -276,58 +238,41 @@ public class WeightedQueue<T> implements BlockingQueue<T>
         availableWeight = new Semaphore(maxWeight);
     }
 
-    boolean acquireWeight(T weighable, long timeout, TimeUnit unit) throws InterruptedException
-    {
+    boolean acquireWeight(T weighable, long timeout, TimeUnit unit) throws InterruptedException {
         int weight = weigher.weigh(weighable);
-        if (weight < 1)
-        {
+        if (weight < 1) {
             throw new IllegalArgumentException(String.format("Weighable: \"%s\" had illegal weight %d", Objects.toString(weighable), weight));
         }
-
-        //Allow exactly one overweight element
+        // Allow exactly one overweight element
         weight = Math.min(maxWeight, weight);
-
-        if (unit != null)
-        {
+        if (unit != null) {
             return availableWeight.tryAcquire(weight, timeout, unit);
-        }
-        else
-        {
+        } else {
             availableWeight.acquire(weight);
             return true;
         }
     }
 
-    boolean tryAcquireWeight(T weighable)
-    {
+    boolean tryAcquireWeight(T weighable) {
         int weight = weigher.weigh(weighable);
-        if (weight < 1)
-        {
+        if (weight < 1) {
             throw new IllegalArgumentException(String.format("Weighable: \"%s\" had illegal weight %d", Objects.toString(weighable), weight));
         }
-
-        //Allow exactly one overweight element
+        // Allow exactly one overweight element
         weight = Math.min(maxWeight, weight);
-
         return availableWeight.tryAcquire(weight);
     }
 
-    void releaseWeight(T weighable)
-    {
-        if (weighable == null)
-        {
+    void releaseWeight(T weighable) {
+        if (weighable == null) {
             return;
         }
-
         int weight = weigher.weigh(weighable);
-        if (weight < 1)
-        {
+        if (weight < 1) {
             throw new IllegalArgumentException(String.format("Weighable: \"%s\" had illegal weight %d", Objects.toString(weighable), weight));
         }
-
-        //Allow exactly one overweight element
+        // Allow exactly one overweight element
         weight = Math.min(maxWeight, weight);
-
         availableWeight.release(weight);
     }
 }

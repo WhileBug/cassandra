@@ -28,7 +28,11 @@ import org.apache.cassandra.db.rows.UnfilteredRowIterator;
  * reference on the returned objects for longer than the iteration, it must
  * make a copy of it explicitely.
  */
-public interface UnfilteredPartitionIterator extends BasePartitionIterator<UnfilteredRowIterator>
-{
+public interface UnfilteredPartitionIterator extends BasePartitionIterator<UnfilteredRowIterator> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnfilteredPartitionIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnfilteredPartitionIterator.class);
+
     public TableMetadata metadata();
 }

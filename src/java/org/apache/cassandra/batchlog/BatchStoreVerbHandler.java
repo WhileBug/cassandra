@@ -21,12 +21,15 @@ import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
 
-public final class BatchStoreVerbHandler implements IVerbHandler<Batch>
-{
-    public static final BatchStoreVerbHandler instance = new BatchStoreVerbHandler();
+public final class BatchStoreVerbHandler implements IVerbHandler<Batch> {
 
-    public void doVerb(Message<Batch> message)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchStoreVerbHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchStoreVerbHandler.class);
+
+    public static final transient BatchStoreVerbHandler instance = new BatchStoreVerbHandler();
+
+    public void doVerb(Message<Batch> message) {
         BatchlogManager.store(message.payload);
         MessagingService.instance().send(message.emptyResponse(), message.from());
     }

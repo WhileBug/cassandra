@@ -18,9 +18,7 @@
 package org.apache.cassandra.db.partitions;
 
 import java.util.NavigableSet;
-
 import javax.annotation.Nullable;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.Slices;
 import org.apache.cassandra.db.*;
@@ -35,10 +33,16 @@ import org.apache.cassandra.db.filter.ColumnFilter;
  * and so Partition objects should be use as sparingly as possible. There is a couple
  * of cases where we do need to represent partition in-memory (memtables and row cache).
  */
-public interface Partition
-{
+public interface Partition {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Partition.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Partition.class);
+
     public TableMetadata metadata();
+
     public DecoratedKey partitionKey();
+
     public DeletionTime partitionLevelDeletion();
 
     public RegularAndStaticColumns columns();
@@ -56,7 +60,8 @@ public interface Partition
      * @param clustering clustering key to search
      * @return row corresponding to the clustering, it's either null or non-empty row.
      */
-    public @Nullable Row getRow(Clustering<?> clustering);
+    @Nullable
+    public Row getRow(Clustering<?> clustering);
 
     /**
      * Returns an UnfilteredRowIterator over all the rows/RT contained by this partition.

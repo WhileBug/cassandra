@@ -15,14 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 import java.util.UUID;
-
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.sstable.metadata.StatsMetadata;
 import org.apache.cassandra.repair.PreviewRepairConflictWithIncrementalRepairException;
@@ -30,63 +27,56 @@ import org.apache.cassandra.repair.consistent.ConsistentSession;
 import org.apache.cassandra.repair.consistent.LocalSession;
 import org.apache.cassandra.service.ActiveRepairService;
 
-public enum PreviewKind
-{
+public enum PreviewKind {
+
     NONE(0, (sstable) -> {
         throw new RuntimeException("Can't get preview predicate for preview kind NONE");
-    }),
-    ALL(1, Predicates.alwaysTrue()),
-    UNREPAIRED(2, sstable -> !sstable.isRepaired()),
-    REPAIRED(3, new PreviewRepairedSSTablePredicate());
+    }), ALL(1, Predicates.alwaysTrue()), UNREPAIRED(2, sstable -> !sstable.isRepaired()), REPAIRED(3, new PreviewRepairedSSTablePredicate());
 
     private final int serializationVal;
+
     private final Predicate<SSTableReader> predicate;
 
-    PreviewKind(int serializationVal, Predicate<SSTableReader> predicate)
-    {
+    PreviewKind(int serializationVal, Predicate<SSTableReader> predicate) {
         assert ordinal() == serializationVal;
         this.serializationVal = serializationVal;
         this.predicate = predicate;
     }
 
-    public int getSerializationVal()
-    {
+    public int getSerializationVal() {
         return serializationVal;
     }
 
-    public static PreviewKind deserialize(int serializationVal)
-    {
+    public static PreviewKind deserialize(int serializationVal) {
         return values()[serializationVal];
     }
 
-    public boolean isPreview()
-    {
+    public boolean isPreview() {
         return this != NONE;
     }
 
-    public String logPrefix()
-    {
+    public String logPrefix() {
         return isPreview() ? "preview repair" : "repair";
     }
 
-    public String logPrefix(UUID sessionId)
-    {
+    public String logPrefix(UUID sessionId) {
         return '[' + logPrefix() + " #" + sessionId.toString() + ']';
     }
 
-    public Predicate<SSTableReader> predicate()
-    {
+    public Predicate<SSTableReader> predicate() {
         return predicate;
     }
 
-    private static class PreviewRepairedSSTablePredicate implements Predicate<SSTableReader>
-    {
-        public boolean apply(SSTableReader sstable)
-        {
+    private static class PreviewRepairedSSTablePredicate implements Predicate<SSTableReader> {
+
+        public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PreviewRepairedSSTablePredicate.class);
+
+        public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PreviewRepairedSSTablePredicate.class);
+
+        public boolean apply(SSTableReader sstable) {
             // grab the metadata before checking pendingRepair since this can be nulled out at any time
             StatsMetadata sstableMetadata = sstable.getSSTableMetadata();
-            if (sstableMetadata.pendingRepair != null)
-            {
+            if (sstableMetadata.pendingRepair != null) {
                 LocalSession session = ActiveRepairService.instance.consistent.local.getSession(sstableMetadata.pendingRepair);
                 if (session == null)
                     return false;

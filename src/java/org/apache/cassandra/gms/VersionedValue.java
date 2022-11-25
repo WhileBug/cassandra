@@ -23,12 +23,9 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.dht.Token;
@@ -40,7 +37,6 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.commons.lang3.StringUtils;
-
 
 /**
  * This abstraction represents the state associated with a particular node which an
@@ -57,283 +53,240 @@ import org.apache.commons.lang3.StringUtils;
  * }
  * </pre>
  */
+public class VersionedValue implements Comparable<VersionedValue> {
 
-public class VersionedValue implements Comparable<VersionedValue>
-{
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VersionedValue.class);
 
-    public static final IVersionedSerializer<VersionedValue> serializer = new VersionedValueSerializer();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VersionedValue.class);
+
+    public static final transient IVersionedSerializer<VersionedValue> serializer = new VersionedValueSerializer();
 
     // this must be a char that cannot be present in any token
-    public final static char DELIMITER = ',';
-    public final static String DELIMITER_STR = new String(new char[]{ DELIMITER });
+    public final static transient char DELIMITER = ',';
+
+    public final static transient String DELIMITER_STR = new String(new char[] { DELIMITER });
 
     // values for ApplicationState.STATUS
-    public final static String STATUS_BOOTSTRAPPING = "BOOT";
-    public final static String STATUS_BOOTSTRAPPING_REPLACE = "BOOT_REPLACE";
-    public final static String STATUS_NORMAL = "NORMAL";
-    public final static String STATUS_LEAVING = "LEAVING";
-    public final static String STATUS_LEFT = "LEFT";
-    public final static String STATUS_MOVING = "MOVING";
+    public final static transient String STATUS_BOOTSTRAPPING = "BOOT";
 
-    public final static String REMOVING_TOKEN = "removing";
-    public final static String REMOVED_TOKEN = "removed";
+    public final static transient String STATUS_BOOTSTRAPPING_REPLACE = "BOOT_REPLACE";
 
-    public final static String HIBERNATE = "hibernate";
-    public final static String SHUTDOWN = "shutdown";
+    public final static transient String STATUS_NORMAL = "NORMAL";
+
+    public final static transient String STATUS_LEAVING = "LEAVING";
+
+    public final static transient String STATUS_LEFT = "LEFT";
+
+    public final static transient String STATUS_MOVING = "MOVING";
+
+    public final static transient String REMOVING_TOKEN = "removing";
+
+    public final static transient String REMOVED_TOKEN = "removed";
+
+    public final static transient String HIBERNATE = "hibernate";
+
+    public final static transient String SHUTDOWN = "shutdown";
 
     // values for ApplicationState.REMOVAL_COORDINATOR
-    public final static String REMOVAL_COORDINATOR = "REMOVER";
+    public final static transient String REMOVAL_COORDINATOR = "REMOVER";
 
-    public final int version;
-    public final String value;
+    public final transient int version;
 
-    private VersionedValue(String value, int version)
-    {
+    public final transient String value;
+
+    private VersionedValue(String value, int version) {
         assert value != null;
         this.value = value;
         this.version = version;
     }
 
-    private VersionedValue(String value)
-    {
+    private VersionedValue(String value) {
         this(value, VersionGenerator.getNextVersion());
     }
 
-    public static VersionedValue unsafeMakeVersionedValue(String value, int version)
-    {
+    public static VersionedValue unsafeMakeVersionedValue(String value, int version) {
         return new VersionedValue(value, version);
     }
 
-    public int compareTo(VersionedValue value)
-    {
+    public int compareTo(VersionedValue value) {
         return this.version - value.version;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "Value(" + value + ',' + version + ')';
     }
 
-    public byte[] toBytes()
-    {
+    public byte[] toBytes() {
         return value.getBytes(ISO_8859_1);
     }
 
-    private static String versionString(String... args)
-    {
+    private static String versionString(String... args) {
         return StringUtils.join(args, VersionedValue.DELIMITER);
     }
 
-    public static class VersionedValueFactory
-    {
-        final IPartitioner partitioner;
+    public static class VersionedValueFactory {
 
-        public VersionedValueFactory(IPartitioner partitioner)
-        {
+        final transient IPartitioner partitioner;
+
+        public VersionedValueFactory(IPartitioner partitioner) {
             this.partitioner = partitioner;
         }
-        
-        public VersionedValue cloneWithHigherVersion(VersionedValue value)
-        {
+
+        public VersionedValue cloneWithHigherVersion(VersionedValue value) {
             return new VersionedValue(value.value);
         }
 
         @Deprecated
-        public VersionedValue bootReplacing(InetAddress oldNode)
-        {
+        public VersionedValue bootReplacing(InetAddress oldNode) {
             return new VersionedValue(versionString(VersionedValue.STATUS_BOOTSTRAPPING_REPLACE, oldNode.getHostAddress()));
         }
 
-        public VersionedValue bootReplacingWithPort(InetAddressAndPort oldNode)
-        {
+        public VersionedValue bootReplacingWithPort(InetAddressAndPort oldNode) {
             return new VersionedValue(versionString(VersionedValue.STATUS_BOOTSTRAPPING_REPLACE, oldNode.getHostAddressAndPort()));
         }
 
-        public VersionedValue bootstrapping(Collection<Token> tokens)
-        {
-            return new VersionedValue(versionString(VersionedValue.STATUS_BOOTSTRAPPING,
-                                                    makeTokenString(tokens)));
+        public VersionedValue bootstrapping(Collection<Token> tokens) {
+            return new VersionedValue(versionString(VersionedValue.STATUS_BOOTSTRAPPING, makeTokenString(tokens)));
         }
 
-        public VersionedValue normal(Collection<Token> tokens)
-        {
-            return new VersionedValue(versionString(VersionedValue.STATUS_NORMAL,
-                                                    makeTokenString(tokens)));
+        public VersionedValue normal(Collection<Token> tokens) {
+            return new VersionedValue(versionString(VersionedValue.STATUS_NORMAL, makeTokenString(tokens)));
         }
 
-        private String makeTokenString(Collection<Token> tokens)
-        {
+        private String makeTokenString(Collection<Token> tokens) {
             return partitioner.getTokenFactory().toString(Iterables.get(tokens, 0));
         }
 
-        public VersionedValue load(double load)
-        {
+        public VersionedValue load(double load) {
             return new VersionedValue(String.valueOf(load));
         }
 
-        public VersionedValue schema(UUID newVersion)
-        {
+        public VersionedValue schema(UUID newVersion) {
             return new VersionedValue(newVersion.toString());
         }
 
-        public VersionedValue leaving(Collection<Token> tokens)
-        {
-            return new VersionedValue(versionString(VersionedValue.STATUS_LEAVING,
-                                                    makeTokenString(tokens)));
+        public VersionedValue leaving(Collection<Token> tokens) {
+            return new VersionedValue(versionString(VersionedValue.STATUS_LEAVING, makeTokenString(tokens)));
         }
 
-        public VersionedValue left(Collection<Token> tokens, long expireTime)
-        {
-            return new VersionedValue(versionString(VersionedValue.STATUS_LEFT,
-                                                    makeTokenString(tokens),
-                                                    Long.toString(expireTime)));
+        public VersionedValue left(Collection<Token> tokens, long expireTime) {
+            return new VersionedValue(versionString(VersionedValue.STATUS_LEFT, makeTokenString(tokens), Long.toString(expireTime)));
         }
 
-        public VersionedValue moving(Token token)
-        {
+        public VersionedValue moving(Token token) {
             return new VersionedValue(VersionedValue.STATUS_MOVING + VersionedValue.DELIMITER + partitioner.getTokenFactory().toString(token));
         }
 
-        public VersionedValue hostId(UUID hostId)
-        {
+        public VersionedValue hostId(UUID hostId) {
             return new VersionedValue(hostId.toString());
         }
 
-        public VersionedValue tokens(Collection<Token> tokens)
-        {
+        public VersionedValue tokens(Collection<Token> tokens) {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(bos);
-            try
-            {
+            try {
                 TokenSerializer.serialize(partitioner, tokens, out);
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
             return new VersionedValue(new String(bos.toByteArray(), ISO_8859_1));
         }
 
-        public VersionedValue removingNonlocal(UUID hostId)
-        {
+        public VersionedValue removingNonlocal(UUID hostId) {
             return new VersionedValue(versionString(VersionedValue.REMOVING_TOKEN, hostId.toString()));
         }
 
-        public VersionedValue removedNonlocal(UUID hostId, long expireTime)
-        {
+        public VersionedValue removedNonlocal(UUID hostId, long expireTime) {
             return new VersionedValue(versionString(VersionedValue.REMOVED_TOKEN, hostId.toString(), Long.toString(expireTime)));
         }
 
-        public VersionedValue removalCoordinator(UUID hostId)
-        {
+        public VersionedValue removalCoordinator(UUID hostId) {
             return new VersionedValue(versionString(VersionedValue.REMOVAL_COORDINATOR, hostId.toString()));
         }
 
-        public VersionedValue hibernate(boolean value)
-        {
+        public VersionedValue hibernate(boolean value) {
             return new VersionedValue(VersionedValue.HIBERNATE + VersionedValue.DELIMITER + value);
         }
 
-        public VersionedValue rpcReady(boolean value)
-        {
+        public VersionedValue rpcReady(boolean value) {
             return new VersionedValue(String.valueOf(value));
         }
 
-        public VersionedValue shutdown(boolean value)
-        {
+        public VersionedValue shutdown(boolean value) {
             return new VersionedValue(VersionedValue.SHUTDOWN + VersionedValue.DELIMITER + value);
         }
 
-        public VersionedValue datacenter(String dcId)
-        {
+        public VersionedValue datacenter(String dcId) {
             return new VersionedValue(dcId);
         }
 
-        public VersionedValue rack(String rackId)
-        {
+        public VersionedValue rack(String rackId) {
             return new VersionedValue(rackId);
         }
 
-        public VersionedValue rpcaddress(InetAddress endpoint)
-        {
+        public VersionedValue rpcaddress(InetAddress endpoint) {
             return new VersionedValue(endpoint.getHostAddress());
         }
 
-        public VersionedValue nativeaddressAndPort(InetAddressAndPort address)
-        {
+        public VersionedValue nativeaddressAndPort(InetAddressAndPort address) {
             return new VersionedValue(address.getHostAddressAndPort());
         }
 
-        public VersionedValue releaseVersion()
-        {
+        public VersionedValue releaseVersion() {
             return new VersionedValue(FBUtilities.getReleaseVersionString());
         }
 
         @VisibleForTesting
-        public VersionedValue releaseVersion(String version)
-        {
+        public VersionedValue releaseVersion(String version) {
             return new VersionedValue(version);
         }
 
         @VisibleForTesting
-        public VersionedValue networkVersion(int version)
-        {
+        public VersionedValue networkVersion(int version) {
             return new VersionedValue(String.valueOf(version));
         }
 
-        public VersionedValue networkVersion()
-        {
+        public VersionedValue networkVersion() {
             return new VersionedValue(String.valueOf(MessagingService.current_version));
         }
 
-        public VersionedValue internalIP(InetAddress private_ip)
-        {
+        public VersionedValue internalIP(InetAddress private_ip) {
             return new VersionedValue(private_ip.getHostAddress());
         }
 
-        public VersionedValue internalAddressAndPort(InetAddressAndPort private_ip_and_port)
-        {
+        public VersionedValue internalAddressAndPort(InetAddressAndPort private_ip_and_port) {
             return new VersionedValue(private_ip_and_port.getHostAddressAndPort());
         }
 
-        public VersionedValue severity(double value)
-        {
+        public VersionedValue severity(double value) {
             return new VersionedValue(String.valueOf(value));
         }
 
-        public VersionedValue sstableVersions(Set<VersionAndType> versions)
-        {
-            return new VersionedValue(versions.stream()
-                                              .map(VersionAndType::toString)
-                                              .collect(Collectors.joining(",")));
+        public VersionedValue sstableVersions(Set<VersionAndType> versions) {
+            return new VersionedValue(versions.stream().map(VersionAndType::toString).collect(Collectors.joining(",")));
         }
     }
 
-    private static class VersionedValueSerializer implements IVersionedSerializer<VersionedValue>
-    {
-        public void serialize(VersionedValue value, DataOutputPlus out, int version) throws IOException
-        {
+    private static class VersionedValueSerializer implements IVersionedSerializer<VersionedValue> {
+
+        public void serialize(VersionedValue value, DataOutputPlus out, int version) throws IOException {
             out.writeUTF(outValue(value, version));
             out.writeInt(value.version);
         }
 
-        private String outValue(VersionedValue value, int version)
-        {
+        private String outValue(VersionedValue value, int version) {
             return value.value;
         }
 
-        public VersionedValue deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public VersionedValue deserialize(DataInputPlus in, int version) throws IOException {
             String value = in.readUTF();
             int valVersion = in.readInt();
             return new VersionedValue(value, valVersion);
         }
 
-        public long serializedSize(VersionedValue value, int version)
-        {
+        public long serializedSize(VersionedValue value, int version) {
             return TypeSizes.sizeof(outValue(value, version)) + TypeSizes.sizeof(value.version);
         }
     }
 }
-

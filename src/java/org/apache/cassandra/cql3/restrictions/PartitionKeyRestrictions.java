@@ -19,17 +19,19 @@ package org.apache.cassandra.cql3.restrictions;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.statements.Bound;
 
 /**
  * A set of restrictions on the partition key.
- *
  */
-interface PartitionKeyRestrictions extends Restrictions
-{
+interface PartitionKeyRestrictions extends Restrictions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionKeyRestrictions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionKeyRestrictions.class);
+
     public PartitionKeyRestrictions mergeWith(Restriction restriction);
 
     public List<ByteBuffer> values(QueryOptions options);

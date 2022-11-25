@@ -24,16 +24,18 @@ import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 
-final class UnfilteredPartitions extends BasePartitions<UnfilteredRowIterator, UnfilteredPartitionIterator> implements UnfilteredPartitionIterator
-{
+final class UnfilteredPartitions extends BasePartitions<UnfilteredRowIterator, UnfilteredPartitionIterator> implements UnfilteredPartitionIterator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnfilteredPartitions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnfilteredPartitions.class);
+
     // wrap an iterator for transformation
-    public UnfilteredPartitions(UnfilteredPartitionIterator input)
-    {
+    public UnfilteredPartitions(UnfilteredPartitionIterator input) {
         super(input);
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return input.metadata();
     }
 }

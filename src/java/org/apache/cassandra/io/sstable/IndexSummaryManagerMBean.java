@@ -20,9 +20,14 @@ package org.apache.cassandra.io.sstable;
 import java.io.IOException;
 import java.util.Map;
 
-public interface IndexSummaryManagerMBean
-{
+public interface IndexSummaryManagerMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexSummaryManagerMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexSummaryManagerMBean.class);
+
     public long getMemoryPoolCapacityInMB();
+
     public void setMemoryPoolCapacityInMB(long memoryPoolCapacityInMB);
 
     /**
@@ -41,5 +46,6 @@ public interface IndexSummaryManagerMBean
     public void redistributeSummaries() throws IOException;
 
     public int getResizeIntervalInMinutes();
+
     public void setResizeIntervalInMinutes(int resizeIntervalInMinutes);
 }

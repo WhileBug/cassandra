@@ -24,59 +24,45 @@ import org.apache.cassandra.metrics.CacheMetrics;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.CacheService;
 
-final class CachesTable extends AbstractVirtualTable
-{
-    private static final String NAME = "name";
-    private static final String CAPACITY_BYTES = "capacity_bytes";
-    private static final String SIZE_BYTES = "size_bytes";
-    private static final String ENTRY_COUNT = "entry_count";
-    private static final String REQUEST_COUNT = "request_count";
-    private static final String HIT_COUNT = "hit_count";
-    private static final String HIT_RATIO = "hit_ratio";
-    private static final String RECENT_REQUEST_RATE_PER_SECOND = "recent_request_rate_per_second";
-    private static final String RECENT_HIT_RATE_PER_SECOND = "recent_hit_rate_per_second";
+final class CachesTable extends AbstractVirtualTable {
 
-    CachesTable(String keyspace)
-    {
-        super(TableMetadata.builder(keyspace, "caches")
-                           .comment("system caches")
-                           .kind(TableMetadata.Kind.VIRTUAL)
-                           .partitioner(new LocalPartitioner(UTF8Type.instance))
-                           .addPartitionKeyColumn(NAME, UTF8Type.instance)
-                           .addRegularColumn(CAPACITY_BYTES, LongType.instance)
-                           .addRegularColumn(SIZE_BYTES, LongType.instance)
-                           .addRegularColumn(ENTRY_COUNT, Int32Type.instance)
-                           .addRegularColumn(REQUEST_COUNT, LongType.instance)
-                           .addRegularColumn(HIT_COUNT, LongType.instance)
-                           .addRegularColumn(HIT_RATIO, DoubleType.instance)
-                           .addRegularColumn(RECENT_REQUEST_RATE_PER_SECOND, LongType.instance)
-                           .addRegularColumn(RECENT_HIT_RATE_PER_SECOND, LongType.instance)
-                           .build());
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CachesTable.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CachesTable.class);
+
+    private static final transient String NAME = "name";
+
+    private static final transient String CAPACITY_BYTES = "capacity_bytes";
+
+    private static final transient String SIZE_BYTES = "size_bytes";
+
+    private static final transient String ENTRY_COUNT = "entry_count";
+
+    private static final transient String REQUEST_COUNT = "request_count";
+
+    private static final transient String HIT_COUNT = "hit_count";
+
+    private static final transient String HIT_RATIO = "hit_ratio";
+
+    private static final transient String RECENT_REQUEST_RATE_PER_SECOND = "recent_request_rate_per_second";
+
+    private static final transient String RECENT_HIT_RATE_PER_SECOND = "recent_hit_rate_per_second";
+
+    CachesTable(String keyspace) {
+        super(TableMetadata.builder(keyspace, "caches").comment("system caches").kind(TableMetadata.Kind.VIRTUAL).partitioner(new LocalPartitioner(UTF8Type.instance)).addPartitionKeyColumn(NAME, UTF8Type.instance).addRegularColumn(CAPACITY_BYTES, LongType.instance).addRegularColumn(SIZE_BYTES, LongType.instance).addRegularColumn(ENTRY_COUNT, Int32Type.instance).addRegularColumn(REQUEST_COUNT, LongType.instance).addRegularColumn(HIT_COUNT, LongType.instance).addRegularColumn(HIT_RATIO, DoubleType.instance).addRegularColumn(RECENT_REQUEST_RATE_PER_SECOND, LongType.instance).addRegularColumn(RECENT_HIT_RATE_PER_SECOND, LongType.instance).build());
     }
 
-    private void addRow(SimpleDataSet result, String name, CacheMetrics metrics)
-    {
-        result.row(name)
-              .column(CAPACITY_BYTES, metrics.capacity.getValue())
-              .column(SIZE_BYTES, metrics.size.getValue())
-              .column(ENTRY_COUNT, metrics.entries.getValue())
-              .column(REQUEST_COUNT, metrics.requests.getCount())
-              .column(HIT_COUNT, metrics.hits.getCount())
-              .column(HIT_RATIO, metrics.hitRate.getValue())
-              .column(RECENT_REQUEST_RATE_PER_SECOND, (long) metrics.requests.getFifteenMinuteRate())
-              .column(RECENT_HIT_RATE_PER_SECOND, (long) metrics.hits.getFifteenMinuteRate());
+    private void addRow(SimpleDataSet result, String name, CacheMetrics metrics) {
+        result.row(name).column(CAPACITY_BYTES, metrics.capacity.getValue()).column(SIZE_BYTES, metrics.size.getValue()).column(ENTRY_COUNT, metrics.entries.getValue()).column(REQUEST_COUNT, metrics.requests.getCount()).column(HIT_COUNT, metrics.hits.getCount()).column(HIT_RATIO, metrics.hitRate.getValue()).column(RECENT_REQUEST_RATE_PER_SECOND, (long) metrics.requests.getFifteenMinuteRate()).column(RECENT_HIT_RATE_PER_SECOND, (long) metrics.hits.getFifteenMinuteRate());
     }
 
-    public DataSet data()
-    {
+    public DataSet data() {
         SimpleDataSet result = new SimpleDataSet(metadata());
-
         if (null != ChunkCache.instance)
             addRow(result, "chunks", ChunkCache.instance.metrics);
         addRow(result, "counters", CacheService.instance.counterCache.getMetrics());
         addRow(result, "keys", CacheService.instance.keyCache.getMetrics());
         addRow(result, "rows", CacheService.instance.rowCache.getMetrics());
-
         return result;
     }
 }

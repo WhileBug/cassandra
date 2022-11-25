@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3;
 
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import org.apache.cassandra.cql3.Term.MultiItemTerminal;
 import org.apache.cassandra.cql3.Term.Terminal;
 import org.apache.cassandra.cql3.functions.Function;
@@ -29,23 +28,25 @@ import org.apache.cassandra.transport.ProtocolVersion;
 /**
  * A set of {@code Terms}
  */
-public interface Terms
-{
+public interface Terms {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Terms.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Terms.class);
+
     /**
      * The {@code List} returned when the list was not set.
      */
     @SuppressWarnings("rawtypes")
-    public static final List UNSET_LIST = new AbstractList()
-    {
+    public static final transient List UNSET_LIST = new AbstractList() {
+
         @Override
-        public Object get(int index)
-        {
+        public Object get(int index) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public int size()
-        {
+        public int size() {
             return 0;
         }
     };
@@ -75,7 +76,6 @@ public interface Terms
      */
     public List<Terminal> bind(QueryOptions options);
 
-
     public List<ByteBuffer> bindAndGet(QueryOptions options);
 
     /**
@@ -85,52 +85,39 @@ public interface Terms
      * @param type the element type
      * @return a {@code Terms} for the specified list marker
      */
-    public static Terms ofListMarker(final Lists.Marker marker, final AbstractType<?> type)
-    {
-        return new Terms()
-        {
+    public static Terms ofListMarker(final Lists.Marker marker, final AbstractType<?> type) {
+        return new Terms() {
+
             @Override
-            public void addFunctionsTo(List<Function> functions)
-            {
+            public void addFunctionsTo(List<Function> functions) {
             }
 
             @Override
-            public void collectMarkerSpecification(VariableSpecifications boundNames)
-            {
+            public void collectMarkerSpecification(VariableSpecifications boundNames) {
                 marker.collectMarkerSpecification(boundNames);
             }
 
             @Override
-            public List<ByteBuffer> bindAndGet(QueryOptions options)
-            {
+            public List<ByteBuffer> bindAndGet(QueryOptions options) {
                 Terminal terminal = marker.bind(options);
-
                 if (terminal == null)
                     return null;
-
                 if (terminal == Constants.UNSET_VALUE)
                     return UNSET_LIST;
-
                 return ((MultiItemTerminal) terminal).getElements();
             }
 
             @Override
-            public List<Terminal> bind(QueryOptions options)
-            {
+            public List<Terminal> bind(QueryOptions options) {
                 Terminal terminal = marker.bind(options);
-
                 if (terminal == null)
                     return null;
-
                 if (terminal == Constants.UNSET_VALUE)
                     return UNSET_LIST;
-
                 java.util.function.Function<ByteBuffer, Term.Terminal> deserializer = deserializer(options.getProtocolVersion());
-
                 List<ByteBuffer> boundValues = ((MultiItemTerminal) terminal).getElements();
                 List<Term.Terminal> values = new ArrayList<>(boundValues.size());
-                for (int i = 0, m = boundValues.size(); i < m; i++)
-                {
+                for (int i = 0, m = boundValues.size(); i < m; i++) {
                     ByteBuffer buffer = boundValues.get(i);
                     Term.Terminal value = buffer == null ? null : deserializer.apply(buffer);
                     values.add(value);
@@ -138,12 +125,9 @@ public interface Terms
                 return values;
             }
 
-            public java.util.function.Function<ByteBuffer, Term.Terminal> deserializer(ProtocolVersion version)
-            {
-                if (type.isCollection())
-                {
-                    switch (((CollectionType<?>) type).kind)
-                    {
+            public java.util.function.Function<ByteBuffer, Term.Terminal> deserializer(ProtocolVersion version) {
+                if (type.isCollection()) {
+                    switch(((CollectionType<?>) type).kind) {
                         case LIST:
                             return e -> Lists.Value.fromSerialized(e, (ListType<?>) type, version);
                         case SET:
@@ -164,34 +148,29 @@ public interface Terms
      * @param term the {@code Term}
      * @return a {@code Terms} containing a single {@code Term}.
      */
-    public static Terms of(final Term term)
-    {
-        return new Terms()
-                {
-                    @Override
-                    public void addFunctionsTo(List<Function> functions)
-                    {
-                        term.addFunctionsTo(functions);
-                    }
+    public static Terms of(final Term term) {
+        return new Terms() {
 
-                    @Override
-                    public void collectMarkerSpecification(VariableSpecifications boundNames)
-                    {
-                        term.collectMarkerSpecification(boundNames);
-                    }
+            @Override
+            public void addFunctionsTo(List<Function> functions) {
+                term.addFunctionsTo(functions);
+            }
 
-                    @Override
-                    public List<ByteBuffer> bindAndGet(QueryOptions options)
-                    {
-                        return Collections.singletonList(term.bindAndGet(options));
-                    }
+            @Override
+            public void collectMarkerSpecification(VariableSpecifications boundNames) {
+                term.collectMarkerSpecification(boundNames);
+            }
 
-                    @Override
-                    public List<Terminal> bind(QueryOptions options)
-                    {
-                        return Collections.singletonList(term.bind(options));
-                    }
-                };
+            @Override
+            public List<ByteBuffer> bindAndGet(QueryOptions options) {
+                return Collections.singletonList(term.bindAndGet(options));
+            }
+
+            @Override
+            public List<Terminal> bind(QueryOptions options) {
+                return Collections.singletonList(term.bind(options));
+            }
+        };
     }
 
     /**
@@ -200,69 +179,58 @@ public interface Terms
      * @param term the {@code Term}
      * @return a {@code Terms} containing a set of {@code Term}.
      */
-    public static Terms of(final List<Term> terms)
-    {
-        return new Terms()
-                {
-                    @Override
-                    public void addFunctionsTo(List<Function> functions)
-                    {
-                        addFunctions(terms, functions);
-                    }
+    public static Terms of(final List<Term> terms) {
+        return new Terms() {
 
-                    @Override
-                    public void collectMarkerSpecification(VariableSpecifications boundNames)
-                    {
-                        for (int i = 0, m = terms.size(); i <m; i++)
-                        {
-                            Term term = terms.get(i);
-                            term.collectMarkerSpecification(boundNames);
-                        }
-                    }
+            @Override
+            public void addFunctionsTo(List<Function> functions) {
+                addFunctions(terms, functions);
+            }
 
-                    @Override
-                    public List<Terminal> bind(QueryOptions options)
-                    {
-                        int size = terms.size();
-                        List<Terminal> terminals = new ArrayList<>(size);
-                        for (int i = 0; i < size; i++)
-                        {
-                            Term term = terms.get(i);
-                            terminals.add(term.bind(options));
-                        }
-                        return terminals;
-                    }
+            @Override
+            public void collectMarkerSpecification(VariableSpecifications boundNames) {
+                for (int i = 0, m = terms.size(); i < m; i++) {
+                    Term term = terms.get(i);
+                    term.collectMarkerSpecification(boundNames);
+                }
+            }
 
-                    @Override
-                    public List<ByteBuffer> bindAndGet(QueryOptions options)
-                    {
-                        int size = terms.size();
-                        List<ByteBuffer> buffers = new ArrayList<>(size);
-                        for (int i = 0; i < size; i++)
-                        {
-                            Term term = terms.get(i);
-                            buffers.add(term.bindAndGet(options));
-                        }
-                        return buffers;
-                    }
-                };
+            @Override
+            public List<Terminal> bind(QueryOptions options) {
+                int size = terms.size();
+                List<Terminal> terminals = new ArrayList<>(size);
+                for (int i = 0; i < size; i++) {
+                    Term term = terms.get(i);
+                    terminals.add(term.bind(options));
+                }
+                return terminals;
+            }
+
+            @Override
+            public List<ByteBuffer> bindAndGet(QueryOptions options) {
+                int size = terms.size();
+                List<ByteBuffer> buffers = new ArrayList<>(size);
+                for (int i = 0; i < size; i++) {
+                    Term term = terms.get(i);
+                    buffers.add(term.bindAndGet(options));
+                }
+                return buffers;
+            }
+        };
     }
 
     /**
      * Adds all functions (native and user-defined) of the specified terms to the list.
      * @param functions the list to add to
      */
-    public static void addFunctions(Iterable<Term> terms, List<Function> functions)
-    {
-        for (Term term : terms)
-        {
+    public static void addFunctions(Iterable<Term> terms, List<Function> functions) {
+        for (Term term : terms) {
             if (term != null)
                 term.addFunctionsTo(functions);
         }
     }
 
-    public static ByteBuffer asBytes(String keyspace, String term, AbstractType type)
-    {
+    public static ByteBuffer asBytes(String keyspace, String term, AbstractType type) {
         ColumnSpecification receiver = new ColumnSpecification(keyspace, "--dummy--", new ColumnIdentifier("(dummy)", true), type);
         Term.Raw rawTerm = CQLFragmentParser.parseAny(CqlParser::term, term, "CQL term");
         return rawTerm.prepare(keyspace, receiver).bindAndGet(QueryOptions.DEFAULT);

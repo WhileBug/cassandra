@@ -21,7 +21,6 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.schema.ColumnMetadata;
@@ -49,8 +48,12 @@ import org.apache.cassandra.utils.memory.Cloner;
  * it's own data. For instance, a {@code Row} cannot contains a cell that is deleted by its own
  * row deletion.
  */
-public interface Row extends Unfiltered, Iterable<ColumnData>
-{
+public interface Row extends Unfiltered, Iterable<ColumnData> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Row.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Row.class);
+
     /**
      * The clustering values for this row.
      */
@@ -62,7 +65,6 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
      * is present in this row.
      */
     public Collection<ColumnMetadata> columns();
-
 
     /**
      * The number of columns for which data (incl. simple tombstones) is present in this row.
@@ -113,7 +115,7 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
 
     /**
      * Whether the row has some live information (i.e. it's not just deletion informations).
-     * 
+     *
      * @param nowInSec the current time to decide what is deleted and what isn't
      * @param enforceStrictLiveness whether the row should be purged if there is no PK liveness info,
      *                              normally retrieved from {@link CFMetaData#enforceStrictLiveness()}
@@ -316,7 +318,6 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
     /**
      * Apply an accumulation funtion to every column in a row
      */
-
     public long accumulate(LongAccumulator<ColumnData> accumulator, long initialValue);
 
     public long accumulate(LongAccumulator<ColumnData> accumulator, Comparator<ColumnData> comparator, ColumnData from, long initialValue);
@@ -343,29 +344,28 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
      * <p>
      * Currently, the only use of shadowable row deletions is Materialized Views, see CASSANDRA-10261.
      */
-    public static class Deletion
-    {
-        public static final Deletion LIVE = new Deletion(DeletionTime.LIVE, false);
-        private static final long EMPTY_SIZE = ObjectSizes.measure(new DeletionTime(0, 0));
+    public static class Deletion {
 
-        private final DeletionTime time;
-        private final boolean isShadowable;
+        public static final transient Deletion LIVE = new Deletion(DeletionTime.LIVE, false);
 
-        public Deletion(DeletionTime time, boolean isShadowable)
-        {
+        private static final transient long EMPTY_SIZE = ObjectSizes.measure(new DeletionTime(0, 0));
+
+        private final transient DeletionTime time;
+
+        private final transient boolean isShadowable;
+
+        public Deletion(DeletionTime time, boolean isShadowable) {
             assert !time.isLive() || !isShadowable;
             this.time = time;
             this.isShadowable = isShadowable;
         }
 
-        public static Deletion regular(DeletionTime time)
-        {
+        public static Deletion regular(DeletionTime time) {
             return time.isLive() ? LIVE : new Deletion(time, false);
         }
 
         @Deprecated
-        public static Deletion shadowable(DeletionTime time)
-        {
+        public static Deletion shadowable(DeletionTime time) {
             return new Deletion(time, true);
         }
 
@@ -374,8 +374,7 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
          *
          * @return the time of the row deletion.
          */
-        public DeletionTime time()
-        {
+        public DeletionTime time() {
             return time;
         }
 
@@ -385,8 +384,7 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
          * @return whether the deletion is a shadowable one. Note that if {@code isLive()}, then this is
          * guarantee to return {@code false}.
          */
-        public boolean isShadowable()
-        {
+        public boolean isShadowable() {
             return isShadowable;
         }
 
@@ -396,73 +394,60 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
          * @return {@code true} if this represents no deletion of the row, {@code false} if that's an actual
          * deletion.
          */
-        public boolean isLive()
-        {
+        public boolean isLive() {
             return time().isLive();
         }
 
-        public boolean supersedes(DeletionTime that)
-        {
+        public boolean supersedes(DeletionTime that) {
             return time.supersedes(that);
         }
 
-        public boolean supersedes(Deletion that)
-        {
+        public boolean supersedes(Deletion that) {
             return time.supersedes(that.time);
         }
 
-        public boolean isShadowedBy(LivenessInfo primaryKeyLivenessInfo)
-        {
+        public boolean isShadowedBy(LivenessInfo primaryKeyLivenessInfo) {
             return isShadowable && primaryKeyLivenessInfo.timestamp() > time.markedForDeleteAt();
         }
 
-        public boolean deletes(LivenessInfo info)
-        {
+        public boolean deletes(LivenessInfo info) {
             return time.deletes(info);
         }
 
-        public boolean deletes(Cell<?> cell)
-        {
+        public boolean deletes(Cell<?> cell) {
             return time.deletes(cell);
         }
 
-        public void digest(Digest digest)
-        {
+        public void digest(Digest digest) {
             time.digest(digest);
             digest.updateWithBoolean(isShadowable);
         }
 
-        public int dataSize()
-        {
+        public int dataSize() {
             return time.dataSize() + 1;
         }
 
         @Override
-        public boolean equals(Object o)
-        {
-            if(!(o instanceof Deletion))
+        public boolean equals(Object o) {
+            if (!(o instanceof Deletion))
                 return false;
-            Deletion that = (Deletion)o;
+            Deletion that = (Deletion) o;
             return this.time.equals(that.time) && this.isShadowable == that.isShadowable;
         }
 
-        public long unsharedHeapSize()
-        {
-            if(this == LIVE)
+        public long unsharedHeapSize() {
+            if (this == LIVE)
                 return 0;
-
             return EMPTY_SIZE + time().unsharedHeapSize();
         }
 
         @Override
-        public final int hashCode()
-        {
+        public final int hashCode() {
             return Objects.hash(time, isShadowable);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return String.format("%s%s", time, isShadowable ? "(shadowable)" : "");
         }
     }
@@ -492,8 +477,8 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
      * that latter case, the result will follow the usual reconciliation rules (so equal cells are reconciled with
      * {@link Cells#reconcile} and the "biggest" of multiple complex deletion for the same column wins).
      */
-    public interface Builder
-    {
+    public interface Builder {
+
         /**
          * Creates a copy of this {@code Builder}.
          * @return a copy of this {@code Builder}
@@ -577,8 +562,8 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
      * Also note that contrarily to {@link Builder}, the {@code SimpleBuilder} API has no {@code newRow()} method: it is
      * expected that the clustering of the row built is provided by the constructor of the builder.
      */
-    public interface SimpleBuilder
-    {
+    public interface SimpleBuilder {
+
         /**
          * Sets the timestamp to use for the following additions.
          * <p>
@@ -667,27 +652,29 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
     /**
      * Utility class to help merging rows from multiple inputs (UnfilteredRowIterators).
      */
-    public static class Merger
-    {
-        private final Row[] rows;
-        private final List<Iterator<ColumnData>> columnDataIterators;
+    public static class Merger {
 
-        private Clustering<?> clustering;
-        private int rowsToMerge;
-        private int lastRowSet = -1;
+        private final transient Row[] rows;
 
-        private final List<ColumnData> dataBuffer = new ArrayList<>();
-        private final ColumnDataReducer columnDataReducer;
+        private final transient List<Iterator<ColumnData>> columnDataIterators;
 
-        public Merger(int size, boolean hasComplex)
-        {
+        private transient Clustering<?> clustering;
+
+        private transient int rowsToMerge;
+
+        private transient int lastRowSet = -1;
+
+        private final transient List<ColumnData> dataBuffer = new ArrayList<>();
+
+        private final transient ColumnDataReducer columnDataReducer;
+
+        public Merger(int size, boolean hasComplex) {
             this.rows = new Row[size];
             this.columnDataIterators = new ArrayList<>(size);
             this.columnDataReducer = new ColumnDataReducer(size, hasComplex);
         }
 
-        public void clear()
-        {
+        public void clear() {
             dataBuffer.clear();
             Arrays.fill(rows, null);
             columnDataIterators.clear();
@@ -695,8 +682,7 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
             lastRowSet = -1;
         }
 
-        public void add(int i, Row row)
-        {
+        public void add(int i, Row row) {
             clustering = row.clustering();
             rows[i] = row;
             ++rowsToMerge;
@@ -704,98 +690,80 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
         }
 
         @SuppressWarnings("resource")
-        public Row merge(DeletionTime activeDeletion)
-        {
+        public Row merge(DeletionTime activeDeletion) {
             // If for this clustering we have only one row version and have no activeDeletion (i.e. nothing to filter out),
             // then we can just return that single row
-            if (rowsToMerge == 1 && activeDeletion.isLive())
-            {
+            if (rowsToMerge == 1 && activeDeletion.isLive()) {
                 Row row = rows[lastRowSet];
                 assert row != null;
                 return row;
             }
-
             LivenessInfo rowInfo = LivenessInfo.EMPTY;
             Deletion rowDeletion = Deletion.LIVE;
-            for (Row row : rows)
-            {
+            for (Row row : rows) {
                 if (row == null)
                     continue;
-
                 if (row.primaryKeyLivenessInfo().supersedes(rowInfo))
                     rowInfo = row.primaryKeyLivenessInfo();
                 if (row.deletion().supersedes(rowDeletion))
                     rowDeletion = row.deletion();
             }
-
             if (rowDeletion.isShadowedBy(rowInfo))
                 rowDeletion = Deletion.LIVE;
-
             if (rowDeletion.supersedes(activeDeletion))
                 activeDeletion = rowDeletion.time();
             else
                 rowDeletion = Deletion.LIVE;
-
             if (activeDeletion.deletes(rowInfo))
                 rowInfo = LivenessInfo.EMPTY;
-
-            for (Row row : rows)
-                columnDataIterators.add(row == null ? Collections.emptyIterator() : row.iterator());
-
+            for (Row row : rows) columnDataIterators.add(row == null ? Collections.emptyIterator() : row.iterator());
             columnDataReducer.setActiveDeletion(activeDeletion);
             Iterator<ColumnData> merged = MergeIterator.get(columnDataIterators, ColumnData.comparator, columnDataReducer);
-            while (merged.hasNext())
-            {
+            while (merged.hasNext()) {
                 ColumnData data = merged.next();
                 if (data != null)
                     dataBuffer.add(data);
             }
-
             // Because some data might have been shadowed by the 'activeDeletion', we could have an empty row
-            return rowInfo.isEmpty() && rowDeletion.isLive() && dataBuffer.isEmpty()
-                 ? null
-                 : BTreeRow.create(clustering, rowInfo, rowDeletion, BTree.build(dataBuffer));
+            return rowInfo.isEmpty() && rowDeletion.isLive() && dataBuffer.isEmpty() ? null : BTreeRow.create(clustering, rowInfo, rowDeletion, BTree.build(dataBuffer));
         }
 
-        public Clustering<?> mergedClustering()
-        {
+        public Clustering<?> mergedClustering() {
             return clustering;
         }
 
-        public Row[] mergedRows()
-        {
+        public Row[] mergedRows() {
             return rows;
         }
 
-        private static class ColumnDataReducer extends MergeIterator.Reducer<ColumnData, ColumnData>
-        {
-            private ColumnMetadata column;
-            private final List<ColumnData> versions;
+        private static class ColumnDataReducer extends MergeIterator.Reducer<ColumnData, ColumnData> {
 
-            private DeletionTime activeDeletion;
+            private transient ColumnMetadata column;
 
-            private final ComplexColumnData.Builder complexBuilder;
-            private final List<Iterator<Cell<?>>> complexCells;
-            private final CellReducer cellReducer;
+            private final transient List<ColumnData> versions;
 
-            public ColumnDataReducer(int size, boolean hasComplex)
-            {
+            private transient DeletionTime activeDeletion;
+
+            private final transient ComplexColumnData.Builder complexBuilder;
+
+            private final transient List<Iterator<Cell<?>>> complexCells;
+
+            private final transient CellReducer cellReducer;
+
+            public ColumnDataReducer(int size, boolean hasComplex) {
                 this.versions = new ArrayList<>(size);
                 this.complexBuilder = hasComplex ? ComplexColumnData.builder() : null;
                 this.complexCells = hasComplex ? new ArrayList<>(size) : null;
                 this.cellReducer = new CellReducer();
             }
 
-            public void setActiveDeletion(DeletionTime activeDeletion)
-            {
+            public void setActiveDeletion(DeletionTime activeDeletion) {
                 this.activeDeletion = activeDeletion;
             }
 
-            public void reduce(int idx, ColumnData data)
-            {
+            public void reduce(int idx, ColumnData data) {
                 if (useColumnMetadata(data.column()))
                     column = data.column();
-
                 versions.add(data);
             }
 
@@ -804,55 +772,41 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
              * @param dataColumn the {@code ColumnMetadata} to use.
              * @return {@code true} if the {@code ColumnMetadata} is the one that should be used, {@code false} otherwise.
              */
-            private boolean useColumnMetadata(ColumnMetadata dataColumn)
-            {
+            private boolean useColumnMetadata(ColumnMetadata dataColumn) {
                 if (column == null)
                     return true;
-
                 return ColumnMetadataVersionComparator.INSTANCE.compare(column, dataColumn) < 0;
             }
 
             @SuppressWarnings("resource")
-            protected ColumnData getReduced()
-            {
-                if (column.isSimple())
-                {
+            protected ColumnData getReduced() {
+                if (column.isSimple()) {
                     Cell<?> merged = null;
-                    for (int i=0, isize=versions.size(); i<isize; i++)
-                    {
+                    for (int i = 0, isize = versions.size(); i < isize; i++) {
                         Cell<?> cell = (Cell<?>) versions.get(i);
                         if (!activeDeletion.deletes(cell))
                             merged = merged == null ? cell : Cells.reconcile(merged, cell);
                     }
                     return merged;
-                }
-                else
-                {
+                } else {
                     complexBuilder.newColumn(column);
                     complexCells.clear();
                     DeletionTime complexDeletion = DeletionTime.LIVE;
-                    for (int i=0, isize=versions.size(); i<isize; i++)
-                    {
+                    for (int i = 0, isize = versions.size(); i < isize; i++) {
                         ColumnData data = versions.get(i);
-                        ComplexColumnData cd = (ComplexColumnData)data;
+                        ComplexColumnData cd = (ComplexColumnData) data;
                         if (cd.complexDeletion().supersedes(complexDeletion))
                             complexDeletion = cd.complexDeletion();
                         complexCells.add(cd.iterator());
                     }
-
-                    if (complexDeletion.supersedes(activeDeletion))
-                    {
+                    if (complexDeletion.supersedes(activeDeletion)) {
                         cellReducer.setActiveDeletion(complexDeletion);
                         complexBuilder.addComplexDeletion(complexDeletion);
-                    }
-                    else
-                    {
+                    } else {
                         cellReducer.setActiveDeletion(activeDeletion);
                     }
-
                     Iterator<Cell<?>> cells = MergeIterator.get(complexCells, Cell.comparator, cellReducer);
-                    while (cells.hasNext())
-                    {
+                    while (cells.hasNext()) {
                         Cell<?> merged = cells.next();
                         if (merged != null)
                             complexBuilder.addCell(merged);
@@ -861,37 +815,33 @@ public interface Row extends Unfiltered, Iterable<ColumnData>
                 }
             }
 
-            protected void onKeyChange()
-            {
+            protected void onKeyChange() {
                 column = null;
                 versions.clear();
             }
         }
 
-        private static class CellReducer extends MergeIterator.Reducer<Cell<?>, Cell<?>>
-        {
-            private DeletionTime activeDeletion;
-            private Cell<?> merged;
+        private static class CellReducer extends MergeIterator.Reducer<Cell<?>, Cell<?>> {
 
-            public void setActiveDeletion(DeletionTime activeDeletion)
-            {
+            private transient DeletionTime activeDeletion;
+
+            private transient Cell<?> merged;
+
+            public void setActiveDeletion(DeletionTime activeDeletion) {
                 this.activeDeletion = activeDeletion;
                 onKeyChange();
             }
 
-            public void reduce(int idx, Cell<?> cell)
-            {
+            public void reduce(int idx, Cell<?> cell) {
                 if (!activeDeletion.deletes(cell))
                     merged = merged == null ? cell : Cells.reconcile(merged, cell);
             }
 
-            protected Cell<?> getReduced()
-            {
+            protected Cell<?> getReduced() {
                 return merged;
             }
 
-            protected void onKeyChange()
-            {
+            protected void onKeyChange() {
                 merged = null;
             }
         }

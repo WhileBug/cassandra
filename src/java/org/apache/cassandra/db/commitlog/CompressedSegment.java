@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.commitlog;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.io.FSWriteError;
 import org.apache.cassandra.io.compress.ICompressor;
 
@@ -33,46 +32,43 @@ import org.apache.cassandra.io.compress.ICompressor;
  * -- total plain text length for this section
  * -- a block of compressed data
  */
-public class CompressedSegment extends FileDirectSegment
-{
-    static final int COMPRESSED_MARKER_SIZE = SYNC_MARKER_SIZE + 4;
-    final ICompressor compressor;
+public class CompressedSegment extends FileDirectSegment {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompressedSegment.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompressedSegment.class);
+
+    static final transient int COMPRESSED_MARKER_SIZE = SYNC_MARKER_SIZE + 4;
+
+    final transient ICompressor compressor;
 
     /**
      * Constructs a new segment file.
      */
-    CompressedSegment(CommitLog commitLog, AbstractCommitLogSegmentManager manager)
-    {
+    CompressedSegment(CommitLog commitLog, AbstractCommitLogSegmentManager manager) {
         super(commitLog, manager);
         this.compressor = commitLog.configuration.getCompressor();
     }
 
-    ByteBuffer createBuffer(CommitLog commitLog)
-    {
+    ByteBuffer createBuffer(CommitLog commitLog) {
         return manager.getBufferPool().createBuffer();
     }
 
     @Override
-    void write(int startMarker, int nextMarker)
-    {
+    void write(int startMarker, int nextMarker) {
         int contentStart = startMarker + SYNC_MARKER_SIZE;
         int length = nextMarker - contentStart;
         // The length may be 0 when the segment is being closed.
         assert length > 0 || length == 0 && !isStillAllocating();
-
-        try
-        {
+        try {
             int neededBufferSize = compressor.initialCompressedBufferLength(length) + COMPRESSED_MARKER_SIZE;
             ByteBuffer compressedBuffer = manager.getBufferPool().getThreadLocalReusableBuffer(neededBufferSize);
-
             ByteBuffer inputBuffer = buffer.duplicate();
             inputBuffer.limit(contentStart + length).position(contentStart);
             compressedBuffer.limit(compressedBuffer.capacity()).position(COMPRESSED_MARKER_SIZE);
             compressor.compress(inputBuffer, compressedBuffer);
-
             compressedBuffer.flip();
             compressedBuffer.putInt(SYNC_MARKER_SIZE, length);
-
             // Only one thread can be here at a given time.
             // Protected by synchronization on CommitLogSegment.sync().
             writeSyncMarker(id, compressedBuffer, 0, (int) channel.position(), (int) channel.position() + compressedBuffer.remaining());
@@ -80,16 +76,13 @@ public class CompressedSegment extends FileDirectSegment
             channel.write(compressedBuffer);
             assert channel.position() - lastWrittenPos == compressedBuffer.limit();
             lastWrittenPos = channel.position();
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new FSWriteError(e, getPath());
         }
     }
 
     @Override
-    public long onDiskSize()
-    {
+    public long onDiskSize() {
         return lastWrittenPos;
     }
 }

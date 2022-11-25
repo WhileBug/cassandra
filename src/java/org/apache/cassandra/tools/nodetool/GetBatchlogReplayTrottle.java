@@ -21,13 +21,15 @@ import io.airlift.airline.Command;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
-@Command(name = "getbatchlogreplaythrottle", description = "Print batchlog replay throttle in KB/s. " +
-                                                           "This is reduced proportionally to the number of nodes in the cluster.")
-public class GetBatchlogReplayTrottle extends NodeToolCmd
-{
+@Command(name = "getbatchlogreplaythrottle", description = "Print batchlog replay throttle in KB/s. " + "This is reduced proportionally to the number of nodes in the cluster.")
+public class GetBatchlogReplayTrottle extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetBatchlogReplayTrottle.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetBatchlogReplayTrottle.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.output().out.println("Batchlog replay throttle: " + probe.getBatchlogReplayThrottle() + " KB/s");
     }
 }

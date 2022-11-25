@@ -15,20 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools;
 
 import java.io.PrintStream;
 
-public class Output
-{
-    public final static Output CONSOLE = new Output(System.out, System.err);
+public class Output {
 
-    public final PrintStream out;
-    public final PrintStream err;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Output.class);
 
-    public Output(PrintStream out, PrintStream err)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Output.class);
+
+    public final static transient Output CONSOLE = new Output(System.out, System.err);
+
+    public final transient PrintStream out;
+
+    public final transient PrintStream err;
+
+    public Output(PrintStream out, PrintStream err) {
         this.out = out;
         this.err = err;
     }

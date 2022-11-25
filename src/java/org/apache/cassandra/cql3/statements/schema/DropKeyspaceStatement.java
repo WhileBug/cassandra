@@ -27,61 +27,56 @@ import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.transport.Event.SchemaChange;
 import org.apache.cassandra.transport.Event.SchemaChange.Change;
 
-public final class DropKeyspaceStatement extends AlterSchemaStatement
-{
-    private final boolean ifExists;
+public final class DropKeyspaceStatement extends AlterSchemaStatement {
 
-    public DropKeyspaceStatement(String keyspaceName, boolean ifExists)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropKeyspaceStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropKeyspaceStatement.class);
+
+    private final transient boolean ifExists;
+
+    public DropKeyspaceStatement(String keyspaceName, boolean ifExists) {
         super(keyspaceName);
         this.ifExists = ifExists;
     }
 
-    public Keyspaces apply(Keyspaces schema)
-    {
+    public Keyspaces apply(Keyspaces schema) {
         if (schema.containsKeyspace(keyspaceName))
             return schema.without(keyspaceName);
-
         if (ifExists)
             return schema;
-
         throw ire("Keyspace '%s' doesn't exist", keyspaceName);
     }
 
-    SchemaChange schemaChangeEvent(KeyspacesDiff diff)
-    {
+    SchemaChange schemaChangeEvent(KeyspacesDiff diff) {
         return new SchemaChange(Change.DROPPED, keyspaceName);
     }
 
-    public void authorize(ClientState client)
-    {
+    public void authorize(ClientState client) {
         client.ensureKeyspacePermission(keyspaceName, Permission.DROP);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.DROP_KEYSPACE, keyspaceName);
     }
 
-    public String toString()
-    {
+    public String toString() {
         return String.format("%s (%s)", getClass().getSimpleName(), keyspaceName);
     }
 
-    public static final class Raw extends CQLStatement.Raw
-    {
-        private final String keyspaceName;
-        private final boolean ifExists;
+    public static final class Raw extends CQLStatement.Raw {
 
-        public Raw(String keyspaceName, boolean ifExists)
-        {
+        private final transient String keyspaceName;
+
+        private final transient boolean ifExists;
+
+        public Raw(String keyspaceName, boolean ifExists) {
             this.keyspaceName = keyspaceName;
             this.ifExists = ifExists;
         }
 
-        public DropKeyspaceStatement prepare(ClientState state)
-        {
+        public DropKeyspaceStatement prepare(ClientState state) {
             return new DropKeyspaceStatement(keyspaceName, ifExists);
         }
     }

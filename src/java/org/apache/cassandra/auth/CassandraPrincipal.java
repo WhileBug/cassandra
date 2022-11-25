@@ -34,14 +34,17 @@ import java.security.Principal;
  * @see java.security.Principal
  * @see javax.security.auth.Subject
  */
-public class CassandraPrincipal implements Principal, Serializable
-{
+public class CassandraPrincipal implements Principal, Serializable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraPrincipal.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraPrincipal.class);
 
     /**
-     *
      */
-    private static final long serialVersionUID = 1L;
-    private final String name;
+    private static final transient long serialVersionUID = 1L;
+
+    private final transient String name;
 
     /**
      * Create a CassPrincipal with a username.
@@ -53,11 +56,9 @@ public class CassandraPrincipal implements Principal, Serializable
      * @exception NullPointerException if the <code>name</code>
      *                  is <code>null</code>.
      */
-    public CassandraPrincipal(String name)
-    {
+    public CassandraPrincipal(String name) {
         if (name == null)
             throw new NullPointerException("illegal null input");
-
         this.name = name;
     }
 
@@ -69,8 +70,7 @@ public class CassandraPrincipal implements Principal, Serializable
      * @return the username for this <code>CassPrincipal</code>
      */
     @Override
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
@@ -82,8 +82,7 @@ public class CassandraPrincipal implements Principal, Serializable
      * @return a string representation of this <code>CassPrincipal</code>.
      */
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ("CassandraPrincipal:  " + name);
     }
 
@@ -102,18 +101,14 @@ public class CassandraPrincipal implements Principal, Serializable
      *          <code>CassPrincipal</code>.
      */
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (o == null)
             return false;
-
         if (this == o)
             return true;
-
         if (!(o instanceof CassandraPrincipal))
             return false;
         CassandraPrincipal that = (CassandraPrincipal) o;
-
         if (this.getName().equals(that.getName()))
             return true;
         return false;
@@ -127,8 +122,7 @@ public class CassandraPrincipal implements Principal, Serializable
      * @return a hash code for this <code>CassPrincipal</code>.
      */
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return name.hashCode();
     }
 }

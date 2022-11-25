@@ -15,51 +15,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import org.apache.cassandra.locator.ReplicaCollection.Builder.Conflict;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-public class EndpointsByReplica extends ReplicaMultimap<Replica, EndpointsForRange>
-{
-    public EndpointsByReplica(Map<Replica, EndpointsForRange> map)
-    {
+public class EndpointsByReplica extends ReplicaMultimap<Replica, EndpointsForRange> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EndpointsByReplica.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EndpointsByReplica.class);
+
+    public EndpointsByReplica(Map<Replica, EndpointsForRange> map) {
         super(map);
     }
 
-    public EndpointsForRange get(Replica range)
-    {
+    public EndpointsForRange get(Replica range) {
         Preconditions.checkNotNull(range);
         return map.getOrDefault(range, EndpointsForRange.empty(range.range()));
     }
 
-    public static class Builder extends ReplicaMultimap.Builder<Replica, EndpointsForRange.Builder>
-    {
+    public static class Builder extends ReplicaMultimap.Builder<Replica, EndpointsForRange.Builder> {
+
         @Override
-        protected EndpointsForRange.Builder newBuilder(Replica replica)
-        {
+        protected EndpointsForRange.Builder newBuilder(Replica replica) {
             return new EndpointsForRange.Builder(replica.range());
         }
 
         // TODO: consider all ignoreDuplicates cases
-        public void putAll(Replica range, EndpointsForRange replicas, Conflict ignoreConflicts)
-        {
+        public void putAll(Replica range, EndpointsForRange replicas, Conflict ignoreConflicts) {
             map.computeIfAbsent(range, r -> newBuilder(r)).addAll(replicas, ignoreConflicts);
         }
 
-        public EndpointsByReplica build()
-        {
-            return new EndpointsByReplica(
-                    ImmutableMap.copyOf(
-                            Maps.transformValues(this.map, EndpointsForRange.Builder::build)));
+        public EndpointsByReplica build() {
+            return new EndpointsByReplica(ImmutableMap.copyOf(Maps.transformValues(this.map, EndpointsForRange.Builder::build)));
         }
     }
-
 }

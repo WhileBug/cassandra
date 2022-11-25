@@ -18,7 +18,6 @@
 package org.apache.cassandra.index.sasi.plan;
 
 import java.util.*;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.db.rows.*;
@@ -30,12 +29,15 @@ import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.AbstractIterator;
 
-public class QueryPlan
-{
-    private final QueryController controller;
+public class QueryPlan {
 
-    public QueryPlan(ColumnFamilyStore cfs, ReadCommand command, long executionQuotaMs)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QueryPlan.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QueryPlan.class);
+
+    private final transient QueryController controller;
+
+    public QueryPlan(ColumnFamilyStore cfs, ReadCommand command, long executionQuotaMs) {
         this.controller = new QueryController(cfs, (PartitionRangeReadCommand) command, executionQuotaMs);
     }
 
@@ -48,37 +50,34 @@ public class QueryPlan
      *
      * @return root of the operations tree.
      */
-    private Operation analyze()
-    {
-        try
-        {
+    private Operation analyze() {
+        try {
             Operation.Builder and = new Operation.Builder(OperationType.AND, controller);
             controller.getExpressions().forEach(and::add);
             return and.complete();
-        }
-        catch (Exception | Error e)
-        {
+        } catch (Exception | Error e) {
             controller.finish();
             throw e;
         }
     }
 
-    public UnfilteredPartitionIterator execute(ReadExecutionController executionController) throws RequestTimeoutException
-    {
+    public UnfilteredPartitionIterator execute(ReadExecutionController executionController) throws RequestTimeoutException {
         return new ResultIterator(analyze(), controller, executionController);
     }
 
-    private static class ResultIterator extends AbstractIterator<UnfilteredRowIterator> implements UnfilteredPartitionIterator
-    {
-        private final AbstractBounds<PartitionPosition> keyRange;
-        private final Operation operationTree;
-        private final QueryController controller;
-        private final ReadExecutionController executionController;
+    private static class ResultIterator extends AbstractIterator<UnfilteredRowIterator> implements UnfilteredPartitionIterator {
 
-        private Iterator<DecoratedKey> currentKeys = null;
+        private final transient AbstractBounds<PartitionPosition> keyRange;
 
-        public ResultIterator(Operation operationTree, QueryController controller, ReadExecutionController executionController)
-        {
+        private final transient Operation operationTree;
+
+        private final transient QueryController controller;
+
+        private final transient ReadExecutionController executionController;
+
+        private transient Iterator<DecoratedKey> currentKeys = null;
+
+        public ResultIterator(Operation operationTree, QueryController controller, ReadExecutionController executionController) {
             this.keyRange = controller.dataRange().keyRange();
             this.operationTree = operationTree;
             this.controller = controller;
@@ -87,44 +86,30 @@ public class QueryPlan
                 operationTree.skipTo((Long) keyRange.left.getToken().getTokenValue());
         }
 
-        protected UnfilteredRowIterator computeNext()
-        {
+        protected UnfilteredRowIterator computeNext() {
             if (operationTree == null)
                 return endOfData();
-
-            for (;;)
-            {
-                if (currentKeys == null || !currentKeys.hasNext())
-                {
+            for (; ; ) {
+                if (currentKeys == null || !currentKeys.hasNext()) {
                     if (!operationTree.hasNext())
-                         return endOfData();
-
+                        return endOfData();
                     Token token = operationTree.next();
                     currentKeys = token.iterator();
                 }
-
-                while (currentKeys.hasNext())
-                {
+                while (currentKeys.hasNext()) {
                     DecoratedKey key = currentKeys.next();
-
                     if (!keyRange.right.isMinimum() && keyRange.right.compareTo(key) < 0)
                         return endOfData();
-
                     if (!keyRange.inclusiveLeft() && key.compareTo(keyRange.left) == 0)
                         continue;
-
-                    try (UnfilteredRowIterator partition = controller.getPartition(key, executionController))
-                    {
+                    try (UnfilteredRowIterator partition = controller.getPartition(key, executionController)) {
                         Row staticRow = partition.staticRow();
                         List<Unfiltered> clusters = new ArrayList<>();
-
-                        while (partition.hasNext())
-                        {
+                        while (partition.hasNext()) {
                             Unfiltered row = partition.next();
                             if (operationTree.satisfiedBy(row, staticRow, true))
                                 clusters.add(row);
                         }
-
                         if (!clusters.isEmpty())
                             return new PartitionIterator(partition, clusters);
                     }
@@ -132,37 +117,26 @@ public class QueryPlan
             }
         }
 
-        private static class PartitionIterator extends AbstractUnfilteredRowIterator
-        {
-            private final Iterator<Unfiltered> rows;
+        private static class PartitionIterator extends AbstractUnfilteredRowIterator {
 
-            public PartitionIterator(UnfilteredRowIterator partition, Collection<Unfiltered> content)
-            {
-                super(partition.metadata(),
-                      partition.partitionKey(),
-                      partition.partitionLevelDeletion(),
-                      partition.columns(),
-                      partition.staticRow(),
-                      partition.isReverseOrder(),
-                      partition.stats());
+            private final transient Iterator<Unfiltered> rows;
 
+            public PartitionIterator(UnfilteredRowIterator partition, Collection<Unfiltered> content) {
+                super(partition.metadata(), partition.partitionKey(), partition.partitionLevelDeletion(), partition.columns(), partition.staticRow(), partition.isReverseOrder(), partition.stats());
                 rows = content.iterator();
             }
 
             @Override
-            protected Unfiltered computeNext()
-            {
+            protected Unfiltered computeNext() {
                 return rows.hasNext() ? rows.next() : endOfData();
             }
         }
 
-        public TableMetadata metadata()
-        {
+        public TableMetadata metadata() {
             return controller.metadata();
         }
 
-        public void close()
-        {
+        public void close() {
             FileUtils.closeQuietly(operationTree);
             controller.finish();
         }

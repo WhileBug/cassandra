@@ -15,13 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
-
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
@@ -31,16 +28,22 @@ import com.google.common.base.Preconditions;
  *
  * See CASSANDRA-16148
  */
-public class ExpiringMemoizingSupplier<T> implements Supplier<T>
-{
-    final Supplier<ReturnValue<T>> delegate;
-    final long durationNanos;
+public class ExpiringMemoizingSupplier<T> implements Supplier<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExpiringMemoizingSupplier.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExpiringMemoizingSupplier.class);
+
+    final transient Supplier<ReturnValue<T>> delegate;
+
+    final transient long durationNanos;
+
     transient volatile T value;
+
     // The special value 0 means "not yet initialized".
     transient volatile long expirationNanos;
 
-    public static <T> Supplier<T> memoizeWithExpiration(Supplier<ReturnValue<T>> delegate, long duration, TimeUnit unit)
-    {
+    public static <T> Supplier<T> memoizeWithExpiration(Supplier<ReturnValue<T>> delegate, long duration, TimeUnit unit) {
         return new ExpiringMemoizingSupplier<>(delegate, duration, unit);
     }
 
@@ -53,7 +56,7 @@ public class ExpiringMemoizingSupplier<T> implements Supplier<T>
     @Override
     public T get() {
         // Another variant of Double Checked Locking.
-        //
+        // 
         // We use two volatile reads.  We could reduce this to one by
         // putting our fields into a holder class, but (at least on x86)
         // the extra memory consumption and indirection are more
@@ -61,14 +64,13 @@ public class ExpiringMemoizingSupplier<T> implements Supplier<T>
         long nanos = this.expirationNanos;
         long now = System.nanoTime();
         if (nanos == 0L || now - nanos >= 0L) {
-            synchronized(this) {
+            synchronized (this) {
                 if (nanos == this.expirationNanos) {
                     ReturnValue<T> t = this.delegate.get();
                     if (t.canMemoize())
                         this.value = t.value();
                     else
                         return t.value();
-
                     nanos = now + this.durationNanos;
                     this.expirationNanos = nanos == 0L ? 1L : nanos;
                     return t.value();
@@ -79,8 +81,7 @@ public class ExpiringMemoizingSupplier<T> implements Supplier<T>
     }
 
     @VisibleForTesting
-    public void expire()
-    {
+    public void expire() {
         this.expirationNanos = 0;
     }
 
@@ -91,46 +92,41 @@ public class ExpiringMemoizingSupplier<T> implements Supplier<T>
         return "Suppliers.memoizeWithExpiration(" + delegate + ", " + durationNanos + ", NANOS)";
     }
 
-    private static final long serialVersionUID = 0;
+    private static final transient long serialVersionUID = 0;
 
-    public static abstract class ReturnValue<T>
-    {
-        protected final T value;
+    public static abstract class ReturnValue<T> {
 
-        ReturnValue(T value){
+        protected final transient T value;
+
+        ReturnValue(T value) {
             this.value = value;
         }
 
         abstract boolean canMemoize();
 
-        public T value()
-        {
+        public T value() {
             return value;
         }
     }
 
-    public static class Memoized<T> extends ReturnValue<T>
-    {
-        public Memoized(T value)
-        {
+    public static class Memoized<T> extends ReturnValue<T> {
+
+        public Memoized(T value) {
             super(value);
         }
 
-        public boolean canMemoize()
-        {
+        public boolean canMemoize() {
             return true;
         }
     }
 
-    public static class NotMemoized<T> extends ReturnValue<T>
-    {
-        public NotMemoized(T value)
-        {
+    public static class NotMemoized<T> extends ReturnValue<T> {
+
+        public NotMemoized(T value) {
             super(value);
         }
 
-        public boolean canMemoize()
-        {
+        public boolean canMemoize() {
             return false;
         }
     }

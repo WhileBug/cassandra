@@ -15,18 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 import java.io.IOException;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.streaming.messages.StreamMessage;
 
-public interface StreamingMessageSender
-{
+public interface StreamingMessageSender {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamingMessageSender.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamingMessageSender.class);
+
     void initialize() throws IOException;
 
     void sendMessage(StreamMessage message) throws IOException;

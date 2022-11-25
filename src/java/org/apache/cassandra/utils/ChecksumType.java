@@ -21,65 +21,55 @@ import java.nio.ByteBuffer;
 import java.util.zip.Checksum;
 import java.util.zip.CRC32;
 import java.util.zip.Adler32;
-
 import io.netty.util.concurrent.FastThreadLocal;
 
-public enum ChecksumType
-{
-    ADLER32
-    {
+public enum ChecksumType {
+
+    ADLER32 {
 
         @Override
-        public Checksum newInstance()
-        {
+        public Checksum newInstance() {
             return new Adler32();
         }
 
         @Override
-        public void update(Checksum checksum, ByteBuffer buf)
-        {
-            ((Adler32)checksum).update(buf);
+        public void update(Checksum checksum, ByteBuffer buf) {
+            ((Adler32) checksum).update(buf);
         }
-
-    },
-    CRC32
-    {
+    }
+    , CRC32 {
 
         @Override
-        public Checksum newInstance()
-        {
+        public Checksum newInstance() {
             return new CRC32();
         }
 
         @Override
-        public void update(Checksum checksum, ByteBuffer buf)
-        {
-            ((CRC32)checksum).update(buf);
+        public void update(Checksum checksum, ByteBuffer buf) {
+            ((CRC32) checksum).update(buf);
         }
-
-    };
+    }
+    ;
 
     public abstract Checksum newInstance();
+
     public abstract void update(Checksum checksum, ByteBuffer buf);
 
-    private FastThreadLocal<Checksum> instances = new FastThreadLocal<Checksum>()
-    {
-        protected Checksum initialValue() throws Exception
-        {
+    private FastThreadLocal<Checksum> instances = new FastThreadLocal<Checksum>() {
+
+        protected Checksum initialValue() throws Exception {
             return newInstance();
         }
     };
 
-    public long of(ByteBuffer buf)
-    {
+    public long of(ByteBuffer buf) {
         Checksum checksum = instances.get();
         checksum.reset();
         update(checksum, buf);
         return checksum.getValue();
     }
 
-    public long of(byte[] data, int off, int len)
-    {
+    public long of(byte[] data, int off, int len) {
         Checksum checksum = instances.get();
         checksum.reset();
         checksum.update(data, off, len);

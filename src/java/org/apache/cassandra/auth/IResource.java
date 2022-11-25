@@ -26,8 +26,12 @@ import java.util.Set;
  * Currently just one resource type is supported by Cassandra
  * @see DataResource
  */
-public interface IResource
-{
+public interface IResource {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IResource.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IResource.class);
+
     /**
      * @return printable name of the resource.
      */

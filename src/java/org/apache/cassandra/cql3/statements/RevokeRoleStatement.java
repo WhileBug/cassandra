@@ -28,28 +28,28 @@ import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class RevokeRoleStatement extends RoleManagementStatement
-{
-    public RevokeRoleStatement(RoleName name, RoleName grantee)
-    {
+public class RevokeRoleStatement extends RoleManagementStatement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RevokeRoleStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RevokeRoleStatement.class);
+
+    public RevokeRoleStatement(RoleName name, RoleName grantee) {
         super(name, grantee);
     }
 
-    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException
-    {
+    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException {
         DatabaseDescriptor.getRoleManager().revokeRole(state.getUser(), role, grantee);
         return null;
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.REVOKE);
     }
 }

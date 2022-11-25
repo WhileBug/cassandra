@@ -15,43 +15,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming.messages;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputStreamPlus;
 import org.apache.cassandra.streaming.StreamSession;
 import org.apache.cassandra.streaming.StreamSummary;
 
-public class PrepareSynAckMessage extends StreamMessage
-{
-    public static Serializer<PrepareSynAckMessage> serializer = new Serializer<PrepareSynAckMessage>()
-    {
-        public void serialize(PrepareSynAckMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException
-        {
+public class PrepareSynAckMessage extends StreamMessage {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareSynAckMessage.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PrepareSynAckMessage.class);
+
+    public static transient Serializer<PrepareSynAckMessage> serializer = new Serializer<PrepareSynAckMessage>() {
+
+        public void serialize(PrepareSynAckMessage message, DataOutputStreamPlus out, int version, StreamSession session) throws IOException {
             out.writeInt(message.summaries.size());
-            for (StreamSummary summary : message.summaries)
-                StreamSummary.serializer.serialize(summary, out, version);
+            for (StreamSummary summary : message.summaries) StreamSummary.serializer.serialize(summary, out, version);
         }
 
-        public PrepareSynAckMessage deserialize(DataInputPlus input, int version) throws IOException
-        {
+        public PrepareSynAckMessage deserialize(DataInputPlus input, int version) throws IOException {
             PrepareSynAckMessage message = new PrepareSynAckMessage();
             int numSummaries = input.readInt();
-            for (int i = 0; i < numSummaries; i++)
-                message.summaries.add(StreamSummary.serializer.deserialize(input, version));
+            for (int i = 0; i < numSummaries; i++) message.summaries.add(StreamSummary.serializer.deserialize(input, version));
             return message;
         }
 
-        public long serializedSize(PrepareSynAckMessage message, int version)
-        {
-            long size = 4; // count of requests and count of summaries
-            for (StreamSummary summary : message.summaries)
-                size += StreamSummary.serializer.serializedSize(summary, version);
+        public long serializedSize(PrepareSynAckMessage message, int version) {
+            // count of requests and count of summaries
+            long size = 4;
+            for (StreamSummary summary : message.summaries) size += StreamSummary.serializer.serializedSize(summary, version);
             return size;
         }
     };
@@ -59,20 +56,17 @@ public class PrepareSynAckMessage extends StreamMessage
     /**
      * Summaries of streaming out
      */
-    public final Collection<StreamSummary> summaries = new ArrayList<>();
+    public final transient Collection<StreamSummary> summaries = new ArrayList<>();
 
-    public PrepareSynAckMessage()
-    {
+    public PrepareSynAckMessage() {
         super(Type.PREPARE_SYNACK);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         final StringBuilder sb = new StringBuilder("Prepare SYNACK (");
         int totalFile = 0;
-        for (StreamSummary summary : summaries)
-            totalFile += summary.files;
+        for (StreamSummary summary : summaries) totalFile += summary.files;
         sb.append(" ").append(totalFile).append(" files");
         sb.append('}');
         return sb.toString();

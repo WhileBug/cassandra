@@ -21,7 +21,6 @@
 package org.apache.cassandra.index.internal.keys;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ByteBufferAccessor;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.schema.TableMetadataRef;
@@ -34,56 +33,43 @@ import org.apache.cassandra.index.internal.CassandraIndex;
 import org.apache.cassandra.index.internal.IndexEntry;
 import org.apache.cassandra.schema.IndexMetadata;
 
-public class KeysIndex extends CassandraIndex
-{
-    public KeysIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef)
-    {
+public class KeysIndex extends CassandraIndex {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeysIndex.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeysIndex.class);
+
+    public KeysIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef) {
         super(baseCfs, indexDef);
     }
 
-    public TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder,
-                                                           TableMetadataRef baseMetadata,
-                                                           ColumnMetadata cfDef)
-    {
+    public TableMetadata.Builder addIndexClusteringColumns(TableMetadata.Builder builder, TableMetadataRef baseMetadata, ColumnMetadata cfDef) {
         // no additional clustering columns required
         return builder;
     }
 
-    protected <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey,
-                                                      ClusteringPrefix<T> prefix,
-                                                      CellPath path)
-    {
+    protected <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey, ClusteringPrefix<T> prefix, CellPath path) {
         CBuilder builder = CBuilder.create(getIndexComparator());
         builder.add(partitionKey, ByteBufferAccessor.instance);
         return builder;
     }
 
-    protected ByteBuffer getIndexedValue(ByteBuffer partitionKey,
-                                         Clustering<?> clustering,
-                                         CellPath path, ByteBuffer cellValue)
-    {
+    protected ByteBuffer getIndexedValue(ByteBuffer partitionKey, Clustering<?> clustering, CellPath path, ByteBuffer cellValue) {
         return cellValue;
     }
 
-    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry)
-    {
+    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry) {
         throw new UnsupportedOperationException("KEYS indexes do not use a specialized index entry format");
     }
 
-    private <V> int compare(ByteBuffer left, Cell<V> right)
-    {
+    private <V> int compare(ByteBuffer left, Cell<V> right) {
         return indexedColumn.type.compare(left, ByteBufferAccessor.instance, right.value(), right.accessor());
     }
 
-    public boolean isStale(Row row, ByteBuffer indexValue, int nowInSec)
-    {
+    public boolean isStale(Row row, ByteBuffer indexValue, int nowInSec) {
         if (row == null)
             return true;
-
         Cell<?> cell = row.getCell(indexedColumn);
-
-        return (cell == null
-                || !cell.isLive(nowInSec)
-                || compare(indexValue, cell) != 0);
+        return (cell == null || !cell.isLive(nowInSec) || compare(indexValue, cell) != 0);
     }
 }

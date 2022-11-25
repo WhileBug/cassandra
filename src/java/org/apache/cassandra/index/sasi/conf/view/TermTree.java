@@ -19,34 +19,36 @@ package org.apache.cassandra.index.sasi.conf.view;
 
 import java.nio.ByteBuffer;
 import java.util.Set;
-
 import org.apache.cassandra.index.sasi.SSTableIndex;
 import org.apache.cassandra.index.sasi.disk.OnDiskIndexBuilder;
 import org.apache.cassandra.index.sasi.plan.Expression;
 import org.apache.cassandra.db.marshal.AbstractType;
 
-public interface TermTree
-{
+public interface TermTree {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TermTree.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TermTree.class);
+
     Set<SSTableIndex> search(Expression e);
 
     int intervalCount();
 
-    abstract class Builder
-    {
-        protected final OnDiskIndexBuilder.Mode mode;
-        protected final AbstractType<?> comparator;
-        protected ByteBuffer min, max;
+    abstract class Builder {
 
-        protected Builder(OnDiskIndexBuilder.Mode mode, AbstractType<?> comparator)
-        {
+        protected final transient OnDiskIndexBuilder.Mode mode;
+
+        protected final transient AbstractType<?> comparator;
+
+        protected transient ByteBuffer min, max;
+
+        protected Builder(OnDiskIndexBuilder.Mode mode, AbstractType<?> comparator) {
             this.mode = mode;
             this.comparator = comparator;
         }
 
-        public final void add(SSTableIndex index)
-        {
+        public final void add(SSTableIndex index) {
             addIndex(index);
-
             min = min == null || comparator.compare(min, index.minTerm()) > 0 ? index.minTerm() : min;
             max = max == null || comparator.compare(max, index.maxTerm()) < 0 ? index.maxTerm() : max;
         }

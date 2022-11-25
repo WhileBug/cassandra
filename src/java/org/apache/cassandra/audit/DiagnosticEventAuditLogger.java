@@ -15,32 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.audit;
 
 import java.util.Map;
-
 import org.apache.cassandra.diag.DiagnosticEventService;
 
-public class DiagnosticEventAuditLogger implements IAuditLogger
-{
-    public DiagnosticEventAuditLogger(Map<String, String> params)
-    {
-        
+public class DiagnosticEventAuditLogger implements IAuditLogger {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DiagnosticEventAuditLogger.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DiagnosticEventAuditLogger.class);
+
+    public DiagnosticEventAuditLogger(Map<String, String> params) {
     }
 
-    public void log(AuditLogEntry logMessage)
-    {
+    public void log(AuditLogEntry logMessage) {
         AuditEvent.create(logMessage);
     }
 
-    public boolean isEnabled()
-    {
+    public boolean isEnabled() {
         return DiagnosticEventService.instance().isDiagnosticsEnabled();
     }
 
-    public void stop()
-    {
-
+    public void stop() {
     }
 }

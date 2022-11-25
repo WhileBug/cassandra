@@ -18,7 +18,6 @@
 package org.apache.cassandra.index.sasi.memory;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.index.sasi.conf.ColumnIndex;
 import org.apache.cassandra.index.sasi.disk.Token;
@@ -26,24 +25,26 @@ import org.apache.cassandra.index.sasi.plan.Expression;
 import org.apache.cassandra.index.sasi.utils.RangeIterator;
 import org.apache.cassandra.db.marshal.AbstractType;
 
-public abstract class MemIndex
-{
-    protected final AbstractType<?> keyValidator;
-    protected final ColumnIndex columnIndex;
+public abstract class MemIndex {
 
-    protected MemIndex(AbstractType<?> keyValidator, ColumnIndex columnIndex)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemIndex.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemIndex.class);
+
+    protected final transient AbstractType<?> keyValidator;
+
+    protected final transient ColumnIndex columnIndex;
+
+    protected MemIndex(AbstractType<?> keyValidator, ColumnIndex columnIndex) {
         this.keyValidator = keyValidator;
         this.columnIndex = columnIndex;
     }
 
     public abstract long add(DecoratedKey key, ByteBuffer value);
+
     public abstract RangeIterator<Long, Token> search(Expression expression);
 
-    public static MemIndex forColumn(AbstractType<?> keyValidator, ColumnIndex columnIndex)
-    {
-        return columnIndex.isLiteral()
-                ? new TrieMemIndex(keyValidator, columnIndex)
-                : new SkipListMemIndex(keyValidator, columnIndex);
+    public static MemIndex forColumn(AbstractType<?> keyValidator, ColumnIndex columnIndex) {
+        return columnIndex.isLiteral() ? new TrieMemIndex(keyValidator, columnIndex) : new SkipListMemIndex(keyValidator, columnIndex);
     }
 }

@@ -17,8 +17,12 @@
  */
 package org.apache.cassandra.exceptions;
 
-public interface TransportException
-{
+public interface TransportException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TransportException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TransportException.class);
+
     /**
      * The exception code.
      */

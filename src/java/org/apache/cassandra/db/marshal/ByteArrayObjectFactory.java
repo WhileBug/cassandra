@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.marshal;
 
 import org.apache.cassandra.db.ArrayClustering;
@@ -31,52 +30,55 @@ import org.apache.cassandra.db.rows.CellPath;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 
-class ByteArrayObjectFactory implements ValueAccessor.ObjectFactory<byte[]>
-{
-    private static final Clustering<byte[]> EMPTY_CLUSTERING = new ArrayClustering()
-    {
-        public String toString(TableMetadata metadata)
-        {
+class ByteArrayObjectFactory implements ValueAccessor.ObjectFactory<byte[]> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ByteArrayObjectFactory.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ByteArrayObjectFactory.class);
+
+    private static final transient Clustering<byte[]> EMPTY_CLUSTERING = new ArrayClustering() {
+
+        public String toString(TableMetadata metadata) {
             return "EMPTY";
         }
     };
 
-    static final ValueAccessor.ObjectFactory<byte[]> instance = new ByteArrayObjectFactory();
+    static final transient ValueAccessor.ObjectFactory<byte[]> instance = new ByteArrayObjectFactory();
 
-    private ByteArrayObjectFactory() {}
+    private ByteArrayObjectFactory() {
+    }
 
-    /** The smallest start bound, i.e. the one that starts before any row. */
-    private static final ArrayClusteringBound BOTTOM_BOUND = new ArrayClusteringBound(ClusteringPrefix.Kind.INCL_START_BOUND, new byte[0][]);
-    /** The biggest end bound, i.e. the one that ends after any row. */
-    private static final ArrayClusteringBound TOP_BOUND = new ArrayClusteringBound(ClusteringPrefix.Kind.INCL_END_BOUND, new byte[0][]);
+    /**
+     * The smallest start bound, i.e. the one that starts before any row.
+     */
+    private static final transient ArrayClusteringBound BOTTOM_BOUND = new ArrayClusteringBound(ClusteringPrefix.Kind.INCL_START_BOUND, new byte[0][]);
 
-    public Cell<byte[]> cell(ColumnMetadata column, long timestamp, int ttl, int localDeletionTime, byte[] value, CellPath path)
-    {
+    /**
+     * The biggest end bound, i.e. the one that ends after any row.
+     */
+    private static final transient ArrayClusteringBound TOP_BOUND = new ArrayClusteringBound(ClusteringPrefix.Kind.INCL_END_BOUND, new byte[0][]);
+
+    public Cell<byte[]> cell(ColumnMetadata column, long timestamp, int ttl, int localDeletionTime, byte[] value, CellPath path) {
         return new ArrayCell(column, timestamp, ttl, localDeletionTime, value, path);
     }
 
-    public Clustering<byte[]> clustering(byte[]... values)
-    {
+    public Clustering<byte[]> clustering(byte[]... values) {
         return new ArrayClustering(values);
     }
 
-    public Clustering<byte[]> clustering()
-    {
+    public Clustering<byte[]> clustering() {
         return EMPTY_CLUSTERING;
     }
 
-    public ClusteringBound<byte[]> bound(ClusteringPrefix.Kind kind, byte[]... values)
-    {
+    public ClusteringBound<byte[]> bound(ClusteringPrefix.Kind kind, byte[]... values) {
         return new ArrayClusteringBound(kind, values);
     }
 
-    public ClusteringBound<byte[]> bound(ClusteringPrefix.Kind kind)
-    {
+    public ClusteringBound<byte[]> bound(ClusteringPrefix.Kind kind) {
         return kind.isStart() ? BOTTOM_BOUND : TOP_BOUND;
     }
 
-    public ClusteringBoundary<byte[]> boundary(ClusteringPrefix.Kind kind, byte[]... values)
-    {
+    public ClusteringBoundary<byte[]> boundary(ClusteringPrefix.Kind kind, byte[]... values) {
         return new ArrayClusteringBoundary(kind, values);
     }
 }

@@ -15,13 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 import java.io.IOException;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.Future;
@@ -30,27 +27,27 @@ import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.net.OutboundConnectionInitiator.Result;
 import org.apache.cassandra.net.OutboundConnectionInitiator.Result.StreamingSuccess;
 import org.apache.cassandra.net.OutboundConnectionSettings;
-
 import static org.apache.cassandra.net.OutboundConnectionInitiator.initiateStreaming;
 
-public class DefaultConnectionFactory implements StreamConnectionFactory
-{
+public class DefaultConnectionFactory implements StreamConnectionFactory {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DefaultConnectionFactory.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DefaultConnectionFactory.class);
+
     @VisibleForTesting
-    public static int MAX_CONNECT_ATTEMPTS = 3;
+    public static transient int MAX_CONNECT_ATTEMPTS = 3;
 
     @Override
-    public Channel createConnection(OutboundConnectionSettings template, int messagingVersion) throws IOException
-    {
+    public Channel createConnection(OutboundConnectionSettings template, int messagingVersion) throws IOException {
         EventLoop eventLoop = MessagingService.instance().socketFactory.outboundStreamingGroup().next();
-
         int attempts = 0;
-        while (true)
-        {
+        while (true) {
             Future<Result<StreamingSuccess>> result = initiateStreaming(eventLoop, template.withDefaults(ConnectionCategory.STREAMING), messagingVersion);
-            result.awaitUninterruptibly(); // initiate has its own timeout, so this is "guaranteed" to return relatively promptly
+            // initiate has its own timeout, so this is "guaranteed" to return relatively promptly
+            result.awaitUninterruptibly();
             if (result.isSuccess())
                 return result.getNow().success().channel;
-
             if (++attempts == MAX_CONNECT_ATTEMPTS)
                 throw new IOException("failed to connect to " + template.to + " for streaming data", result.cause());
         }

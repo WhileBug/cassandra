@@ -18,27 +18,20 @@
 package org.apache.cassandra.auth;
 
 import java.util.Set;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.utils.Pair;
 
-public class PermissionsCache extends AuthCache<Pair<AuthenticatedUser, IResource>, Set<Permission>>
-{
-    public PermissionsCache(IAuthorizer authorizer)
-    {
-        super("PermissionsCache",
-              DatabaseDescriptor::setPermissionsValidity,
-              DatabaseDescriptor::getPermissionsValidity,
-              DatabaseDescriptor::setPermissionsUpdateInterval,
-              DatabaseDescriptor::getPermissionsUpdateInterval,
-              DatabaseDescriptor::setPermissionsCacheMaxEntries,
-              DatabaseDescriptor::getPermissionsCacheMaxEntries,
-              (p) -> authorizer.authorize(p.left, p.right),
-              () -> DatabaseDescriptor.getAuthorizer().requireAuthorization());
+public class PermissionsCache extends AuthCache<Pair<AuthenticatedUser, IResource>, Set<Permission>> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PermissionsCache.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PermissionsCache.class);
+
+    public PermissionsCache(IAuthorizer authorizer) {
+        super("PermissionsCache", DatabaseDescriptor::setPermissionsValidity, DatabaseDescriptor::getPermissionsValidity, DatabaseDescriptor::setPermissionsUpdateInterval, DatabaseDescriptor::getPermissionsUpdateInterval, DatabaseDescriptor::setPermissionsCacheMaxEntries, DatabaseDescriptor::getPermissionsCacheMaxEntries, (p) -> authorizer.authorize(p.left, p.right), () -> DatabaseDescriptor.getAuthorizer().requireAuthorization());
     }
 
-    public Set<Permission> getPermissions(AuthenticatedUser user, IResource resource)
-    {
+    public Set<Permission> getPermissions(AuthenticatedUser user, IResource resource) {
         return get(Pair.create(user, resource));
     }
 }

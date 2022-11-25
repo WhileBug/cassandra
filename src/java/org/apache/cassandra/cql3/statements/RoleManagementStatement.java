@@ -28,36 +28,35 @@ import org.apache.cassandra.service.ClientState;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public abstract class RoleManagementStatement extends AuthenticationStatement
-{
-    protected final RoleResource role;
-    protected final RoleResource grantee;
+public abstract class RoleManagementStatement extends AuthenticationStatement {
 
-    public RoleManagementStatement(RoleName name, RoleName grantee)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RoleManagementStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RoleManagementStatement.class);
+
+    protected final transient RoleResource role;
+
+    protected final transient RoleResource grantee;
+
+    public RoleManagementStatement(RoleName name, RoleName grantee) {
         this.role = RoleResource.role(name.getName());
         this.grantee = RoleResource.role(grantee.getName());
     }
 
-    public void authorize(ClientState state) throws UnauthorizedException
-    {
+    public void authorize(ClientState state) throws UnauthorizedException {
         super.checkPermission(state, Permission.AUTHORIZE, role);
     }
 
-    public void validate(ClientState state) throws RequestValidationException
-    {
+    public void validate(ClientState state) throws RequestValidationException {
         state.ensureNotAnonymous();
-
         if (!DatabaseDescriptor.getRoleManager().isExistingRole(role))
             throw new InvalidRequestException(String.format("%s doesn't exist", role.getRoleName()));
-
         if (!DatabaseDescriptor.getRoleManager().isExistingRole(grantee))
             throw new InvalidRequestException(String.format("%s doesn't exist", grantee.getRoleName()));
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 }

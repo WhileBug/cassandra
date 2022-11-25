@@ -16,21 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.cassandra.auth;
 
 import java.net.InetAddress;
-
 import org.apache.cassandra.exceptions.ConfigurationException;
 
-public class AllowAllInternodeAuthenticator implements IInternodeAuthenticator
-{
-    public boolean authenticate(InetAddress remoteAddress, int remotePort)
-    {
+public class AllowAllInternodeAuthenticator implements IInternodeAuthenticator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AllowAllInternodeAuthenticator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AllowAllInternodeAuthenticator.class);
+
+    public boolean authenticate(InetAddress remoteAddress, int remotePort) {
         return true;
     }
 
-    public void validateConfiguration() throws ConfigurationException
-    {
+    public void validateConfiguration() throws ConfigurationException {
     }
 }

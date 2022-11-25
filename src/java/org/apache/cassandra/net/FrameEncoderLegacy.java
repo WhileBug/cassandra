@@ -18,7 +18,6 @@
 package org.apache.cassandra.net;
 
 import java.nio.ByteBuffer;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 
@@ -27,12 +26,15 @@ import io.netty.channel.ChannelHandler;
  * contains messages, serialized back to back.
  */
 @ChannelHandler.Sharable
-class FrameEncoderLegacy extends FrameEncoder
-{
-    static final FrameEncoderLegacy instance = new FrameEncoderLegacy();
+class FrameEncoderLegacy extends FrameEncoder {
 
-    ByteBuf encode(boolean isSelfContained, ByteBuffer buffer)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameEncoderLegacy.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameEncoderLegacy.class);
+
+    static final transient FrameEncoderLegacy instance = new FrameEncoderLegacy();
+
+    ByteBuf encode(boolean isSelfContained, ByteBuffer buffer) {
         return GlobalBufferPoolAllocator.wrap(buffer);
     }
 }

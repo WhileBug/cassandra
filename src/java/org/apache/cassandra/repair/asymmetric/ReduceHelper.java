@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.asymmetric;
 
 import java.util.ArrayList;
@@ -27,10 +26,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -45,49 +42,42 @@ import org.apache.cassandra.locator.InetAddressAndPort;
  * The ranges wont match perfectly since we don't iterate over leaves so we always split based on the
  * smallest range (either the new difference or the existing one)
  */
-public class ReduceHelper
-{
+public class ReduceHelper {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReduceHelper.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReduceHelper.class);
+
     /**
      * Reduces the differences provided by the merkle trees to a minimum set of differences
      */
-    public static ImmutableMap<InetAddressAndPort, HostDifferences> reduce(DifferenceHolder differences, PreferedNodeFilter filter)
-    {
+    public static ImmutableMap<InetAddressAndPort, HostDifferences> reduce(DifferenceHolder differences, PreferedNodeFilter filter) {
         Map<InetAddressAndPort, IncomingRepairStreamTracker> trackers = createIncomingRepairStreamTrackers(differences);
-
         ImmutableMap.Builder<InetAddressAndPort, HostDifferences> mapBuilder = ImmutableMap.builder();
-        for (Map.Entry<InetAddressAndPort, IncomingRepairStreamTracker> trackerEntry : trackers.entrySet())
-        {
+        for (Map.Entry<InetAddressAndPort, IncomingRepairStreamTracker> trackerEntry : trackers.entrySet()) {
             IncomingRepairStreamTracker tracker = trackerEntry.getValue();
             HostDifferences rangesToFetch = new HostDifferences();
-            for (Map.Entry<Range<Token>, StreamFromOptions> entry : tracker.getIncoming().entrySet())
-            {
+            for (Map.Entry<Range<Token>, StreamFromOptions> entry : tracker.getIncoming().entrySet()) {
                 Range<Token> rangeToFetch = entry.getKey();
                 // StreamFromOptions contains a Set<Set<InetAddress>> with endpoints we need to stream
                 // rangeToFetch from - if the inner set size > 1 means those endpoints are identical
                 // for the range. pickConsistent picks a single endpoint from each of these sets.
-                for (InetAddressAndPort remoteNode : pickConsistent(trackerEntry.getKey(), entry.getValue(), filter))
-                    rangesToFetch.addSingleRange(remoteNode, rangeToFetch);
+                for (InetAddressAndPort remoteNode : pickConsistent(trackerEntry.getKey(), entry.getValue(), filter)) rangesToFetch.addSingleRange(remoteNode, rangeToFetch);
             }
             mapBuilder.put(trackerEntry.getKey(), rangesToFetch);
         }
-
         return mapBuilder.build();
     }
 
     @VisibleForTesting
-    static Map<InetAddressAndPort, IncomingRepairStreamTracker> createIncomingRepairStreamTrackers(DifferenceHolder differences)
-    {
+    static Map<InetAddressAndPort, IncomingRepairStreamTracker> createIncomingRepairStreamTrackers(DifferenceHolder differences) {
         Map<InetAddressAndPort, IncomingRepairStreamTracker> trackers = new HashMap<>();
-
-        for (InetAddressAndPort hostWithDifference : differences.keyHosts())
-        {
+        for (InetAddressAndPort hostWithDifference : differences.keyHosts()) {
             HostDifferences hostDifferences = differences.get(hostWithDifference);
-            for (InetAddressAndPort differingHost : hostDifferences.hosts())
-            {
+            for (InetAddressAndPort differingHost : hostDifferences.hosts()) {
                 Iterable<Range<Token>> differingRanges = hostDifferences.get(differingHost);
                 // hostWithDifference has mismatching ranges differingRanges with differingHost:
-                for (Range<Token> range : differingRanges)
-                {
+                for (Range<Token> range : differingRanges) {
                     // a difference means that we need to sync that range between two nodes - add the diffing range to both
                     // hosts:
                     getTracker(differences, trackers, hostWithDifference).addIncomingRangeFrom(range, differingHost);
@@ -98,14 +88,12 @@ public class ReduceHelper
         return trackers;
     }
 
-    private static IncomingRepairStreamTracker getTracker(DifferenceHolder differences,
-                                                          Map<InetAddressAndPort, IncomingRepairStreamTracker> trackers,
-                                                          InetAddressAndPort host)
-    {
+    private static IncomingRepairStreamTracker getTracker(DifferenceHolder differences, Map<InetAddressAndPort, IncomingRepairStreamTracker> trackers, InetAddressAndPort host) {
         return trackers.computeIfAbsent(host, (h) -> new IncomingRepairStreamTracker(differences));
     }
 
-    private static final Comparator<InetAddressAndPort> comparator = Comparator.comparing(InetAddressAndPort::getHostAddressAndPort);
+    private static final transient Comparator<InetAddressAndPort> comparator = Comparator.comparing(InetAddressAndPort::getHostAddressAndPort);
+
     /**
      * Consistently picks the node after the streaming node to stream from
      *
@@ -117,17 +105,12 @@ public class ReduceHelper
      *       in a perfect world we would stream both range1 and range2 from addr1 - but in this case we might stream
      *       range1 from addr2 depending on how the addresses sort
      */
-    private static Collection<InetAddressAndPort> pickConsistent(InetAddressAndPort streamingNode,
-                                                                 StreamFromOptions toStreamFrom,
-                                                                 PreferedNodeFilter filter)
-    {
+    private static Collection<InetAddressAndPort> pickConsistent(InetAddressAndPort streamingNode, StreamFromOptions toStreamFrom, PreferedNodeFilter filter) {
         Set<InetAddressAndPort> retSet = new HashSet<>();
-        for (Set<InetAddressAndPort> toStream : toStreamFrom.allStreams())
-        {
+        for (Set<InetAddressAndPort> toStream : toStreamFrom.allStreams()) {
             List<InetAddressAndPort> toSearch = new ArrayList<>(filter.apply(streamingNode, toStream));
             if (toSearch.isEmpty())
                 toSearch = new ArrayList<>(toStream);
-
             toSearch.sort(comparator);
             int pos = Collections.binarySearch(toSearch, streamingNode, comparator);
             assert pos < 0;

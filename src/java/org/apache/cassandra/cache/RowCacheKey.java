@@ -20,9 +20,7 @@ package org.apache.cassandra.cache;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Objects;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.schema.Schema;
 import org.apache.cassandra.schema.TableId;
@@ -31,54 +29,50 @@ import org.apache.cassandra.schema.TableMetadataRef;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.ObjectSizes;
 
-public final class RowCacheKey extends CacheKey
-{
-    public final byte[] key;
+public final class RowCacheKey extends CacheKey {
 
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new RowCacheKey(null, null, new byte[0]));
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RowCacheKey.class);
 
-    public RowCacheKey(TableId tableId, String indexName, byte[] key)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RowCacheKey.class);
+
+    public final transient byte[] key;
+
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new RowCacheKey(null, null, new byte[0]));
+
+    public RowCacheKey(TableId tableId, String indexName, byte[] key) {
         super(tableId, indexName);
         this.key = key;
     }
 
-    public RowCacheKey(TableMetadata metadata, DecoratedKey key)
-    {
+    public RowCacheKey(TableMetadata metadata, DecoratedKey key) {
         super(metadata);
         this.key = ByteBufferUtil.getArray(key.getKey());
         assert this.key != null;
     }
 
     @VisibleForTesting
-    public RowCacheKey(TableId tableId, String indexName, ByteBuffer key)
-    {
+    public RowCacheKey(TableId tableId, String indexName, ByteBuffer key) {
         super(tableId, indexName);
         this.key = ByteBufferUtil.getArray(key);
         assert this.key != null;
     }
 
-    public long unsharedHeapSize()
-    {
+    public long unsharedHeapSize() {
         return EMPTY_SIZE + ObjectSizes.sizeOfArray(key);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         RowCacheKey that = (RowCacheKey) o;
-
-        return tableId.equals(that.tableId)
-               && Objects.equals(indexName, that.indexName)
-               && Arrays.equals(key, that.key);
+        return tableId.equals(that.tableId) && Objects.equals(indexName, that.indexName) && Arrays.equals(key, that.key);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         int result = tableId.hashCode();
         result = 31 * result + Objects.hashCode(indexName);
         result = 31 * result + (key != null ? Arrays.hashCode(key) : 0);
@@ -86,8 +80,7 @@ public final class RowCacheKey extends CacheKey
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         TableMetadataRef tableRef = Schema.instance.getTableMetadataRef(tableId);
         return String.format("RowCacheKey(%s, %s, key:%s)", tableRef, indexName, Arrays.toString(key));
     }

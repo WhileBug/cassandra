@@ -15,15 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.audit;
 
-public enum AuditLogEntryType
-{
+public enum AuditLogEntryType {
+
     /*
      * CQL Audit Log Entry Types
      */
-
     SELECT(AuditLogEntryCategory.QUERY),
     UPDATE(AuditLogEntryCategory.DML),
     DELETE(AuditLogEntryCategory.DML),
@@ -60,11 +58,9 @@ public enum AuditLogEntryType
     CREATE_ROLE(AuditLogEntryCategory.DCL),
     USE_KEYSPACE(AuditLogEntryCategory.OTHER),
     DESCRIBE(AuditLogEntryCategory.OTHER),
-
     /*
      * Common Audit Log Entry Types
      */
-
     REQUEST_FAILURE(AuditLogEntryCategory.ERROR),
     LOGIN_ERROR(AuditLogEntryCategory.AUTH),
     UNAUTHORIZED_ATTEMPT(AuditLogEntryCategory.AUTH),
@@ -72,13 +68,11 @@ public enum AuditLogEntryType
 
     private final AuditLogEntryCategory category;
 
-    AuditLogEntryType(AuditLogEntryCategory category)
-    {
+    AuditLogEntryType(AuditLogEntryCategory category) {
         this.category = category;
     }
 
-    public AuditLogEntryCategory getCategory()
-    {
+    public AuditLogEntryCategory getCategory() {
         return category;
     }
 }

@@ -17,38 +17,44 @@
  */
 package org.apache.cassandra.net;
 
-abstract class LegacyLZ4Constants
-{
-    static final int XXHASH_SEED = 0x9747B28C;
+abstract class LegacyLZ4Constants {
 
-    static final int HEADER_LENGTH = 8  // magic number
-                                   + 1  // token
-                                   + 4  // compressed length
-                                   + 4  // uncompressed length
-                                   + 4; // checksum
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LegacyLZ4Constants.class);
 
-    static final long MAGIC_NUMBER = (long) 'L' << 56
-                                   | (long) 'Z' << 48
-                                   | (long) '4' << 40
-                                   | (long) 'B' << 32
-                                   |        'l' << 24
-                                   |        'o' << 16
-                                   |        'c' <<  8
-                                   |        'k';
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LegacyLZ4Constants.class);
+
+    static final transient int XXHASH_SEED = 0x9747B28C;
+
+    static final transient // magic number
+    int HEADER_LENGTH = // token
+    8 + // compressed length
+    1 + // uncompressed length
+    4 + // checksum
+    4 + 4;
+
+    static final transient long MAGIC_NUMBER = (long) 'L' << 56 | (long) 'Z' << 48 | (long) '4' << 40 | (long) 'B' << 32 | 'l' << 24 | 'o' << 16 | 'c' << 8 | 'k';
 
     // offsets of header fields
-    static final int MAGIC_NUMBER_OFFSET        = 0;
-    static final int TOKEN_OFFSET               = 8;
-    static final int COMPRESSED_LENGTH_OFFSET   = 9;
-    static final int UNCOMPRESSED_LENGTH_OFFSET = 13;
-    static final int CHECKSUM_OFFSET            = 17;
+    static final transient int MAGIC_NUMBER_OFFSET = 0;
 
-    static final int DEFAULT_BLOCK_LENGTH = 1 << 15; // 32 KiB
-    static final int MAX_BLOCK_LENGTH     = 1 << 25; // 32 MiB
+    static final transient int TOKEN_OFFSET = 8;
 
-    static final int BLOCK_TYPE_NON_COMPRESSED = 0x10;
-    static final int BLOCK_TYPE_COMPRESSED     = 0x20;
+    static final transient int COMPRESSED_LENGTH_OFFSET = 9;
+
+    static final transient int UNCOMPRESSED_LENGTH_OFFSET = 13;
+
+    static final transient int CHECKSUM_OFFSET = 17;
+
+    // 32 KiB
+    static final transient int DEFAULT_BLOCK_LENGTH = 1 << 15;
+
+    // 32 MiB
+    static final transient int MAX_BLOCK_LENGTH = 1 << 25;
+
+    static final transient int BLOCK_TYPE_NON_COMPRESSED = 0x10;
+
+    static final transient int BLOCK_TYPE_COMPRESSED = 0x20;
 
     // xxhash to Checksum adapter discards most significant nibble of value ¯\_(ツ)_/¯
-    static final int XXHASH_MASK = 0xFFFFFFF;
+    static final transient int XXHASH_MASK = 0xFFFFFFF;
 }

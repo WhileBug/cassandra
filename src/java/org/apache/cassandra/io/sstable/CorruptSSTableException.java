@@ -19,18 +19,20 @@ package org.apache.cassandra.io.sstable;
 
 import java.io.File;
 
-public class CorruptSSTableException extends RuntimeException
-{
-    public final File path;
+public class CorruptSSTableException extends RuntimeException {
 
-    public CorruptSSTableException(Throwable cause, File path)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CorruptSSTableException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CorruptSSTableException.class);
+
+    public final transient File path;
+
+    public CorruptSSTableException(Throwable cause, File path) {
         super("Corrupted: " + path, cause);
         this.path = path;
     }
 
-    public CorruptSSTableException(Throwable cause, String path)
-    {
+    public CorruptSSTableException(Throwable cause, String path) {
         this(cause, new File(path));
     }
 }

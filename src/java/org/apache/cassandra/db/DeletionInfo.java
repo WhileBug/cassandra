@@ -18,7 +18,6 @@
 package org.apache.cassandra.db;
 
 import java.util.Iterator;
-
 import org.apache.cassandra.cache.IMeasurableMemory;
 import org.apache.cassandra.db.rows.EncodingStats;
 import org.apache.cassandra.utils.memory.ByteBufferCloner;
@@ -35,10 +34,14 @@ import org.apache.cassandra.utils.memory.ByteBufferCloner;
  * TODO: it would be safer to have 2 actual implementation of DeletionInfo, one mutable and one that isn't (I'm
  * just lazy right this minute).
  */
-public interface DeletionInfo extends IMeasurableMemory
-{
+public interface DeletionInfo extends IMeasurableMemory {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DeletionInfo.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DeletionInfo.class);
+
     // Note that while MutableDeletionInfo.live() is mutable, we expose it here as a non-mutable DeletionInfo so sharing is fine.
-    public static final DeletionInfo LIVE = MutableDeletionInfo.live();
+    public static final transient DeletionInfo LIVE = MutableDeletionInfo.live();
 
     /**
      * Returns whether this DeletionInfo is live, that is deletes no columns.

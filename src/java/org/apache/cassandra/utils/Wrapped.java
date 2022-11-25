@@ -15,34 +15,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 /**
  * Simple wrapper class to be used when a lambda function
  * needs to modify a variable outside it's scope.
  */
-public class Wrapped<T>
-{
-    private T value;
+public class Wrapped<T> {
 
-    public static <V> Wrapped<V> create(V initial)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Wrapped.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Wrapped.class);
+
+    private transient T value;
+
+    public static <V> Wrapped<V> create(V initial) {
         return new Wrapped<>(initial);
     }
 
-    private Wrapped(T initial)
-    {
+    private Wrapped(T initial) {
         this.value = initial;
     }
 
-    public T get()
-    {
+    public T get() {
         return value;
     }
 
-    public void set(T value)
-    {
+    public void set(T value) {
         this.value = value;
     }
 }

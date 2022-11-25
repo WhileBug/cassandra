@@ -28,81 +28,51 @@ import org.apache.cassandra.schema.TableMetadata;
 /**
  * A read query that selects a (part of a) range of partitions of a virtual table.
  */
-public class VirtualTablePartitionRangeReadQuery extends VirtualTableReadQuery implements PartitionRangeReadQuery
-{
-    private final DataRange dataRange;
+public class VirtualTablePartitionRangeReadQuery extends VirtualTableReadQuery implements PartitionRangeReadQuery {
 
-    public static VirtualTablePartitionRangeReadQuery create(TableMetadata metadata,
-                                                             int nowInSec,
-                                                             ColumnFilter columnFilter,
-                                                             RowFilter rowFilter,
-                                                             DataLimits limits,
-                                                             DataRange dataRange)
-    {
-        return new VirtualTablePartitionRangeReadQuery(metadata,
-                                                       nowInSec,
-                                                       columnFilter,
-                                                       rowFilter,
-                                                       limits,
-                                                       dataRange);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VirtualTablePartitionRangeReadQuery.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VirtualTablePartitionRangeReadQuery.class);
+
+    private final transient DataRange dataRange;
+
+    public static VirtualTablePartitionRangeReadQuery create(TableMetadata metadata, int nowInSec, ColumnFilter columnFilter, RowFilter rowFilter, DataLimits limits, DataRange dataRange) {
+        return new VirtualTablePartitionRangeReadQuery(metadata, nowInSec, columnFilter, rowFilter, limits, dataRange);
     }
 
-    private VirtualTablePartitionRangeReadQuery(TableMetadata metadata,
-                                                int nowInSec,
-                                                ColumnFilter columnFilter,
-                                                RowFilter rowFilter,
-                                                DataLimits limits,
-                                                DataRange dataRange)
-    {
+    private VirtualTablePartitionRangeReadQuery(TableMetadata metadata, int nowInSec, ColumnFilter columnFilter, RowFilter rowFilter, DataLimits limits, DataRange dataRange) {
         super(metadata, nowInSec, columnFilter, rowFilter, limits);
         this.dataRange = dataRange;
     }
 
     @Override
-    public DataRange dataRange()
-    {
+    public DataRange dataRange() {
         return dataRange;
     }
 
     @Override
-    public PartitionRangeReadQuery withUpdatedLimit(DataLimits newLimits)
-    {
-        return new VirtualTablePartitionRangeReadQuery(metadata(),
-                                                       nowInSec(),
-                                                       columnFilter(),
-                                                       rowFilter(),
-                                                       newLimits,
-                                                       dataRange());
+    public PartitionRangeReadQuery withUpdatedLimit(DataLimits newLimits) {
+        return new VirtualTablePartitionRangeReadQuery(metadata(), nowInSec(), columnFilter(), rowFilter(), newLimits, dataRange());
     }
 
     @Override
-    public PartitionRangeReadQuery withUpdatedLimitsAndDataRange(DataLimits newLimits, DataRange newDataRange)
-    {
-        return new VirtualTablePartitionRangeReadQuery(metadata(),
-                                                       nowInSec(),
-                                                       columnFilter(),
-                                                       rowFilter(),
-                                                       newLimits,
-                                                       newDataRange);
+    public PartitionRangeReadQuery withUpdatedLimitsAndDataRange(DataLimits newLimits, DataRange newDataRange) {
+        return new VirtualTablePartitionRangeReadQuery(metadata(), nowInSec(), columnFilter(), rowFilter(), newLimits, newDataRange);
     }
 
     @Override
-    protected UnfilteredPartitionIterator queryVirtualTable()
-    {
+    protected UnfilteredPartitionIterator queryVirtualTable() {
         VirtualTable view = VirtualKeyspaceRegistry.instance.getTableNullable(metadata().id);
         return view.select(dataRange, columnFilter());
     }
 
     @Override
-    protected void appendCQLWhereClause(StringBuilder sb)
-    {
+    protected void appendCQLWhereClause(StringBuilder sb) {
         if (dataRange.isUnrestricted() && rowFilter().isEmpty())
             return;
-
         sb.append(" WHERE ");
         // We put the row filter first because the data range can end by "ORDER BY"
-        if (!rowFilter().isEmpty())
-        {
+        if (!rowFilter().isEmpty()) {
             sb.append(rowFilter());
             if (!dataRange.isUnrestricted())
                 sb.append(" AND ");

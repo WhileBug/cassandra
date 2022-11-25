@@ -18,54 +18,50 @@
 package org.apache.cassandra.metrics;
 
 import java.util.Map.Entry;
-
 import com.google.common.util.concurrent.MoreExecutors;
-
 import com.codahale.metrics.Counter;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-
 import org.apache.cassandra.db.SystemKeyspace;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.utils.UUIDGen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
 /**
  * Metrics for {@link org.apache.cassandra.hints.HintsService}.
  */
-public class HintedHandoffMetrics
-{
-    private static final Logger logger = LoggerFactory.getLogger(HintedHandoffMetrics.class);
+public class HintedHandoffMetrics {
 
-    private static final MetricNameFactory factory = new DefaultNameFactory("HintsService");
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintedHandoffMetrics.class);
 
-    /** Total number of hints which are not stored, This is not a cache. */
-    private final LoadingCache<InetAddressAndPort, DifferencingCounter> notStored = Caffeine.newBuilder()
-                                                                                            .executor(MoreExecutors.directExecutor())
-                                                                                            .build(DifferencingCounter::new);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintedHandoffMetrics.class);
 
-    /** Total number of hints that have been created, This is not a cache. */
-    private final LoadingCache<InetAddressAndPort, Counter> createdHintCounts = Caffeine.newBuilder()
-                                                                                        .executor(MoreExecutors.directExecutor())
-                                                                                        .build(address -> Metrics.counter(factory.createMetricName("Hints_created-" + address.toString().replace(':', '.'))));
+    private static final transient Logger logger = LoggerFactory.getLogger(HintedHandoffMetrics.class);
 
-    public void incrCreatedHints(InetAddressAndPort address)
-    {
+    private static final transient MetricNameFactory factory = new DefaultNameFactory("HintsService");
+
+    /**
+     * Total number of hints which are not stored, This is not a cache.
+     */
+    private final transient LoadingCache<InetAddressAndPort, DifferencingCounter> notStored = Caffeine.newBuilder().executor(MoreExecutors.directExecutor()).build(DifferencingCounter::new);
+
+    /**
+     * Total number of hints that have been created, This is not a cache.
+     */
+    private final transient LoadingCache<InetAddressAndPort, Counter> createdHintCounts = Caffeine.newBuilder().executor(MoreExecutors.directExecutor()).build(address -> Metrics.counter(factory.createMetricName("Hints_created-" + address.toString().replace(':', '.'))));
+
+    public void incrCreatedHints(InetAddressAndPort address) {
         createdHintCounts.get(address).inc();
     }
 
-    public void incrPastWindow(InetAddressAndPort address)
-    {
+    public void incrPastWindow(InetAddressAndPort address) {
         notStored.get(address).mark();
     }
 
-    public void log()
-    {
-        for (Entry<InetAddressAndPort, DifferencingCounter> entry : notStored.asMap().entrySet())
-        {
+    public void log() {
+        for (Entry<InetAddressAndPort, DifferencingCounter> entry : notStored.asMap().entrySet()) {
             long difference = entry.getValue().difference();
             if (difference == 0)
                 continue;
@@ -74,32 +70,29 @@ public class HintedHandoffMetrics
         }
     }
 
-    public static class DifferencingCounter
-    {
-        private final Counter meter;
-        private long reported = 0;
+    public static class DifferencingCounter {
 
-        public DifferencingCounter(InetAddressAndPort address)
-        {
-            //This changes the name of the metric, people can update their monitoring when upgrading?
+        private final transient Counter meter;
+
+        private transient long reported = 0;
+
+        public DifferencingCounter(InetAddressAndPort address) {
+            // This changes the name of the metric, people can update their monitoring when upgrading?
             this.meter = Metrics.counter(factory.createMetricName("Hints_not_stored-" + address.toString().replace(':', '.')));
         }
 
-        public long difference()
-        {
+        public long difference() {
             long current = meter.getCount();
             long difference = current - reported;
             this.reported = current;
             return difference;
         }
 
-        public long count()
-        {
+        public long count() {
             return meter.getCount();
         }
 
-        public void mark()
-        {
+        public void mark() {
             meter.inc();
         }
     }

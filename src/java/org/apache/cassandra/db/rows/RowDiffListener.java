@@ -27,8 +27,12 @@ import org.apache.cassandra.db.*;
  * with a {@code RowDiffListener} and that listener will be informed for each input row of the diff between
  * that input and merge row.
  */
-public interface RowDiffListener
-{
+public interface RowDiffListener {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RowDiffListener.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RowDiffListener.class);
+
     /**
      * Called for the row primary key liveness info of input {@code i}.
      *

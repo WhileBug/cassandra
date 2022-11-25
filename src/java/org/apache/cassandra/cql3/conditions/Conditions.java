@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.conditions;
 
 import java.util.List;
-
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.cql3.statements.CQL3CasRequest;
@@ -27,24 +26,27 @@ import org.apache.cassandra.schema.ColumnMetadata;
 
 /**
  * Conditions that can be applied to a mutation statement.
- *
  */
-public interface Conditions
-{
+public interface Conditions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Conditions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Conditions.class);
+
     /**
      * An EMPTY condition
      */
-    static final Conditions EMPTY_CONDITION = ColumnConditions.newBuilder().build();
+    static final transient Conditions EMPTY_CONDITION = ColumnConditions.newBuilder().build();
 
     /**
      * IF EXISTS condition
      */
-    static final Conditions IF_EXISTS_CONDITION = new IfExistsCondition();
+    static final transient Conditions IF_EXISTS_CONDITION = new IfExistsCondition();
 
     /**
      * IF NOT EXISTS condition
      */
-    static final Conditions IF_NOT_EXISTS_CONDITION = new IfNotExistsCondition();
+    static final transient Conditions IF_NOT_EXISTS_CONDITION = new IfNotExistsCondition();
 
     /**
      * Adds the functions used by the conditions to the specified list.
@@ -97,7 +99,5 @@ public interface Conditions
      * @param clustering the clustering prefix
      * @param options the query options
      */
-    public void addConditionsTo(CQL3CasRequest request,
-                                Clustering<?> clustering,
-                                QueryOptions options);
+    public void addConditionsTo(CQL3CasRequest request, Clustering<?> clustering, QueryOptions options);
 }

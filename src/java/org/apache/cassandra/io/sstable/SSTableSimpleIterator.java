@@ -20,7 +20,6 @@ package org.apache.cassandra.io.sstable;
 import java.io.IOException;
 import java.io.IOError;
 import java.util.Iterator;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.*;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -34,77 +33,71 @@ import org.apache.cassandra.utils.AbstractIterator;
  * Note that this is not a full fledged UnfilteredRowIterator. It's also not closeable, it is always
  * the job of the user to close the underlying ressources.
  */
-public abstract class SSTableSimpleIterator extends AbstractIterator<Unfiltered> implements Iterator<Unfiltered>
-{
-    final TableMetadata metadata;
-    protected final DataInputPlus in;
-    protected final DeserializationHelper helper;
+public abstract class SSTableSimpleIterator extends AbstractIterator<Unfiltered> implements Iterator<Unfiltered> {
 
-    private SSTableSimpleIterator(TableMetadata metadata, DataInputPlus in, DeserializationHelper helper)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableSimpleIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableSimpleIterator.class);
+
+    final transient TableMetadata metadata;
+
+    protected final transient DataInputPlus in;
+
+    protected final transient DeserializationHelper helper;
+
+    private SSTableSimpleIterator(TableMetadata metadata, DataInputPlus in, DeserializationHelper helper) {
         this.metadata = metadata;
         this.in = in;
         this.helper = helper;
     }
 
-    public static SSTableSimpleIterator create(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper, DeletionTime partitionDeletion)
-    {
+    public static SSTableSimpleIterator create(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper, DeletionTime partitionDeletion) {
         return new CurrentFormatIterator(metadata, in, header, helper);
     }
 
-    public static SSTableSimpleIterator createTombstoneOnly(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper, DeletionTime partitionDeletion)
-    {
+    public static SSTableSimpleIterator createTombstoneOnly(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper, DeletionTime partitionDeletion) {
         return new CurrentFormatTombstoneIterator(metadata, in, header, helper);
     }
 
     public abstract Row readStaticRow() throws IOException;
 
-    private static class CurrentFormatIterator extends SSTableSimpleIterator
-    {
-        private final SerializationHeader header;
+    private static class CurrentFormatIterator extends SSTableSimpleIterator {
 
-        private final Row.Builder builder;
+        private final transient SerializationHeader header;
 
-        private CurrentFormatIterator(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper)
-        {
+        private final transient Row.Builder builder;
+
+        private CurrentFormatIterator(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper) {
             super(metadata, in, helper);
             this.header = header;
             this.builder = BTreeRow.sortedBuilder();
         }
 
-        public Row readStaticRow() throws IOException
-        {
+        public Row readStaticRow() throws IOException {
             return header.hasStatic() ? UnfilteredSerializer.serializer.deserializeStaticRow(in, header, helper) : Rows.EMPTY_STATIC_ROW;
         }
 
-        protected Unfiltered computeNext()
-        {
-            try
-            {
+        protected Unfiltered computeNext() {
+            try {
                 Unfiltered unfiltered = UnfilteredSerializer.serializer.deserialize(in, header, helper, builder);
                 return unfiltered == null ? endOfData() : unfiltered;
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 throw new IOError(e);
             }
         }
     }
 
-    private static class CurrentFormatTombstoneIterator extends SSTableSimpleIterator
-    {
-        private final SerializationHeader header;
+    private static class CurrentFormatTombstoneIterator extends SSTableSimpleIterator {
 
-        private CurrentFormatTombstoneIterator(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper)
-        {
+        private final transient SerializationHeader header;
+
+        private CurrentFormatTombstoneIterator(TableMetadata metadata, DataInputPlus in, SerializationHeader header, DeserializationHelper helper) {
             super(metadata, in, helper);
             this.header = header;
         }
 
-        public Row readStaticRow() throws IOException
-        {
-            if (header.hasStatic())
-            {
+        public Row readStaticRow() throws IOException {
+            if (header.hasStatic()) {
                 Row staticRow = UnfilteredSerializer.serializer.deserializeStaticRow(in, header, helper);
                 if (!staticRow.deletion().isLive())
                     return BTreeRow.emptyDeletedRow(staticRow.clustering(), staticRow.deletion());
@@ -112,15 +105,11 @@ public abstract class SSTableSimpleIterator extends AbstractIterator<Unfiltered>
             return Rows.EMPTY_STATIC_ROW;
         }
 
-        protected Unfiltered computeNext()
-        {
-            try
-            {
+        protected Unfiltered computeNext() {
+            try {
                 Unfiltered unfiltered = UnfilteredSerializer.serializer.deserializeTombstonesOnly((FileDataInput) in, header, helper);
                 return unfiltered == null ? endOfData() : unfiltered;
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 throw new IOError(e);
             }
         }

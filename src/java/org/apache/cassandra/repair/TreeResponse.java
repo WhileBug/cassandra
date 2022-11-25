@@ -23,13 +23,17 @@ import org.apache.cassandra.utils.MerkleTrees;
 /**
  * Merkle tree response sent from given endpoint.
  */
-public class TreeResponse
-{
-    public final InetAddressAndPort endpoint;
-    public final MerkleTrees trees;
+public class TreeResponse {
 
-    public TreeResponse(InetAddressAndPort endpoint, MerkleTrees trees)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TreeResponse.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TreeResponse.class);
+
+    public final transient InetAddressAndPort endpoint;
+
+    public final transient MerkleTrees trees;
+
+    public TreeResponse(InetAddressAndPort endpoint, MerkleTrees trees) {
         this.endpoint = endpoint;
         this.trees = trees;
     }

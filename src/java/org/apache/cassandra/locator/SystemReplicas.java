@@ -15,26 +15,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 import com.google.common.collect.Collections2;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 
-public class SystemReplicas
-{
-    private static final Map<InetAddressAndPort, Replica> systemReplicas = new ConcurrentHashMap<>();
-    public static final Range<Token> FULL_RANGE = new Range<>(DatabaseDescriptor.getPartitioner().getMinimumToken(),
-                                                              DatabaseDescriptor.getPartitioner().getMinimumToken());
+public class SystemReplicas {
 
-    private static Replica createSystemReplica(InetAddressAndPort endpoint)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SystemReplicas.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SystemReplicas.class);
+
+    private static final transient Map<InetAddressAndPort, Replica> systemReplicas = new ConcurrentHashMap<>();
+
+    public static final transient Range<Token> FULL_RANGE = new Range<>(DatabaseDescriptor.getPartitioner().getMinimumToken(), DatabaseDescriptor.getPartitioner().getMinimumToken());
+
+    private static Replica createSystemReplica(InetAddressAndPort endpoint) {
         return new Replica(endpoint, FULL_RANGE, true);
     }
 
@@ -42,16 +43,13 @@ public class SystemReplicas
      * There are a few places where a system function borrows write path functionality, but doesn't otherwise
      * fit into normal replication strategies (ie: hints and batchlog). So here we provide a replica instance
      */
-    public static Replica getSystemReplica(InetAddressAndPort endpoint)
-    {
+    public static Replica getSystemReplica(InetAddressAndPort endpoint) {
         return systemReplicas.computeIfAbsent(endpoint, SystemReplicas::createSystemReplica);
     }
 
-    public static EndpointsForRange getSystemReplicas(Collection<InetAddressAndPort> endpoints)
-    {
+    public static EndpointsForRange getSystemReplicas(Collection<InetAddressAndPort> endpoints) {
         if (endpoints.isEmpty())
             return EndpointsForRange.empty(FULL_RANGE);
-
         return EndpointsForRange.copyOf(Collections2.transform(endpoints, SystemReplicas::getSystemReplica));
     }
 }

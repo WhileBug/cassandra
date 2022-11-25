@@ -20,13 +20,17 @@ package org.apache.cassandra.notifications;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.sstable.metadata.StatsMetadata;
 
-public class SSTableMetadataChanged implements INotification
-{
-    public final SSTableReader sstable;
-    public final StatsMetadata oldMetadata;
+public class SSTableMetadataChanged implements INotification {
 
-    public SSTableMetadataChanged(SSTableReader levelChanged, StatsMetadata oldMetadata)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableMetadataChanged.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableMetadataChanged.class);
+
+    public final transient SSTableReader sstable;
+
+    public final transient StatsMetadata oldMetadata;
+
+    public SSTableMetadataChanged(SSTableReader levelChanged, StatsMetadata oldMetadata) {
         this.sstable = levelChanged;
         this.oldMetadata = oldMetadata;
     }

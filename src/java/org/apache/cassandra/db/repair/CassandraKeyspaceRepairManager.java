@@ -15,37 +15,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.repair;
 
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BooleanSupplier;
-
 import com.google.common.util.concurrent.ListenableFuture;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.locator.RangesAtEndpoint;
 import org.apache.cassandra.repair.KeyspaceRepairManager;
 
-public class CassandraKeyspaceRepairManager implements KeyspaceRepairManager
-{
-    private final Keyspace keyspace;
+public class CassandraKeyspaceRepairManager implements KeyspaceRepairManager {
 
-    public CassandraKeyspaceRepairManager(Keyspace keyspace)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraKeyspaceRepairManager.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraKeyspaceRepairManager.class);
+
+    private final transient Keyspace keyspace;
+
+    public CassandraKeyspaceRepairManager(Keyspace keyspace) {
         this.keyspace = keyspace;
     }
 
     @Override
-    public ListenableFuture prepareIncrementalRepair(UUID sessionID,
-                                                     Collection<ColumnFamilyStore> tables,
-                                                     RangesAtEndpoint tokenRanges,
-                                                     ExecutorService executor,
-                                                     BooleanSupplier isCancelled)
-    {
+    public ListenableFuture prepareIncrementalRepair(UUID sessionID, Collection<ColumnFamilyStore> tables, RangesAtEndpoint tokenRanges, ExecutorService executor, BooleanSupplier isCancelled) {
         PendingAntiCompaction pac = new PendingAntiCompaction(sessionID, tables, tokenRanges, executor, isCancelled);
         return pac.run();
     }

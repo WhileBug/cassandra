@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io;
 
 import java.io.IOException;
@@ -23,17 +22,18 @@ import java.io.IOException;
 /**
  * Thrown when all the disks used by a given keyspace have been marked as unwriteable.
  */
-public class FSNoDiskAvailableForWriteError extends FSWriteError
-{
-    public FSNoDiskAvailableForWriteError(String keyspace)
-    {
-        super(new IOException(String.format("The data directories for the %s keyspace have been marked as unwritable",
-                                            keyspace)));
+public class FSNoDiskAvailableForWriteError extends FSWriteError {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FSNoDiskAvailableForWriteError.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FSNoDiskAvailableForWriteError.class);
+
+    public FSNoDiskAvailableForWriteError(String keyspace) {
+        super(new IOException(String.format("The data directories for the %s keyspace have been marked as unwritable", keyspace)));
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "FSNoDiskAvailableForWriteError";
     }
 }

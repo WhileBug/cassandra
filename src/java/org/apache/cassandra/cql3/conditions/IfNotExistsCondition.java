@@ -21,17 +21,19 @@ import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.statements.CQL3CasRequest;
 import org.apache.cassandra.db.Clustering;
 
-final class IfNotExistsCondition extends AbstractConditions
-{
+final class IfNotExistsCondition extends AbstractConditions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IfNotExistsCondition.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IfNotExistsCondition.class);
+
     @Override
-    public void addConditionsTo(CQL3CasRequest request, Clustering<?> clustering, QueryOptions options)
-    {
+    public void addConditionsTo(CQL3CasRequest request, Clustering<?> clustering, QueryOptions options) {
         request.addNotExist(clustering);
     }
 
     @Override
-    public boolean isIfNotExists()
-    {
+    public boolean isIfNotExists() {
         return true;
     }
 }

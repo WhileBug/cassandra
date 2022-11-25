@@ -15,62 +15,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
-public class InetAddressSerializer extends TypeSerializer<InetAddress>
-{
-    public static final InetAddressSerializer instance = new InetAddressSerializer();
+public class InetAddressSerializer extends TypeSerializer<InetAddress> {
 
-    public <V> InetAddress deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InetAddressSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InetAddressSerializer.class);
+
+    public static final transient InetAddressSerializer instance = new InetAddressSerializer();
+
+    public <V> InetAddress deserialize(V value, ValueAccessor<V> accessor) {
         if (accessor.isEmpty(value))
             return null;
-
-        try
-        {
+        try {
             return InetAddress.getByAddress(accessor.toArray(value));
-        }
-        catch (UnknownHostException e)
-        {
+        } catch (UnknownHostException e) {
             throw new AssertionError(e);
         }
     }
 
-    public ByteBuffer serialize(InetAddress value)
-    {
+    public ByteBuffer serialize(InetAddress value) {
         return value == null ? ByteBufferUtil.EMPTY_BYTE_BUFFER : ByteBuffer.wrap(value.getAddress());
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (accessor.isEmpty(value))
             return;
-
-        try
-        {
+        try {
             InetAddress.getByAddress(accessor.toArray(value));
-        }
-        catch (UnknownHostException e)
-        {
+        } catch (UnknownHostException e) {
             throw new MarshalException(String.format("Expected 4 or 16 byte inetaddress; got %s", accessor.toHex(value)));
         }
     }
 
-    public String toString(InetAddress value)
-    {
+    public String toString(InetAddress value) {
         return value == null ? "" : value.getHostAddress();
     }
 
-    public Class<InetAddress> getType()
-    {
+    public Class<InetAddress> getType() {
         return InetAddress.class;
     }
 }

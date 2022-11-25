@@ -15,40 +15,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.streaming.messages.OutgoingStreamMessage;
 import org.apache.cassandra.utils.FBUtilities;
 
-public interface StreamHook
-{
-    public static final StreamHook instance = createHook();
+public interface StreamHook {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamHook.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamHook.class);
+
+    public static final transient StreamHook instance = createHook();
 
     public OutgoingStreamMessage reportOutgoingStream(StreamSession session, OutgoingStream stream, OutgoingStreamMessage message);
+
     public void reportStreamFuture(StreamSession session, StreamResultFuture future);
+
     public void reportIncomingStream(TableId tableId, IncomingStream stream, StreamSession session, int sequenceNumber);
 
-    static StreamHook createHook()
-    {
-        String className =  System.getProperty("cassandra.stream_hook");
-        if (className != null)
-        {
+    static StreamHook createHook() {
+        String className = System.getProperty("cassandra.stream_hook");
+        if (className != null) {
             return FBUtilities.construct(className, StreamHook.class.getSimpleName());
-        }
-        else
-        {
-            return new StreamHook()
-            {
-                public OutgoingStreamMessage reportOutgoingStream(StreamSession session, OutgoingStream stream, OutgoingStreamMessage message)
-                {
+        } else {
+            return new StreamHook() {
+
+                public OutgoingStreamMessage reportOutgoingStream(StreamSession session, OutgoingStream stream, OutgoingStreamMessage message) {
                     return message;
                 }
 
-                public void reportStreamFuture(StreamSession session, StreamResultFuture future) {}
+                public void reportStreamFuture(StreamSession session, StreamResultFuture future) {
+                }
 
-                public void reportIncomingStream(TableId tableId, IncomingStream stream, StreamSession session, int sequenceNumber) {}
+                public void reportIncomingStream(TableId tableId, IncomingStream stream, StreamSession session, int sequenceNumber) {
+                }
             };
         }
     }

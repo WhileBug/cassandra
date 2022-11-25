@@ -27,76 +27,72 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.Notification;
 import javax.management.NotificationListener;
 import javax.management.ObjectName;
 import javax.management.openmbean.CompositeData;
-
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
-
 import org.apache.cassandra.db.lifecycle.LifecycleTransaction;
 import org.apache.cassandra.utils.MBeanWrapper;
 import org.apache.cassandra.utils.StatusLogger;
 
-public class GCInspector implements NotificationListener, GCInspectorMXBean
-{
-    public static final String MBEAN_NAME = "org.apache.cassandra.service:type=GCInspector";
-    private static final Logger logger = LoggerFactory.getLogger(GCInspector.class);
+public class GCInspector implements NotificationListener, GCInspectorMXBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GCInspector.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GCInspector.class);
+
+    public static final transient String MBEAN_NAME = "org.apache.cassandra.service:type=GCInspector";
+
+    private static final transient Logger logger = LoggerFactory.getLogger(GCInspector.class);
 
     /*
      * The field from java.nio.Bits that tracks the total number of allocated
      * bytes of direct memory requires via ByteBuffer.allocateDirect that have not been GCed.
      */
-    final static Field BITS_TOTAL_CAPACITY;
+    final static transient Field BITS_TOTAL_CAPACITY;
 
-    
-    static
-    {
+    static {
         Field temp = null;
-        try
-        {
+        try {
             Class<?> bitsClass = Class.forName("java.nio.Bits");
             Field f;
-            try
-            {
+            try {
                 f = bitsClass.getDeclaredField("totalCapacity");
-            }
-            catch (NoSuchFieldException ex)
-            {
+            } catch (NoSuchFieldException ex) {
                 // in Java11 it changed name to "TOTAL_CAPACITY"
                 f = bitsClass.getDeclaredField("TOTAL_CAPACITY");
             }
             f.setAccessible(true);
             temp = f;
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             logger.debug("Error accessing field of java.nio.Bits", t);
-            //Don't care, will just return the dummy value -1 if we can't get at the field in this JVM
+            // Don't care, will just return the dummy value -1 if we can't get at the field in this JVM
         }
         BITS_TOTAL_CAPACITY = temp;
     }
 
-    static final class State
-    {
-        final double maxRealTimeElapsed;
-        final double totalRealTimeElapsed;
-        final double sumSquaresRealTimeElapsed;
-        final double totalBytesReclaimed;
-        final double count;
-        final long startNanos;
+    static final class State {
 
-        State(double extraElapsed, double extraBytes, State prev)
-        {
+        final transient double maxRealTimeElapsed;
+
+        final transient double totalRealTimeElapsed;
+
+        final transient double sumSquaresRealTimeElapsed;
+
+        final transient double totalBytesReclaimed;
+
+        final transient double count;
+
+        final transient long startNanos;
+
+        State(double extraElapsed, double extraBytes, State prev) {
             this.totalRealTimeElapsed = prev.totalRealTimeElapsed + extraElapsed;
             this.totalBytesReclaimed = prev.totalBytesReclaimed + extraBytes;
             this.sumSquaresRealTimeElapsed = prev.sumSquaresRealTimeElapsed + (extraElapsed * extraElapsed);
@@ -105,74 +101,64 @@ public class GCInspector implements NotificationListener, GCInspectorMXBean
             this.maxRealTimeElapsed = Math.max(prev.maxRealTimeElapsed, extraElapsed);
         }
 
-        State()
-        {
+        State() {
             count = maxRealTimeElapsed = sumSquaresRealTimeElapsed = totalRealTimeElapsed = totalBytesReclaimed = 0;
             startNanos = System.nanoTime();
         }
     }
 
-    static final class GCState
-    {
-        final GarbageCollectorMXBean gcBean;
-        final boolean assumeGCIsPartiallyConcurrent;
-        final boolean assumeGCIsOldGen;
-        private String[] keys;
-        long lastGcTotalDuration = 0;
+    static final class GCState {
 
+        final transient GarbageCollectorMXBean gcBean;
 
-        GCState(GarbageCollectorMXBean gcBean, boolean assumeGCIsPartiallyConcurrent, boolean assumeGCIsOldGen)
-        {
+        final transient boolean assumeGCIsPartiallyConcurrent;
+
+        final transient boolean assumeGCIsOldGen;
+
+        private transient String[] keys;
+
+        transient long lastGcTotalDuration = 0;
+
+        GCState(GarbageCollectorMXBean gcBean, boolean assumeGCIsPartiallyConcurrent, boolean assumeGCIsOldGen) {
             this.gcBean = gcBean;
             this.assumeGCIsPartiallyConcurrent = assumeGCIsPartiallyConcurrent;
             this.assumeGCIsOldGen = assumeGCIsOldGen;
         }
 
-        String[] keys(GarbageCollectionNotificationInfo info)
-        {
+        String[] keys(GarbageCollectionNotificationInfo info) {
             if (keys != null)
                 return keys;
-
             keys = info.getGcInfo().getMemoryUsageBeforeGc().keySet().toArray(new String[0]);
             Arrays.sort(keys);
-
             return keys;
         }
     }
 
-    final AtomicReference<State> state = new AtomicReference<>(new State());
+    final transient AtomicReference<State> state = new AtomicReference<>(new State());
 
-    final Map<String, GCState> gcStates = new HashMap<>();
+    final transient Map<String, GCState> gcStates = new HashMap<>();
 
-    public GCInspector()
-    {
+    public GCInspector() {
         MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-
-        try
-        {
+        try {
             ObjectName gcName = new ObjectName(ManagementFactory.GARBAGE_COLLECTOR_MXBEAN_DOMAIN_TYPE + ",*");
-            for (ObjectName name : mbs.queryNames(gcName, null))
-            {
+            for (ObjectName name : mbs.queryNames(gcName, null)) {
                 GarbageCollectorMXBean gc = ManagementFactory.newPlatformMXBeanProxy(mbs, name.getCanonicalName(), GarbageCollectorMXBean.class);
                 gcStates.put(gc.getName(), new GCState(gc, assumeGCIsPartiallyConcurrent(gc), assumeGCIsOldGen(gc)));
             }
             ObjectName me = new ObjectName(MBEAN_NAME);
             if (!mbs.isRegistered(me))
                 MBeanWrapper.instance.registerMBean(this, new ObjectName(MBEAN_NAME));
-        }
-        catch (MalformedObjectNameException | IOException e)
-        {
+        } catch (MalformedObjectNameException | IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static void register() throws Exception
-    {
+    public static void register() throws Exception {
         GCInspector inspector = new GCInspector();
         MBeanServer server = ManagementFactory.getPlatformMBeanServer();
         ObjectName gcName = new ObjectName(ManagementFactory.GARBAGE_COLLECTOR_MXBEAN_DOMAIN_TYPE + ",*");
-        for (ObjectName name : server.queryNames(gcName, null))
-        {
+        for (ObjectName name : server.queryNames(gcName, null)) {
             server.addNotificationListener(name, inspector, null, null);
         }
     }
@@ -184,25 +170,23 @@ public class GCInspector implements NotificationListener, GCInspectorMXBean
      * If the GC isn't recognized then assume that is concurrent and we need to do our own calculation
      * via the the side channel.
      */
-    private static boolean assumeGCIsPartiallyConcurrent(GarbageCollectorMXBean gc)
-    {
-        switch (gc.getName())
-        {
-                //First two are from the serial collector
+    private static boolean assumeGCIsPartiallyConcurrent(GarbageCollectorMXBean gc) {
+        switch(gc.getName()) {
+            // First two are from the serial collector
             case "Copy":
             case "MarkSweepCompact":
-                //Parallel collector
+            // Parallel collector
             case "PS MarkSweep":
             case "PS Scavenge":
             case "G1 Young Generation":
-                //CMS young generation collector
+            // CMS young generation collector
             case "ParNew":
                 return false;
             case "ConcurrentMarkSweep":
             case "G1 Old Generation":
                 return true;
             default:
-                //Assume possibly concurrent if unsure
+                // Assume possibly concurrent if unsure
                 return true;
         }
     }
@@ -213,10 +197,8 @@ public class GCInspector implements NotificationListener, GCInspectorMXBean
      *
      * Defaults to not invoking TransactionLogs.rescheduleFailedTasks() on unrecognized GC names
      */
-    private static boolean assumeGCIsOldGen(GarbageCollectorMXBean gc)
-    {
-        switch (gc.getName())
-        {
+    private static boolean assumeGCIsOldGen(GarbageCollectorMXBean gc) {
+        switch(gc.getName()) {
             case "Copy":
             case "PS Scavenge":
             case "G1 Young Generation":
@@ -228,50 +210,43 @@ public class GCInspector implements NotificationListener, GCInspectorMXBean
             case "G1 Old Generation":
                 return true;
             default:
-                //Assume not old gen otherwise, don't call
-                //TransactionLogs.rescheduleFailedTasks()
+                // Assume not old gen otherwise, don't call
+                // TransactionLogs.rescheduleFailedTasks()
                 return false;
         }
     }
 
-    public void handleNotification(final Notification notification, final Object handback)
-    {
+    public void handleNotification(final Notification notification, final Object handback) {
         String type = notification.getType();
-        if (type.equals(GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION))
-        {
+        if (type.equals(GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION)) {
             // retrieve the garbage collection notification information
             CompositeData cd = (CompositeData) notification.getUserData();
             GarbageCollectionNotificationInfo info = GarbageCollectionNotificationInfo.from(cd);
             String gcName = info.getGcName();
             GcInfo gcInfo = info.getGcInfo();
-
             long duration = gcInfo.getDuration();
-
             /*
              * The duration supplied in the notification info includes more than just
              * application stopped time for concurrent GCs. Try and do a better job coming up with a good stopped time
              * value by asking for and tracking cumulative time spent blocked in GC.
              */
             GCState gcState = gcStates.get(gcName);
-            if (gcState.assumeGCIsPartiallyConcurrent)
-            {
+            if (gcState.assumeGCIsPartiallyConcurrent) {
                 long previousTotal = gcState.lastGcTotalDuration;
                 long total = gcState.gcBean.getCollectionTime();
                 gcState.lastGcTotalDuration = total;
-                duration = total - previousTotal; // may be zero for a really fast collection
+                // may be zero for a really fast collection
+                duration = total - previousTotal;
             }
-
             StringBuilder sb = new StringBuilder();
             sb.append(info.getGcName()).append(" GC in ").append(duration).append("ms.  ");
             long bytes = 0;
             Map<String, MemoryUsage> beforeMemoryUsage = gcInfo.getMemoryUsageBeforeGc();
             Map<String, MemoryUsage> afterMemoryUsage = gcInfo.getMemoryUsageAfterGc();
-            for (String key : gcState.keys(info))
-            {
+            for (String key : gcState.keys(info)) {
                 MemoryUsage before = beforeMemoryUsage.get(key);
                 MemoryUsage after = afterMemoryUsage.get(key);
-                if (after != null && after.getUsed() != before.getUsed())
-                {
+                if (after != null && after.getUsed() != before.getUsed()) {
                     sb.append(key).append(": ").append(before.getUsed());
                     sb.append(" -> ");
                     sb.append(after.getUsed());
@@ -280,37 +255,30 @@ public class GCInspector implements NotificationListener, GCInspectorMXBean
                     bytes += before.getUsed() - after.getUsed();
                 }
             }
-
-            while (true)
-            {
+            while (true) {
                 State prev = state.get();
                 if (state.compareAndSet(prev, new State(duration, bytes, prev)))
                     break;
             }
-            
             if (getGcWarnThresholdInMs() != 0 && duration > getGcWarnThresholdInMs())
                 logger.warn(sb.toString());
             else if (duration > getGcLogThresholdInMs())
                 logger.info(sb.toString());
             else if (logger.isTraceEnabled())
                 logger.trace(sb.toString());
-
             if (duration > this.getStatusThresholdInMs())
                 StatusLogger.log();
-
             // if we just finished an old gen collection and we're still using a lot of memory, try to reduce the pressure
             if (gcState.assumeGCIsOldGen)
                 LifecycleTransaction.rescheduleFailedDeletions();
         }
     }
 
-    public State getTotalSinceLastCheck()
-    {
+    public State getTotalSinceLastCheck() {
         return state.getAndSet(new State());
     }
 
-    public double[] getAndResetStats()
-    {
+    public double[] getAndResetStats() {
         State state = getTotalSinceLastCheck();
         double[] r = new double[7];
         r[0] = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - state.startNanos);
@@ -320,64 +288,50 @@ public class GCInspector implements NotificationListener, GCInspectorMXBean
         r[4] = state.totalBytesReclaimed;
         r[5] = state.count;
         r[6] = getAllocatedDirectMemory();
-
         return r;
     }
 
-    private static long getAllocatedDirectMemory()
-    {
-        if (BITS_TOTAL_CAPACITY == null) return -1;
-        try
-        {
+    private static long getAllocatedDirectMemory() {
+        if (BITS_TOTAL_CAPACITY == null)
+            return -1;
+        try {
             return BITS_TOTAL_CAPACITY.getLong(null);
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             logger.trace("Error accessing field of java.nio.Bits", t);
-            //Don't care how or why we failed to get the value in this JVM. Return -1 to indicate failure
+            // Don't care how or why we failed to get the value in this JVM. Return -1 to indicate failure
             return -1;
         }
     }
 
-    public void setGcWarnThresholdInMs(long threshold)
-    {
+    public void setGcWarnThresholdInMs(long threshold) {
         long gcLogThresholdInMs = getGcLogThresholdInMs();
         if (threshold < 0)
             throw new IllegalArgumentException("Threshold must be greater than or equal to 0");
         if (threshold != 0 && threshold <= gcLogThresholdInMs)
-            throw new IllegalArgumentException("Threshold must be greater than gcLogThresholdInMs which is currently "
-                    + gcLogThresholdInMs);
+            throw new IllegalArgumentException("Threshold must be greater than gcLogThresholdInMs which is currently " + gcLogThresholdInMs);
         if (threshold > Integer.MAX_VALUE)
             throw new IllegalArgumentException("Threshold must be less than Integer.MAX_VALUE");
-        DatabaseDescriptor.setGCWarnThreshold((int)threshold);
+        DatabaseDescriptor.setGCWarnThreshold((int) threshold);
     }
 
-    public long getGcWarnThresholdInMs()
-    {
+    public long getGcWarnThresholdInMs() {
         return DatabaseDescriptor.getGCWarnThreshold();
     }
 
-    public void setGcLogThresholdInMs(long threshold)
-    {
+    public void setGcLogThresholdInMs(long threshold) {
         if (threshold <= 0)
             throw new IllegalArgumentException("Threshold must be greater than 0");
-
         long gcWarnThresholdInMs = getGcWarnThresholdInMs();
         if (gcWarnThresholdInMs != 0 && threshold > gcWarnThresholdInMs)
-            throw new IllegalArgumentException("Threshold must be less than gcWarnThresholdInMs which is currently "
-                                               + gcWarnThresholdInMs);
-
+            throw new IllegalArgumentException("Threshold must be less than gcWarnThresholdInMs which is currently " + gcWarnThresholdInMs);
         DatabaseDescriptor.setGCLogThreshold((int) threshold);
     }
 
-    public long getGcLogThresholdInMs()
-    {
+    public long getGcLogThresholdInMs() {
         return DatabaseDescriptor.getGCLogThreshold();
     }
 
-    public long getStatusThresholdInMs()
-    {
+    public long getStatusThresholdInMs() {
         return getGcWarnThresholdInMs() != 0 ? getGcWarnThresholdInMs() : getGcLogThresholdInMs();
     }
-
 }

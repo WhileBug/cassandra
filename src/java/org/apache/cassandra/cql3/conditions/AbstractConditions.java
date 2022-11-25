@@ -18,47 +18,42 @@
 package org.apache.cassandra.cql3.conditions;
 
 import java.util.List;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.functions.Function;
 
 /**
  * Base class for <code>Conditions</code> classes.
- *
  */
-abstract class AbstractConditions implements Conditions
-{
-    public void addFunctionsTo(List<Function> functions)
-    {
+abstract class AbstractConditions implements Conditions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractConditions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractConditions.class);
+
+    public void addFunctionsTo(List<Function> functions) {
     }
 
-    public Iterable<ColumnMetadata> getColumns()
-    {
+    public Iterable<ColumnMetadata> getColumns() {
         return null;
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return false;
     }
 
-    public boolean appliesToStaticColumns()
-    {
+    public boolean appliesToStaticColumns() {
         return false;
     }
 
-    public boolean appliesToRegularColumns()
-    {
+    public boolean appliesToRegularColumns() {
         return false;
     }
 
-    public boolean isIfExists()
-    {
+    public boolean isIfExists() {
         return false;
     }
 
-    public boolean isIfNotExists()
-    {
+    public boolean isIfNotExists() {
         return false;
     }
 }

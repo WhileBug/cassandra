@@ -23,17 +23,21 @@ import java.util.Map;
 /**
  * Base class for internally emitted events used for diagnostics and testing.
  */
-public abstract class DiagnosticEvent
-{
+public abstract class DiagnosticEvent {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DiagnosticEvent.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DiagnosticEvent.class);
+
     /**
      * Event creation time.
      */
-    public final long timestamp = System.currentTimeMillis();
+    public final transient long timestamp = System.currentTimeMillis();
 
     /**
      * Name of allocating thread.
      */
-    public final String threadName = Thread.currentThread().getName();
+    public final transient String threadName = Thread.currentThread().getName();
 
     /**
      * Returns event type discriminator. This will usually be a enum value.

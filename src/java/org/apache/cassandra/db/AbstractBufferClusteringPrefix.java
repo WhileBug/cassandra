@@ -18,32 +18,31 @@
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ByteBufferAccessor;
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public abstract class AbstractBufferClusteringPrefix extends AbstractOnHeapClusteringPrefix<ByteBuffer>
-{
-    public static final ByteBuffer[] EMPTY_VALUES_ARRAY = new ByteBuffer[0];
+public abstract class AbstractBufferClusteringPrefix extends AbstractOnHeapClusteringPrefix<ByteBuffer> {
 
-    protected AbstractBufferClusteringPrefix(Kind kind, ByteBuffer[] values)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractBufferClusteringPrefix.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractBufferClusteringPrefix.class);
+
+    public static final transient ByteBuffer[] EMPTY_VALUES_ARRAY = new ByteBuffer[0];
+
+    protected AbstractBufferClusteringPrefix(Kind kind, ByteBuffer[] values) {
         super(kind, values);
     }
 
-    public ValueAccessor<ByteBuffer> accessor()
-    {
+    public ValueAccessor<ByteBuffer> accessor() {
         return ByteBufferAccessor.instance;
     }
 
-    public ByteBuffer[] getBufferArray()
-    {
+    public ByteBuffer[] getBufferArray() {
         return getRawValues();
     }
 
-    public ClusteringPrefix<ByteBuffer> minimize()
-    {
+    public ClusteringPrefix<ByteBuffer> minimize() {
         if (!ByteBufferUtil.canMinimize(values))
             return this;
         return new BufferClustering(ByteBufferUtil.minimizeBuffers(values));

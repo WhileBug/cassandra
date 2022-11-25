@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.net;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.WriteBufferWaterMark;
@@ -37,8 +35,12 @@ import org.apache.cassandra.io.util.DataOutputStreamPlus;
  * The correctness of this class depends on the ChannelPromise we create against a Channel always being completed,
  * which appears to be a guarantee provided by Netty so long as the event loop is running.
  */
-public class AsyncMessageOutputPlus extends AsyncChannelOutputPlus
-{
+public class AsyncMessageOutputPlus extends AsyncChannelOutputPlus {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AsyncMessageOutputPlus.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AsyncMessageOutputPlus.class);
+
     /**
      * the maximum {@link #highWaterMark} and minimum {@link #lowWaterMark} number of bytes we have flushing
      * during which we should still be writing to the channel.
@@ -54,17 +56,21 @@ public class AsyncMessageOutputPlus extends AsyncChannelOutputPlus
      * This is somewhat arbitrary accounting, and a meaningless distinction for flushes of a consistent size.
      */
     @SuppressWarnings("JavaDoc")
-    private final int highWaterMark;
-    private final int lowWaterMark;
-    private final int bufferSize;
-    private final int messageSize;
-    private boolean closing;
+    private final transient int highWaterMark;
 
-    private final FrameEncoder.PayloadAllocator payloadAllocator;
-    private volatile FrameEncoder.Payload payload;
+    private final transient int lowWaterMark;
 
-    AsyncMessageOutputPlus(Channel channel, int bufferSize, int messageSize, FrameEncoder.PayloadAllocator payloadAllocator)
-    {
+    private final transient int bufferSize;
+
+    private final transient int messageSize;
+
+    private transient boolean closing;
+
+    private final transient FrameEncoder.PayloadAllocator payloadAllocator;
+
+    private volatile transient FrameEncoder.Payload payload;
+
+    AsyncMessageOutputPlus(Channel channel, int bufferSize, int messageSize, FrameEncoder.PayloadAllocator payloadAllocator) {
         super(channel);
         WriteBufferWaterMark waterMark = channel.config().getWriteBufferWaterMark();
         this.lowWaterMark = waterMark.low();
@@ -75,43 +81,36 @@ public class AsyncMessageOutputPlus extends AsyncChannelOutputPlus
         allocateBuffer();
     }
 
-    private void allocateBuffer()
-    {
+    private void allocateBuffer() {
         payload = payloadAllocator.allocate(false, bufferSize);
         buffer = payload.buffer;
     }
 
     @Override
-    protected void doFlush(int count) throws IOException
-    {
+    protected void doFlush(int count) throws IOException {
         if (!channel.isOpen())
             throw new ClosedChannelException();
-
         // flush the current backing write buffer only if there's any pending data
         FrameEncoder.Payload flush = payload;
         int byteCount = flush.length();
         if (byteCount == 0)
             return;
-
         if (byteCount + flushed() > (closing ? messageSize : messageSize - 1))
             throw new InvalidSerializedSizeException(messageSize, byteCount + flushed());
-
         flush.finish();
         ChannelPromise promise = beginFlush(byteCount, lowWaterMark, highWaterMark);
         channel.writeAndFlush(flush, promise);
         allocateBuffer();
     }
 
-    public void close() throws IOException
-    {
+    public void close() throws IOException {
         closing = true;
         if (flushed() == 0 && payload != null)
             payload.setSelfContained(true);
         super.close();
     }
 
-    public long position()
-    {
+    public long position() {
         return flushed() + payload.length();
     }
 
@@ -119,10 +118,8 @@ public class AsyncMessageOutputPlus extends AsyncChannelOutputPlus
      * Discard any buffered data, and the buffers that contain it.
      * May be invoked instead of {@link #close()} if we terminate exceptionally.
      */
-    public void discard()
-    {
-        if (payload != null)
-        {
+    public void discard() {
+        if (payload != null) {
             payload.release();
             payload = null;
             buffer = null;

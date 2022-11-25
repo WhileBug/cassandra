@@ -28,45 +28,37 @@ import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.QueryState;
 import org.apache.cassandra.transport.messages.ResultMessage;
 
-public abstract class AuthenticationStatement extends CQLStatement.Raw implements CQLStatement
-{
-    public AuthenticationStatement prepare(ClientState state)
-    {
+public abstract class AuthenticationStatement extends CQLStatement.Raw implements CQLStatement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthenticationStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthenticationStatement.class);
+
+    public AuthenticationStatement prepare(ClientState state) {
         return this;
     }
 
-    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime)
-    throws RequestExecutionException, RequestValidationException
-    {
+    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime) throws RequestExecutionException, RequestValidationException {
         return execute(state.getClientState());
     }
 
     public abstract ResultMessage execute(ClientState state) throws RequestExecutionException, RequestValidationException;
 
-    public ResultMessage executeLocally(QueryState state, QueryOptions options)
-    {
+    public ResultMessage executeLocally(QueryState state, QueryOptions options) {
         // executeLocally is for local query only, thus altering users doesn't make sense and is not supported
         throw new UnsupportedOperationException();
     }
 
-    public void checkPermission(ClientState state, Permission required, RoleResource resource) throws UnauthorizedException
-    {
-        try
-        {
+    public void checkPermission(ClientState state, Permission required, RoleResource resource) throws UnauthorizedException {
+        try {
             state.ensurePermission(required, resource);
-        }
-        catch (UnauthorizedException e)
-        {
+        } catch (UnauthorizedException e) {
             // Catch and rethrow with a more friendly message
-            throw new UnauthorizedException(String.format("User %s does not have sufficient privileges " +
-                                                          "to perform the requested operation",
-                                                          state.getUser().getName()));
+            throw new UnauthorizedException(String.format("User %s does not have sufficient privileges " + "to perform the requested operation", state.getUser().getName()));
         }
     }
 
-    public String obfuscatePassword(String query)
-    {
+    public String obfuscatePassword(String query) {
         return query;
     }
 }
-

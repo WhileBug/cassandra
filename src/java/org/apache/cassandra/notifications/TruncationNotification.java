@@ -21,12 +21,15 @@ package org.apache.cassandra.notifications;
  * Fired during truncate, after the memtable has been flushed but before any
  * snapshot is taken and SSTables are discarded
  */
-public class TruncationNotification implements INotification
-{
-    public final long truncatedAt;
+public class TruncationNotification implements INotification {
 
-    public TruncationNotification(long truncatedAt)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncationNotification.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncationNotification.class);
+
+    public final transient long truncatedAt;
+
+    public TruncationNotification(long truncatedAt) {
         this.truncatedAt = truncatedAt;
     }
 }

@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.compress;
 
 import java.io.IOException;
@@ -25,36 +24,41 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.github.luben.zstd.Zstd;
 
 /**
  * ZSTD Compressor
  */
-public class ZstdCompressor implements ICompressor
-{
-    private static final Logger logger = LoggerFactory.getLogger(ZstdCompressor.class);
+public class ZstdCompressor implements ICompressor {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ZstdCompressor.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ZstdCompressor.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(ZstdCompressor.class);
 
     // These might change with the version of Zstd we're using
-    public static final int FAST_COMPRESSION_LEVEL = Zstd.minCompressionLevel();
-    public static final int BEST_COMPRESSION_LEVEL = Zstd.maxCompressionLevel();
+    public static final transient int FAST_COMPRESSION_LEVEL = Zstd.minCompressionLevel();
+
+    public static final transient int BEST_COMPRESSION_LEVEL = Zstd.maxCompressionLevel();
 
     // Compressor Defaults
-    public static final int DEFAULT_COMPRESSION_LEVEL = 3;
-    private static final boolean ENABLE_CHECKSUM_FLAG = true;
+    public static final transient int DEFAULT_COMPRESSION_LEVEL = 3;
+
+    private static final transient boolean ENABLE_CHECKSUM_FLAG = true;
 
     @VisibleForTesting
-    public static final String COMPRESSION_LEVEL_OPTION_NAME = "compression_level";
+    public static final transient String COMPRESSION_LEVEL_OPTION_NAME = "compression_level";
 
-    private static final ConcurrentHashMap<Integer, ZstdCompressor> instances = new ConcurrentHashMap<>();
+    private static final transient ConcurrentHashMap<Integer, ZstdCompressor> instances = new ConcurrentHashMap<>();
 
-    private final int compressionLevel;
-    private final Set<Uses> recommendedUses;
+    private final transient int compressionLevel;
+
+    private final transient Set<Uses> recommendedUses;
 
     /**
      * Create a Zstd compressor with the given options
@@ -62,13 +66,10 @@ public class ZstdCompressor implements ICompressor
      * @param options
      * @return
      */
-    public static ZstdCompressor create(Map<String, String> options)
-    {
+    public static ZstdCompressor create(Map<String, String> options) {
         int level = getOrDefaultCompressionLevel(options);
-
         if (!isValid(level))
             throw new IllegalArgumentException(String.format("%s=%d is invalid", COMPRESSION_LEVEL_OPTION_NAME, level));
-
         return getOrCreate(level);
     }
 
@@ -77,8 +78,7 @@ public class ZstdCompressor implements ICompressor
      *
      * @param compressionLevel
      */
-    private ZstdCompressor(int compressionLevel)
-    {
+    private ZstdCompressor(int compressionLevel) {
         this.compressionLevel = compressionLevel;
         this.recommendedUses = ImmutableSet.of(Uses.GENERAL);
         logger.trace("Creating Zstd Compressor with compression level={}", compressionLevel);
@@ -90,8 +90,7 @@ public class ZstdCompressor implements ICompressor
      * @param level
      * @return
      */
-    public static ZstdCompressor getOrCreate(int level)
-    {
+    public static ZstdCompressor getOrCreate(int level) {
         return instances.computeIfAbsent(level, l -> new ZstdCompressor(level));
     }
 
@@ -102,8 +101,7 @@ public class ZstdCompressor implements ICompressor
      * @return
      */
     @Override
-    public int initialCompressedBufferLength(int chunkLength)
-    {
+    public int initialCompressedBufferLength(int chunkLength) {
         return (int) Zstd.compressBound(chunkLength);
     }
 
@@ -119,15 +117,10 @@ public class ZstdCompressor implements ICompressor
      * @throws IOException
      */
     @Override
-    public int uncompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset)
-    throws IOException
-    {
-        long dsz = Zstd.decompressByteArray(output, outputOffset, output.length - outputOffset,
-                                            input, inputOffset, inputLength);
-
+    public int uncompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset) throws IOException {
+        long dsz = Zstd.decompressByteArray(output, outputOffset, output.length - outputOffset, input, inputOffset, inputLength);
         if (Zstd.isError(dsz))
             throw new IOException(String.format("Decompression failed due to %s", Zstd.getErrorName(dsz)));
-
         return (int) dsz;
     }
 
@@ -139,13 +132,10 @@ public class ZstdCompressor implements ICompressor
      * @throws IOException
      */
     @Override
-    public void uncompress(ByteBuffer input, ByteBuffer output) throws IOException
-    {
-        try
-        {
+    public void uncompress(ByteBuffer input, ByteBuffer output) throws IOException {
+        try {
             Zstd.decompress(output, input);
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new IOException("Decompression failed", e);
         }
     }
@@ -158,13 +148,10 @@ public class ZstdCompressor implements ICompressor
      * @throws IOException
      */
     @Override
-    public void compress(ByteBuffer input, ByteBuffer output) throws IOException
-    {
-        try
-        {
+    public void compress(ByteBuffer input, ByteBuffer output) throws IOException {
+        try {
             Zstd.compress(output, input, compressionLevel, ENABLE_CHECKSUM_FLAG);
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new IOException("Compression failed", e);
         }
     }
@@ -175,8 +162,7 @@ public class ZstdCompressor implements ICompressor
      * @param level
      * @return
      */
-    private static boolean isValid(int level)
-    {
+    private static boolean isValid(int level) {
         return (level >= FAST_COMPRESSION_LEVEL && level <= BEST_COMPRESSION_LEVEL);
     }
 
@@ -186,16 +172,12 @@ public class ZstdCompressor implements ICompressor
      * @param options
      * @return
      */
-    private static int getOrDefaultCompressionLevel(Map<String, String> options)
-    {
+    private static int getOrDefaultCompressionLevel(Map<String, String> options) {
         if (options == null)
             return DEFAULT_COMPRESSION_LEVEL;
-
         String val = options.get(COMPRESSION_LEVEL_OPTION_NAME);
-
         if (val == null)
             return DEFAULT_COMPRESSION_LEVEL;
-
         return Integer.valueOf(val);
     }
 
@@ -205,8 +187,7 @@ public class ZstdCompressor implements ICompressor
      * @return
      */
     @Override
-    public BufferType preferredBufferType()
-    {
+    public BufferType preferredBufferType() {
         return BufferType.OFF_HEAP;
     }
 
@@ -217,8 +198,7 @@ public class ZstdCompressor implements ICompressor
      * @return
      */
     @Override
-    public boolean supports(BufferType bufferType)
-    {
+    public boolean supports(BufferType bufferType) {
         return bufferType == BufferType.OFF_HEAP;
     }
 
@@ -228,21 +208,17 @@ public class ZstdCompressor implements ICompressor
      * @return
      */
     @Override
-    public Set<String> supportedOptions()
-    {
+    public Set<String> supportedOptions() {
         return new HashSet<>(Collections.singletonList(COMPRESSION_LEVEL_OPTION_NAME));
     }
 
-
     @VisibleForTesting
-    public int getCompressionLevel()
-    {
+    public int getCompressionLevel() {
         return compressionLevel;
     }
 
     @Override
-    public Set<Uses> recommendedUses()
-    {
+    public Set<Uses> recommendedUses() {
         return recommendedUses;
     }
 }

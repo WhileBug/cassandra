@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3.restrictions;
 
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.statements.Bound;
@@ -35,54 +34,47 @@ import org.apache.cassandra.index.IndexRegistry;
  * <code>TokenRestriction</code> class or by the <code>TokenFilter</code> class if the query contains a mix of token
  * restrictions and single column restrictions on the partition key.
  */
-final class PartitionKeySingleRestrictionSet extends RestrictionSetWrapper implements PartitionKeyRestrictions
-{
+final class PartitionKeySingleRestrictionSet extends RestrictionSetWrapper implements PartitionKeyRestrictions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionKeySingleRestrictionSet.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionKeySingleRestrictionSet.class);
+
     /**
      * The composite type.
      */
-    protected final ClusteringComparator comparator;
+    protected final transient ClusteringComparator comparator;
 
-    public PartitionKeySingleRestrictionSet(ClusteringComparator comparator)
-    {
+    public PartitionKeySingleRestrictionSet(ClusteringComparator comparator) {
         super(new RestrictionSet());
         this.comparator = comparator;
     }
 
-    private PartitionKeySingleRestrictionSet(PartitionKeySingleRestrictionSet restrictionSet,
-                                       SingleRestriction restriction)
-    {
+    private PartitionKeySingleRestrictionSet(PartitionKeySingleRestrictionSet restrictionSet, SingleRestriction restriction) {
         super(restrictionSet.restrictions.addRestriction(restriction));
         this.comparator = restrictionSet.comparator;
     }
 
-    private List<ByteBuffer> toByteBuffers(SortedSet<? extends ClusteringPrefix> clusterings)
-    {
+    private List<ByteBuffer> toByteBuffers(SortedSet<? extends ClusteringPrefix> clusterings) {
         List<ByteBuffer> l = new ArrayList<>(clusterings.size());
-        for (ClusteringPrefix clustering : clusterings)
-            l.add(clustering.serializeAsPartitionKey());
+        for (ClusteringPrefix clustering : clusterings) l.add(clustering.serializeAsPartitionKey());
         return l;
     }
 
     @Override
-    public PartitionKeyRestrictions mergeWith(Restriction restriction)
-    {
-        if (restriction.isOnToken())
-        {
+    public PartitionKeyRestrictions mergeWith(Restriction restriction) {
+        if (restriction.isOnToken()) {
             if (isEmpty())
                 return (PartitionKeyRestrictions) restriction;
-
             return new TokenFilter(this, (TokenRestriction) restriction);
         }
-
         return new PartitionKeySingleRestrictionSet(this, (SingleRestriction) restriction);
     }
 
     @Override
-    public List<ByteBuffer> values(QueryOptions options)
-    {
+    public List<ByteBuffer> values(QueryOptions options) {
         MultiCBuilder builder = MultiCBuilder.create(comparator, hasIN());
-        for (SingleRestriction r : restrictions)
-        {
+        for (SingleRestriction r : restrictions) {
             r.appendTo(builder, options);
             if (builder.hasMissingElements())
                 break;
@@ -91,11 +83,9 @@ final class PartitionKeySingleRestrictionSet extends RestrictionSetWrapper imple
     }
 
     @Override
-    public List<ByteBuffer> bounds(Bound bound, QueryOptions options)
-    {
+    public List<ByteBuffer> bounds(Bound bound, QueryOptions options) {
         MultiCBuilder builder = MultiCBuilder.create(comparator, hasIN());
-        for (SingleRestriction r : restrictions)
-        {
+        for (SingleRestriction r : restrictions) {
             r.appendBoundTo(builder, bound, options);
             if (builder.hasMissingElements())
                 return Collections.emptyList();
@@ -104,51 +94,41 @@ final class PartitionKeySingleRestrictionSet extends RestrictionSetWrapper imple
     }
 
     @Override
-    public boolean hasBound(Bound b)
-    {
+    public boolean hasBound(Bound b) {
         if (isEmpty())
             return false;
         return restrictions.lastRestriction().hasBound(b);
     }
 
     @Override
-    public boolean isInclusive(Bound b)
-    {
+    public boolean isInclusive(Bound b) {
         if (isEmpty())
             return false;
         return restrictions.lastRestriction().isInclusive(b);
     }
 
     @Override
-    public void addRowFilterTo(RowFilter filter,
-                               IndexRegistry indexRegistry,
-                               QueryOptions options)
-    {
-        for (SingleRestriction restriction : restrictions)
-        {
-             restriction.addRowFilterTo(filter, indexRegistry, options);
+    public void addRowFilterTo(RowFilter filter, IndexRegistry indexRegistry, QueryOptions options) {
+        for (SingleRestriction restriction : restrictions) {
+            restriction.addRowFilterTo(filter, indexRegistry, options);
         }
     }
 
     @Override
-    public boolean needFiltering(TableMetadata table)
-    {
+    public boolean needFiltering(TableMetadata table) {
         if (isEmpty())
             return false;
-
         // slice or has unrestricted key component
         return hasUnrestrictedPartitionKeyComponents(table) || hasSlice() || hasContains();
     }
 
     @Override
-    public boolean hasUnrestrictedPartitionKeyComponents(TableMetadata table)
-    {
+    public boolean hasUnrestrictedPartitionKeyComponents(TableMetadata table) {
         return size() < table.partitionKeyColumns().size();
     }
 
     @Override
-    public boolean hasSlice()
-    {
+    public boolean hasSlice() {
         return restrictions.hasSlice();
     }
 }

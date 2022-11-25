@@ -19,7 +19,6 @@
 package org.apache.cassandra.utils.memory;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.BufferDecoratedKey;
 import org.apache.cassandra.db.Clustering;
 import org.apache.cassandra.db.DecoratedKey;
@@ -31,51 +30,47 @@ import org.apache.cassandra.utils.ByteBufferUtil;
 
 /**
  * Cloner class that can be use to clone partition elements using on-heap or off-heap buffers.
- *
  */
-public abstract class ByteBufferCloner implements Cloner
-{
+public abstract class ByteBufferCloner implements Cloner {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ByteBufferCloner.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ByteBufferCloner.class);
+
     /**
      * Allocate a slice of the given length.
      */
     public abstract ByteBuffer allocate(int size);
 
     @Override
-    public DecoratedKey clone(DecoratedKey key)
-    {
+    public DecoratedKey clone(DecoratedKey key) {
         return new BufferDecoratedKey(key.getToken(), clone(key.getKey()));
     }
 
     @Override
-    public Clustering<?> clone(Clustering<?> clustering)
-    {
+    public Clustering<?> clone(Clustering<?> clustering) {
         return clustering.clone(this);
     }
 
     @Override
-    public Cell<?> clone(Cell<?> cell)
-    {
+    public Cell<?> clone(Cell<?> cell) {
         return cell.clone(this);
     }
 
-    public final ByteBuffer clone(ByteBuffer buffer)
-    {
+    public final ByteBuffer clone(ByteBuffer buffer) {
         return clone(buffer, ByteBufferAccessor.instance);
     }
 
-    public final ByteBuffer clone(byte[] bytes)
-    {
+    public final ByteBuffer clone(byte[] bytes) {
         return clone(bytes, ByteArrayAccessor.instance);
     }
 
-    public final <V> ByteBuffer clone(V value, ValueAccessor<V> accessor)
-    {
+    public final <V> ByteBuffer clone(V value, ValueAccessor<V> accessor) {
         assert value != null;
         int size = accessor.size(value);
         if (size == 0)
             return ByteBufferUtil.EMPTY_BYTE_BUFFER;
         ByteBuffer cloned = allocate(size);
-
         cloned.mark();
         accessor.write(value, cloned);
         cloned.reset();

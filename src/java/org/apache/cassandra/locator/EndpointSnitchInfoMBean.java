@@ -22,8 +22,12 @@ import java.net.UnknownHostException;
 /**
  * MBean exposing standard Snitch info
  */
-public interface EndpointSnitchInfoMBean
-{
+public interface EndpointSnitchInfoMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EndpointSnitchInfoMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EndpointSnitchInfoMBean.class);
+
     /**
      * Provides the Rack name depending on the respective snitch used, given the host name/ip
      * @param host

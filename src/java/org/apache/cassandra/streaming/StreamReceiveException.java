@@ -15,21 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
-public class StreamReceiveException extends RuntimeException
-{
-    public final StreamSession session;
+public class StreamReceiveException extends RuntimeException {
 
-    public StreamReceiveException(StreamSession session, String msg)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamReceiveException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamReceiveException.class);
+
+    public final transient StreamSession session;
+
+    public StreamReceiveException(StreamSession session, String msg) {
         super(msg);
         this.session = session;
     }
 
-    public StreamReceiveException(StreamSession session, Throwable t)
-    {
+    public StreamReceiveException(StreamSession session, Throwable t) {
         super(t);
         this.session = session;
     }

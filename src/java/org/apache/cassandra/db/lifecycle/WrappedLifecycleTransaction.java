@@ -15,102 +15,87 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.lifecycle;
 
 import java.util.Collection;
 import java.util.Set;
-
 import org.apache.cassandra.db.compaction.OperationType;
 import org.apache.cassandra.io.sstable.SSTable;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 
-public class WrappedLifecycleTransaction implements ILifecycleTransaction
-{
+public class WrappedLifecycleTransaction implements ILifecycleTransaction {
 
-    final ILifecycleTransaction delegate;
-    public WrappedLifecycleTransaction(ILifecycleTransaction delegate)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WrappedLifecycleTransaction.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WrappedLifecycleTransaction.class);
+
+    final transient ILifecycleTransaction delegate;
+
+    public WrappedLifecycleTransaction(ILifecycleTransaction delegate) {
         this.delegate = delegate;
     }
 
-    public void checkpoint()
-    {
+    public void checkpoint() {
         delegate.checkpoint();
     }
 
-    public void update(SSTableReader reader, boolean original)
-    {
+    public void update(SSTableReader reader, boolean original) {
         delegate.update(reader, original);
     }
 
-    public void update(Collection<SSTableReader> readers, boolean original)
-    {
+    public void update(Collection<SSTableReader> readers, boolean original) {
         delegate.update(readers, original);
     }
 
-    public SSTableReader current(SSTableReader reader)
-    {
+    public SSTableReader current(SSTableReader reader) {
         return delegate.current(reader);
     }
 
-    public void obsolete(SSTableReader reader)
-    {
+    public void obsolete(SSTableReader reader) {
         delegate.obsolete(reader);
     }
 
-    public void obsoleteOriginals()
-    {
+    public void obsoleteOriginals() {
         delegate.obsoleteOriginals();
     }
 
-    public Set<SSTableReader> originals()
-    {
+    public Set<SSTableReader> originals() {
         return delegate.originals();
     }
 
-    public boolean isObsolete(SSTableReader reader)
-    {
+    public boolean isObsolete(SSTableReader reader) {
         return delegate.isObsolete(reader);
     }
 
-    public Throwable commit(Throwable accumulate)
-    {
+    public Throwable commit(Throwable accumulate) {
         return delegate.commit(accumulate);
     }
 
-    public Throwable abort(Throwable accumulate)
-    {
+    public Throwable abort(Throwable accumulate) {
         return delegate.abort(accumulate);
     }
 
-    public void prepareToCommit()
-    {
+    public void prepareToCommit() {
         delegate.prepareToCommit();
     }
 
-    public void close()
-    {
+    public void close() {
         delegate.close();
     }
 
-    public void trackNew(SSTable table)
-    {
+    public void trackNew(SSTable table) {
         delegate.trackNew(table);
     }
 
-    public void untrackNew(SSTable table)
-    {
+    public void untrackNew(SSTable table) {
         delegate.untrackNew(table);
     }
 
-    public OperationType opType()
-    {
+    public OperationType opType() {
         return delegate.opType();
     }
 
-    public boolean isOffline()
-    {
+    public boolean isOffline() {
         return delegate.isOffline();
     }
 }

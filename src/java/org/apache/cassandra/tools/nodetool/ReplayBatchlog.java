@@ -15,27 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool;
 
 import java.io.IOError;
 import java.io.IOException;
-
 import io.airlift.airline.Command;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool;
 
 @Command(name = "replaybatchlog", description = "Kick off batchlog replay and wait for finish")
-public class ReplayBatchlog extends NodeTool.NodeToolCmd
-{
-    protected void execute(NodeProbe probe)
-    {
-        try
-        {
+public class ReplayBatchlog extends NodeTool.NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplayBatchlog.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplayBatchlog.class);
+
+    protected void execute(NodeProbe probe) {
+        try {
             probe.replayBatchlog();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new IOError(e);
         }
     }

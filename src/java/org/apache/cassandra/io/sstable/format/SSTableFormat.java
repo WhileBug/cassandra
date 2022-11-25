@@ -18,7 +18,6 @@
 package org.apache.cassandra.io.sstable.format;
 
 import com.google.common.base.CharMatcher;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.RowIndexEntry;
 import org.apache.cassandra.db.SerializationHeader;
@@ -27,50 +26,50 @@ import org.apache.cassandra.io.sstable.format.big.BigFormat;
 /**
  * Provides the accessors to data on disk.
  */
-public interface SSTableFormat
-{
-    static boolean enableSSTableDevelopmentTestMode = Boolean.getBoolean("cassandra.test.sstableformatdevelopment");
+public interface SSTableFormat {
 
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableFormat.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableFormat.class);
+
+    static transient boolean enableSSTableDevelopmentTestMode = Boolean.getBoolean("cassandra.test.sstableformatdevelopment");
 
     Version getLatestVersion();
+
     Version getVersion(String version);
 
     SSTableWriter.Factory getWriterFactory();
+
     SSTableReader.Factory getReaderFactory();
 
     RowIndexEntry.IndexSerializer<?> getIndexSerializer(TableMetadata metadata, Version version, SerializationHeader header);
 
-    public static enum Type
-    {
-        //The original sstable format
+    public static enum Type {
+
+        // The original sstable format
         BIG("big", BigFormat.instance);
 
         public final SSTableFormat info;
+
         public final String name;
 
-        public static Type current()
-        {
+        public static Type current() {
             return BIG;
         }
 
-        private Type(String name, SSTableFormat info)
-        {
-            //Since format comes right after generation
-            //we disallow formats with numeric names
+        private Type(String name, SSTableFormat info) {
+            // Since format comes right after generation
+            // we disallow formats with numeric names
             assert !CharMatcher.digit().matchesAllOf(name);
-
             this.name = name;
             this.info = info;
         }
 
-        public static Type validate(String name)
-        {
-            for (Type valid : Type.values())
-            {
+        public static Type validate(String name) {
+            for (Type valid : Type.values()) {
                 if (valid.name.equalsIgnoreCase(name))
                     return valid;
             }
-
             throw new IllegalArgumentException("No Type constant " + name);
         }
     }

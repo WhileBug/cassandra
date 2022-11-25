@@ -24,8 +24,12 @@ import java.util.function.BiFunction;
  * An interface defining the method to be applied to the existing and replacing object in a BTree. The objects returned
  * by the methods will be the object that need to be stored in the BTree.
  */
-public interface UpdateFunction<K, V>
-{
+public interface UpdateFunction<K, V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UpdateFunction.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UpdateFunction.class);
+
     /**
      * Computes the value that should be inserted in the BTree.
      *
@@ -48,46 +52,40 @@ public interface UpdateFunction<K, V>
      */
     void onAllocatedOnHeap(long heapSize);
 
-    public static final class Simple<V> implements UpdateFunction<V, V>
-    {
-        private final BiFunction<V, V, V> wrapped;
-        public Simple(BiFunction<V, V, V> wrapped)
-        {
+    public static final class Simple<V> implements UpdateFunction<V, V> {
+
+        private final transient BiFunction<V, V, V> wrapped;
+
+        public Simple(BiFunction<V, V, V> wrapped) {
             this.wrapped = wrapped;
         }
 
         @Override
-        public V insert(V v)
-        {
+        public V insert(V v) {
             return v;
         }
 
         @Override
-        public V merge(V replacing, V update)
-        {
+        public V merge(V replacing, V update) {
             return wrapped.apply(replacing, update);
         }
 
         @Override
-        public void onAllocatedOnHeap(long heapSize)
-        {
+        public void onAllocatedOnHeap(long heapSize) {
         }
 
-        public static <V> Simple<V> of(BiFunction<V, V, V> f)
-        {
+        public static <V> Simple<V> of(BiFunction<V, V, V> f) {
             return new Simple<>(f);
         }
 
-        Simple<V> flip()
-        {
+        Simple<V> flip() {
             return of((a, b) -> wrapped.apply(b, a));
         }
     }
 
-    static final Simple<Object> noOp = Simple.of((a, b) -> a);
+    static final transient Simple<Object> noOp = Simple.of((a, b) -> a);
 
-    public static <K> UpdateFunction<K, K> noOp()
-    {
+    public static <K> UpdateFunction<K, K> noOp() {
         return (UpdateFunction<K, K>) noOp;
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.statements.schema;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.audit.AuditLogContext;
 import org.apache.cassandra.audit.AuditLogEntryType;
 import org.apache.cassandra.auth.Permission;
@@ -34,45 +33,37 @@ import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.transport.Event.SchemaChange.Change;
 import org.apache.cassandra.transport.Event.SchemaChange.Target;
 import org.apache.cassandra.transport.Event.SchemaChange;
-
 import static java.lang.String.join;
-
 import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.common.collect.Iterables.transform;
-
 import static org.apache.cassandra.utils.ByteBufferUtil.bytes;
 
-public final class DropTypeStatement extends AlterSchemaStatement
-{
-    private final String typeName;
-    private final boolean ifExists;
+public final class DropTypeStatement extends AlterSchemaStatement {
 
-    public DropTypeStatement(String keyspaceName, String typeName, boolean ifExists)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropTypeStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropTypeStatement.class);
+
+    private final transient String typeName;
+
+    private final transient boolean ifExists;
+
+    public DropTypeStatement(String keyspaceName, String typeName, boolean ifExists) {
         super(keyspaceName);
         this.typeName = typeName;
         this.ifExists = ifExists;
     }
 
     // TODO: expand types into tuples in all dropped columns of all tables
-    public Keyspaces apply(Keyspaces schema)
-    {
+    public Keyspaces apply(Keyspaces schema) {
         ByteBuffer name = bytes(typeName);
-
         KeyspaceMetadata keyspace = schema.getNullable(keyspaceName);
-
-        UserType type = null == keyspace
-                      ? null
-                      : keyspace.types.getNullable(name);
-
-        if (null == type)
-        {
+        UserType type = null == keyspace ? null : keyspace.types.getNullable(name);
+        if (null == type) {
             if (ifExists)
                 return schema;
-
             throw ire("Type '%s.%s' doesn't exist", keyspaceName, typeName);
         }
-
         /*
          * We don't want to drop a type unless it's not used anymore (mainly because
          * if someone drops a type and recreates one with the same name but different
@@ -83,70 +74,49 @@ public final class DropTypeStatement extends AlterSchemaStatement
          * 3) existing tables referencing the type (maybe in a nested way).
          */
         Iterable<Function> functions = keyspace.functions.referencingUserType(name);
-        if (!isEmpty(functions))
-        {
-            throw ire("Cannot drop user type '%s.%s' as it is still used by functions %s",
-                      keyspaceName,
-                      typeName,
-                      join(", ", transform(functions, f -> f.name().toString())));
+        if (!isEmpty(functions)) {
+            throw ire("Cannot drop user type '%s.%s' as it is still used by functions %s", keyspaceName, typeName, join(", ", transform(functions, f -> f.name().toString())));
         }
-
         Iterable<UserType> types = keyspace.types.referencingUserType(name);
-        if (!isEmpty(types))
-        {
-            throw ire("Cannot drop user type '%s.%s' as it is still used by user types %s",
-                      keyspaceName,
-                      typeName,
-                      join(", ", transform(types, UserType::getNameAsString)));
-
+        if (!isEmpty(types)) {
+            throw ire("Cannot drop user type '%s.%s' as it is still used by user types %s", keyspaceName, typeName, join(", ", transform(types, UserType::getNameAsString)));
         }
-
         Iterable<TableMetadata> tables = keyspace.tables.referencingUserType(name);
-        if (!isEmpty(tables))
-        {
-            throw ire("Cannot drop user type '%s.%s' as it is still used by tables %s",
-                      keyspaceName,
-                      typeName,
-                      join(", ", transform(tables, t -> t.name)));
+        if (!isEmpty(tables)) {
+            throw ire("Cannot drop user type '%s.%s' as it is still used by tables %s", keyspaceName, typeName, join(", ", transform(tables, t -> t.name)));
         }
-
         return schema.withAddedOrUpdated(keyspace.withSwapped(keyspace.types.without(type)));
     }
 
-    SchemaChange schemaChangeEvent(KeyspacesDiff diff)
-    {
+    SchemaChange schemaChangeEvent(KeyspacesDiff diff) {
         return new SchemaChange(Change.DROPPED, Target.TYPE, keyspaceName, typeName);
     }
 
-    public void authorize(ClientState client)
-    {
+    public void authorize(ClientState client) {
         client.ensureKeyspacePermission(keyspaceName, Permission.DROP);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.DROP_TYPE, keyspaceName, typeName);
     }
 
-    public String toString()
-    {
+    public String toString() {
         return String.format("%s (%s, %s)", getClass().getSimpleName(), keyspaceName, typeName);
     }
 
-    public static final class Raw extends CQLStatement.Raw
-    {
-        private final UTName name;
-        private final boolean ifExists;
+    public static final class Raw extends CQLStatement.Raw {
 
-        public Raw(UTName name, boolean ifExists)
-        {
+        private final transient UTName name;
+
+        private final transient boolean ifExists;
+
+        public Raw(UTName name, boolean ifExists) {
             this.name = name;
             this.ifExists = ifExists;
         }
 
-        public DropTypeStatement prepare(ClientState state)
-        {
+        public DropTypeStatement prepare(ClientState state) {
             String keyspaceName = name.hasKeyspace() ? name.getKeyspace() : state.getKeyspace();
             return new DropTypeStatement(keyspaceName, name.getStringTypeName(), ifExists);
         }

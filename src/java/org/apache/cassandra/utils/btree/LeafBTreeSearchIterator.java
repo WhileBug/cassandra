@@ -20,26 +20,34 @@ package org.apache.cassandra.utils.btree;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.NoSuchElementException;
-
 import static org.apache.cassandra.utils.btree.BTree.size;
 
-public class LeafBTreeSearchIterator<K, V> implements BTreeSearchIterator<K, V>
-{
-    private final boolean forwards;
-    private final K[] keys;
-    private final Comparator<? super K> comparator;
-    private int nextPos;
-    private final int lowerBound, upperBound; // inclusive
-    private boolean hasNext;
-    private boolean hasCurrent;
+public class LeafBTreeSearchIterator<K, V> implements BTreeSearchIterator<K, V> {
 
-    public LeafBTreeSearchIterator(Object[] btree, Comparator<? super K> comparator, BTree.Dir dir)
-    {
-        this(btree, comparator, dir, 0, size(btree) -1);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LeafBTreeSearchIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LeafBTreeSearchIterator.class);
+
+    private final transient boolean forwards;
+
+    private final transient K[] keys;
+
+    private final transient Comparator<? super K> comparator;
+
+    private transient int nextPos;
+
+    // inclusive
+    private final transient int lowerBound, upperBound;
+
+    private transient boolean hasNext;
+
+    private transient boolean hasCurrent;
+
+    public LeafBTreeSearchIterator(Object[] btree, Comparator<? super K> comparator, BTree.Dir dir) {
+        this(btree, comparator, dir, 0, size(btree) - 1);
     }
 
-    LeafBTreeSearchIterator(Object[] btree, Comparator<? super K> comparator, BTree.Dir dir, int lowerBound, int upperBound)
-    {
+    LeafBTreeSearchIterator(Object[] btree, Comparator<? super K> comparator, BTree.Dir dir, int lowerBound, int upperBound) {
         this.keys = (K[]) btree;
         this.forwards = dir == BTree.Dir.ASC;
         this.comparator = comparator;
@@ -48,14 +56,12 @@ public class LeafBTreeSearchIterator<K, V> implements BTreeSearchIterator<K, V>
         rewind();
     }
 
-    public void rewind()
-    {
+    public void rewind() {
         nextPos = forwards ? lowerBound : upperBound;
         hasNext = nextPos >= lowerBound && nextPos <= upperBound;
     }
 
-    public V next()
-    {
+    public V next() {
         if (!hasNext)
             throw new NoSuchElementException();
         final V elem = (V) keys[nextPos];
@@ -65,52 +71,42 @@ public class LeafBTreeSearchIterator<K, V> implements BTreeSearchIterator<K, V>
         return elem;
     }
 
-    public boolean hasNext()
-    {
+    public boolean hasNext() {
         return hasNext;
     }
 
-    private int searchNext(K key)
-    {
-        int lb = forwards ? nextPos : lowerBound; // inclusive
-        int ub = forwards ? upperBound : nextPos; // inclusive
-
+    private int searchNext(K key) {
+        // inclusive
+        int lb = forwards ? nextPos : lowerBound;
+        // inclusive
+        int ub = forwards ? upperBound : nextPos;
         return Arrays.binarySearch(keys, lb, ub + 1, key, comparator);
     }
 
-    private void updateHasNext()
-    {
+    private void updateHasNext() {
         hasNext = nextPos >= lowerBound && nextPos <= upperBound;
     }
 
-    public V next(K key)
-    {
+    public V next(K key) {
         if (!hasNext)
             return null;
         V result = null;
-
         // first check the current position in case of sequential access
-        if (comparator.compare(keys[nextPos], key) == 0)
-        {
+        if (comparator.compare(keys[nextPos], key) == 0) {
             hasCurrent = true;
             result = (V) keys[nextPos];
             nextPos += forwards ? 1 : -1;
         }
         updateHasNext();
-
         if (result != null || !hasNext)
             return result;
-
         // otherwise search against the remaining values
         int find = searchNext(key);
-        if (find >= 0)
-        {
+        if (find >= 0) {
             hasCurrent = true;
             result = (V) keys[find];
             nextPos = find + (forwards ? 1 : -1);
-        }
-        else
-        {
+        } else {
             nextPos = (forwards ? -1 : -2) - find;
             hasCurrent = false;
         }
@@ -118,16 +114,14 @@ public class LeafBTreeSearchIterator<K, V> implements BTreeSearchIterator<K, V>
         return result;
     }
 
-    public V current()
-    {
+    public V current() {
         if (!hasCurrent)
             throw new NoSuchElementException();
         int current = forwards ? nextPos - 1 : nextPos + 1;
         return (V) keys[current];
     }
 
-    public int indexOfCurrent()
-    {
+    public int indexOfCurrent() {
         if (!hasCurrent)
             throw new NoSuchElementException();
         int current = forwards ? nextPos - 1 : nextPos + 1;

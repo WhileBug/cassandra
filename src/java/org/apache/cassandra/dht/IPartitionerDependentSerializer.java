@@ -19,7 +19,6 @@ package org.apache.cassandra.dht;
 
 import java.io.DataInput;
 import java.io.IOException;
-
 import org.apache.cassandra.io.util.DataOutputPlus;
 
 /**
@@ -28,8 +27,12 @@ import org.apache.cassandra.io.util.DataOutputPlus;
  * On serialization the partitioner is given by the entity being serialized. To deserialize the partitioner used must
  * be known to the calling method.
  */
-public interface IPartitionerDependentSerializer<T>
-{
+public interface IPartitionerDependentSerializer<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IPartitionerDependentSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IPartitionerDependentSerializer.class);
+
     /**
      * Serialize the specified type into the specified DataOutputStream instance.
      *

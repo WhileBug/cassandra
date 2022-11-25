@@ -22,47 +22,46 @@ import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import com.google.common.base.Objects;
-
 import com.codahale.metrics.Snapshot;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.schema.TableParams;
 
-public class PercentileSpeculativeRetryPolicy implements SpeculativeRetryPolicy
-{
-    public static final PercentileSpeculativeRetryPolicy NINETY_NINE_P = new PercentileSpeculativeRetryPolicy(99.0);
+public class PercentileSpeculativeRetryPolicy implements SpeculativeRetryPolicy {
 
-    private static final Pattern PATTERN = Pattern.compile("^(?<val>[0-9.]+)p(ercentile)?$", Pattern.CASE_INSENSITIVE);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PercentileSpeculativeRetryPolicy.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PercentileSpeculativeRetryPolicy.class);
+
+    public static final transient PercentileSpeculativeRetryPolicy NINETY_NINE_P = new PercentileSpeculativeRetryPolicy(99.0);
+
+    private static final transient Pattern PATTERN = Pattern.compile("^(?<val>[0-9.]+)p(ercentile)?$", Pattern.CASE_INSENSITIVE);
+
     /**
      * The pattern above uses dot as decimal separator, so we use {@link Locale#ENGLISH} to enforce that. (CASSANDRA-14374)
      */
-    private static final DecimalFormat FORMATTER = new DecimalFormat("#.####", new DecimalFormatSymbols(Locale.ENGLISH));
+    private static final transient DecimalFormat FORMATTER = new DecimalFormat("#.####", new DecimalFormatSymbols(Locale.ENGLISH));
 
-    private final double percentile;
+    private final transient double percentile;
 
-    public PercentileSpeculativeRetryPolicy(double percentile)
-    {
+    public PercentileSpeculativeRetryPolicy(double percentile) {
         this.percentile = percentile;
     }
 
     @Override
-    public long calculateThreshold(Snapshot latency, long existingValue)
-    {
+    public long calculateThreshold(Snapshot latency, long existingValue) {
         if (latency.size() <= 0)
             return existingValue;
         return (long) latency.getValue(percentile / 100);
     }
 
     @Override
-    public Kind kind()
-    {
+    public Kind kind() {
         return Kind.PERCENTILE;
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         if (!(obj instanceof PercentileSpeculativeRetryPolicy))
             return false;
         PercentileSpeculativeRetryPolicy rhs = (PercentileSpeculativeRetryPolicy) obj;
@@ -70,47 +69,33 @@ public class PercentileSpeculativeRetryPolicy implements SpeculativeRetryPolicy
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(kind(), percentile);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("%sp", FORMATTER.format(percentile));
     }
 
-    static PercentileSpeculativeRetryPolicy fromString(String str)
-    {
+    static PercentileSpeculativeRetryPolicy fromString(String str) {
         Matcher matcher = PATTERN.matcher(str);
-
         if (!matcher.matches())
             throw new IllegalArgumentException();
-
         String val = matcher.group("val");
-
         double percentile;
-        try
-        {
+        try {
             percentile = Double.parseDouble(val);
-        }
-        catch (IllegalArgumentException e)
-        {
+        } catch (IllegalArgumentException e) {
             throw new ConfigurationException(String.format("Invalid value %s for option '%s'", str, TableParams.Option.SPECULATIVE_RETRY));
         }
-
-        if (percentile <= 0.0 || percentile >= 100.0)
-        {
-            throw new ConfigurationException(String.format("Invalid value %s for PERCENTILE option '%s': must be between (0.0 and 100.0)",
-                                                           str, TableParams.Option.SPECULATIVE_RETRY));
+        if (percentile <= 0.0 || percentile >= 100.0) {
+            throw new ConfigurationException(String.format("Invalid value %s for PERCENTILE option '%s': must be between (0.0 and 100.0)", str, TableParams.Option.SPECULATIVE_RETRY));
         }
-
         return new PercentileSpeculativeRetryPolicy(percentile);
     }
 
-    static boolean stringMatches(String str)
-    {
+    static boolean stringMatches(String str) {
         return PATTERN.matcher(str).matches();
     }
 }

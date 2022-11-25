@@ -15,19 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.diag.store;
 
 import java.util.NavigableMap;
-
 import org.apache.cassandra.diag.DiagnosticEvent;
 
 /**
  * Enables storing and retrieving {@link DiagnosticEvent}s.
  * @param <T> type of key that is used to reference an event
  */
-public interface DiagnosticEventStore<T extends Comparable<T>>
-{
+public interface DiagnosticEventStore<T extends Comparable<T>> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DiagnosticEventStore.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DiagnosticEventStore.class);
+
     /**
      * Initializes the store.
      */

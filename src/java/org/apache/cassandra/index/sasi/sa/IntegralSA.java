@@ -21,62 +21,54 @@ import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
-
 import org.apache.cassandra.index.sasi.disk.OnDiskIndexBuilder;
 import org.apache.cassandra.index.sasi.disk.TokenTreeBuilder;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.utils.Pair;
 
-public class IntegralSA extends SA<ByteBuffer>
-{
-    public IntegralSA(AbstractType<?> comparator, OnDiskIndexBuilder.Mode mode)
-    {
+public class IntegralSA extends SA<ByteBuffer> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IntegralSA.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IntegralSA.class);
+
+    public IntegralSA(AbstractType<?> comparator, OnDiskIndexBuilder.Mode mode) {
         super(comparator, mode);
     }
 
-    public Term<ByteBuffer> getTerm(ByteBuffer termValue, TokenTreeBuilder tokens)
-    {
+    public Term<ByteBuffer> getTerm(ByteBuffer termValue, TokenTreeBuilder tokens) {
         return new ByteTerm(charCount, termValue, tokens);
     }
 
-    public TermIterator finish()
-    {
+    public TermIterator finish() {
         return new IntegralSuffixIterator();
     }
 
+    private class IntegralSuffixIterator extends TermIterator {
 
-    private class IntegralSuffixIterator extends TermIterator
-    {
-        private final Iterator<Term<ByteBuffer>> termIterator;
+        private final transient Iterator<Term<ByteBuffer>> termIterator;
 
-        public IntegralSuffixIterator()
-        {
-            Collections.sort(terms, new Comparator<Term<?>>()
-            {
-                public int compare(Term<?> a, Term<?> b)
-                {
+        public IntegralSuffixIterator() {
+            Collections.sort(terms, new Comparator<Term<?>>() {
+
+                public int compare(Term<?> a, Term<?> b) {
                     return a.compareTo(comparator, b);
                 }
             });
-
             termIterator = terms.iterator();
         }
 
-        public ByteBuffer minTerm()
-        {
+        public ByteBuffer minTerm() {
             return terms.get(0).getTerm();
         }
 
-        public ByteBuffer maxTerm()
-        {
+        public ByteBuffer maxTerm() {
             return terms.get(terms.size() - 1).getTerm();
         }
 
-        protected Pair<IndexedTerm, TokenTreeBuilder> computeNext()
-        {
+        protected Pair<IndexedTerm, TokenTreeBuilder> computeNext() {
             if (!termIterator.hasNext())
                 return endOfData();
-
             Term<ByteBuffer> term = termIterator.next();
             return Pair.create(new IndexedTerm(term.getTerm(), false), term.getTokens().finish());
         }

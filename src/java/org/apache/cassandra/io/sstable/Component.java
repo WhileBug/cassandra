@@ -19,7 +19,6 @@ package org.apache.cassandra.io.sstable;
 
 import java.util.EnumSet;
 import java.util.regex.Pattern;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 
@@ -28,18 +27,22 @@ import com.google.common.base.Objects;
  * identified by a type and an id, but required unique components (such as the Data
  * and Index files) may have implicit ids assigned to them.
  */
-public class Component
-{
-    public static final char separator = '-';
+public class Component {
 
-    final static EnumSet<Type> TYPES = EnumSet.allOf(Type.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Component.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Component.class);
+
+    public static final transient char separator = '-';
+
+    final static transient EnumSet<Type> TYPES = EnumSet.allOf(Type.class);
 
     /**
      * WARNING: Be careful while changing the names or string representation of the enum
      * members. Streaming code depends on the names during streaming (Ref: CASSANDRA-14556).
      */
-    public enum Type
-    {
+    public enum Type {
+
         // the base data for an sstable: the remaining components can be regenerated
         // based on the data component
         DATA("Data.db"),
@@ -66,16 +69,13 @@ public class Component
 
         final String repr;
 
-        Type(String repr)
-        {
+        Type(String repr) {
             this.repr = repr;
         }
 
         @VisibleForTesting
-        public static Type fromRepresentation(String repr)
-        {
-            for (Type type : TYPES)
-            {
+        public static Type fromRepresentation(String repr) {
+            for (Type type : TYPES) {
                 if (type.repr != null && Pattern.matches(type.repr, repr))
                     return type;
             }
@@ -84,28 +84,36 @@ public class Component
     }
 
     // singleton components for types that don't need ids
-    public final static Component DATA = new Component(Type.DATA);
-    public final static Component PRIMARY_INDEX = new Component(Type.PRIMARY_INDEX);
-    public final static Component FILTER = new Component(Type.FILTER);
-    public final static Component COMPRESSION_INFO = new Component(Type.COMPRESSION_INFO);
-    public final static Component STATS = new Component(Type.STATS);
-    public final static Component DIGEST = new Component(Type.DIGEST);
-    public final static Component CRC = new Component(Type.CRC);
-    public final static Component SUMMARY = new Component(Type.SUMMARY);
-    public final static Component TOC = new Component(Type.TOC);
+    public final static transient Component DATA = new Component(Type.DATA);
 
-    public final Type type;
-    public final String name;
-    public final int hashCode;
+    public final static transient Component PRIMARY_INDEX = new Component(Type.PRIMARY_INDEX);
 
-    public Component(Type type)
-    {
+    public final static transient Component FILTER = new Component(Type.FILTER);
+
+    public final static transient Component COMPRESSION_INFO = new Component(Type.COMPRESSION_INFO);
+
+    public final static transient Component STATS = new Component(Type.STATS);
+
+    public final static transient Component DIGEST = new Component(Type.DIGEST);
+
+    public final static transient Component CRC = new Component(Type.CRC);
+
+    public final static transient Component SUMMARY = new Component(Type.SUMMARY);
+
+    public final static transient Component TOC = new Component(Type.TOC);
+
+    public final transient Type type;
+
+    public final transient String name;
+
+    public final transient int hashCode;
+
+    public Component(Type type) {
         this(type, type.repr);
         assert type != Type.CUSTOM;
     }
 
-    public Component(Type type, String name)
-    {
+    public Component(Type type, String name) {
         assert name != null : "Component name cannot be null";
         this.type = type;
         this.name = name;
@@ -115,8 +123,7 @@ public class Component
     /**
      * @return The unique (within an sstable) name for this component.
      */
-    public String name()
-    {
+    public String name() {
         return name;
     }
 
@@ -127,48 +134,54 @@ public class Component
      * @return the component corresponding to {@code name}. Note that this always return a component as an unrecognized
      * name is parsed into a CUSTOM component.
      */
-    public static Component parse(String name)
-    {
+    public static Component parse(String name) {
         Type type = Type.fromRepresentation(name);
-
         // Build (or retrieve singleton for) the component object
-        switch (type)
-        {
-            case DATA:             return Component.DATA;
-            case PRIMARY_INDEX:    return Component.PRIMARY_INDEX;
-            case FILTER:           return Component.FILTER;
-            case COMPRESSION_INFO: return Component.COMPRESSION_INFO;
-            case STATS:            return Component.STATS;
-            case DIGEST:           return Component.DIGEST;
-            case CRC:              return Component.CRC;
-            case SUMMARY:          return Component.SUMMARY;
-            case TOC:              return Component.TOC;
-            case SECONDARY_INDEX:  return new Component(Type.SECONDARY_INDEX, name);
-            case CUSTOM:           return new Component(Type.CUSTOM, name);
-            default:               throw new AssertionError();
+        switch(type) {
+            case DATA:
+                return Component.DATA;
+            case PRIMARY_INDEX:
+                return Component.PRIMARY_INDEX;
+            case FILTER:
+                return Component.FILTER;
+            case COMPRESSION_INFO:
+                return Component.COMPRESSION_INFO;
+            case STATS:
+                return Component.STATS;
+            case DIGEST:
+                return Component.DIGEST;
+            case CRC:
+                return Component.CRC;
+            case SUMMARY:
+                return Component.SUMMARY;
+            case TOC:
+                return Component.TOC;
+            case SECONDARY_INDEX:
+                return new Component(Type.SECONDARY_INDEX, name);
+            case CUSTOM:
+                return new Component(Type.CUSTOM, name);
+            default:
+                throw new AssertionError();
         }
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return this.name();
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (o == this)
             return true;
         if (!(o instanceof Component))
             return false;
-        Component that = (Component)o;
+        Component that = (Component) o;
         return this.type == that.type && this.name.equals(that.name);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return hashCode;
     }
 }

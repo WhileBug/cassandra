@@ -15,20 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming.async;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4SafeDecompressor;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.net.AsyncStreamingOutputPlus;
-
 import static org.apache.cassandra.net.MessagingService.current_version;
 
 /**
@@ -40,22 +37,24 @@ import static org.apache.cassandra.net.MessagingService.current_version;
  * - int - uncompressed payload length
  * - bytes - compressed payload
  */
-public class StreamCompressionSerializer
-{
-    private final ByteBufAllocator allocator;
+public class StreamCompressionSerializer {
 
-    public StreamCompressionSerializer(ByteBufAllocator allocator)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamCompressionSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamCompressionSerializer.class);
+
+    private final transient ByteBufAllocator allocator;
+
+    public StreamCompressionSerializer(ByteBufAllocator allocator) {
         this.allocator = allocator;
     }
 
     /**
      * Length of heaer data, which includes compressed length, uncompressed length.
      */
-    private static final int HEADER_LENGTH = 8;
+    private static final transient int HEADER_LENGTH = 8;
 
-    public static AsyncStreamingOutputPlus.Write serialize(LZ4Compressor compressor, ByteBuffer in, int version)
-    {
+    public static AsyncStreamingOutputPlus.Write serialize(LZ4Compressor compressor, ByteBuffer in, int version) {
         assert version == current_version;
         return bufferSupplier -> {
             int uncompressedLength = in.remaining();
@@ -73,53 +72,40 @@ public class StreamCompressionSerializer
     /**
      * @return A buffer with decompressed data.
      */
-    public ByteBuf deserialize(LZ4SafeDecompressor decompressor, DataInputPlus in, int version) throws IOException
-    {
+    public ByteBuf deserialize(LZ4SafeDecompressor decompressor, DataInputPlus in, int version) throws IOException {
         final int compressedLength = in.readInt();
         final int uncompressedLength = in.readInt();
-
         // there's no guarantee the next compressed block is contained within one buffer in the input,
         // so hence we need a 'staging' buffer to get all the bytes into one contiguous buffer for the decompressor
         ByteBuf compressed = null;
         ByteBuf uncompressed = null;
-        try
-        {
+        try {
             final ByteBuffer compressedNioBuffer;
-
             // ReadableByteChannel allows us to keep the bytes off-heap because we pass a ByteBuffer to RBC.read(BB),
             // DataInputPlus.read() takes a byte array (thus, an on-heap array).
-            if (in instanceof ReadableByteChannel)
-            {
+            if (in instanceof ReadableByteChannel) {
                 compressed = allocator.directBuffer(compressedLength);
                 compressedNioBuffer = compressed.nioBuffer(0, compressedLength);
                 int readLength = ((ReadableByteChannel) in).read(compressedNioBuffer);
                 assert readLength == compressedNioBuffer.position();
                 compressedNioBuffer.flip();
-            }
-            else
-            {
+            } else {
                 byte[] compressedBytes = new byte[compressedLength];
                 in.readFully(compressedBytes);
                 compressedNioBuffer = ByteBuffer.wrap(compressedBytes);
             }
-
             uncompressed = allocator.directBuffer(uncompressedLength);
             ByteBuffer uncompressedNioBuffer = uncompressed.nioBuffer(0, uncompressedLength);
             decompressor.decompress(compressedNioBuffer, uncompressedNioBuffer);
             uncompressed.writerIndex(uncompressedLength);
             return uncompressed;
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             if (uncompressed != null)
                 uncompressed.release();
-
             if (e instanceof IOException)
                 throw e;
             throw new IOException(e);
-        }
-        finally
-        {
+        } finally {
             if (compressed != null)
                 compressed.release();
         }

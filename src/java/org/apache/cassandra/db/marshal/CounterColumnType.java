@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.marshal;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.cql3.CQL3Type;
 import org.apache.cassandra.cql3.Term;
 import org.apache.cassandra.db.context.CounterContext;
@@ -28,104 +27,93 @@ import org.apache.cassandra.transport.ProtocolVersion;
 import org.apache.cassandra.serializers.TypeSerializer;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class CounterColumnType extends NumberType<Long>
-{
-    public static final CounterColumnType instance = new CounterColumnType();
+public class CounterColumnType extends NumberType<Long> {
 
-    CounterColumnType() {super(ComparisonType.NOT_COMPARABLE);} // singleton
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CounterColumnType.class);
 
-    public boolean isEmptyValueMeaningless()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CounterColumnType.class);
+
+    public static final transient CounterColumnType instance = new CounterColumnType();
+
+    // singleton
+    CounterColumnType() {
+        super(ComparisonType.NOT_COMPARABLE);
+    }
+
+    public boolean isEmptyValueMeaningless() {
         return true;
     }
 
-    public boolean isCounter()
-    {
+    public boolean isCounter() {
         return true;
     }
 
-    public <V> Long compose(V value, ValueAccessor<V> accessor)
-    {
+    public <V> Long compose(V value, ValueAccessor<V> accessor) {
         return CounterContext.instance().total(value, accessor);
     }
 
     @Override
-    public ByteBuffer decompose(Long value)
-    {
+    public ByteBuffer decompose(Long value) {
         return ByteBufferUtil.bytes(value);
     }
 
     @Override
-    public <V> void validateCellValue(V cellValue, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validateCellValue(V cellValue, ValueAccessor<V> accessor) throws MarshalException {
         CounterContext.instance().validateContext(cellValue, accessor);
     }
 
-    public <V> String getString(V value, ValueAccessor<V> accessor)
-    {
+    public <V> String getString(V value, ValueAccessor<V> accessor) {
         return accessor.toHex(value);
     }
 
-    public ByteBuffer fromString(String source)
-    {
+    public ByteBuffer fromString(String source) {
         return ByteBufferUtil.hexToBytes(source);
     }
 
     @Override
-    public Term fromJSONObject(Object parsed)
-    {
+    public Term fromJSONObject(Object parsed) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion)
-    {
+    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion) {
         return CounterSerializer.instance.deserialize(buffer).toString();
     }
 
-    public CQL3Type asCQL3Type()
-    {
+    public CQL3Type asCQL3Type() {
         return CQL3Type.Native.COUNTER;
     }
 
-    public TypeSerializer<Long> getSerializer()
-    {
+    public TypeSerializer<Long> getSerializer() {
         return CounterSerializer.instance;
     }
 
     @Override
-    protected long toLong(ByteBuffer value)
-    {
+    protected long toLong(ByteBuffer value) {
         return ByteBufferUtil.toLong(value);
     }
 
-    public ByteBuffer add(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer add(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toLong(left) + rightType.toLong(right));
     }
 
-    public ByteBuffer substract(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer substract(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toLong(left) - rightType.toLong(right));
     }
 
-    public ByteBuffer multiply(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer multiply(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toLong(left) * rightType.toLong(right));
     }
 
-    public ByteBuffer divide(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer divide(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toLong(left) / rightType.toLong(right));
     }
 
-    public ByteBuffer mod(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right)
-    {
+    public ByteBuffer mod(NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
         return ByteBufferUtil.bytes(leftType.toLong(left) % rightType.toLong(right));
     }
 
-    public ByteBuffer negate(ByteBuffer input)
-    {
+    public ByteBuffer negate(ByteBuffer input) {
         return ByteBufferUtil.bytes(-toLong(input));
     }
 }

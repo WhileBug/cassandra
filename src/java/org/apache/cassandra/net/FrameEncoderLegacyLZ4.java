@@ -18,7 +18,6 @@
 package org.apache.cassandra.net;
 
 import java.nio.ByteBuffer;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import net.jpountz.lz4.LZ4Compressor;
@@ -28,7 +27,6 @@ import net.jpountz.xxhash.XXHashFactory;
 import org.apache.cassandra.io.compress.BufferType;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.memory.BufferPool;
-
 import static java.lang.Integer.reverseBytes;
 import static java.lang.Math.min;
 import static org.apache.cassandra.net.LegacyLZ4Constants.*;
@@ -47,63 +45,52 @@ import static org.apache.cassandra.net.LegacyLZ4Constants.*;
  * used by this encoder.
  */
 @ChannelHandler.Sharable
-class FrameEncoderLegacyLZ4 extends FrameEncoder
-{
-    static final FrameEncoderLegacyLZ4 instance =
-        new FrameEncoderLegacyLZ4(XXHashFactory.fastestInstance().hash32(),
-                                  LZ4Factory.fastestInstance().fastCompressor());
+class FrameEncoderLegacyLZ4 extends FrameEncoder {
 
-    private final XXHash32 xxhash;
-    private final LZ4Compressor compressor;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameEncoderLegacyLZ4.class);
 
-    private FrameEncoderLegacyLZ4(XXHash32 xxhash, LZ4Compressor compressor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameEncoderLegacyLZ4.class);
+
+    static final transient FrameEncoderLegacyLZ4 instance = new FrameEncoderLegacyLZ4(XXHashFactory.fastestInstance().hash32(), LZ4Factory.fastestInstance().fastCompressor());
+
+    private final transient XXHash32 xxhash;
+
+    private final transient LZ4Compressor compressor;
+
+    private FrameEncoderLegacyLZ4(XXHash32 xxhash, LZ4Compressor compressor) {
         this.xxhash = xxhash;
         this.compressor = compressor;
     }
 
     @Override
-    ByteBuf encode(boolean isSelfContained, ByteBuffer payload)
-    {
+    ByteBuf encode(boolean isSelfContained, ByteBuffer payload) {
         ByteBuffer frame = null;
-        try
-        {
+        try {
             frame = bufferPool.getAtLeast(calculateMaxFrameLength(payload), BufferType.OFF_HEAP);
-
-            int   frameOffset = 0;
+            int frameOffset = 0;
             int payloadOffset = 0;
-
             int payloadLength = payload.remaining();
-            while (payloadOffset < payloadLength)
-            {
+            while (payloadOffset < payloadLength) {
                 int blockLength = min(DEFAULT_BLOCK_LENGTH, payloadLength - payloadOffset);
                 frameOffset += compressBlock(frame, frameOffset, payload, payloadOffset, blockLength);
                 payloadOffset += blockLength;
             }
-
             frame.limit(frameOffset);
             bufferPool.putUnusedPortion(frame);
-
             return GlobalBufferPoolAllocator.wrap(frame);
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             if (null != frame)
                 bufferPool.put(frame);
             throw t;
-        }
-        finally
-        {
+        } finally {
             bufferPool.put(payload);
         }
     }
 
-    private int compressBlock(ByteBuffer frame, int frameOffset, ByteBuffer payload, int payloadOffset, int blockLength)
-    {
+    private int compressBlock(ByteBuffer frame, int frameOffset, ByteBuffer payload, int payloadOffset, int blockLength) {
         int frameBytesRemaining = frame.limit() - (frameOffset + HEADER_LENGTH);
         int compressedLength = compressor.compress(payload, payloadOffset, blockLength, frame, frameOffset + HEADER_LENGTH, frameBytesRemaining);
-        if (compressedLength >= blockLength)
-        {
+        if (compressedLength >= blockLength) {
             ByteBufferUtil.copyBytes(payload, payloadOffset, frame, frameOffset + HEADER_LENGTH, blockLength);
             compressedLength = blockLength;
         }
@@ -112,24 +99,20 @@ class FrameEncoderLegacyLZ4 extends FrameEncoder
         return HEADER_LENGTH + compressedLength;
     }
 
-    private static final byte TOKEN_NON_COMPRESSED = 0x15;
-    private static final byte TOKEN_COMPRESSED     = 0x25;
+    private static final transient byte TOKEN_NON_COMPRESSED = 0x15;
 
-    private static void writeHeader(ByteBuffer frame, int frameOffset, int compressedLength, int uncompressedLength, int checksum)
-    {
-        byte token = compressedLength == uncompressedLength
-                   ? TOKEN_NON_COMPRESSED
-                   : TOKEN_COMPRESSED;
+    private static final transient byte TOKEN_COMPRESSED = 0x25;
 
-        frame.putLong(frameOffset + MAGIC_NUMBER_OFFSET,        MAGIC_NUMBER                    );
-        frame.put    (frameOffset + TOKEN_OFFSET,               token                           );
-        frame.putInt (frameOffset + COMPRESSED_LENGTH_OFFSET,   reverseBytes(compressedLength)  );
-        frame.putInt (frameOffset + UNCOMPRESSED_LENGTH_OFFSET, reverseBytes(uncompressedLength));
-        frame.putInt (frameOffset + CHECKSUM_OFFSET,            reverseBytes(checksum)          );
+    private static void writeHeader(ByteBuffer frame, int frameOffset, int compressedLength, int uncompressedLength, int checksum) {
+        byte token = compressedLength == uncompressedLength ? TOKEN_NON_COMPRESSED : TOKEN_COMPRESSED;
+        frame.putLong(frameOffset + MAGIC_NUMBER_OFFSET, MAGIC_NUMBER);
+        frame.put(frameOffset + TOKEN_OFFSET, token);
+        frame.putInt(frameOffset + COMPRESSED_LENGTH_OFFSET, reverseBytes(compressedLength));
+        frame.putInt(frameOffset + UNCOMPRESSED_LENGTH_OFFSET, reverseBytes(uncompressedLength));
+        frame.putInt(frameOffset + CHECKSUM_OFFSET, reverseBytes(checksum));
     }
 
-    private int calculateMaxFrameLength(ByteBuffer payload)
-    {
+    private int calculateMaxFrameLength(ByteBuffer payload) {
         int payloadLength = payload.remaining();
         int blockCount = payloadLength / DEFAULT_BLOCK_LENGTH + (payloadLength % DEFAULT_BLOCK_LENGTH != 0 ? 1 : 0);
         return compressor.maxCompressedLength(payloadLength) + HEADER_LENGTH * blockCount;

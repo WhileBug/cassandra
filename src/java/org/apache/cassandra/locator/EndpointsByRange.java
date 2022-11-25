@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import com.google.common.base.Preconditions;
@@ -24,42 +23,37 @@ import com.google.common.collect.Maps;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.locator.ReplicaCollection.Builder.Conflict;
-
 import java.util.Map;
 
-public class EndpointsByRange extends ReplicaMultimap<Range<Token>, EndpointsForRange>
-{
-    public EndpointsByRange(Map<Range<Token>, EndpointsForRange> map)
-    {
+public class EndpointsByRange extends ReplicaMultimap<Range<Token>, EndpointsForRange> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EndpointsByRange.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EndpointsByRange.class);
+
+    public EndpointsByRange(Map<Range<Token>, EndpointsForRange> map) {
         super(map);
     }
 
-    public EndpointsForRange get(Range<Token> range)
-    {
+    public EndpointsForRange get(Range<Token> range) {
         Preconditions.checkNotNull(range);
         return map.getOrDefault(range, EndpointsForRange.empty(range));
     }
 
-    public static class Builder extends ReplicaMultimap.Builder<Range<Token>, EndpointsForRange.Builder>
-    {
+    public static class Builder extends ReplicaMultimap.Builder<Range<Token>, EndpointsForRange.Builder> {
+
         @Override
-        protected EndpointsForRange.Builder newBuilder(Range<Token> range)
-        {
+        protected EndpointsForRange.Builder newBuilder(Range<Token> range) {
             return new EndpointsForRange.Builder(range);
         }
 
         // TODO: consider all ignoreDuplicates cases
-        public void putAll(Range<Token> range, EndpointsForRange replicas, Conflict ignoreConflicts)
-        {
+        public void putAll(Range<Token> range, EndpointsForRange replicas, Conflict ignoreConflicts) {
             get(range).addAll(replicas, ignoreConflicts);
         }
 
-        public EndpointsByRange build()
-        {
-            return new EndpointsByRange(
-                    ImmutableMap.copyOf(
-                            Maps.transformValues(this.map, EndpointsForRange.Builder::build)));
+        public EndpointsByRange build() {
+            return new EndpointsByRange(ImmutableMap.copyOf(Maps.transformValues(this.map, EndpointsForRange.Builder::build)));
         }
     }
-
 }

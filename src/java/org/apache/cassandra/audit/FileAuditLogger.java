@@ -15,45 +15,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.audit;
 
 import java.util.Map;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Synchronous, file-based audit logger; just uses the standard logging mechansim.
  */
-public class FileAuditLogger implements IAuditLogger
-{
-    protected static final Logger logger = LoggerFactory.getLogger(FileAuditLogger.class);
+public class FileAuditLogger implements IAuditLogger {
 
-    private volatile boolean enabled;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FileAuditLogger.class);
 
-    public FileAuditLogger(Map<String, String> params)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FileAuditLogger.class);
+
+    protected static final transient Logger logger = LoggerFactory.getLogger(FileAuditLogger.class);
+
+    private volatile transient boolean enabled;
+
+    public FileAuditLogger(Map<String, String> params) {
         enabled = true;
     }
 
     @Override
-    public boolean isEnabled()
-    {
+    public boolean isEnabled() {
         return enabled;
     }
 
     @Override
-    public void log(AuditLogEntry auditLogEntry)
-    {
+    public void log(AuditLogEntry auditLogEntry) {
         // don't bother with the volatile read of enabled here. just go ahead and log, other components
         // will check the enbaled field.
         logger.info(auditLogEntry.getLogString());
     }
 
     @Override
-    public void stop()
-    {
+    public void stop() {
         enabled = false;
     }
 }

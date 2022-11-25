@@ -20,9 +20,7 @@ package org.apache.cassandra.index.sasi;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.function.BiFunction;
-
 import com.googlecode.concurrenttrees.common.Iterables;
-
 import org.apache.cassandra.config.*;
 import org.apache.cassandra.cql3.Operator;
 import org.apache.cassandra.cql3.statements.schema.IndexTarget;
@@ -59,305 +57,242 @@ import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.Pair;
 import org.apache.cassandra.utils.concurrent.OpOrder;
-
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class SASIIndex implements Index, INotificationConsumer
-{
-    public final static String USAGE_WARNING = "SASI indexes are experimental and are not recommended for production use.";
+public class SASIIndex implements Index, INotificationConsumer {
 
-    private static class SASIIndexBuildingSupport implements IndexBuildingSupport
-    {
-        public SecondaryIndexBuilder getIndexBuildTask(ColumnFamilyStore cfs,
-                                                       Set<Index> indexes,
-                                                       Collection<SSTableReader> sstablesToRebuild)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SASIIndex.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SASIIndex.class);
+
+    public final static transient String USAGE_WARNING = "SASI indexes are experimental and are not recommended for production use.";
+
+    private static class SASIIndexBuildingSupport implements IndexBuildingSupport {
+
+        public SecondaryIndexBuilder getIndexBuildTask(ColumnFamilyStore cfs, Set<Index> indexes, Collection<SSTableReader> sstablesToRebuild) {
             NavigableMap<SSTableReader, Map<ColumnMetadata, ColumnIndex>> sstables = new TreeMap<>((a, b) -> {
                 return Integer.compare(a.descriptor.generation, b.descriptor.generation);
             });
-
-            indexes.stream()
-                   .filter((i) -> i instanceof SASIIndex)
-                   .forEach((i) -> {
-                       SASIIndex sasi = (SASIIndex) i;
-                       sasi.index.dropData(sstablesToRebuild);
-                       sstablesToRebuild.stream()
-                                        .filter((sstable) -> !sasi.index.hasSSTable(sstable))
-                                        .forEach((sstable) -> {
-                                            Map<ColumnMetadata, ColumnIndex> toBuild = sstables.get(sstable);
-                                            if (toBuild == null)
-                                                sstables.put(sstable, (toBuild = new HashMap<>()));
-
-                                            toBuild.put(sasi.index.getDefinition(), sasi.index);
-                                        });
-                   });
-
+            indexes.stream().filter((i) -> i instanceof SASIIndex).forEach((i) -> {
+                SASIIndex sasi = (SASIIndex) i;
+                sasi.index.dropData(sstablesToRebuild);
+                sstablesToRebuild.stream().filter((sstable) -> !sasi.index.hasSSTable(sstable)).forEach((sstable) -> {
+                    Map<ColumnMetadata, ColumnIndex> toBuild = sstables.get(sstable);
+                    if (toBuild == null)
+                        sstables.put(sstable, (toBuild = new HashMap<>()));
+                    toBuild.put(sasi.index.getDefinition(), sasi.index);
+                });
+            });
             return new SASIIndexBuilder(cfs, sstables);
         }
     }
 
-    private static final SASIIndexBuildingSupport INDEX_BUILDER_SUPPORT = new SASIIndexBuildingSupport();
+    private static final transient SASIIndexBuildingSupport INDEX_BUILDER_SUPPORT = new SASIIndexBuildingSupport();
 
-    private final ColumnFamilyStore baseCfs;
-    private final IndexMetadata config;
-    private final ColumnIndex index;
+    private final transient ColumnFamilyStore baseCfs;
 
-    public SASIIndex(ColumnFamilyStore baseCfs, IndexMetadata config)
-    {
+    private final transient IndexMetadata config;
+
+    private final transient ColumnIndex index;
+
+    public SASIIndex(ColumnFamilyStore baseCfs, IndexMetadata config) {
         this.baseCfs = baseCfs;
         this.config = config;
-
         ColumnMetadata column = TargetParser.parse(baseCfs.metadata(), config).left;
         this.index = new ColumnIndex(baseCfs.metadata().partitionKeyType, column, config);
-
         Tracker tracker = baseCfs.getTracker();
         tracker.subscribe(this);
-
-        SortedMap<SSTableReader, Map<ColumnMetadata, ColumnIndex>> toRebuild = new TreeMap<>((a, b)
-                                                -> Integer.compare(a.descriptor.generation, b.descriptor.generation));
-
-        for (SSTableReader sstable : index.init(tracker.getView().liveSSTables()))
-        {
+        SortedMap<SSTableReader, Map<ColumnMetadata, ColumnIndex>> toRebuild = new TreeMap<>((a, b) -> Integer.compare(a.descriptor.generation, b.descriptor.generation));
+        for (SSTableReader sstable : index.init(tracker.getView().liveSSTables())) {
             Map<ColumnMetadata, ColumnIndex> perSSTable = toRebuild.get(sstable);
             if (perSSTable == null)
                 toRebuild.put(sstable, (perSSTable = new HashMap<>()));
-
             perSSTable.put(index.getDefinition(), index);
         }
-
         CompactionManager.instance.submitIndexBuild(new SASIIndexBuilder(baseCfs, toRebuild));
     }
 
     /**
      * Called via reflection at {@link IndexMetadata#validateCustomIndexOptions}
      */
-    public static Map<String, String> validateOptions(Map<String, String> options, TableMetadata metadata)
-    {
+    public static Map<String, String> validateOptions(Map<String, String> options, TableMetadata metadata) {
         if (!(metadata.partitioner instanceof Murmur3Partitioner))
             throw new ConfigurationException("SASI only supports Murmur3Partitioner.");
-
         String targetColumn = options.get("target");
         if (targetColumn == null)
             throw new ConfigurationException("unknown target column");
-
         Pair<ColumnMetadata, IndexTarget.Type> target = TargetParser.parse(metadata, targetColumn);
         if (target == null)
             throw new ConfigurationException("failed to retrieve target column for: " + targetColumn);
-
         if (target.left.isComplex())
             throw new ConfigurationException("complex columns are not yet supported by SASI");
-
         if (target.left.isPartitionKey())
             throw new ConfigurationException("partition key columns are not yet supported by SASI");
-
         IndexMode.validateAnalyzer(options, target.left);
-
         IndexMode mode = IndexMode.getMode(target.left, options);
-        if (mode.mode == Mode.SPARSE)
-        {
+        if (mode.mode == Mode.SPARSE) {
             if (mode.isLiteral)
                 throw new ConfigurationException("SPARSE mode is only supported on non-literal columns.");
-
             if (mode.isAnalyzed)
                 throw new ConfigurationException("SPARSE mode doesn't support analyzers.");
         }
-
         return Collections.emptyMap();
     }
 
-    public void register(IndexRegistry registry)
-    {
+    public void register(IndexRegistry registry) {
         registry.registerIndex(this);
     }
 
-    public IndexMetadata getIndexMetadata()
-    {
+    public IndexMetadata getIndexMetadata() {
         return config;
     }
 
-    public Callable<?> getInitializationTask()
-    {
+    public Callable<?> getInitializationTask() {
         return null;
     }
 
-    public Callable<?> getMetadataReloadTask(IndexMetadata indexMetadata)
-    {
+    public Callable<?> getMetadataReloadTask(IndexMetadata indexMetadata) {
         return null;
     }
 
-    public Callable<?> getBlockingFlushTask()
-    {
-        return null; // SASI indexes are flushed along side memtable
+    public Callable<?> getBlockingFlushTask() {
+        // SASI indexes are flushed along side memtable
+        return null;
     }
 
-    public Callable<?> getInvalidateTask()
-    {
+    public Callable<?> getInvalidateTask() {
         return getTruncateTask(FBUtilities.timestampMicros());
     }
 
-    public Callable<?> getTruncateTask(long truncatedAt)
-    {
+    public Callable<?> getTruncateTask(long truncatedAt) {
         return () -> {
             index.dropData(truncatedAt);
             return null;
         };
     }
 
-    public boolean shouldBuildBlocking()
-    {
+    public boolean shouldBuildBlocking() {
         return true;
     }
 
-    public Optional<ColumnFamilyStore> getBackingTable()
-    {
+    public Optional<ColumnFamilyStore> getBackingTable() {
         return Optional.empty();
     }
 
-    public boolean indexes(RegularAndStaticColumns columns)
-    {
+    public boolean indexes(RegularAndStaticColumns columns) {
         return columns.contains(index.getDefinition());
     }
 
-    public boolean dependsOn(ColumnMetadata column)
-    {
+    public boolean dependsOn(ColumnMetadata column) {
         return index.getDefinition().compareTo(column) == 0;
     }
 
-    public boolean supportsExpression(ColumnMetadata column, Operator operator)
-    {
+    public boolean supportsExpression(ColumnMetadata column, Operator operator) {
         return dependsOn(column) && index.supports(operator);
     }
 
-    public AbstractType<?> customExpressionValueType()
-    {
+    public AbstractType<?> customExpressionValueType() {
         return null;
     }
 
-    public RowFilter getPostIndexQueryFilter(RowFilter filter)
-    {
+    public RowFilter getPostIndexQueryFilter(RowFilter filter) {
         return filter.withoutExpressions();
     }
 
-    public long getEstimatedResultRows()
-    {
+    public long getEstimatedResultRows() {
         // this is temporary (until proper QueryPlan is integrated into Cassandra)
         // and allows us to priority SASI indexes if any in the query since they
         // are going to be more efficient, to query and intersect, than built-in indexes.
         return Long.MIN_VALUE;
     }
 
-    public void validate(PartitionUpdate update) throws InvalidRequestException
-    {}
+    public void validate(PartitionUpdate update) throws InvalidRequestException {
+    }
 
     @Override
-    public boolean supportsReplicaFilteringProtection(RowFilter rowFilter)
-    {
+    public boolean supportsReplicaFilteringProtection(RowFilter rowFilter) {
         return false;
     }
 
-    public Indexer indexerFor(DecoratedKey key, RegularAndStaticColumns columns, int nowInSec, WriteContext context, IndexTransaction.Type transactionType)
-    {
-        return new Indexer()
-        {
-            public void begin()
-            {}
+    public Indexer indexerFor(DecoratedKey key, RegularAndStaticColumns columns, int nowInSec, WriteContext context, IndexTransaction.Type transactionType) {
+        return new Indexer() {
 
-            public void partitionDelete(DeletionTime deletionTime)
-            {}
+            public void begin() {
+            }
 
-            public void rangeTombstone(RangeTombstone tombstone)
-            {}
+            public void partitionDelete(DeletionTime deletionTime) {
+            }
 
-            public void insertRow(Row row)
-            {
+            public void rangeTombstone(RangeTombstone tombstone) {
+            }
+
+            public void insertRow(Row row) {
                 if (isNewData())
                     adjustMemtableSize(index.index(key, row), CassandraWriteContext.fromContext(context).getGroup());
             }
 
-            public void updateRow(Row oldRow, Row newRow)
-            {
+            public void updateRow(Row oldRow, Row newRow) {
                 insertRow(newRow);
             }
 
-            public void removeRow(Row row)
-            {}
+            public void removeRow(Row row) {
+            }
 
-            public void finish()
-            {}
+            public void finish() {
+            }
 
             // we are only interested in the data from Memtable
             // everything else is going to be handled by SSTableWriter observers
-            private boolean isNewData()
-            {
+            private boolean isNewData() {
                 return transactionType == IndexTransaction.Type.UPDATE;
             }
 
-            public void adjustMemtableSize(long additionalSpace, OpOrder.Group opGroup)
-            {
+            public void adjustMemtableSize(long additionalSpace, OpOrder.Group opGroup) {
                 baseCfs.getTracker().getView().getCurrentMemtable().getAllocator().onHeap().allocate(additionalSpace, opGroup);
             }
         };
     }
 
-    public Searcher searcherFor(ReadCommand command) throws InvalidRequestException
-    {
+    public Searcher searcherFor(ReadCommand command) throws InvalidRequestException {
         TableMetadata config = command.metadata();
         ColumnFamilyStore cfs = Schema.instance.getColumnFamilyStoreInstance(config.id);
         return controller -> new QueryPlan(cfs, command, DatabaseDescriptor.getRangeRpcTimeout(MILLISECONDS)).execute(controller);
     }
 
-    public SSTableFlushObserver getFlushObserver(Descriptor descriptor, OperationType opType)
-    {
+    public SSTableFlushObserver getFlushObserver(Descriptor descriptor, OperationType opType) {
         return newWriter(baseCfs.metadata().partitionKeyType, descriptor, Collections.singletonMap(index.getDefinition(), index), opType);
     }
 
-    public BiFunction<PartitionIterator, ReadCommand, PartitionIterator> postProcessorFor(ReadCommand command)
-    {
+    public BiFunction<PartitionIterator, ReadCommand, PartitionIterator> postProcessorFor(ReadCommand command) {
         return (partitionIterator, readCommand) -> partitionIterator;
     }
 
-    public IndexBuildingSupport getBuildTaskSupport()
-    {
+    public IndexBuildingSupport getBuildTaskSupport() {
         return INDEX_BUILDER_SUPPORT;
     }
 
-    public void handleNotification(INotification notification, Object sender)
-    {
+    public void handleNotification(INotification notification, Object sender) {
         // unfortunately, we can only check the type of notification via instanceof :(
-        if (notification instanceof SSTableAddedNotification)
-        {
+        if (notification instanceof SSTableAddedNotification) {
             SSTableAddedNotification notice = (SSTableAddedNotification) notification;
             index.update(Collections.<SSTableReader>emptyList(), Iterables.toList(notice.added));
-        }
-        else if (notification instanceof SSTableListChangedNotification)
-        {
+        } else if (notification instanceof SSTableListChangedNotification) {
             SSTableListChangedNotification notice = (SSTableListChangedNotification) notification;
             index.update(notice.removed, notice.added);
-        }
-        else if (notification instanceof MemtableRenewedNotification)
-        {
+        } else if (notification instanceof MemtableRenewedNotification) {
             index.switchMemtable();
-        }
-        else if (notification instanceof MemtableSwitchedNotification)
-        {
+        } else if (notification instanceof MemtableSwitchedNotification) {
             index.switchMemtable(((MemtableSwitchedNotification) notification).memtable);
-        }
-        else if (notification instanceof MemtableDiscardedNotification)
-        {
+        } else if (notification instanceof MemtableDiscardedNotification) {
             index.discardMemtable(((MemtableDiscardedNotification) notification).memtable);
         }
     }
 
-    public ColumnIndex getIndex()
-    {
+    public ColumnIndex getIndex() {
         return index;
     }
 
-    protected static PerSSTableIndexWriter newWriter(AbstractType<?> keyValidator,
-                                                     Descriptor descriptor,
-                                                     Map<ColumnMetadata, ColumnIndex> indexes,
-                                                     OperationType opType)
-    {
+    protected static PerSSTableIndexWriter newWriter(AbstractType<?> keyValidator, Descriptor descriptor, Map<ColumnMetadata, ColumnIndex> indexes, OperationType opType) {
         return new PerSSTableIndexWriter(keyValidator, descriptor, opType, indexes);
     }
 }

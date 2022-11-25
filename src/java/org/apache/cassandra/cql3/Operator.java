@@ -24,110 +24,100 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public enum Operator
-{
-    EQ(0)
-    {
+public enum Operator {
+
+    EQ(0) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "=";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return type.compareForCQL(leftOperand, rightOperand) == 0;
         }
-    },
-    LT(4)
-    {
+    }
+    ,
+    LT(4) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "<";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return type.compareForCQL(leftOperand, rightOperand) < 0;
         }
-    },
-    LTE(3)
-    {
+    }
+    ,
+    LTE(3) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "<=";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return type.compareForCQL(leftOperand, rightOperand) <= 0;
         }
-    },
-    GTE(1)
-    {
+    }
+    ,
+    GTE(1) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return ">=";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return type.compareForCQL(leftOperand, rightOperand) >= 0;
         }
-    },
-    GT(2)
-    {
+    }
+    ,
+    GT(2) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return ">";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return type.compareForCQL(leftOperand, rightOperand) > 0;
         }
-    },
-    IN(7)
-    {
+    }
+    ,
+    IN(7) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "IN";
         }
 
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             List<?> inValues = ListType.getInstance(type, false).getSerializer().deserialize(rightOperand);
             return inValues.contains(type.getSerializer().deserialize(leftOperand));
         }
-    },
-    CONTAINS(5)
-    {
+    }
+    ,
+    CONTAINS(5) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "CONTAINS";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
-            switch(((CollectionType<?>) type).kind)
-            {
-                case LIST :
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
+            switch(((CollectionType<?>) type).kind) {
+                case LIST:
                     ListType<?> listType = (ListType<?>) type;
                     List<?> list = listType.getSerializer().deserialize(leftOperand);
                     return list.contains(listType.getElementsType().getSerializer().deserialize(rightOperand));
@@ -143,121 +133,113 @@ public enum Operator
                     throw new AssertionError();
             }
         }
-    },
-    CONTAINS_KEY(6)
-    {
+    }
+    ,
+    CONTAINS_KEY(6) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "CONTAINS KEY";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             MapType<?, ?> mapType = (MapType<?, ?>) type;
             Map<?, ?> map = mapType.getSerializer().deserialize(leftOperand);
             return map.containsKey(mapType.getKeysType().getSerializer().deserialize(rightOperand));
         }
-    },
-    NEQ(8)
-    {
+    }
+    ,
+    NEQ(8) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "!=";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return type.compareForCQL(leftOperand, rightOperand) != 0;
-
         }
-    },
-    IS_NOT(9)
-    {
+    }
+    ,
+    IS_NOT(9) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "IS NOT";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             throw new UnsupportedOperationException();
         }
-    },
-    LIKE_PREFIX(10)
-    {
+    }
+    ,
+    LIKE_PREFIX(10) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "LIKE '<term>%'";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return ByteBufferUtil.startsWith(leftOperand, rightOperand);
         }
-    },
-    LIKE_SUFFIX(11)
-    {
+    }
+    ,
+    LIKE_SUFFIX(11) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "LIKE '%<term>'";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return ByteBufferUtil.endsWith(leftOperand, rightOperand);
         }
-    },
-    LIKE_CONTAINS(12)
-    {
+    }
+    ,
+    LIKE_CONTAINS(12) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "LIKE '%<term>%'";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return ByteBufferUtil.contains(leftOperand, rightOperand);
         }
-    },
-    LIKE_MATCHES(13)
-    {
+    }
+    ,
+    LIKE_MATCHES(13) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "LIKE '<term>'";
         }
 
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             return ByteBufferUtil.contains(leftOperand, rightOperand);
         }
-    },
-    LIKE(14)
-    {
+    }
+    ,
+    LIKE(14) {
+
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "LIKE";
         }
 
         @Override
-        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand)
-        {
+        public boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand) {
             throw new UnsupportedOperationException();
         }
-    };
+    }
+    ;
 
     /**
      * The binary representation of this <code>Enum</code> value.
@@ -268,8 +250,7 @@ public enum Operator
      * Creates a new <code>Operator</code> with the specified binary representation.
      * @param b the binary representation of this <code>Enum</code> value
      */
-    private Operator(int b)
-    {
+    private Operator(int b) {
         this.b = b;
     }
 
@@ -279,13 +260,11 @@ public enum Operator
      * @param output the output to write to
      * @throws IOException if an I/O problem occurs while writing to the specified output
      */
-    public void writeTo(DataOutput output) throws IOException
-    {
+    public void writeTo(DataOutput output) throws IOException {
         output.writeInt(b);
     }
 
-    public int getValue()
-    {
+    public int getValue() {
         return b;
     }
 
@@ -296,14 +275,11 @@ public enum Operator
      * @return the <code>Operator</code> instance deserialized
      * @throws IOException if a problem occurs while deserializing the <code>Type</code> instance.
      */
-    public static Operator readFrom(DataInput input) throws IOException
-    {
-          int b = input.readInt();
-          for (Operator operator : values())
-              if (operator.b == b)
-                  return operator;
-
-          throw new IOException(String.format("Cannot resolve Relation.Type from binary representation: %s", b));
+    public static Operator readFrom(DataInput input) throws IOException {
+        int b = input.readInt();
+        for (Operator operator : values()) if (operator.b == b)
+            return operator;
+        throw new IOException(String.format("Cannot resolve Relation.Type from binary representation: %s", b));
     }
 
     /**
@@ -311,8 +287,7 @@ public enum Operator
      */
     public abstract boolean isSatisfiedBy(AbstractType<?> type, ByteBuffer leftOperand, ByteBuffer rightOperand);
 
-    public int serializedSize()
-    {
+    public int serializedSize() {
         return 4;
     }
 
@@ -320,23 +295,20 @@ public enum Operator
      * Checks if this operator is a slice operator.
      * @return {@code true} if this operator is a slice operator, {@code false} otherwise.
      */
-    public boolean isSlice()
-    {
+    public boolean isSlice() {
         return this == LT || this == LTE || this == GT || this == GTE;
     }
 
     @Override
-    public String toString()
-    {
-         return this.name();
+    public String toString() {
+        return this.name();
     }
 
     /**
      * Checks if this operator is an IN operator.
      * @return {@code true} if this operator is an IN operator, {@code false} otherwise.
      */
-    public boolean isIN()
-    {
+    public boolean isIN() {
         return this == IN;
     }
 }

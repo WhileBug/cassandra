@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.index.transactions;
 
 /**
@@ -41,17 +40,22 @@ package org.apache.cassandra.index.transactions;
  *   along with the rows within those partitions. Like with compaction, these transactions are currently scoped to a
  *   single row within a partition, but this could be improved with batching.
  */
-public interface IndexTransaction
-{
+public interface IndexTransaction {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexTransaction.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexTransaction.class);
+
     /**
      * Used to differentiate between type of index transaction when obtaining
      * a handler from Index implementations.
      */
-    public enum Type
-    {
+    public enum Type {
+
         UPDATE, COMPACTION, CLEANUP
     }
 
     void start();
+
     void commit();
 }

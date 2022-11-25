@@ -25,10 +25,8 @@ import javax.security.auth.callback.*;
 import javax.security.auth.login.FailedLoginException;
 import javax.security.auth.login.LoginException;
 import javax.security.auth.spi.LoginModule;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.exceptions.AuthenticationException;
 import org.apache.cassandra.service.StorageService;
@@ -37,23 +35,30 @@ import org.apache.cassandra.service.StorageService;
  * LoginModule which authenticates a user towards the Cassandra database using
  * the internal authentication mechanism.
  */
-public class CassandraLoginModule implements LoginModule
-{
-    private static final Logger logger = LoggerFactory.getLogger(CassandraLoginModule.class);
+public class CassandraLoginModule implements LoginModule {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraLoginModule.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraLoginModule.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(CassandraLoginModule.class);
 
     // initial state
-    private Subject subject;
-    private CallbackHandler callbackHandler;
+    private transient Subject subject;
+
+    private transient CallbackHandler callbackHandler;
 
     // the authentication status
-    private boolean succeeded = false;
-    private boolean commitSucceeded = false;
+    private transient boolean succeeded = false;
+
+    private transient boolean commitSucceeded = false;
 
     // username and password
-    private String username;
-    private char[] password;
+    private transient String username;
 
-    private CassandraPrincipal principal;
+    private transient char[] password;
+
+    private transient CassandraPrincipal principal;
 
     /**
      * Initialize this {@code}LoginModule{@code}.
@@ -66,11 +71,7 @@ public class CassandraLoginModule implements LoginModule
      *        {@code}LoginModule{@code}. This param is unused
      */
     @Override
-    public void initialize(Subject subject,
-                           CallbackHandler callbackHandler,
-                           Map<java.lang.String, ?> sharedState,
-                           Map<java.lang.String, ?> options)
-    {
+    public void initialize(Subject subject, CallbackHandler callbackHandler, Map<java.lang.String, ?> sharedState, Map<java.lang.String, ?> options) {
         this.subject = subject;
         this.callbackHandler = callbackHandler;
     }
@@ -88,20 +89,16 @@ public class CassandraLoginModule implements LoginModule
      * perform the authentication.
      */
     @Override
-    public boolean login() throws LoginException
-    {
+    public boolean login() throws LoginException {
         // prompt for a user name and password
-        if (callbackHandler == null)
-        {
+        if (callbackHandler == null) {
             logger.info("No CallbackHandler available for authentication");
             throw new LoginException("Authentication failed");
         }
-
         NameCallback nc = new NameCallback("username: ");
         PasswordCallback pc = new PasswordCallback("password: ", false);
-        try
-        {
-            callbackHandler.handle(new Callback[]{nc, pc});
+        try {
+            callbackHandler.handle(new Callback[] { nc, pc });
             username = nc.getName();
             char[] tmpPassword = pc.getPassword();
             if (tmpPassword == null)
@@ -109,35 +106,26 @@ public class CassandraLoginModule implements LoginModule
             password = new char[tmpPassword.length];
             System.arraycopy(tmpPassword, 0, password, 0, tmpPassword.length);
             pc.clearPassword();
-        }
-        catch (IOException | UnsupportedCallbackException e)
-        {
+        } catch (IOException | UnsupportedCallbackException e) {
             logger.info("Unexpected exception processing authentication callbacks", e);
             throw new LoginException("Authentication failed");
         }
-
         // verify the credentials
-        try
-        {
+        try {
             authenticate();
-        }
-        catch (AuthenticationException e)
-        {
+        } catch (AuthenticationException e) {
             // authentication failed -- clean up
             succeeded = false;
             cleanUpInternalState();
             throw new FailedLoginException(e.getMessage());
         }
-
         succeeded = true;
         return true;
     }
 
-    private void authenticate()
-    {
+    private void authenticate() {
         if (!StorageService.instance.isAuthSetupComplete())
             throw new AuthenticationException("Cannot login as server authentication setup is not yet completed");
-
         IAuthenticator authenticator = DatabaseDescriptor.getAuthenticator();
         Map<String, String> credentials = new HashMap<>();
         credentials.put(PasswordAuthenticator.USERNAME_KEY, username);
@@ -146,7 +134,6 @@ public class CassandraLoginModule implements LoginModule
         // Only actual users should be allowed to authenticate for JMX
         if (user.isAnonymous() || user.isSystem())
             throw new AuthenticationException(String.format("Invalid user %s", user.getName()));
-
         // The LOGIN privilege is required to authenticate - c.f. ClientState::login
         if (!DatabaseDescriptor.getRoleManager().canLogin(user.getPrimaryRole()))
             throw new AuthenticationException(user.getName() + " is not permitted to log in");
@@ -168,20 +155,15 @@ public class CassandraLoginModule implements LoginModule
      * @exception LoginException if the commit fails.
      */
     @Override
-    public boolean commit() throws LoginException
-    {
-        if (!succeeded)
-        {
+    public boolean commit() throws LoginException {
+        if (!succeeded) {
             return false;
-        }
-        else
-        {
+        } else {
             // add a Principal (authenticated identity)
             // to the Subject
             principal = new CassandraPrincipal(username);
             if (!subject.getPrincipals().contains(principal))
                 subject.getPrincipals().add(principal);
-
             cleanUpInternalState();
             commitSucceeded = true;
             return true;
@@ -202,21 +184,15 @@ public class CassandraLoginModule implements LoginModule
      * @throws LoginException if the abort fails.
      */
     @Override
-    public boolean abort() throws LoginException
-    {
-        if (!succeeded)
-        {
+    public boolean abort() throws LoginException {
+        if (!succeeded) {
             return false;
-        }
-        else if (!commitSucceeded)
-        {
+        } else if (!commitSucceeded) {
             // login succeeded but overall authentication failed
             succeeded = false;
             cleanUpInternalState();
             principal = null;
-        }
-        else
-        {
+        } else {
             // overall authentication succeeded and commit succeeded,
             // but someone else's commit failed
             logout();
@@ -235,8 +211,7 @@ public class CassandraLoginModule implements LoginModule
      * @throws LoginException if the logout fails.
      */
     @Override
-    public boolean logout() throws LoginException
-    {
+    public boolean logout() throws LoginException {
         subject.getPrincipals().remove(principal);
         succeeded = false;
         cleanUpInternalState();
@@ -244,13 +219,10 @@ public class CassandraLoginModule implements LoginModule
         return true;
     }
 
-    private void cleanUpInternalState()
-    {
+    private void cleanUpInternalState() {
         username = null;
-        if (password != null)
-        {
-            for (int i = 0; i < password.length; i++)
-                password[i] = ' ';
+        if (password != null) {
+            for (int i = 0; i < password.length; i++) password[i] = ' ';
             password = null;
         }
     }

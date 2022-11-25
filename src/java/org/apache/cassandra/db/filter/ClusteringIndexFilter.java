@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.filter;
 
 import java.io.IOException;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.partitions.CachedPartition;
 import org.apache.cassandra.db.partitions.Partition;
@@ -35,25 +34,27 @@ import org.apache.cassandra.schema.TableMetadata;
  * the storage engine can do without filtering (and without 2ndary indexes). This does not include
  * the restrictions on non-PK columns which can be found in {@link RowFilter}.
  */
-public interface ClusteringIndexFilter
-{
-    public static final Serializer serializer = AbstractClusteringIndexFilter.serializer;
+public interface ClusteringIndexFilter {
 
-    public enum Kind
-    {
-        SLICE (ClusteringIndexSliceFilter.deserializer),
-        NAMES (ClusteringIndexNamesFilter.deserializer);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringIndexFilter.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringIndexFilter.class);
+
+    public static final transient Serializer serializer = AbstractClusteringIndexFilter.serializer;
+
+    public enum Kind {
+
+        SLICE(ClusteringIndexSliceFilter.deserializer), NAMES(ClusteringIndexNamesFilter.deserializer);
 
         protected final InternalDeserializer deserializer;
 
-        private Kind(InternalDeserializer deserializer)
-        {
+        private Kind(InternalDeserializer deserializer) {
             this.deserializer = deserializer;
         }
     }
 
-    static interface InternalDeserializer
-    {
+    static interface InternalDeserializer {
+
         public ClusteringIndexFilter deserialize(DataInputPlus in, int version, TableMetadata metadata, boolean reversed) throws IOException;
     }
 
@@ -153,12 +154,15 @@ public interface ClusteringIndexFilter
     public Kind kind();
 
     public String toString(TableMetadata metadata);
+
     public String toCQLString(TableMetadata metadata);
 
-    public interface Serializer
-    {
+    public interface Serializer {
+
         public void serialize(ClusteringIndexFilter filter, DataOutputPlus out, int version) throws IOException;
+
         public ClusteringIndexFilter deserialize(DataInputPlus in, int version, TableMetadata metadata) throws IOException;
+
         public long serializedSize(ClusteringIndexFilter filter, int version);
     }
 }

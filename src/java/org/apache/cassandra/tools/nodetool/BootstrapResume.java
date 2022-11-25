@@ -18,25 +18,23 @@
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
-
 import java.io.IOError;
 import java.io.IOException;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "resume", description = "Resume bootstrap streaming")
-public class BootstrapResume extends NodeToolCmd
-{
+public class BootstrapResume extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BootstrapResume.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BootstrapResume.class);
+
     @Override
-    protected void execute(NodeProbe probe)
-    {
-        try
-        {
+    protected void execute(NodeProbe probe) {
+        try {
             probe.resumeBootstrap(probe.output().out);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new IOError(e);
         }
     }

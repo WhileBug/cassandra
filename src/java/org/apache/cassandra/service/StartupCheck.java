@@ -31,8 +31,12 @@ import org.apache.cassandra.exceptions.StartupException;
  * The StartupChecks class manages a collection of these tests, which it executes
  * right at the beginning of the server settup process.
  */
-public interface StartupCheck
-{
+public interface StartupCheck {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StartupCheck.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StartupCheck.class);
+
     /**
      * Run some test to determine whether the system is safe to be started
      * In the case where a test determines it is not safe to proceed, the

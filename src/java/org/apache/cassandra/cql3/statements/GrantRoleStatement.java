@@ -28,28 +28,28 @@ import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class GrantRoleStatement extends RoleManagementStatement
-{
-    public GrantRoleStatement(RoleName name, RoleName grantee)
-    {
+public class GrantRoleStatement extends RoleManagementStatement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GrantRoleStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GrantRoleStatement.class);
+
+    public GrantRoleStatement(RoleName name, RoleName grantee) {
         super(name, grantee);
     }
 
-    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException
-    {
+    public ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException {
         DatabaseDescriptor.getRoleManager().grantRole(state.getUser(), role, grantee);
         return null;
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.GRANT);
     }
 }

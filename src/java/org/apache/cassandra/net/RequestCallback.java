@@ -26,8 +26,12 @@ import org.apache.cassandra.locator.InetAddressAndPort;
  * service.  In particular, if any shared state is referenced, making
  * response alone synchronized will not suffice.
  */
-public interface RequestCallback<T>
-{
+public interface RequestCallback<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RequestCallback.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RequestCallback.class);
+
     /**
      * @param msg response received.
      */
@@ -36,15 +40,13 @@ public interface RequestCallback<T>
     /**
      * Called when there is an exception on the remote node or timeout happens
      */
-    default void onFailure(InetAddressAndPort from, RequestFailureReason failureReason)
-    {
+    default void onFailure(InetAddressAndPort from, RequestFailureReason failureReason) {
     }
 
     /**
      * @return true if the callback should be invoked on failure
      */
-    default boolean invokeOnFailure()
-    {
+    default boolean invokeOnFailure() {
         return false;
     }
 
@@ -52,8 +54,7 @@ public interface RequestCallback<T>
      * @return true if this callback is on the read path and its latency should be
      * given as input to the dynamic snitch.
      */
-    default boolean trackLatencyForSnitch()
-    {
+    default boolean trackLatencyForSnitch() {
         return false;
     }
 }

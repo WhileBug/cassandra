@@ -17,15 +17,17 @@
  */
 package org.apache.cassandra.exceptions;
 
-public class UnauthorizedException extends RequestValidationException
-{
-    public UnauthorizedException(String msg)
-    {
+public class UnauthorizedException extends RequestValidationException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnauthorizedException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnauthorizedException.class);
+
+    public UnauthorizedException(String msg) {
         super(ExceptionCode.UNAUTHORIZED, msg);
     }
 
-    public UnauthorizedException(String msg, Throwable e)
-    {
+    public UnauthorizedException(String msg, Throwable e) {
         super(ExceptionCode.UNAUTHORIZED, msg, e);
     }
 }

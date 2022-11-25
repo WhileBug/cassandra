@@ -21,31 +21,32 @@ import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputStreamPlus;
 import org.apache.cassandra.streaming.StreamSession;
 
-public class SessionFailedMessage extends StreamMessage
-{
-    public static Serializer<SessionFailedMessage> serializer = new Serializer<SessionFailedMessage>()
-    {
-        public SessionFailedMessage deserialize(DataInputPlus in, int version)
-        {
+public class SessionFailedMessage extends StreamMessage {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SessionFailedMessage.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SessionFailedMessage.class);
+
+    public static transient Serializer<SessionFailedMessage> serializer = new Serializer<SessionFailedMessage>() {
+
+        public SessionFailedMessage deserialize(DataInputPlus in, int version) {
             return new SessionFailedMessage();
         }
 
-        public void serialize(SessionFailedMessage message, DataOutputStreamPlus out, int version, StreamSession session) {}
+        public void serialize(SessionFailedMessage message, DataOutputStreamPlus out, int version, StreamSession session) {
+        }
 
-        public long serializedSize(SessionFailedMessage message, int version)
-        {
+        public long serializedSize(SessionFailedMessage message, int version) {
             return 0;
         }
     };
 
-    public SessionFailedMessage()
-    {
+    public SessionFailedMessage() {
         super(Type.SESSION_FAILED);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "Session Failed";
     }
 }

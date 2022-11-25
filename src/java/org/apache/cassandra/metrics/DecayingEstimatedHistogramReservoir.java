@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.metrics;
 
 import java.io.OutputStream;
@@ -25,15 +24,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLongArray;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
-
 import com.codahale.metrics.Clock;
 import com.codahale.metrics.Reservoir;
 import com.codahale.metrics.Snapshot;
 import org.apache.cassandra.utils.EstimatedHistogram;
-
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -76,46 +72,51 @@ import static java.lang.Math.min;
  *   <li>[3]: https://github.com/dropwizard/metrics/blob/v3.1.2/metrics-core/src/main/java/com/codahale/metrics/ExponentiallyDecayingReservoir.java</li>
  * </ul>
  */
-public class DecayingEstimatedHistogramReservoir implements Reservoir
-{
+public class DecayingEstimatedHistogramReservoir implements Reservoir {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DecayingEstimatedHistogramReservoir.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DecayingEstimatedHistogramReservoir.class);
 
     /**
      * The default number of decayingBuckets. Use this bucket count to reduce memory allocation for bucket offsets.
      */
-    public static final int DEFAULT_BUCKET_COUNT = 164;
-    public static final int DEFAULT_STRIPE_COUNT = Integer.parseInt(System.getProperty("cassandra.dehr_stripe_count", "2"));
-    public static final int MAX_BUCKET_COUNT = 237;
-    public static final boolean DEFAULT_ZERO_CONSIDERATION = false;
+    public static final transient int DEFAULT_BUCKET_COUNT = 164;
 
-    private static final int[] DISTRIBUTION_PRIMES = new int[] { 17, 19, 23, 29 };
+    public static final transient int DEFAULT_STRIPE_COUNT = Integer.parseInt(System.getProperty("cassandra.dehr_stripe_count", "2"));
+
+    public static final transient int MAX_BUCKET_COUNT = 237;
+
+    public static final transient boolean DEFAULT_ZERO_CONSIDERATION = false;
+
+    private static final transient int[] DISTRIBUTION_PRIMES = new int[] { 17, 19, 23, 29 };
 
     // The offsets used with a default sized bucket array without a separate bucket for zero values.
-    public static final long[] DEFAULT_WITHOUT_ZERO_BUCKET_OFFSETS = EstimatedHistogram.newOffsets(DEFAULT_BUCKET_COUNT, false);
+    public static final transient long[] DEFAULT_WITHOUT_ZERO_BUCKET_OFFSETS = EstimatedHistogram.newOffsets(DEFAULT_BUCKET_COUNT, false);
 
     // The offsets used with a default sized bucket array with a separate bucket for zero values.
-    public static final long[] DEFAULT_WITH_ZERO_BUCKET_OFFSETS = EstimatedHistogram.newOffsets(DEFAULT_BUCKET_COUNT, true);
+    public static final transient long[] DEFAULT_WITH_ZERO_BUCKET_OFFSETS = EstimatedHistogram.newOffsets(DEFAULT_BUCKET_COUNT, true);
 
-    private static final int TABLE_BITS = 4;
-    private static final int TABLE_MASK = -1 >>> (32 - TABLE_BITS);
-    private static final float[] LOG2_TABLE = computeTable(TABLE_BITS);
-    private static final float log2_12_recp = (float) (1d / slowLog2(1.2d));
+    private static final transient int TABLE_BITS = 4;
 
-    private static float[] computeTable(int bits)
-    {
+    private static final transient int TABLE_MASK = -1 >>> (32 - TABLE_BITS);
+
+    private static final transient float[] LOG2_TABLE = computeTable(TABLE_BITS);
+
+    private static final transient float log2_12_recp = (float) (1d / slowLog2(1.2d));
+
+    private static float[] computeTable(int bits) {
         float[] table = new float[1 << bits];
-        for (int i = 1 ; i < 1<<bits ; ++i)
-            table[i] = (float) slowLog2(ratio(i, bits));
+        for (int i = 1; i < 1 << bits; ++i) table[i] = (float) slowLog2(ratio(i, bits));
         return table;
     }
 
-    public static float fastLog12(long v)
-    {
+    public static float fastLog12(long v) {
         return fastLog2(v) * log2_12_recp;
     }
 
     // returns 0 for all inputs <= 1
-    private static float fastLog2(long v)
-    {
+    private static float fastLog2(long v) {
         v = max(v, 1);
         int highestBitPosition = 63 - Long.numberOfLeadingZeros(v);
         v = Long.rotateRight(v, highestBitPosition - TABLE_BITS);
@@ -125,41 +126,43 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
         return result;
     }
 
-    private static double slowLog2(double v)
-    {
+    private static double slowLog2(double v) {
         return Math.log(v) / Math.log(2);
     }
 
-    private static double ratio(int i, int bits)
-    {
+    private static double ratio(int i, int bits) {
         return Float.intBitsToFloat((127 << 23) | (i << (23 - bits)));
     }
 
     // Represents the bucket offset as created by {@link EstimatedHistogram#newOffsets()}
-    private final int nStripes;
-    private final long[] bucketOffsets;
-    private final int distributionPrime;
+    private final transient int nStripes;
+
+    private final transient long[] bucketOffsets;
+
+    private final transient int distributionPrime;
 
     // decayingBuckets and buckets are one element longer than bucketOffsets -- the last element is values greater than the last offset
-    private final AtomicLongArray decayingBuckets;
-    private final AtomicLongArray buckets;
+    private final transient AtomicLongArray decayingBuckets;
 
-    public static final long HALF_TIME_IN_S = 60L;
-    public static final double MEAN_LIFETIME_IN_S = HALF_TIME_IN_S / Math.log(2.0);
-    public static final long LANDMARK_RESET_INTERVAL_IN_MS = 30L * 60L * 1000L;
+    private final transient AtomicLongArray buckets;
 
-    private final AtomicBoolean rescaling = new AtomicBoolean(false);
-    private volatile long decayLandmark;
+    public static final transient long HALF_TIME_IN_S = 60L;
+
+    public static final transient double MEAN_LIFETIME_IN_S = HALF_TIME_IN_S / Math.log(2.0);
+
+    public static final transient long LANDMARK_RESET_INTERVAL_IN_MS = 30L * 60L * 1000L;
+
+    private final transient AtomicBoolean rescaling = new AtomicBoolean(false);
+
+    private volatile transient long decayLandmark;
 
     // Wrapper around System.nanoTime() to simplify unit testing.
-    private final Clock clock;
-
+    private final transient Clock clock;
 
     /**
      * Construct a decaying histogram with default number of buckets and without considering zeroes.
      */
-    public DecayingEstimatedHistogramReservoir()
-    {
+    public DecayingEstimatedHistogramReservoir() {
         this(DEFAULT_ZERO_CONSIDERATION, DEFAULT_BUCKET_COUNT, DEFAULT_STRIPE_COUNT, Clock.defaultClock());
     }
 
@@ -169,8 +172,7 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
      * @param considerZeroes when true, 0-value measurements in a separate bucket, otherwise they will be collected in
      *                       same bucket as 1-value measurements
      */
-    public DecayingEstimatedHistogramReservoir(boolean considerZeroes)
-    {
+    public DecayingEstimatedHistogramReservoir(boolean considerZeroes) {
         this(considerZeroes, DEFAULT_BUCKET_COUNT, DEFAULT_STRIPE_COUNT, Clock.defaultClock());
     }
 
@@ -181,48 +183,35 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
      *                       same bucket as 1-value measurements
      * @param bucketCount number of buckets used to collect measured values
      */
-    public DecayingEstimatedHistogramReservoir(boolean considerZeroes, int bucketCount, int stripes)
-    {
+    public DecayingEstimatedHistogramReservoir(boolean considerZeroes, int bucketCount, int stripes) {
         this(considerZeroes, bucketCount, stripes, Clock.defaultClock());
     }
 
     @VisibleForTesting
-    public DecayingEstimatedHistogramReservoir(Clock clock)
-    {
+    public DecayingEstimatedHistogramReservoir(Clock clock) {
         this(DEFAULT_ZERO_CONSIDERATION, DEFAULT_BUCKET_COUNT, DEFAULT_STRIPE_COUNT, clock);
     }
 
     @VisibleForTesting
-    DecayingEstimatedHistogramReservoir(boolean considerZeroes, int bucketCount, int stripes, Clock clock)
-    {
+    DecayingEstimatedHistogramReservoir(boolean considerZeroes, int bucketCount, int stripes, Clock clock) {
         assert bucketCount <= MAX_BUCKET_COUNT : "bucket count cannot exceed: " + MAX_BUCKET_COUNT;
-
-        if (bucketCount == DEFAULT_BUCKET_COUNT)
-        {
-            if (considerZeroes == true)
-            {
+        if (bucketCount == DEFAULT_BUCKET_COUNT) {
+            if (considerZeroes == true) {
                 bucketOffsets = DEFAULT_WITH_ZERO_BUCKET_OFFSETS;
-            }
-            else
-            {
+            } else {
                 bucketOffsets = DEFAULT_WITHOUT_ZERO_BUCKET_OFFSETS;
             }
-        }
-        else
-        {
+        } else {
             bucketOffsets = EstimatedHistogram.newOffsets(bucketCount, considerZeroes);
         }
-
         nStripes = stripes;
         decayingBuckets = new AtomicLongArray((bucketOffsets.length + 1) * nStripes);
         buckets = new AtomicLongArray((bucketOffsets.length + 1) * nStripes);
         this.clock = clock;
         decayLandmark = clock.getTime();
         int distributionPrime = 1;
-        for (int prime : DISTRIBUTION_PRIMES)
-        {
-            if (buckets.length() % prime != 0)
-            {
+        for (int prime : DISTRIBUTION_PRIMES) {
+            if (buckets.length() % prime != 0) {
                 distributionPrime = prime;
                 break;
             }
@@ -235,53 +224,42 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
      *
      * @param value the data point to add to the histogram
      */
-    public void update(long value)
-    {
+    public void update(long value) {
         long now = clock.getTime();
         rescaleIfNeeded(now);
-
         int index = findIndex(bucketOffsets, value);
-
         updateBucket(decayingBuckets, index, Math.round(forwardDecayWeight(now)));
         updateBucket(buckets, index, 1);
     }
 
-    public void updateBucket(AtomicLongArray buckets, int index, long value)
-    {
+    public void updateBucket(AtomicLongArray buckets, int index, long value) {
         int stripe = (int) (Thread.currentThread().getId() & (nStripes - 1));
         buckets.addAndGet(stripedIndex(index, stripe), value);
     }
 
-    public int stripedIndex(int offsetIndex, int stripe)
-    {
+    public int stripedIndex(int offsetIndex, int stripe) {
         return (((offsetIndex * nStripes + stripe) * distributionPrime) % buckets.length());
     }
 
     @VisibleForTesting
-    public static int findIndex(long[] bucketOffsets, long value)
-    {
+    public static int findIndex(long[] bucketOffsets, long value) {
         // values below zero are nonsense, but we have never failed when presented them
         value = max(value, 0);
-
         // The bucket index can be estimated using the equation Math.floor(Math.log(value) / Math.log(1.2))
-
         // By using an integer domain we effectively squeeze multiple exponents of 1.2 into the same bucket,
         // so for values > 2, we must "subtract" these exponents from the logarithm to determine which two buckets
         // to consult (as our approximation otherwise produces a value that is within 1 of the true value)
-        int offset = (value > 2 ? 3 : 1) + (int)bucketOffsets[0];
-
+        int offset = (value > 2 ? 3 : 1) + (int) bucketOffsets[0];
         // See DecayingEstimatedHistogramResevoirTest#showEstimationWorks and DecayingEstimatedHistogramResevoirTest#testFindIndex()
         // for a runnable "proof"
-        //
+        // 
         // With this assumption, the estimate is calculated and the furthest offset from the estimation is checked
         // if this bucket does not contain the value then the next one will
-
         int firstCandidate = max(0, min(bucketOffsets.length - 1, ((int) fastLog12(value)) - offset));
         return value <= bucketOffsets[firstCandidate] ? firstCandidate : firstCandidate + 1;
     }
 
-    private double forwardDecayWeight(long now)
-    {
+    private double forwardDecayWeight(long now) {
         return Math.exp(((now - decayLandmark) / 1000.0) / MEAN_LIFETIME_IN_S);
     }
 
@@ -294,16 +272,14 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
      * @return the number of buckets
      * @see #stripeCount()
      */
-    public int size()
-    {
+    public int size() {
         return bucketOffsets.length + 1;
     }
 
-
-    public int stripeCount()
-    {
+    public int stripeCount() {
         return nStripes;
     }
+
     /**
      * Returns a snapshot of the decaying values in this reservoir.
      *
@@ -311,8 +287,7 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
      *
      * @return the snapshot
      */
-    public Snapshot getSnapshot()
-    {
+    public Snapshot getSnapshot() {
         rescaleIfNeeded();
         return new EstimatedHistogramReservoirSnapshot(this);
     }
@@ -321,44 +296,32 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
      * @return true if this histogram has overflowed -- that is, a value larger than our largest bucket could bound was added
      */
     @VisibleForTesting
-    boolean isOverflowed()
-    {
+    boolean isOverflowed() {
         return bucketValue(bucketOffsets.length, true) > 0;
     }
 
-    private long bucketValue(int index, boolean withDecay)
-    {
+    private long bucketValue(int index, boolean withDecay) {
         long val = 0;
         AtomicLongArray bs = withDecay ? decayingBuckets : buckets;
-        for (int stripe = 0; stripe < nStripes; stripe++)
-            val += bs.get(stripedIndex(index, stripe));
-
+        for (int stripe = 0; stripe < nStripes; stripe++) val += bs.get(stripedIndex(index, stripe));
         return val;
     }
 
     @VisibleForTesting
-    long stripedBucketValue(int i, boolean withDecay)
-    {
+    long stripedBucketValue(int i, boolean withDecay) {
         return withDecay ? decayingBuckets.get(i) : buckets.get(i);
     }
 
-    private void rescaleIfNeeded()
-    {
+    private void rescaleIfNeeded() {
         rescaleIfNeeded(clock.getTime());
     }
 
-    private void rescaleIfNeeded(long now)
-    {
-        if (needRescale(now))
-        {
-            if (rescaling.compareAndSet(false, true))
-            {
-                try
-                {
+    private void rescaleIfNeeded(long now) {
+        if (needRescale(now)) {
+            if (rescaling.compareAndSet(false, true)) {
+                try {
                     rescale(now);
-                }
-                finally
-                {
+                } finally {
                     decayLandmark = now;
                     rescaling.set(false);
                 }
@@ -366,28 +329,23 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
         }
     }
 
-    private void rescale(long now)
-    {
+    private void rescale(long now) {
         // despite striping its safe to rescale each bucket individually
         final double rescaleFactor = forwardDecayWeight(now);
-        for (int i = 0; i < decayingBuckets.length(); i++)
-        {
+        for (int i = 0; i < decayingBuckets.length(); i++) {
             long newValue = Math.round(decayingBuckets.get(i) / rescaleFactor);
             decayingBuckets.set(i, newValue);
         }
     }
 
-    private boolean needRescale(long now)
-    {
+    private boolean needRescale(long now) {
         return (now - decayLandmark) > LANDMARK_RESET_INTERVAL_IN_MS;
     }
 
     @VisibleForTesting
-    public void clear()
-    {
+    public void clear() {
         final int bucketCount = decayingBuckets.length();
-        for (int i = 0; i < bucketCount; i++)
-        {
+        for (int i = 0; i < bucketCount; i++) {
             decayingBuckets.set(i, 0L);
             buckets.set(i, 0L);
         }
@@ -397,36 +355,27 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
      * Replaces current internal values with the given one from a Snapshot. This method is NOT thread safe, values
      * added at the same time to this reservoir using methods such as update may lose their data
      */
-    public void rebase(EstimatedHistogramReservoirSnapshot snapshot)
-    {
+    public void rebase(EstimatedHistogramReservoirSnapshot snapshot) {
         // Check bucket count (a snapshot always has one stripe so the logical bucket count is used
-        if (size() != snapshot.decayingBuckets.length)
-        {
+        if (size() != snapshot.decayingBuckets.length) {
             throw new IllegalStateException("Unable to merge two DecayingEstimatedHistogramReservoirs with different bucket sizes");
         }
-
         // Check bucketOffsets
-        for (int i = 0; i < bucketOffsets.length; i++)
-        {
-            if (bucketOffsets[i] != snapshot.bucketOffsets[i])
-            {
+        for (int i = 0; i < bucketOffsets.length; i++) {
+            if (bucketOffsets[i] != snapshot.bucketOffsets[i]) {
                 throw new IllegalStateException("Merge is only supported with equal bucketOffsets");
             }
         }
-
         this.decayLandmark = snapshot.snapshotLandmark;
-        for (int i = 0; i < size(); i++)
-        {
+        for (int i = 0; i < size(); i++) {
             // set rebased values in the first stripe and clear out all other data
             decayingBuckets.set(stripedIndex(i, 0), snapshot.decayingBuckets[i]);
             buckets.set(stripedIndex(i, 0), snapshot.values[i]);
-            for (int stripe = 1; stripe < nStripes; stripe++)
-            {
+            for (int stripe = 1; stripe < nStripes; stripe++) {
                 decayingBuckets.set(stripedIndex(i, stripe), 0);
                 buckets.set(stripedIndex(i, stripe), 0);
             }
         }
-
     }
 
     /**
@@ -439,27 +388,29 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
      * The decaying buckets will be used for quantile calculations and mean values, but the non decaying buckets will be
      * exposed for calls to {@link Snapshot#getValues()}.
      */
-    static class EstimatedHistogramReservoirSnapshot extends Snapshot
-    {
-        private final long[] decayingBuckets;
-        private final long[] values;
-        private long count;
-        private long snapshotLandmark;
-        private long[] bucketOffsets;
-        private DecayingEstimatedHistogramReservoir reservoir;
+    static class EstimatedHistogramReservoirSnapshot extends Snapshot {
 
-        public EstimatedHistogramReservoirSnapshot(DecayingEstimatedHistogramReservoir reservoir)
-        {
+        private final transient long[] decayingBuckets;
+
+        private final transient long[] values;
+
+        private transient long count;
+
+        private transient long snapshotLandmark;
+
+        private transient long[] bucketOffsets;
+
+        private transient DecayingEstimatedHistogramReservoir reservoir;
+
+        public EstimatedHistogramReservoirSnapshot(DecayingEstimatedHistogramReservoir reservoir) {
             final int length = reservoir.size();
             final double rescaleFactor = reservoir.forwardDecayWeight(reservoir.clock.getTime());
-
             this.decayingBuckets = new long[length];
             this.values = new long[length];
             this.snapshotLandmark = reservoir.decayLandmark;
-            this.bucketOffsets = reservoir.bucketOffsets; // No need to copy, these are immutable
-
-            for (int i = 0; i < length; i++)
-            {
+            // No need to copy, these are immutable
+            this.bucketOffsets = reservoir.bucketOffsets;
+            for (int i = 0; i < length; i++) {
                 this.decayingBuckets[i] = Math.round(reservoir.bucketValue(i, true) / rescaleFactor);
                 this.values[i] = reservoir.bucketValue(i, false);
             }
@@ -474,22 +425,16 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
          * @return estimated value at given quantile
          * @throws IllegalStateException in case the histogram overflowed
          */
-        public double getValue(double quantile)
-        {
+        public double getValue(double quantile) {
             assert quantile >= 0 && quantile <= 1.0;
-
             final int lastBucket = decayingBuckets.length - 1;
-
             if (decayingBuckets[lastBucket] > 0)
                 throw new IllegalStateException("Unable to compute when histogram overflowed");
-
             final long qcount = (long) Math.ceil(count() * quantile);
             if (qcount == 0)
                 return 0;
-
             long elements = 0;
-            for (int i = 0; i < lastBucket; i++)
-            {
+            for (int i = 0; i < lastBucket; i++) {
                 elements += decayingBuckets[i];
                 if (elements >= qcount)
                     return bucketOffsets[i];
@@ -505,8 +450,7 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
          *
          * @return a snapshot of the non-decaying buckets.
          */
-        public long[] getValues()
-        {
+        public long[] getValues() {
             return values;
         }
 
@@ -514,20 +458,17 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
          * @see {@link Snapshot#size()}
          * @return
          */
-        public int size()
-        {
+        public int size() {
             return Ints.saturatedCast(count);
         }
 
         @VisibleForTesting
-        public long getSnapshotLandmark()
-        {
+        public long getSnapshotLandmark() {
             return snapshotLandmark;
         }
 
         @VisibleForTesting
-        public Range getBucketingRangeForValue(long value)
-        {
+        public Range getBucketingRangeForValue(long value) {
             int index = findIndex(bucketOffsets, value);
             long max = bucketOffsets[index];
             long min = index == 0 ? 0 : 1 + bucketOffsets[index - 1];
@@ -539,11 +480,9 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
          *
          * @return the sum of all bucket values
          */
-        private long count()
-        {
+        private long count() {
             long sum = 0L;
-            for (int i = 0; i < decayingBuckets.length; i++)
-                sum += decayingBuckets[i];
+            for (int i = 0; i < decayingBuckets.length; i++) sum += decayingBuckets[i];
             return sum;
         }
 
@@ -556,15 +495,11 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
          * @return the largest value that could have been added to this reservoir, or Long.MAX_VALUE if the reservoir
          * overflowed
          */
-        public long getMax()
-        {
+        public long getMax() {
             final int lastBucket = decayingBuckets.length - 1;
-
             if (decayingBuckets[lastBucket] > 0)
                 return Long.MAX_VALUE;
-
-            for (int i = lastBucket - 1; i >= 0; i--)
-            {
+            for (int i = lastBucket - 1; i >= 0; i--) {
                 if (decayingBuckets[i] > 0)
                     return bucketOffsets[i];
             }
@@ -577,22 +512,17 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
          * @return the mean histogram value (average of bucket offsets, weighted by count)
          * @throws IllegalStateException if any values were greater than the largest bucket threshold
          */
-        public double getMean()
-        {
+        public double getMean() {
             final int lastBucket = decayingBuckets.length - 1;
-
             if (decayingBuckets[lastBucket] > 0)
                 throw new IllegalStateException("Unable to compute when histogram overflowed");
-
             long elements = 0;
             long sum = 0;
-            for (int i = 0; i < lastBucket; i++)
-            {
+            for (int i = 0; i < lastBucket; i++) {
                 long bCount = decayingBuckets[i];
                 elements += bCount;
                 sum += bCount * bucketOffsets[i];
             }
-
             return (double) sum / elements;
         }
 
@@ -604,10 +534,8 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
          *
          * @return the smallest value that could have been added to this reservoir
          */
-        public long getMin()
-        {
-            for (int i = 0; i < decayingBuckets.length; i++)
-            {
+        public long getMin() {
+            for (int i = 0; i < decayingBuckets.length; i++) {
                 if (decayingBuckets[i] > 0)
                     return i == 0 ? 0 : 1 + bucketOffsets[i - 1];
             }
@@ -622,43 +550,29 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
          *
          * @return an estimate of the standard deviation
          */
-        public double getStdDev()
-        {
+        public double getStdDev() {
             final int lastBucket = decayingBuckets.length - 1;
-
             if (decayingBuckets[lastBucket] > 0)
                 throw new IllegalStateException("Unable to compute when histogram overflowed");
-
             final long count = count();
-
-            if(count <= 1)
-            {
+            if (count <= 1) {
                 return 0.0D;
-            }
-            else
-            {
+            } else {
                 double mean = this.getMean();
                 double sum = 0.0D;
-
-                for(int i = 0; i < lastBucket; ++i)
-                {
+                for (int i = 0; i < lastBucket; ++i) {
                     long value = bucketOffsets[i];
                     double diff = value - mean;
                     sum += diff * diff * decayingBuckets[i];
                 }
-
                 return Math.sqrt(sum / (count - 1));
             }
         }
 
-        public void dump(OutputStream output)
-        {
-            try (PrintWriter out = new PrintWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8)))
-            {
+        public void dump(OutputStream output) {
+            try (PrintWriter out = new PrintWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8))) {
                 int length = decayingBuckets.length;
-
-                for(int i = 0; i < length; ++i)
-                {
+                for (int i = 0; i < length; ++i) {
                     out.printf("%d%n", decayingBuckets[i]);
                 }
             }
@@ -669,87 +583,68 @@ public class DecayingEstimatedHistogramReservoir implements Reservoir
          *
          * @param other EstimatedHistogramReservoirSnapshot with identical bucket definition (offsets and length)
          */
-        public void add(Snapshot other)
-        {
-            if (!(other instanceof EstimatedHistogramReservoirSnapshot))
-            {
+        public void add(Snapshot other) {
+            if (!(other instanceof EstimatedHistogramReservoirSnapshot)) {
                 throw new IllegalStateException("Unable to add other types of Snapshot than another DecayingEstimatedHistogramReservoir");
             }
-
             EstimatedHistogramReservoirSnapshot snapshot = (EstimatedHistogramReservoirSnapshot) other;
-
-            if (decayingBuckets.length != snapshot.decayingBuckets.length)
-            {
+            if (decayingBuckets.length != snapshot.decayingBuckets.length) {
                 throw new IllegalStateException("Unable to merge two DecayingEstimatedHistogramReservoirs with different bucket sizes");
             }
-
             // Check bucketOffsets
-            for (int i = 0; i < bucketOffsets.length; i++)
-            {
-                if (bucketOffsets[i] != snapshot.bucketOffsets[i])
-                {
+            for (int i = 0; i < bucketOffsets.length; i++) {
+                if (bucketOffsets[i] != snapshot.bucketOffsets[i]) {
                     throw new IllegalStateException("Merge is only supported with equal bucketOffsets");
                 }
             }
-
             // We need to rescale the reservoirs to the same landmark
-            if (snapshot.snapshotLandmark < snapshotLandmark)
-            {
+            if (snapshot.snapshotLandmark < snapshotLandmark) {
                 rescaleArray(snapshot.decayingBuckets, (snapshotLandmark - snapshot.snapshotLandmark));
-            }
-            else if (snapshot.snapshotLandmark > snapshotLandmark)
-            {
+            } else if (snapshot.snapshotLandmark > snapshotLandmark) {
                 rescaleArray(decayingBuckets, (snapshot.snapshotLandmark - snapshotLandmark));
                 this.snapshotLandmark = snapshot.snapshotLandmark;
             }
-
             // Now merge the buckets
-            for (int i = 0; i < snapshot.decayingBuckets.length; i++)
-            {
+            for (int i = 0; i < snapshot.decayingBuckets.length; i++) {
                 decayingBuckets[i] += snapshot.decayingBuckets[i];
                 values[i] += snapshot.values[i];
             }
-
             this.count += snapshot.count;
         }
 
-        private void rescaleArray(long[] decayingBuckets, long landMarkDifference)
-        {
+        private void rescaleArray(long[] decayingBuckets, long landMarkDifference) {
             final double rescaleFactor = Math.exp((landMarkDifference / 1000.0) / MEAN_LIFETIME_IN_S);
-            for (int i = 0; i < decayingBuckets.length; i++)
-            {
+            for (int i = 0; i < decayingBuckets.length; i++) {
                 decayingBuckets[i] = Math.round(decayingBuckets[i] / rescaleFactor);
             }
         }
 
-        public void rebaseReservoir() 
-        {
+        public void rebaseReservoir() {
             this.reservoir.rebase(this);
         }
     }
 
-    static class Range
-    {
-        public final long min;
-        public final long max;
+    static class Range {
 
-        public Range(long min, long max)
-        {
+        public final transient long min;
+
+        public final transient long max;
+
+        public Range(long min, long max) {
             this.min = min;
             this.max = max;
         }
 
-        public boolean equals(Object o)
-        {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+        public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
             Range that = (Range) o;
-            return min == that.min &&
-                   max == that.max;
+            return min == that.min && max == that.max;
         }
 
-        public int hashCode()
-        {
+        public int hashCode() {
             return Objects.hash(min, max);
         }
     }

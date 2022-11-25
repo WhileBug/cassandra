@@ -27,7 +27,11 @@ import java.security.Key;
  *
  * Implementations must provide a constructor that accepts {@code TransparentDataEncryptionOptions} as the sole parameter.
  */
-public interface KeyProvider
-{
+public interface KeyProvider {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyProvider.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyProvider.class);
+
     Key getSecretKey(String alias) throws IOException;
 }

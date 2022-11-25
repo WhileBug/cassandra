@@ -19,38 +19,52 @@ package org.apache.cassandra.db.compaction;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.exceptions.ConfigurationException;
 
-public final class DateTieredCompactionStrategyOptions
-{
-    private static final Logger logger = LoggerFactory.getLogger(DateTieredCompactionStrategyOptions.class);
-    protected static final TimeUnit DEFAULT_TIMESTAMP_RESOLUTION = TimeUnit.MICROSECONDS;
-    @Deprecated
-    protected static final double DEFAULT_MAX_SSTABLE_AGE_DAYS = 365*1000;
-    protected static final long DEFAULT_BASE_TIME_SECONDS = 60;
-    protected static final long DEFAULT_MAX_WINDOW_SIZE_SECONDS = TimeUnit.SECONDS.convert(1, TimeUnit.DAYS);
+public final class DateTieredCompactionStrategyOptions {
 
-    protected static final int DEFAULT_EXPIRED_SSTABLE_CHECK_FREQUENCY_SECONDS = 60 * 10;
-    protected static final String TIMESTAMP_RESOLUTION_KEY = "timestamp_resolution";
-    @Deprecated
-    protected static final String MAX_SSTABLE_AGE_KEY = "max_sstable_age_days";
-    protected static final String BASE_TIME_KEY = "base_time_seconds";
-    protected static final String EXPIRED_SSTABLE_CHECK_FREQUENCY_SECONDS_KEY = "expired_sstable_check_frequency_seconds";
-    protected static final String MAX_WINDOW_SIZE_KEY = "max_window_size_seconds";
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DateTieredCompactionStrategyOptions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DateTieredCompactionStrategyOptions.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(DateTieredCompactionStrategyOptions.class);
+
+    protected static final transient TimeUnit DEFAULT_TIMESTAMP_RESOLUTION = TimeUnit.MICROSECONDS;
 
     @Deprecated
-    protected final long maxSSTableAge;
-    protected final TimeUnit timestampResolution;
-    protected final long baseTime;
-    protected final long expiredSSTableCheckFrequency;
-    protected final long maxWindowSize;
+    protected static final transient double DEFAULT_MAX_SSTABLE_AGE_DAYS = 365 * 1000;
 
-    public DateTieredCompactionStrategyOptions(Map<String, String> options)
-    {
+    protected static final transient long DEFAULT_BASE_TIME_SECONDS = 60;
+
+    protected static final transient long DEFAULT_MAX_WINDOW_SIZE_SECONDS = TimeUnit.SECONDS.convert(1, TimeUnit.DAYS);
+
+    protected static final transient int DEFAULT_EXPIRED_SSTABLE_CHECK_FREQUENCY_SECONDS = 60 * 10;
+
+    protected static final transient String TIMESTAMP_RESOLUTION_KEY = "timestamp_resolution";
+
+    @Deprecated
+    protected static final transient String MAX_SSTABLE_AGE_KEY = "max_sstable_age_days";
+
+    protected static final transient String BASE_TIME_KEY = "base_time_seconds";
+
+    protected static final transient String EXPIRED_SSTABLE_CHECK_FREQUENCY_SECONDS_KEY = "expired_sstable_check_frequency_seconds";
+
+    protected static final transient String MAX_WINDOW_SIZE_KEY = "max_window_size_seconds";
+
+    @Deprecated
+    protected final transient long maxSSTableAge;
+
+    protected final transient TimeUnit timestampResolution;
+
+    protected final transient long baseTime;
+
+    protected final transient long expiredSSTableCheckFrequency;
+
+    protected final transient long maxWindowSize;
+
+    public DateTieredCompactionStrategyOptions(Map<String, String> options) {
         String optionValue = options.get(TIMESTAMP_RESOLUTION_KEY);
         timestampResolution = optionValue == null ? DEFAULT_TIMESTAMP_RESOLUTION : TimeUnit.valueOf(optionValue);
         if (timestampResolution != DEFAULT_TIMESTAMP_RESOLUTION)
@@ -66,8 +80,7 @@ public final class DateTieredCompactionStrategyOptions
         maxWindowSize = timestampResolution.convert(optionValue == null ? DEFAULT_MAX_WINDOW_SIZE_SECONDS : Long.parseLong(optionValue), TimeUnit.SECONDS);
     }
 
-    public DateTieredCompactionStrategyOptions()
-    {
+    public DateTieredCompactionStrategyOptions() {
         maxSSTableAge = Math.round(DEFAULT_MAX_SSTABLE_AGE_DAYS * DEFAULT_TIMESTAMP_RESOLUTION.convert((long) DEFAULT_MAX_SSTABLE_AGE_DAYS, TimeUnit.DAYS));
         timestampResolution = DEFAULT_TIMESTAMP_RESOLUTION;
         baseTime = timestampResolution.convert(DEFAULT_BASE_TIME_SECONDS, TimeUnit.SECONDS);
@@ -75,82 +88,55 @@ public final class DateTieredCompactionStrategyOptions
         maxWindowSize = timestampResolution.convert(1, TimeUnit.DAYS);
     }
 
-    public static Map<String, String> validateOptions(Map<String, String> options, Map<String, String> uncheckedOptions) throws  ConfigurationException
-    {
+    public static Map<String, String> validateOptions(Map<String, String> options, Map<String, String> uncheckedOptions) throws ConfigurationException {
         String optionValue = options.get(TIMESTAMP_RESOLUTION_KEY);
-        try
-        {
+        try {
             if (optionValue != null)
                 TimeUnit.valueOf(optionValue);
-        }
-        catch (IllegalArgumentException e)
-        {
+        } catch (IllegalArgumentException e) {
             throw new ConfigurationException(String.format("timestamp_resolution %s is not valid", optionValue));
         }
-
         optionValue = options.get(MAX_SSTABLE_AGE_KEY);
-        try
-        {
+        try {
             double maxSStableAge = optionValue == null ? DEFAULT_MAX_SSTABLE_AGE_DAYS : Double.parseDouble(optionValue);
-            if (maxSStableAge < 0)
-            {
+            if (maxSStableAge < 0) {
                 throw new ConfigurationException(String.format("%s must be non-negative: %.2f", MAX_SSTABLE_AGE_KEY, maxSStableAge));
             }
-        }
-        catch (NumberFormatException e)
-        {
+        } catch (NumberFormatException e) {
             throw new ConfigurationException(String.format("%s is not a parsable int (base10) for %s", optionValue, MAX_SSTABLE_AGE_KEY), e);
         }
-
         optionValue = options.get(BASE_TIME_KEY);
-        try
-        {
+        try {
             long baseTime = optionValue == null ? DEFAULT_BASE_TIME_SECONDS : Long.parseLong(optionValue);
-            if (baseTime <= 0)
-            {
+            if (baseTime <= 0) {
                 throw new ConfigurationException(String.format("%s must be greater than 0, but was %d", BASE_TIME_KEY, baseTime));
             }
-        }
-        catch (NumberFormatException e)
-        {
+        } catch (NumberFormatException e) {
             throw new ConfigurationException(String.format("%s is not a parsable int (base10) for %s", optionValue, BASE_TIME_KEY), e);
         }
-
         optionValue = options.get(EXPIRED_SSTABLE_CHECK_FREQUENCY_SECONDS_KEY);
-        try
-        {
+        try {
             long expiredCheckFrequency = optionValue == null ? DEFAULT_EXPIRED_SSTABLE_CHECK_FREQUENCY_SECONDS : Long.parseLong(optionValue);
-            if (expiredCheckFrequency < 0)
-            {
+            if (expiredCheckFrequency < 0) {
                 throw new ConfigurationException(String.format("%s must not be negative, but was %d", EXPIRED_SSTABLE_CHECK_FREQUENCY_SECONDS_KEY, expiredCheckFrequency));
             }
-        }
-        catch (NumberFormatException e)
-        {
+        } catch (NumberFormatException e) {
             throw new ConfigurationException(String.format("%s is not a parsable int (base10) for %s", optionValue, EXPIRED_SSTABLE_CHECK_FREQUENCY_SECONDS_KEY), e);
         }
-
         optionValue = options.get(MAX_WINDOW_SIZE_KEY);
-        try
-        {
+        try {
             long maxWindowSize = optionValue == null ? DEFAULT_MAX_WINDOW_SIZE_SECONDS : Long.parseLong(optionValue);
-            if (maxWindowSize < 0)
-            {
+            if (maxWindowSize < 0) {
                 throw new ConfigurationException(String.format("%s must not be negative, but was %d", MAX_WINDOW_SIZE_KEY, maxWindowSize));
             }
-        }
-        catch (NumberFormatException e)
-        {
+        } catch (NumberFormatException e) {
             throw new ConfigurationException(String.format("%s is not a parsable int (base10) for %s", optionValue, MAX_WINDOW_SIZE_KEY), e);
         }
-
-
         uncheckedOptions.remove(MAX_SSTABLE_AGE_KEY);
         uncheckedOptions.remove(BASE_TIME_KEY);
         uncheckedOptions.remove(TIMESTAMP_RESOLUTION_KEY);
         uncheckedOptions.remove(EXPIRED_SSTABLE_CHECK_FREQUENCY_SECONDS_KEY);
         uncheckedOptions.remove(MAX_WINDOW_SIZE_KEY);
-
         return uncheckedOptions;
     }
 }

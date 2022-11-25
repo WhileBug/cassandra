@@ -19,47 +19,43 @@
 package org.apache.cassandra.utils.memory;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.utils.concurrent.OpOrder;
-
 import com.google.common.annotations.VisibleForTesting;
 
-public class HeapPool extends MemtablePool
-{
-    public HeapPool(long maxOnHeapMemory, float cleanupThreshold, MemtableCleaner cleaner)
-    {
+public class HeapPool extends MemtablePool {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HeapPool.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HeapPool.class);
+
+    public HeapPool(long maxOnHeapMemory, float cleanupThreshold, MemtableCleaner cleaner) {
         super(maxOnHeapMemory, 0, cleanupThreshold, cleaner);
     }
 
-    public MemtableAllocator newAllocator()
-    {
+    public MemtableAllocator newAllocator() {
         return new Allocator(this);
     }
 
     @VisibleForTesting
-    public static class Allocator extends MemtableBufferAllocator
-    {
-        private static final EnsureOnHeap ENSURE_NOOP = new EnsureOnHeap.NoOp();
+    public static class Allocator extends MemtableBufferAllocator {
+
+        private static final transient EnsureOnHeap ENSURE_NOOP = new EnsureOnHeap.NoOp();
 
         @VisibleForTesting
-        public Allocator(HeapPool pool)
-        {
+        public Allocator(HeapPool pool) {
             super(pool.onHeap.newAllocator(), pool.offHeap.newAllocator());
         }
 
-        public ByteBuffer allocate(int size, OpOrder.Group opGroup)
-        {
+        public ByteBuffer allocate(int size, OpOrder.Group opGroup) {
             super.onHeap().allocate(size, opGroup);
             return ByteBuffer.allocate(size);
         }
 
-        public EnsureOnHeap ensureOnHeap()
-        {
+        public EnsureOnHeap ensureOnHeap() {
             return ENSURE_NOOP;
         }
 
-        public Cloner cloner(OpOrder.Group opGroup)
-        {
+        public Cloner cloner(OpOrder.Group opGroup) {
             return allocator(opGroup);
         }
     }

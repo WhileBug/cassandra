@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.BiFunction;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.Operator;
 import org.apache.cassandra.db.*;
@@ -85,7 +84,6 @@ import org.apache.cassandra.schema.IndexMetadata;
  * Values that may be written to an index are checked as part of input validation, prior to an update or insert
  * operation being accepted.
  *
- *
  * Sub-interfaces:
  *
  * Update processing:
@@ -131,24 +129,25 @@ import org.apache.cassandra.schema.IndexMetadata;
  * implementation. If the returned map is not empty, validation is considered failed and an error is raised.
  * Alternatively, the implementation may choose to throw an org.apache.cassandra.exceptions.ConfigurationException
  * if invalid options are encountered.
- *
  */
-public interface Index
-{
+public interface Index {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Index.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Index.class);
+
     /**
      * Supported loads. An index could be badly initialized and support only reads i.e.
      */
-    public enum LoadType
-    {
+    public enum LoadType {
+
         READ, WRITE, ALL, NOOP;
 
-        public boolean supportsWrites()
-        {
+        public boolean supportsWrites() {
             return this == ALL || this == WRITE;
         }
 
-        public boolean supportsReads()
-        {
+        public boolean supportsReads() {
             return this == ALL || this == READ;
         }
     }
@@ -156,13 +155,12 @@ public interface Index
     /*
      * Helpers for building indexes from SSTable data
      */
-
     /**
      * Provider of {@code SecondaryIndexBuilder} instances. See {@code getBuildTaskSupport} and
      * {@code SecondaryIndexManager.buildIndexesBlocking} for more detail.
      */
-    interface IndexBuildingSupport
-    {
+    interface IndexBuildingSupport {
+
         SecondaryIndexBuilder getIndexBuildTask(ColumnFamilyStore cfs, Set<Index> indexes, Collection<SSTableReader> sstables);
     }
 
@@ -170,11 +168,10 @@ public interface Index
      * Default implementation of {@code IndexBuildingSupport} which uses a {@code ReducingKeyIterator} to obtain a
      * collated view of the data in the SSTables.
      */
-    public static class CollatedViewIndexBuildingSupport implements IndexBuildingSupport
-    {
+    public static class CollatedViewIndexBuildingSupport implements IndexBuildingSupport {
+
         @SuppressWarnings("resource")
-        public SecondaryIndexBuilder getIndexBuildTask(ColumnFamilyStore cfs, Set<Index> indexes, Collection<SSTableReader> sstables)
-        {
+        public SecondaryIndexBuilder getIndexBuildTask(ColumnFamilyStore cfs, Set<Index> indexes, Collection<SSTableReader> sstables) {
             return new CollatedViewIndexBuilder(cfs, indexes, new ReducingKeyIterator(sstables), sstables);
         }
     }
@@ -183,12 +180,11 @@ public interface Index
      * Singleton instance of {@code CollatedViewIndexBuildingSupport}, which may be used by any {@code Index}
      * implementation.
      */
-    public static final CollatedViewIndexBuildingSupport INDEX_BUILDER_SUPPORT = new CollatedViewIndexBuildingSupport();
+    public static final transient CollatedViewIndexBuildingSupport INDEX_BUILDER_SUPPORT = new CollatedViewIndexBuildingSupport();
 
     /*
      * Management functions
      */
-
     /**
      * Get an instance of a helper to provide tasks for building the index from a set of SSTable data.
      * When processing a number of indexes to be rebuilt, {@code SecondaryIndexManager.buildIndexesBlocking} groups
@@ -199,27 +195,24 @@ public interface Index
      * @return an instance of the index build task helper. Index implementations which return <b>the same instance</b>
      * will be built using a single task.
      */
-    default IndexBuildingSupport getBuildTaskSupport()
-    {
+    default IndexBuildingSupport getBuildTaskSupport() {
         return INDEX_BUILDER_SUPPORT;
     }
-    
+
     /**
      * Same as {@code getBuildTaskSupport} but can be overloaded with a specific 'recover' logic different than the index building one
      */
-    default IndexBuildingSupport getRecoveryTaskSupport()
-    {
+    default IndexBuildingSupport getRecoveryTaskSupport() {
         return getBuildTaskSupport();
     }
-    
+
     /**
      * Returns the type of operations supported by the index in case its building has failed and it's needing recovery.
      *
      * @param isInitialBuild {@code true} if the failure is for the initial build task on index creation, {@code false}
      * if the failure is for a full rebuild or recovery.
      */
-    default LoadType getSupportedLoadTypeOnFailure(boolean isInitialBuild)
-    {
+    default LoadType getSupportedLoadTypeOnFailure(boolean isInitialBuild) {
         return isInitialBuild ? LoadType.WRITE : LoadType.ALL;
     }
 
@@ -294,8 +287,7 @@ public interface Index
      * @param hadBootstrap If the node had bootstrap before joining.
      * @return task to be executed by the index manager before joining the ring.
      */
-    default public Callable<?> getPreJoinTask(boolean hadBootstrap)
-    {
+    default public Callable<?> getPreJoinTask(boolean hadBootstrap) {
         return null;
     }
 
@@ -319,15 +311,13 @@ public interface Index
      *
      * @return SSTable flush observer.
      */
-    default SSTableFlushObserver getFlushObserver(Descriptor descriptor, OperationType opType)
-    {
+    default SSTableFlushObserver getFlushObserver(Descriptor descriptor, OperationType opType) {
         return null;
     }
 
     /*
      * Index selection
      */
-
     /**
      * Called to determine whether this index targets a specific column.
      * Used during schema operations such as when dropping or renaming a column, to check if
@@ -389,7 +379,6 @@ public interface Index
     /*
      * Input validation
      */
-
     /**
      * Called at write time to ensure that values present in the update
      * are valid according to the rules of all registered indexes which
@@ -404,7 +393,6 @@ public interface Index
     /*
      * Update processing
      */
-
     /**
      * Creates an new {@code Indexer} object for updates to a given partition.
      *
@@ -420,11 +408,7 @@ public interface Index
      * (this could be because the index doesn't care about that particular partition, doesn't care about
      * that type of transaction, ...).
      */
-    public Indexer indexerFor(DecoratedKey key,
-                              RegularAndStaticColumns columns,
-                              int nowInSec,
-                              WriteContext ctx,
-                              IndexTransaction.Type transactionType);
+    public Indexer indexerFor(DecoratedKey key, RegularAndStaticColumns columns, int nowInSec, WriteContext ctx, IndexTransaction.Type transactionType);
 
     /**
      * Listener for processing events emitted during a single partition update.
@@ -445,8 +429,8 @@ public interface Index
      * several updates. In that scenario, the same set of events may be delivered to the Indexer as memtable update
      * which failed due to contention is re-applied.
      */
-    public interface Indexer
-    {
+    public interface Indexer {
+
         /**
          * Notification of the start of a partition update.
          * This event always occurs before any other during the update.
@@ -526,7 +510,6 @@ public interface Index
     /*
      * Querying
      */
-
     /**
      * Used to validate the various parameters of a supplied {@code}ReadCommand{@code},
      * this is called prior to execution. In theory, any command instance may be checked
@@ -541,8 +524,7 @@ public interface Index
      * @throws InvalidRequestException if the details of the command fail to meet the
      *         index's validation rules
      */
-    default void validate(ReadCommand command) throws InvalidRequestException
-    {
+    default void validate(ReadCommand command) throws InvalidRequestException {
     }
 
     /**
@@ -557,8 +539,7 @@ public interface Index
      * @param rowFilter rowFilter of query to decide if it supports replica filtering protection or not
      * @return true if this index supports replica filtering protection, false otherwise
      */
-    default boolean supportsReplicaFilteringProtection(RowFilter rowFilter)
-    {
+    default boolean supportsReplicaFilteringProtection(RowFilter rowFilter) {
         return true;
     }
 
@@ -591,8 +572,8 @@ public interface Index
      * An instance performs its query according to the RowFilter.Expression it was created for (see searcherFor)
      * An Expression is a predicate of the form [column] [operator] [value].
      */
-    public interface Searcher
-    {
+    public interface Searcher {
+
         /**
          * @param executionController the collection of OpOrder.Groups which the ReadCommand is being performed under.
          * @return partitions from the base table matching the criteria of the search.

@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.CachedHashDecoratedKey;
 import org.apache.cassandra.db.marshal.AbstractType;
@@ -30,142 +29,123 @@ import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.ObjectSizes;
 import org.apache.cassandra.utils.memory.HeapCloner;
 
-public class LocalPartitioner implements IPartitioner
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new LocalPartitioner(null).new LocalToken());
+public class LocalPartitioner implements IPartitioner {
 
-    final AbstractType<?> comparator;   // package-private to avoid access workarounds in embedded LocalToken.
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LocalPartitioner.class);
 
-    public LocalPartitioner(AbstractType<?> comparator)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LocalPartitioner.class);
+
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new LocalPartitioner(null).new LocalToken());
+
+    // package-private to avoid access workarounds in embedded LocalToken.
+    final transient AbstractType<?> comparator;
+
+    public LocalPartitioner(AbstractType<?> comparator) {
         this.comparator = comparator;
     }
 
-    public DecoratedKey decorateKey(ByteBuffer key)
-    {
+    public DecoratedKey decorateKey(ByteBuffer key) {
         return new CachedHashDecoratedKey(getToken(key), key);
     }
 
-    public Token midpoint(Token left, Token right)
-    {
+    public Token midpoint(Token left, Token right) {
         throw new UnsupportedOperationException();
     }
 
-    public Token split(Token left, Token right, double ratioToLeft)
-    {
+    public Token split(Token left, Token right, double ratioToLeft) {
         throw new UnsupportedOperationException();
     }
 
-    public LocalToken getMinimumToken()
-    {
+    public LocalToken getMinimumToken() {
         return new LocalToken(ByteBufferUtil.EMPTY_BYTE_BUFFER);
     }
 
-    public LocalToken getToken(ByteBuffer key)
-    {
+    public LocalToken getToken(ByteBuffer key) {
         return new LocalToken(key);
     }
 
-    public LocalToken getRandomToken()
-    {
+    public LocalToken getRandomToken() {
         throw new UnsupportedOperationException();
     }
 
-    public LocalToken getRandomToken(Random random)
-    {
+    public LocalToken getRandomToken(Random random) {
         throw new UnsupportedOperationException();
     }
 
-    public Token.TokenFactory getTokenFactory()
-    {
+    public Token.TokenFactory getTokenFactory() {
         return tokenFactory;
     }
 
-    private final Token.TokenFactory tokenFactory = new Token.TokenFactory()
-    {
-        public ByteBuffer toByteArray(Token token)
-        {
-            return ((LocalToken)token).token;
+    private final transient Token.TokenFactory tokenFactory = new Token.TokenFactory() {
+
+        public ByteBuffer toByteArray(Token token) {
+            return ((LocalToken) token).token;
         }
 
-        public Token fromByteArray(ByteBuffer bytes)
-        {
+        public Token fromByteArray(ByteBuffer bytes) {
             return new LocalToken(bytes);
         }
 
-        public String toString(Token token)
-        {
-            return comparator.getString(((LocalToken)token).token);
+        public String toString(Token token) {
+            return comparator.getString(((LocalToken) token).token);
         }
 
-        public void validate(String token)
-        {
+        public void validate(String token) {
             comparator.validate(comparator.fromString(token));
         }
 
-        public Token fromString(String string)
-        {
+        public Token fromString(String string) {
             return new LocalToken(comparator.fromString(string));
         }
     };
 
-    public boolean preservesOrder()
-    {
+    public boolean preservesOrder() {
         return true;
     }
 
-    public Map<Token, Float> describeOwnership(List<Token> sortedTokens)
-    {
-        return Collections.singletonMap((Token)getMinimumToken(), new Float(1.0));
+    public Map<Token, Float> describeOwnership(List<Token> sortedTokens) {
+        return Collections.singletonMap((Token) getMinimumToken(), new Float(1.0));
     }
 
-    public AbstractType<?> getTokenValidator()
-    {
+    public AbstractType<?> getTokenValidator() {
         return comparator;
     }
 
-    public AbstractType<?> partitionOrdering()
-    {
+    public AbstractType<?> partitionOrdering() {
         return comparator;
     }
 
-    public class LocalToken extends ComparableObjectToken<ByteBuffer>
-    {
-        static final long serialVersionUID = 8437543776403014875L;
+    public class LocalToken extends ComparableObjectToken<ByteBuffer> {
 
-        private LocalToken()
-        {
+        static final transient long serialVersionUID = 8437543776403014875L;
+
+        private LocalToken() {
             super(null);
         }
 
-        public LocalToken(ByteBuffer token)
-        {
+        public LocalToken(ByteBuffer token) {
             super(HeapCloner.instance.clone(token));
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return comparator.getString(token);
         }
 
         @Override
-        public int compareTo(Token o)
-        {
+        public int compareTo(Token o) {
             assert getPartitioner() == o.getPartitioner();
             return comparator.compare(token, ((LocalToken) o).token);
         }
 
         @Override
-        public int hashCode()
-        {
+        public int hashCode() {
             final int prime = 31;
             return prime + token.hashCode();
         }
 
         @Override
-        public boolean equals(Object obj)
-        {
+        public boolean equals(Object obj) {
             if (this == obj)
                 return true;
             if (!(obj instanceof LocalToken))
@@ -175,14 +155,12 @@ public class LocalPartitioner implements IPartitioner
         }
 
         @Override
-        public IPartitioner getPartitioner()
-        {
+        public IPartitioner getPartitioner() {
             return LocalPartitioner.this;
         }
 
         @Override
-        public long getHeapSize()
-        {
+        public long getHeapSize() {
             return EMPTY_SIZE + ObjectSizes.sizeOnHeapOf(token);
         }
     }

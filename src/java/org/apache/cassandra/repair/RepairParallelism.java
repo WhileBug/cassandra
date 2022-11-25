@@ -23,18 +23,16 @@ package org.apache.cassandra.repair;
 /**
  * Specify the degree of parallelism when calculating the merkle trees in a repair job.
  */
-public enum RepairParallelism
-{
+public enum RepairParallelism {
+
     /**
      * One node at a time
      */
     SEQUENTIAL("sequential"),
-
     /**
      * All nodes at the same time
      */
     PARALLEL("parallel"),
-
     /**
      * One node per data center at a time
      */
@@ -49,8 +47,7 @@ public enum RepairParallelism
      * @param name name of repair parallelism
      * @return RepairParallelism that match given name
      */
-    public static RepairParallelism fromName(String name)
-    {
+    public static RepairParallelism fromName(String name) {
         if (PARALLEL.getName().equals(name))
             return PARALLEL;
         else if (DATACENTER_AWARE.getName().equals(name))
@@ -59,19 +56,16 @@ public enum RepairParallelism
             return SEQUENTIAL;
     }
 
-    private RepairParallelism(String name)
-    {
+    private RepairParallelism(String name) {
         this.name = name;
     }
 
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return getName();
     }
 }

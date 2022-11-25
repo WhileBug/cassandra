@@ -15,108 +15,99 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-
 import org.apache.cassandra.exceptions.RequestFailureReason;
 import org.apache.cassandra.exceptions.WriteFailureException;
 import org.apache.cassandra.exceptions.WriteTimeoutException;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.Message;
 
-public class BatchlogResponseHandler<T> extends AbstractWriteResponseHandler<T>
-{
-    AbstractWriteResponseHandler<T> wrapped;
-    BatchlogCleanup cleanup;
-    protected volatile int requiredBeforeFinish;
-    private static final AtomicIntegerFieldUpdater<BatchlogResponseHandler> requiredBeforeFinishUpdater
-            = AtomicIntegerFieldUpdater.newUpdater(BatchlogResponseHandler.class, "requiredBeforeFinish");
+public class BatchlogResponseHandler<T> extends AbstractWriteResponseHandler<T> {
 
-    public BatchlogResponseHandler(AbstractWriteResponseHandler<T> wrapped, int requiredBeforeFinish, BatchlogCleanup cleanup, long queryStartNanoTime)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchlogResponseHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchlogResponseHandler.class);
+
+    transient AbstractWriteResponseHandler<T> wrapped;
+
+    transient BatchlogCleanup cleanup;
+
+    protected volatile transient int requiredBeforeFinish;
+
+    private static final transient AtomicIntegerFieldUpdater<BatchlogResponseHandler> requiredBeforeFinishUpdater = AtomicIntegerFieldUpdater.newUpdater(BatchlogResponseHandler.class, "requiredBeforeFinish");
+
+    public BatchlogResponseHandler(AbstractWriteResponseHandler<T> wrapped, int requiredBeforeFinish, BatchlogCleanup cleanup, long queryStartNanoTime) {
         super(wrapped.replicaPlan, wrapped.callback, wrapped.writeType, queryStartNanoTime);
         this.wrapped = wrapped;
         this.requiredBeforeFinish = requiredBeforeFinish;
         this.cleanup = cleanup;
     }
 
-    protected int ackCount()
-    {
+    protected int ackCount() {
         return wrapped.ackCount();
     }
 
-    public void onResponse(Message<T> msg)
-    {
+    public void onResponse(Message<T> msg) {
         wrapped.onResponse(msg);
         if (requiredBeforeFinishUpdater.decrementAndGet(this) == 0)
             cleanup.ackMutation();
     }
 
-    public void onFailure(InetAddressAndPort from, RequestFailureReason failureReason)
-    {
+    public void onFailure(InetAddressAndPort from, RequestFailureReason failureReason) {
         wrapped.onFailure(from, failureReason);
     }
 
-    public boolean invokeOnFailure()
-    {
+    public boolean invokeOnFailure() {
         return wrapped.invokeOnFailure();
     }
 
-    public void get() throws WriteTimeoutException, WriteFailureException
-    {
+    public void get() throws WriteTimeoutException, WriteFailureException {
         wrapped.get();
     }
 
-    protected int blockFor()
-    {
+    protected int blockFor() {
         return wrapped.blockFor();
     }
 
-    protected int candidateReplicaCount()
-    {
+    protected int candidateReplicaCount() {
         return wrapped.candidateReplicaCount();
     }
 
-    protected boolean waitingFor(InetAddressAndPort from)
-    {
+    protected boolean waitingFor(InetAddressAndPort from) {
         return wrapped.waitingFor(from);
     }
 
-    protected void signal()
-    {
+    protected void signal() {
         wrapped.signal();
     }
 
-    public static class BatchlogCleanup
-    {
-        private final BatchlogCleanupCallback callback;
+    public static class BatchlogCleanup {
 
-        protected volatile int mutationsWaitingFor;
-        private static final AtomicIntegerFieldUpdater<BatchlogCleanup> mutationsWaitingForUpdater
-            = AtomicIntegerFieldUpdater.newUpdater(BatchlogCleanup.class, "mutationsWaitingFor");
+        private final transient BatchlogCleanupCallback callback;
 
-        public BatchlogCleanup(int mutationsWaitingFor, BatchlogCleanupCallback callback)
-        {
+        protected volatile transient int mutationsWaitingFor;
+
+        private static final transient AtomicIntegerFieldUpdater<BatchlogCleanup> mutationsWaitingForUpdater = AtomicIntegerFieldUpdater.newUpdater(BatchlogCleanup.class, "mutationsWaitingFor");
+
+        public BatchlogCleanup(int mutationsWaitingFor, BatchlogCleanupCallback callback) {
             this.mutationsWaitingFor = mutationsWaitingFor;
             this.callback = callback;
         }
 
-        public int decrement()
-        {
+        public int decrement() {
             return mutationsWaitingForUpdater.decrementAndGet(this);
         }
 
-        public void ackMutation()
-        {
+        public void ackMutation() {
             if (decrement() == 0)
                 callback.invoke();
         }
     }
 
-    public interface BatchlogCleanupCallback
-    {
+    public interface BatchlogCleanupCallback {
+
         void invoke();
     }
 }

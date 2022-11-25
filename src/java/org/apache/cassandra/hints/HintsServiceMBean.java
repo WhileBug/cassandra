@@ -17,8 +17,12 @@
  */
 package org.apache.cassandra.hints;
 
-public interface HintsServiceMBean
-{
+public interface HintsServiceMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintsServiceMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HintsServiceMBean.class);
+
     /**
      * Pause dispatch of all hints. Does not affect the creation of hints.
      */

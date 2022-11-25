@@ -15,39 +15,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.metrics;
 
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
-
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Timer;
 import com.codahale.metrics.Gauge;
 
-public class ViewWriteMetrics extends ClientRequestMetrics
-{
-    public final Counter viewReplicasAttempted;
-    public final Counter viewReplicasSuccess;
-    // time between when mutation is applied to local memtable to when CL.ONE is achieved on MV
-    public final Timer viewWriteLatency;
+public class ViewWriteMetrics extends ClientRequestMetrics {
 
-    public ViewWriteMetrics(String scope)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ViewWriteMetrics.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ViewWriteMetrics.class);
+
+    public final transient Counter viewReplicasAttempted;
+
+    public final transient Counter viewReplicasSuccess;
+
+    // time between when mutation is applied to local memtable to when CL.ONE is achieved on MV
+    public final transient Timer viewWriteLatency;
+
+    public ViewWriteMetrics(String scope) {
         super(scope);
         viewReplicasAttempted = Metrics.counter(factory.createMetricName("ViewReplicasAttempted"));
         viewReplicasSuccess = Metrics.counter(factory.createMetricName("ViewReplicasSuccess"));
         viewWriteLatency = Metrics.timer(factory.createMetricName("ViewWriteLatency"));
-        Metrics.register(factory.createMetricName("ViewPendingMutations"), new Gauge<Long>()
-                {
-                    public Long getValue()
-                    {
-                        return viewReplicasAttempted.getCount() - viewReplicasSuccess.getCount();
-                    }
-                });
+        Metrics.register(factory.createMetricName("ViewPendingMutations"), new Gauge<Long>() {
+
+            public Long getValue() {
+                return viewReplicasAttempted.getCount() - viewReplicasSuccess.getCount();
+            }
+        });
     }
 
-    public void release()
-    {
+    public void release() {
         super.release();
         Metrics.remove(factory.createMetricName("ViewReplicasAttempted"));
         Metrics.remove(factory.createMetricName("ViewReplicasSuccess"));

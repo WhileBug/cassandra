@@ -18,52 +18,46 @@
 package org.apache.cassandra.net;
 
 import java.util.List;
-
 import com.google.common.collect.ImmutableList;
 
-public enum ConnectionType
-{
-    LEGACY_MESSAGES (0), // only used for inbound
-    URGENT_MESSAGES (1),
-    SMALL_MESSAGES  (2),
-    LARGE_MESSAGES  (3),
-    STREAMING       (4);
+public enum ConnectionType {
+
+    // only used for inbound
+    LEGACY_MESSAGES(0),
+    URGENT_MESSAGES(1),
+    SMALL_MESSAGES(2),
+    LARGE_MESSAGES(3),
+    STREAMING(4);
 
     public static final List<ConnectionType> MESSAGING_TYPES = ImmutableList.of(URGENT_MESSAGES, SMALL_MESSAGES, LARGE_MESSAGES);
 
     public final int id;
 
-    ConnectionType(int id)
-    {
+    ConnectionType(int id) {
         this.id = id;
     }
 
-    public int twoBitID()
-    {
+    public int twoBitID() {
         if (id < 0 || id > 0b11)
             throw new AssertionError();
         return id;
     }
 
-    public boolean isStreaming()
-    {
+    public boolean isStreaming() {
         return this == STREAMING;
     }
 
-    public boolean isMessaging()
-    {
+    public boolean isMessaging() {
         return !isStreaming();
     }
 
-    public ConnectionCategory category()
-    {
+    public ConnectionCategory category() {
         return this == STREAMING ? ConnectionCategory.STREAMING : ConnectionCategory.MESSAGING;
     }
 
     private static final ConnectionType[] values = values();
 
-    public static ConnectionType fromId(int id)
-    {
+    public static ConnectionType fromId(int id) {
         return values[id];
     }
 }

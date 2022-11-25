@@ -29,73 +29,64 @@ import org.apache.cassandra.transport.Event.SchemaChange;
 import org.apache.cassandra.transport.Event.SchemaChange.Change;
 import org.apache.cassandra.transport.Event.SchemaChange.Target;
 
-public final class DropViewStatement extends AlterSchemaStatement
-{
-    private final String viewName;
-    private final boolean ifExists;
+public final class DropViewStatement extends AlterSchemaStatement {
 
-    public DropViewStatement(String keyspaceName, String viewName, boolean ifExists)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropViewStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropViewStatement.class);
+
+    private final transient String viewName;
+
+    private final transient boolean ifExists;
+
+    public DropViewStatement(String keyspaceName, String viewName, boolean ifExists) {
         super(keyspaceName);
         this.viewName = viewName;
         this.ifExists = ifExists;
     }
 
-    public Keyspaces apply(Keyspaces schema)
-    {
+    public Keyspaces apply(Keyspaces schema) {
         KeyspaceMetadata keyspace = schema.getNullable(keyspaceName);
-
-        ViewMetadata view = null == keyspace
-                          ? null
-                          : keyspace.views.getNullable(viewName);
-
-        if (null == view)
-        {
+        ViewMetadata view = null == keyspace ? null : keyspace.views.getNullable(viewName);
+        if (null == view) {
             if (ifExists)
                 return schema;
-
             throw ire("Materialized view '%s.%s' doesn't exist", keyspaceName, viewName);
         }
-
         return schema.withAddedOrUpdated(keyspace.withSwapped(keyspace.views.without(viewName)));
     }
 
-    SchemaChange schemaChangeEvent(KeyspacesDiff diff)
-    {
+    SchemaChange schemaChangeEvent(KeyspacesDiff diff) {
         return new SchemaChange(Change.DROPPED, Target.TABLE, keyspaceName, viewName);
     }
 
-    public void authorize(ClientState client)
-    {
+    public void authorize(ClientState client) {
         ViewMetadata view = Schema.instance.getView(keyspaceName, viewName);
         if (null != view)
             client.ensureTablePermission(keyspaceName, view.baseTableName, Permission.ALTER);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.DROP_VIEW, keyspaceName, viewName);
     }
 
-    public String toString()
-    {
+    public String toString() {
         return String.format("%s (%s, %s)", getClass().getSimpleName(), keyspaceName, viewName);
     }
 
-    public static final class Raw extends CQLStatement.Raw
-    {
-        private final QualifiedName name;
-        private final boolean ifExists;
+    public static final class Raw extends CQLStatement.Raw {
 
-        public Raw(QualifiedName name, boolean ifExists)
-        {
+        private final transient QualifiedName name;
+
+        private final transient boolean ifExists;
+
+        public Raw(QualifiedName name, boolean ifExists) {
             this.name = name;
             this.ifExists = ifExists;
         }
 
-        public DropViewStatement prepare(ClientState state)
-        {
+        public DropViewStatement prepare(ClientState state) {
             String keyspaceName = name.hasKeyspace() ? name.getKeyspace() : state.getKeyspace();
             return new DropViewStatement(keyspaceName, name.getName(), ifExists);
         }

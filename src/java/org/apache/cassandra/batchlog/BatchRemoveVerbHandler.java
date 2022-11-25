@@ -18,16 +18,18 @@
 package org.apache.cassandra.batchlog;
 
 import java.util.UUID;
-
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 
-public final class BatchRemoveVerbHandler implements IVerbHandler<UUID>
-{
-    public static final BatchRemoveVerbHandler instance = new BatchRemoveVerbHandler();
+public final class BatchRemoveVerbHandler implements IVerbHandler<UUID> {
 
-    public void doVerb(Message<UUID> message)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchRemoveVerbHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchRemoveVerbHandler.class);
+
+    public static final transient BatchRemoveVerbHandler instance = new BatchRemoveVerbHandler();
+
+    public void doVerb(Message<UUID> message) {
         BatchlogManager.remove(message.payload);
     }
 }

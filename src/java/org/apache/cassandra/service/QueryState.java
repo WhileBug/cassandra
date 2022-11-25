@@ -18,7 +18,6 @@
 package org.apache.cassandra.service;
 
 import java.net.InetAddress;
-
 import org.apache.cassandra.transport.ClientStat;
 import org.apache.cassandra.utils.FBUtilities;
 
@@ -28,20 +27,23 @@ import org.apache.cassandra.utils.FBUtilities;
  * The goal is to be able to use a single consistent server-generated value for both timestamps across the whole request,
  * and later be able to inspect QueryState for the generated values - for logging or other purposes.
  */
-public class QueryState
-{
-    private final ClientState clientState;
+public class QueryState {
 
-    private long timestamp = Long.MIN_VALUE;
-    private int nowInSeconds = Integer.MIN_VALUE;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QueryState.class);
 
-    public QueryState(ClientState clientState)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(QueryState.class);
+
+    private final transient ClientState clientState;
+
+    private transient long timestamp = Long.MIN_VALUE;
+
+    private transient int nowInSeconds = Integer.MIN_VALUE;
+
+    public QueryState(ClientState clientState) {
         this.clientState = clientState;
     }
 
-    public QueryState(ClientState clientState, long timestamp, int nowInSeconds)
-    {
+    public QueryState(ClientState clientState, long timestamp, int nowInSeconds) {
         this(clientState);
         this.timestamp = timestamp;
         this.nowInSeconds = nowInSeconds;
@@ -50,8 +52,7 @@ public class QueryState
     /**
      * @return a QueryState object for internal C* calls (not limited by any kind of auth).
      */
-    public static QueryState forInternalCalls()
-    {
+    public static QueryState forInternalCalls() {
         return new QueryState(ClientState.forInternalCalls());
     }
 
@@ -65,8 +66,7 @@ public class QueryState
      *
      * @return server-generated, recorded timestamp in seconds
      */
-    public long getTimestamp()
-    {
+    public long getTimestamp() {
         if (timestamp == Long.MIN_VALUE)
             timestamp = ClientState.getTimestamp();
         return timestamp;
@@ -83,8 +83,7 @@ public class QueryState
      *
      * @return server-generated, recorded timestamp in seconds
      */
-    public int getNowInSeconds()
-    {
+    public int getNowInSeconds() {
         if (nowInSeconds == Integer.MIN_VALUE)
             nowInSeconds = FBUtilities.nowInSeconds();
         return nowInSeconds;
@@ -93,26 +92,26 @@ public class QueryState
     /**
      * @return server-generated timestamp value, if one had been requested, or Long.MIN_VALUE otherwise
      */
-    public long generatedTimestamp()
-    {
+    public long generatedTimestamp() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.QueryState.timestamp]=" + org.json.simple.JSONValue.toJSONString(timestamp).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.QueryState.timestamp]=" + org.json.simple.JSONValue.toJSONString(timestamp).replace("\n", "").replace("\r", ""));
         return timestamp;
     }
 
     /**
      * @return server-generated nowInSeconds value, if one had been requested, or Integer.MIN_VALUE otherwise
      */
-    public int generatedNowInSeconds()
-    {
+    public int generatedNowInSeconds() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.QueryState.nowInSeconds]=" + org.json.simple.JSONValue.toJSONString(nowInSeconds).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.service.QueryState.nowInSeconds]=" + org.json.simple.JSONValue.toJSONString(nowInSeconds).replace("\n", "").replace("\r", ""));
         return nowInSeconds;
     }
 
-    public ClientState getClientState()
-    {
+    public ClientState getClientState() {
         return clientState;
     }
 
-    public InetAddress getClientAddress()
-    {
+    public InetAddress getClientAddress() {
         return clientState.getClientAddress();
     }
 }

@@ -18,25 +18,26 @@
 package org.apache.cassandra.index.sasi.analyzer.filter;
 
 import java.util.Locale;
-
 import org.tartarus.snowball.SnowballStemmer;
 
 /**
  * Filters for performing Stemming on tokens
  */
-public class StemmingFilters
-{
-    public static class DefaultStemmingFilter extends FilterPipelineTask<String, String>
-    {
-        private SnowballStemmer stemmer;
+public class StemmingFilters {
 
-        public DefaultStemmingFilter(Locale locale)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StemmingFilters.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StemmingFilters.class);
+
+    public static class DefaultStemmingFilter extends FilterPipelineTask<String, String> {
+
+        private transient SnowballStemmer stemmer;
+
+        public DefaultStemmingFilter(Locale locale) {
             stemmer = StemmerFactory.getStemmer(locale);
         }
 
-        public String process(String input) throws Exception
-        {
+        public String process(String input) throws Exception {
             if (input == null || stemmer == null)
                 return input;
             stemmer.setCurrent(input);

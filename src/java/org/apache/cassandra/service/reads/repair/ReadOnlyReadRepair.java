@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads.repair;
 
 import java.util.Map;
-
 import com.codahale.metrics.Meter;
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.Mutation;
@@ -34,41 +32,36 @@ import org.apache.cassandra.metrics.ReadRepairMetrics;
  * Only performs the collection of data responses and reconciliation of them, doesn't send repair mutations
  * to replicas. This preserves write atomicity, but doesn't provide monotonic quorum reads
  */
-public class ReadOnlyReadRepair<E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>>
-        extends AbstractReadRepair<E, P>
-{
-    ReadOnlyReadRepair(ReadCommand command, ReplicaPlan.Shared<E, P> replicaPlan, long queryStartNanoTime)
-    {
+public class ReadOnlyReadRepair<E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>> extends AbstractReadRepair<E, P> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadOnlyReadRepair.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadOnlyReadRepair.class);
+
+    ReadOnlyReadRepair(ReadCommand command, ReplicaPlan.Shared<E, P> replicaPlan, long queryStartNanoTime) {
         super(command, replicaPlan, queryStartNanoTime);
     }
 
     @Override
-    public UnfilteredPartitionIterators.MergeListener getMergeListener(P replicaPlan)
-    {
+    public UnfilteredPartitionIterators.MergeListener getMergeListener(P replicaPlan) {
         return UnfilteredPartitionIterators.MergeListener.NOOP;
     }
 
     @Override
-    Meter getRepairMeter()
-    {
+    Meter getRepairMeter() {
         return ReadRepairMetrics.reconcileRead;
     }
 
     @Override
-    public void maybeSendAdditionalWrites()
-    {
-
+    public void maybeSendAdditionalWrites() {
     }
 
     @Override
-    public void repairPartition(DecoratedKey partitionKey, Map<Replica, Mutation> mutations, ReplicaPlan.ForTokenWrite writePlan)
-    {
+    public void repairPartition(DecoratedKey partitionKey, Map<Replica, Mutation> mutations, ReplicaPlan.ForTokenWrite writePlan) {
         throw new UnsupportedOperationException("ReadOnlyReadRepair shouldn't be trying to repair partitions");
     }
 
     @Override
-    public void awaitWrites()
-    {
-
+    public void awaitWrites() {
     }
 }

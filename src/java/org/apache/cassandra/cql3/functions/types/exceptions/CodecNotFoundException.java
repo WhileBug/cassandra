@@ -22,21 +22,21 @@ package org.apache.cassandra.cql3.functions.types.exceptions;
  * org.apache.cassandra.cql3.functions.types.CodecRegistry} instances.
  */
 @SuppressWarnings("serial")
-public class CodecNotFoundException extends DriverException
-{
+public class CodecNotFoundException extends DriverException {
 
-    public CodecNotFoundException(String msg)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CodecNotFoundException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CodecNotFoundException.class);
+
+    public CodecNotFoundException(String msg) {
         this(msg, null);
     }
 
-    public CodecNotFoundException(Throwable cause)
-    {
+    public CodecNotFoundException(Throwable cause) {
         this(null, cause);
     }
 
-    private CodecNotFoundException(String msg, Throwable cause)
-    {
+    private CodecNotFoundException(String msg, Throwable cause) {
         super(msg, cause);
     }
 }

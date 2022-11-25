@@ -34,25 +34,28 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.primitives.Ints;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.locator.InetAddressAndPort;
 
 /**
  * The goods are here: www.ietf.org/rfc/rfc4122.txt.
  */
-public class UUIDGen
-{
-    // A grand day! millis at 00:00:00.000 15 Oct 1582.
-    private static final long START_EPOCH = -12219292800000L;
-    private static final long clockSeqAndNode = makeClockSeqAndNode();
+public class UUIDGen {
 
-    public static final int UUID_LEN = 16;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UUIDGen.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UUIDGen.class);
+
+    // A grand day! millis at 00:00:00.000 15 Oct 1582.
+    private static final transient long START_EPOCH = -12219292800000L;
+
+    private static final transient long clockSeqAndNode = makeClockSeqAndNode();
+
+    public static final transient int UUID_LEN = 16;
 
     /*
      * The min and max possible lsb for a UUID.
@@ -65,20 +68,21 @@ public class UUIDGen
      * I don't think that has any practical consequence and is more robust in
      * case someone provides a UUID with a broken variant.
      */
-    private static final long MIN_CLOCK_SEQ_AND_NODE = 0x8080808080808080L;
-    private static final long MAX_CLOCK_SEQ_AND_NODE = 0x7f7f7f7f7f7f7f7fL;
+    private static final transient long MIN_CLOCK_SEQ_AND_NODE = 0x8080808080808080L;
 
-    private static final SecureRandom secureRandom = new SecureRandom();
+    private static final transient long MAX_CLOCK_SEQ_AND_NODE = 0x7f7f7f7f7f7f7f7fL;
+
+    private static final transient SecureRandom secureRandom = new SecureRandom();
 
     // placement of this singleton is important.  It needs to be instantiated *AFTER* the other statics.
-    private static final UUIDGen instance = new UUIDGen();
+    private static final transient UUIDGen instance = new UUIDGen();
 
-    private AtomicLong lastNanos = new AtomicLong();
+    private transient AtomicLong lastNanos = new AtomicLong();
 
-    private UUIDGen()
-    {
+    private UUIDGen() {
         // make sure someone didn't whack the clockSeqAndNode by changing the order of instantiation.
-        if (clockSeqAndNode == 0) throw new RuntimeException("singleton instantiation is misplaced.");
+        if (clockSeqAndNode == 0)
+            throw new RuntimeException("singleton instantiation is misplaced.");
     }
 
     /**
@@ -86,8 +90,7 @@ public class UUIDGen
      *
      * @return a UUID instance
      */
-    public static UUID getTimeUUID()
-    {
+    public static UUID getTimeUUID() {
         return new UUID(instance.createTimeSafe(), clockSeqAndNode);
     }
 
@@ -96,8 +99,7 @@ public class UUIDGen
      *
      * @return a UUID instance
      */
-    public static UUID getTimeUUID(long when)
-    {
+    public static UUID getTimeUUID(long when) {
         return new UUID(createTime(fromUnixTimestamp(when)), clockSeqAndNode);
     }
 
@@ -112,8 +114,7 @@ public class UUIDGen
      * multiple calls to this method with the same value of {@code whenInMicros} will return the <b>same</b>
      * UUID.
      */
-    public static UUID getTimeUUIDFromMicros(long whenInMicros)
-    {
+    public static UUID getTimeUUIDFromMicros(long whenInMicros) {
         long whenInMillis = whenInMicros / 1000;
         long nanos = (whenInMicros - (whenInMillis * 1000)) * 10;
         return getTimeUUID(whenInMillis, nanos);
@@ -131,32 +132,29 @@ public class UUIDGen
      * @return a new UUID {@code id} such that {@code microsTimestamp(id) == whenInMicros}. The UUID returned
      * by different calls will be unique even if {@code whenInMicros} is not.
      */
-    public static UUID getRandomTimeUUIDFromMicros(long whenInMicros)
-    {
+    public static UUID getRandomTimeUUIDFromMicros(long whenInMicros) {
         long whenInMillis = whenInMicros / 1000;
         long nanos = (whenInMicros - (whenInMillis * 1000)) * 10;
         return new UUID(createTime(fromUnixTimestamp(whenInMillis, nanos)), secureRandom.nextLong());
     }
 
-    public static UUID getTimeUUID(long when, long nanos)
-    {
+    public static UUID getTimeUUID(long when, long nanos) {
         return new UUID(createTime(fromUnixTimestamp(when, nanos)), clockSeqAndNode);
     }
 
     @VisibleForTesting
-    public static UUID getTimeUUID(long when, long nanos, long clockSeqAndNode)
-    {
+    public static UUID getTimeUUID(long when, long nanos, long clockSeqAndNode) {
         return new UUID(createTime(fromUnixTimestamp(when, nanos)), clockSeqAndNode);
     }
 
-    /** creates a type 1 uuid from raw bytes. */
-    public static UUID getUUID(ByteBuffer raw)
-    {
+    /**
+     * creates a type 1 uuid from raw bytes.
+     */
+    public static UUID getUUID(ByteBuffer raw) {
         return new UUID(raw.getLong(raw.position()), raw.getLong(raw.position() + 8));
     }
 
-    public static ByteBuffer toByteBuffer(UUID uuid)
-    {
+    public static ByteBuffer toByteBuffer(UUID uuid) {
         ByteBuffer buffer = ByteBuffer.allocate(UUID_LEN);
         buffer.putLong(uuid.getMostSignificantBits());
         buffer.putLong(uuid.getLeastSignificantBits());
@@ -164,16 +162,16 @@ public class UUIDGen
         return buffer;
     }
 
-    /** decomposes a uuid into raw bytes. */
-    public static byte[] decompose(UUID uuid)
-    {
+    /**
+     * decomposes a uuid into raw bytes.
+     */
+    public static byte[] decompose(UUID uuid) {
         long most = uuid.getMostSignificantBits();
         long least = uuid.getLeastSignificantBits();
         byte[] b = new byte[16];
-        for (int i = 0; i < 8; i++)
-        {
-            b[i] = (byte)(most >>> ((7-i) * 8));
-            b[8+i] = (byte)(least >>> ((7-i) * 8));
+        for (int i = 0; i < 8; i++) {
+            b[i] = (byte) (most >>> ((7 - i) * 8));
+            b[8 + i] = (byte) (least >>> ((7 - i) * 8));
         }
         return b;
     }
@@ -184,8 +182,7 @@ public class UUIDGen
      *
      * @return a type 1 UUID represented as a byte[]
      */
-    public static byte[] getTimeUUIDBytes()
-    {
+    public static byte[] getTimeUUIDBytes() {
         return createTimeUUIDBytes(instance.createTimeSafe());
     }
 
@@ -195,8 +192,7 @@ public class UUIDGen
      * <b>Warning:</b> this method should only be used for querying as this
      * doesn't at all guarantee the uniqueness of the resulting UUID.
      */
-    public static UUID minTimeUUID(long timestamp)
-    {
+    public static UUID minTimeUUID(long timestamp) {
         return new UUID(createTime(fromUnixTimestamp(timestamp)), MIN_CLOCK_SEQ_AND_NODE);
     }
 
@@ -206,8 +202,7 @@ public class UUIDGen
      * <b>Warning:</b> this method should only be used for querying as this
      * doesn't at all guarantee the uniqueness of the resulting UUID.
      */
-    public static UUID maxTimeUUID(long timestamp)
-    {
+    public static UUID maxTimeUUID(long timestamp) {
         // unix timestamp are milliseconds precision, uuid timestamp are 100's
         // nanoseconds precision. If we ask for the biggest uuid have unix
         // timestamp 1ms, then we should not extend 100's nanoseconds
@@ -220,8 +215,7 @@ public class UUIDGen
      * @param uuid
      * @return milliseconds since Unix epoch
      */
-    public static long unixTimestamp(UUID uuid)
-    {
+    public static long unixTimestamp(UUID uuid) {
         return (uuid.timestamp() / 10000) + START_EPOCH;
     }
 
@@ -229,8 +223,7 @@ public class UUIDGen
      * @param uuid
      * @return seconds since Unix epoch
      */
-    public static int unixTimestampInSec(UUID uuid)
-    {
+    public static int unixTimestampInSec(UUID uuid) {
         return Ints.checkedCast(TimeUnit.MILLISECONDS.toSeconds(unixTimestamp(uuid)));
     }
 
@@ -238,8 +231,7 @@ public class UUIDGen
      * @param uuid
      * @return microseconds since Unix epoch
      */
-    public static long microsTimestamp(UUID uuid)
-    {
+    public static long microsTimestamp(UUID uuid) {
         return (uuid.timestamp() / 10) + START_EPOCH * 1000;
     }
 
@@ -247,13 +239,11 @@ public class UUIDGen
      * @param timestamp milliseconds since Unix epoch
      * @return
      */
-    private static long fromUnixTimestamp(long timestamp)
-    {
+    private static long fromUnixTimestamp(long timestamp) {
         return fromUnixTimestamp(timestamp, 0L);
     }
 
-    private static long fromUnixTimestamp(long timestamp, long nanos)
-    {
+    private static long fromUnixTimestamp(long timestamp, long nanos) {
         return ((timestamp - START_EPOCH) * 10000) + nanos;
     }
 
@@ -269,24 +259,17 @@ public class UUIDGen
      *
      * @return a type 1 UUID represented as a byte[]
      */
-    public static byte[] getTimeUUIDBytes(long timeMillis, int nanos)
-    {
+    public static byte[] getTimeUUIDBytes(long timeMillis, int nanos) {
         if (nanos >= 10000)
             throw new IllegalArgumentException();
         return createTimeUUIDBytes(instance.createTimeUnsafe(timeMillis, nanos));
     }
 
-    private static byte[] createTimeUUIDBytes(long msb)
-    {
+    private static byte[] createTimeUUIDBytes(long msb) {
         long lsb = clockSeqAndNode;
         byte[] uuidBytes = new byte[16];
-
-        for (int i = 0; i < 8; i++)
-            uuidBytes[i] = (byte) (msb >>> 8 * (7 - i));
-
-        for (int i = 8; i < 16; i++)
-            uuidBytes[i] = (byte) (lsb >>> 8 * (7 - i));
-
+        for (int i = 0; i < 8; i++) uuidBytes[i] = (byte) (msb >>> 8 * (7 - i));
+        for (int i = 8; i < 16; i++) uuidBytes[i] = (byte) (lsb >>> 8 * (7 - i));
         return uuidBytes;
     }
 
@@ -297,46 +280,40 @@ public class UUIDGen
      * @return the number of milliseconds since the unix epoch
      * @throws IllegalArgumentException if the UUID is not version 1
      */
-    public static long getAdjustedTimestamp(UUID uuid)
-    {
+    public static long getAdjustedTimestamp(UUID uuid) {
         if (uuid.version() != 1)
-            throw new IllegalArgumentException("incompatible with uuid version: "+uuid.version());
+            throw new IllegalArgumentException("incompatible with uuid version: " + uuid.version());
         return (uuid.timestamp() / 10000) + START_EPOCH;
     }
 
-    private static long makeClockSeqAndNode()
-    {
+    private static long makeClockSeqAndNode() {
         long clock = new SecureRandom().nextLong();
-
         long lsb = 0;
-        lsb |= 0x8000000000000000L;                 // variant (2 bits)
-        lsb |= (clock & 0x0000000000003FFFL) << 48; // clock sequence (14 bits)
-        lsb |= makeNode();                          // 6 bytes
+        // variant (2 bits)
+        lsb |= 0x8000000000000000L;
+        // clock sequence (14 bits)
+        lsb |= (clock & 0x0000000000003FFFL) << 48;
+        // 6 bytes
+        lsb |= makeNode();
         return lsb;
     }
 
     // needs to return two different values for the same when.
     // we can generate at most 10k UUIDs per ms.
-    private long createTimeSafe()
-    {
+    private long createTimeSafe() {
         long newLastNanos;
-        while (true)
-        {
-            //Generate a candidate value for new lastNanos
+        while (true) {
+            // Generate a candidate value for new lastNanos
             newLastNanos = (System.currentTimeMillis() - START_EPOCH) * 10000;
             long originalLastNanos = lastNanos.get();
-            if (newLastNanos > originalLastNanos)
-            {
-                //Slow path once per millisecond do a CAS
-                if (lastNanos.compareAndSet(originalLastNanos, newLastNanos))
-                {
+            if (newLastNanos > originalLastNanos) {
+                // Slow path once per millisecond do a CAS
+                if (lastNanos.compareAndSet(originalLastNanos, newLastNanos)) {
                     break;
                 }
-            }
-            else
-            {
-                //Fast path do an atomic increment
-                //Or when falling behind this will move time forward past the clock if necessary
+            } else {
+                // Fast path do an atomic increment
+                // Or when falling behind this will move time forward past the clock if necessary
                 newLastNanos = lastNanos.incrementAndGet();
                 break;
             }
@@ -344,25 +321,23 @@ public class UUIDGen
         return createTime(newLastNanos);
     }
 
-    private long createTimeUnsafe(long when, int nanos)
-    {
+    private long createTimeUnsafe(long when, int nanos) {
         long nanosSince = ((when - START_EPOCH) * 10000) + nanos;
         return createTime(nanosSince);
     }
 
-    private static long createTime(long nanosSince)
-    {
+    private static long createTime(long nanosSince) {
         long msb = 0L;
         msb |= (0x00000000ffffffffL & nanosSince) << 32;
         msb |= (0x0000ffff00000000L & nanosSince) >>> 16;
         msb |= (0xffff000000000000L & nanosSince) >>> 48;
-        msb |= 0x0000000000001000L; // sets the version to 1.
+        // sets the version to 1.
+        msb |= 0x0000000000001000L;
         return msb;
     }
 
-    private static long makeNode()
-    {
-       /*
+    private static long makeNode() {
+        /*
         * We don't have access to the MAC address but need to generate a node part
         * that identify this host as uniquely as possible.
         * The spec says that one option is to take as many source that identify
@@ -376,105 +351,84 @@ public class UUIDGen
         Collection<InetAddressAndPort> localAddresses = getAllLocalAddresses();
         if (localAddresses.isEmpty())
             throw new RuntimeException("Cannot generate the node component of the UUID because cannot retrieve any IP addresses.");
-
         // ideally, we'd use the MAC address, but java doesn't expose that.
         byte[] hash = hash(localAddresses);
         long node = 0;
-        for (int i = 0; i < Math.min(6, hash.length); i++)
-            node |= (0x00000000000000ff & (long)hash[i]) << (5-i)*8;
+        for (int i = 0; i < Math.min(6, hash.length); i++) node |= (0x00000000000000ff & (long) hash[i]) << (5 - i) * 8;
         assert (0xff00000000000000L & node) == 0;
-
         // Since we don't use the mac address, the spec says that multicast
         // bit (least significant bit of the first octet of the node ID) must be 1.
         return node | 0x0000010000000000L;
     }
 
-    private static byte[] hash(Collection<InetAddressAndPort> data)
-    {
+    private static byte[] hash(Collection<InetAddressAndPort> data) {
         // Identify the host.
         Hasher hasher = Hashing.md5().newHasher();
-        for(InetAddressAndPort addr : data)
-        {
+        for (InetAddressAndPort addr : data) {
             hasher.putBytes(addr.addressBytes);
             hasher.putInt(addr.port);
         }
-
         // Identify the process on the load: we use both the PID and class loader hash.
         long pid = NativeLibrary.getProcessID();
         if (pid < 0)
             pid = new Random(System.currentTimeMillis()).nextLong();
         updateWithLong(hasher, pid);
-
         ClassLoader loader = UUIDGen.class.getClassLoader();
         int loaderId = loader != null ? System.identityHashCode(loader) : 0;
         updateWithInt(hasher, loaderId);
-
         return hasher.hash().asBytes();
     }
 
-    private static void updateWithInt(Hasher hasher, int val)
-    {
+    private static void updateWithInt(Hasher hasher, int val) {
         hasher.putByte((byte) ((val >>> 24) & 0xFF));
         hasher.putByte((byte) ((val >>> 16) & 0xFF));
-        hasher.putByte((byte) ((val >>>  8) & 0xFF));
+        hasher.putByte((byte) ((val >>> 8) & 0xFF));
         hasher.putByte((byte) ((val >>> 0) & 0xFF));
     }
 
-    public static void updateWithLong(Hasher hasher, long val)
-    {
+    public static void updateWithLong(Hasher hasher, long val) {
         hasher.putByte((byte) ((val >>> 56) & 0xFF));
         hasher.putByte((byte) ((val >>> 48) & 0xFF));
         hasher.putByte((byte) ((val >>> 40) & 0xFF));
         hasher.putByte((byte) ((val >>> 32) & 0xFF));
         hasher.putByte((byte) ((val >>> 24) & 0xFF));
         hasher.putByte((byte) ((val >>> 16) & 0xFF));
-        hasher.putByte((byte) ((val >>>  8) & 0xFF));
-        hasher.putByte((byte)  ((val >>> 0) & 0xFF));
+        hasher.putByte((byte) ((val >>> 8) & 0xFF));
+        hasher.putByte((byte) ((val >>> 0) & 0xFF));
     }
 
     /**
      * Helper function used exclusively by UUIDGen to create
-     **/
-    public static Collection<InetAddressAndPort> getAllLocalAddresses()
-    {
+     */
+    public static Collection<InetAddressAndPort> getAllLocalAddresses() {
         Set<InetAddressAndPort> localAddresses = new HashSet<>();
-        try
-        {
+        try {
             Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
-            if (nets != null)
-            {
-                while (nets.hasMoreElements())
-                {
-                    Function<InetAddress, InetAddressAndPort> converter =
-                    address -> InetAddressAndPort.getByAddressOverrideDefaults(address, 0);
-                    List<InetAddressAndPort> addresses =
-                    Collections.list(nets.nextElement().getInetAddresses()).stream().map(converter).collect(Collectors.toList());
+            if (nets != null) {
+                while (nets.hasMoreElements()) {
+                    Function<InetAddress, InetAddressAndPort> converter = address -> InetAddressAndPort.getByAddressOverrideDefaults(address, 0);
+                    List<InetAddressAndPort> addresses = Collections.list(nets.nextElement().getInetAddresses()).stream().map(converter).collect(Collectors.toList());
                     localAddresses.addAll(addresses);
                 }
             }
-        }
-        catch (SocketException e)
-        {
+        } catch (SocketException e) {
             throw new AssertionError(e);
         }
-        if (DatabaseDescriptor.isDaemonInitialized())
-        {
+        if (DatabaseDescriptor.isDaemonInitialized()) {
             localAddresses.add(FBUtilities.getBroadcastAddressAndPort());
             localAddresses.add(FBUtilities.getBroadcastNativeAddressAndPort());
             localAddresses.add(FBUtilities.getLocalAddressAndPort());
         }
         return localAddresses;
     }
-
 }
-
 // for the curious, here is how I generated START_EPOCH
-//        Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT-0"));
-//        c.set(Calendar.YEAR, 1582);
-//        c.set(Calendar.MONTH, Calendar.OCTOBER);
-//        c.set(Calendar.DAY_OF_MONTH, 15);
-//        c.set(Calendar.HOUR_OF_DAY, 0);
-//        c.set(Calendar.MINUTE, 0);
-//        c.set(Calendar.SECOND, 0);
-//        c.set(Calendar.MILLISECOND, 0);
-//        long START_EPOCH = c.getTimeInMillis();
+// Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT-0"));
+// c.set(Calendar.YEAR, 1582);
+// c.set(Calendar.MONTH, Calendar.OCTOBER);
+// c.set(Calendar.DAY_OF_MONTH, 15);
+// c.set(Calendar.HOUR_OF_DAY, 0);
+// c.set(Calendar.MINUTE, 0);
+// c.set(Calendar.SECOND, 0);
+// c.set(Calendar.MILLISECOND, 0);
+// long START_EPOCH = c.getTimeInMillis();

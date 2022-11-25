@@ -15,14 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import com.carrotsearch.hppc.ObjectIntHashMap;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
-
 import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.Arrays;
@@ -44,22 +42,46 @@ import java.util.stream.Stream;
  * transient replication status, basic contains and remove methods can be ambiguous. Replicas forces you
  * to be explicit about what you're checking the container for, or removing from it.
  */
-public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollection<C>> implements ReplicaCollection<C>
-{
-    protected static final ReplicaList EMPTY_LIST = new ReplicaList(); // since immutable, can safely return this to avoid megamorphic callsites
+public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollection<C>> implements ReplicaCollection<C> {
 
-    public static <C extends ReplicaCollection<C>, B extends Builder<C>> Collector<Replica, B, C> collector(Set<Collector.Characteristics> characteristics, Supplier<B> supplier)
-    {
-        return new Collector<Replica, B, C>()
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractReplicaCollection.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractReplicaCollection.class);
+
+    // since immutable, can safely return this to avoid megamorphic callsites
+    protected static final transient ReplicaList EMPTY_LIST = new ReplicaList();
+
+    public static <C extends ReplicaCollection<C>, B extends Builder<C>> Collector<Replica, B, C> collector(Set<Collector.Characteristics> characteristics, Supplier<B> supplier) {
+        return new Collector<Replica, B, C>() {
+
             private final BiConsumer<B, Replica> accumulator = Builder::add;
-            private final BinaryOperator<B> combiner = (a, b) -> { a.addAll(b); return a; };
+
+            private final BinaryOperator<B> combiner = (a, b) -> {
+                a.addAll(b);
+                return a;
+            };
+
             private final Function<B, C> finisher = Builder::build;
-            public Supplier<B> supplier() { return supplier; }
-            public BiConsumer<B, Replica> accumulator() { return accumulator; }
-            public BinaryOperator<B> combiner() { return combiner; }
-            public Function<B, C> finisher() { return finisher; }
-            public Set<Characteristics> characteristics() { return characteristics; }
+
+            public Supplier<B> supplier() {
+                return supplier;
+            }
+
+            public BiConsumer<B, Replica> accumulator() {
+                return accumulator;
+            }
+
+            public BinaryOperator<B> combiner() {
+                return combiner;
+            }
+
+            public Function<B, C> finisher() {
+                return finisher;
+            }
+
+            public Set<Characteristics> characteristics() {
+                return characteristics;
+            }
         };
     }
 
@@ -68,92 +90,98 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
      * this permits us to reduce the amount of garbage generated, by not wrapping iterators or unnecessarily copying
      * and reduces the amount of indirection necessary, as well as ensuring monomorphic callsites
      */
-    protected static class ReplicaList implements Iterable<Replica>
-    {
-        private static final Replica[] EMPTY = new Replica[0];
-        Replica[] contents;
-        int begin, size;
+    protected static class ReplicaList implements Iterable<Replica> {
 
-        public ReplicaList() { this(0); }
-        public ReplicaList(int capacity) { contents = capacity == 0 ? EMPTY : new Replica[capacity]; }
-        public ReplicaList(Replica[] contents, int begin, int size) { this.contents = contents; this.begin = begin; this.size = size; }
+        private static final transient Replica[] EMPTY = new Replica[0];
 
-        public boolean isSubList(ReplicaList subList)
-        {
+        transient Replica[] contents;
+
+        transient int begin, size;
+
+        public ReplicaList() {
+            this(0);
+        }
+
+        public ReplicaList(int capacity) {
+            contents = capacity == 0 ? EMPTY : new Replica[capacity];
+        }
+
+        public ReplicaList(Replica[] contents, int begin, int size) {
+            this.contents = contents;
+            this.begin = begin;
+            this.size = size;
+        }
+
+        public boolean isSubList(ReplicaList subList) {
             return subList.contents == contents;
         }
 
-        public Replica get(int index)
-        {
+        public Replica get(int index) {
             if (index > size)
                 throw new IndexOutOfBoundsException();
             return contents[begin + index];
         }
 
-        public void add(Replica replica)
-        {
+        public void add(Replica replica) {
             // can only add to full array - if we have sliced it, we must be a snapshot
             if (begin != 0)
                 throw new IllegalStateException();
-
-            if (size == contents.length)
-            {
+            if (size == contents.length) {
                 int newSize;
-                if (size < 3) newSize = 3;
-                else if (size < 9) newSize = 9;
-                else newSize = size * 2;
+                if (size < 3)
+                    newSize = 3;
+                else if (size < 9)
+                    newSize = 9;
+                else
+                    newSize = size * 2;
                 contents = Arrays.copyOf(contents, newSize);
             }
             contents[size++] = replica;
         }
 
-        public int size()
-        {
+        public int size() {
             return size;
         }
 
-        public boolean isEmpty()
-        {
+        public boolean isEmpty() {
             return size == 0;
         }
 
-        public ReplicaList subList(int begin, int end)
-        {
-            if (end > size || begin > end) throw new IndexOutOfBoundsException();
+        public ReplicaList subList(int begin, int end) {
+            if (end > size || begin > end)
+                throw new IndexOutOfBoundsException();
             return new ReplicaList(contents, this.begin + begin, end - begin);
         }
 
-        public ReplicaList sorted(Comparator<Replica> comparator)
-        {
+        public ReplicaList sorted(Comparator<Replica> comparator) {
             Replica[] copy = Arrays.copyOfRange(contents, begin, begin + size);
             Arrays.sort(copy, comparator);
             return new ReplicaList(copy, 0, copy.length);
         }
 
-        public Stream<Replica> stream()
-        {
+        public Stream<Replica> stream() {
             return Arrays.stream(contents, begin, begin + size);
         }
 
         // we implement our own iterator, because it is trivial to do so, and in monomorphic call sites
         // will compile down to almost optimal indexed for loop
         @Override
-        public Iterator<Replica> iterator()
-        {
-            return new Iterator<Replica>()
-            {
+        public Iterator<Replica> iterator() {
+            return new Iterator<Replica>() {
+
                 final int end = begin + size;
+
                 int i = begin;
+
                 @Override
-                public boolean hasNext()
-                {
+                public boolean hasNext() {
                     return i < end;
                 }
 
                 @Override
-                public Replica next()
-                {
-                    if (!hasNext()) throw new IllegalStateException();
+                public Replica next() {
+                    if (!hasNext())
+                        throw new IllegalStateException();
                     return contents[i++];
                 }
             };
@@ -161,21 +189,20 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
 
         // we implement our own iterator, because it is trivial to do so, and in monomorphic call sites
         // will compile down to almost optimal indexed for loop
-        public <K> Iterator<K> transformIterator(Function<Replica, K> function)
-        {
-            return new Iterator<K>()
-            {
+        public <K> Iterator<K> transformIterator(Function<Replica, K> function) {
+            return new Iterator<K>() {
+
                 final int end = begin + size;
+
                 int i = begin;
+
                 @Override
-                public boolean hasNext()
-                {
+                public boolean hasNext() {
                     return i < end;
                 }
 
                 @Override
-                public K next()
-                {
+                public K next() {
                     return function.apply(contents[i++]);
                 }
             };
@@ -184,31 +211,35 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
         // we implement our own iterator, because it is trivial to do so, and in monomorphic call sites
         // will compile down to almost optimal indexed for loop
         // in this case, especially, it is impactful versus Iterables.limit(Iterables.filter())
-        private Iterator<Replica> filterIterator(Predicate<Replica> predicate, int limit)
-        {
-            return new Iterator<Replica>()
-            {
+        private Iterator<Replica> filterIterator(Predicate<Replica> predicate, int limit) {
+            return new Iterator<Replica>() {
+
                 final int end = begin + size;
+
                 int next = begin;
+
                 int count = 0;
-                { updateNext(); }
-                void updateNext()
+
                 {
-                    if (count == limit) next = end;
-                    while (next < end && !predicate.test(contents[next]))
-                        ++next;
+                    updateNext();
+                }
+
+                void updateNext() {
+                    if (count == limit)
+                        next = end;
+                    while (next < end && !predicate.test(contents[next])) ++next;
                     ++count;
                 }
+
                 @Override
-                public boolean hasNext()
-                {
+                public boolean hasNext() {
                     return next < end;
                 }
 
                 @Override
-                public Replica next()
-                {
-                    if (!hasNext()) throw new IllegalStateException();
+                public Replica next() {
+                    if (!hasNext())
+                        throw new IllegalStateException();
                     Replica result = contents[next++];
                     updateNext();
                     return result;
@@ -217,12 +248,12 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
         }
 
         @VisibleForTesting
-        public boolean equals(Object to)
-        {
+        public boolean equals(Object to) {
             if (to == null || to.getClass() != ReplicaList.class)
                 return false;
             ReplicaList that = (ReplicaList) to;
-            if (this.size != that.size) return false;
+            if (this.size != that.size)
+                return false;
             return Iterables.elementsEqual(this, that);
         }
     }
@@ -234,76 +265,88 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
      * reduces the amount of indirection necessary, as well as ensuring monomorphic callsites.
      * The underlying map is also more efficient, particularly for such small collections as we typically produce.
      */
-    protected static class ReplicaMap<K> extends AbstractMap<K, Replica>
-    {
-        private final Function<Replica, K> toKey;
-        private final ReplicaList list;
+    protected static class ReplicaMap<K> extends AbstractMap<K, Replica> {
+
+        private final transient Function<Replica, K> toKey;
+
+        private final transient ReplicaList list;
+
         // we maintain a map of key -> index in our list; this lets us share with subLists (or between Builder and snapshots)
         // since we only need to corroborate that the list index we find is within the bounds of our list
         // (if not, it's a shared map, and the key only occurs in one of our ancestors)
-        private final ObjectIntHashMap<K> map;
-        private Set<K> keySet;
-        private Set<Entry<K, Replica>> entrySet;
+        private final transient ObjectIntHashMap<K> map;
 
-        abstract class AbstractImmutableSet<T> extends AbstractSet<T>
-        {
+        private transient Set<K> keySet;
+
+        private transient Set<Entry<K, Replica>> entrySet;
+
+        abstract class AbstractImmutableSet<T> extends AbstractSet<T> {
+
             @Override
-            public boolean removeAll(Collection<?> c) { throw new UnsupportedOperationException(); }
+            public boolean removeAll(Collection<?> c) {
+                throw new UnsupportedOperationException();
+            }
+
             @Override
-            public boolean remove(Object o) { throw new UnsupportedOperationException(); }
+            public boolean remove(Object o) {
+                throw new UnsupportedOperationException();
+            }
+
             @Override
-            public int size() { return list.size(); }
+            public int size() {
+                return list.size();
+            }
         }
 
-        class KeySet extends AbstractImmutableSet<K>
-        {
+        class KeySet extends AbstractImmutableSet<K> {
+
             @Override
-            public boolean contains(Object o) { return containsKey(o); }
+            public boolean contains(Object o) {
+                return containsKey(o);
+            }
+
             @Override
-            public Iterator<K> iterator() { return list.transformIterator(toKey); }
+            public Iterator<K> iterator() {
+                return list.transformIterator(toKey);
+            }
         }
 
-        class EntrySet extends AbstractImmutableSet<Entry<K, Replica>>
-        {
+        class EntrySet extends AbstractImmutableSet<Entry<K, Replica>> {
+
             @Override
-            public boolean contains(Object o)
-            {
+            public boolean contains(Object o) {
                 Preconditions.checkNotNull(o);
-                if (!(o instanceof Entry<?, ?>)) return false;
+                if (!(o instanceof Entry<?, ?>))
+                    return false;
                 return Objects.equals(get(((Entry) o).getKey()), ((Entry) o).getValue());
             }
 
             @Override
-            public Iterator<Entry<K, Replica>> iterator()
-            {
+            public Iterator<Entry<K, Replica>> iterator() {
                 return list.transformIterator(r -> new SimpleImmutableEntry<>(toKey.apply(r), r));
             }
         }
 
-        public ReplicaMap(ReplicaList list, Function<Replica, K> toKey)
-        {
+        public ReplicaMap(ReplicaList list, Function<Replica, K> toKey) {
             // 8*0.65 => RF=5; 16*0.65 ==> RF=10
             // use list capacity if empty, otherwise use actual list size
             this.toKey = toKey;
             this.map = new ObjectIntHashMap<>(list.size == 0 ? list.contents.length : list.size, 0.65f);
             this.list = list;
-            for (int i = list.begin ; i < list.begin + list.size ; ++i)
-            {
+            for (int i = list.begin; i < list.begin + list.size; ++i) {
                 boolean inserted = internalPutIfAbsent(list.contents[i], i);
                 assert inserted;
             }
         }
 
-        public ReplicaMap(ReplicaList list, Function<Replica, K> toKey, ObjectIntHashMap<K> map)
-        {
+        public ReplicaMap(ReplicaList list, Function<Replica, K> toKey, ObjectIntHashMap<K> map) {
             this.toKey = toKey;
             this.list = list;
             this.map = map;
         }
 
         // to be used only by subclasses of AbstractReplicaCollection
-        boolean internalPutIfAbsent(Replica replica, int index)
-        {
+        boolean internalPutIfAbsent(Replica replica, int index) {
             K key = toKey.apply(replica);
             int otherIndex = map.put(key, index + 1);
             if (otherIndex == 0)
@@ -313,16 +356,14 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
         }
 
         @Override
-        public boolean containsKey(Object key)
-        {
+        public boolean containsKey(Object key) {
             Preconditions.checkNotNull(key);
-            return get((K)key) != null;
+            return get((K) key) != null;
         }
 
-        public Replica get(Object key)
-        {
+        public Replica get(Object key) {
             Preconditions.checkNotNull(key);
-            int index = map.get((K)key) - 1;
+            int index = map.get((K) key) - 1;
             // since this map can be shared between sublists (or snapshots of mutables)
             // we have to first corroborate that the index we've found is actually within our list's bounds
             if (index < list.begin || index >= list.begin + list.size)
@@ -331,14 +372,12 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
         }
 
         @Override
-        public Replica remove(Object key)
-        {
+        public Replica remove(Object key) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public Set<K> keySet()
-        {
+        public Set<K> keySet() {
             Set<K> ks = keySet;
             if (ks == null)
                 keySet = ks = new KeySet();
@@ -346,29 +385,26 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
         }
 
         @Override
-        public Set<Entry<K, Replica>> entrySet()
-        {
+        public Set<Entry<K, Replica>> entrySet() {
             Set<Entry<K, Replica>> es = entrySet;
             if (es == null)
                 entrySet = es = new EntrySet();
             return es;
         }
 
-        public int size()
-        {
+        public int size() {
             return list.size();
         }
 
-        ReplicaMap<K> forSubList(ReplicaList subList)
-        {
+        ReplicaMap<K> forSubList(ReplicaList subList) {
             assert subList.contents == list.contents;
             return new ReplicaMap<>(subList, toKey, map);
         }
     }
 
-    protected final ReplicaList list;
-    AbstractReplicaCollection(ReplicaList list)
-    {
+    protected final transient ReplicaList list;
+
+    AbstractReplicaCollection(ReplicaList list) {
         this.list = list;
     }
 
@@ -380,73 +416,69 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
 
     // return a new "sub-collection" with some sub-selection of the contents of this collection
     abstract C snapshot(ReplicaList newList);
+
     // return this object, if it is an immutable snapshot, otherwise returns a copy with these properties
     public abstract C snapshot();
 
-    /** see {@link ReplicaCollection#subList(int, int)}*/
-    public final C subList(int start, int end)
-    {
+    /**
+     * see {@link ReplicaCollection#subList(int, int)}
+     */
+    public final C subList(int start, int end) {
         if (start == 0 && end == size())
             return snapshot();
-
         ReplicaList subList;
-        if (start == end) subList = EMPTY_LIST;
-        else subList = list.subList(start, end);
-
+        if (start == end)
+            subList = EMPTY_LIST;
+        else
+            subList = list.subList(start, end);
         return snapshot(subList);
     }
 
-    /** see {@link ReplicaCollection#count(Predicate)}*/
-    public int count(Predicate<Replica> predicate)
-    {
+    /**
+     * see {@link ReplicaCollection#count(Predicate)}
+     */
+    public int count(Predicate<Replica> predicate) {
         int count = 0;
-        for (int i = 0 ; i < list.size() ; ++i)
-            if (predicate.test(list.get(i)))
-                ++count;
+        for (int i = 0; i < list.size(); ++i) if (predicate.test(list.get(i)))
+            ++count;
         return count;
     }
 
-    /** see {@link ReplicaCollection#filter(Predicate)}*/
-    public final C filter(Predicate<Replica> predicate)
-    {
+    /**
+     * see {@link ReplicaCollection#filter(Predicate)}
+     */
+    public final C filter(Predicate<Replica> predicate) {
         return filter(predicate, Integer.MAX_VALUE);
     }
 
-    /** see {@link ReplicaCollection#filter(Predicate, int)}*/
-    public final C filter(Predicate<Replica> predicate, int limit)
-    {
+    /**
+     * see {@link ReplicaCollection#filter(Predicate, int)}
+     */
+    public final C filter(Predicate<Replica> predicate, int limit) {
         if (isEmpty())
             return snapshot();
-
         ReplicaList copy = null;
         int beginRun = -1, endRun = -1;
         int i = 0;
-        for (; i < list.size() ; ++i)
-        {
+        for (; i < list.size(); ++i) {
             Replica replica = list.get(i);
-            if (predicate.test(replica))
-            {
+            if (predicate.test(replica)) {
                 if (copy != null)
                     copy.add(replica);
                 else if (beginRun < 0)
                     beginRun = i;
-                else if (endRun > 0)
-                {
+                else if (endRun > 0) {
                     copy = new ReplicaList(Math.min(limit, (list.size() - i) + (endRun - beginRun)));
-                    for (int j = beginRun ; j < endRun ; ++j)
-                        copy.add(list.get(j));
+                    for (int j = beginRun; j < endRun; ++j) copy.add(list.get(j));
                     copy.add(list.get(i));
                 }
-                if (--limit == 0)
-                {
+                if (--limit == 0) {
                     ++i;
                     break;
                 }
-            }
-            else if (beginRun >= 0 && endRun < 0)
+            } else if (beginRun >= 0 && endRun < 0)
                 endRun = i;
         }
-
         if (beginRun < 0)
             beginRun = endRun = 0;
         if (endRun < 0)
@@ -456,45 +488,46 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
         return snapshot(copy);
     }
 
-    /** see {@link ReplicaCollection#filterLazily(Predicate)}*/
-    public final Iterable<Replica> filterLazily(Predicate<Replica> predicate)
-    {
+    /**
+     * see {@link ReplicaCollection#filterLazily(Predicate)}
+     */
+    public final Iterable<Replica> filterLazily(Predicate<Replica> predicate) {
         return filterLazily(predicate, Integer.MAX_VALUE);
     }
 
-    /** see {@link ReplicaCollection#filterLazily(Predicate,int)}*/
-    public final Iterable<Replica> filterLazily(Predicate<Replica> predicate, int limit)
-    {
+    /**
+     * see {@link ReplicaCollection#filterLazily(Predicate,int)}
+     */
+    public final Iterable<Replica> filterLazily(Predicate<Replica> predicate, int limit) {
         return () -> list.filterIterator(predicate, limit);
     }
 
-    /** see {@link ReplicaCollection#sorted(Comparator)}*/
-    public final C sorted(Comparator<Replica> comparator)
-    {
+    /**
+     * see {@link ReplicaCollection#sorted(Comparator)}
+     */
+    public final C sorted(Comparator<Replica> comparator) {
         return snapshot(list.sorted(comparator));
     }
 
-    public final Replica get(int i)
-    {
+    public final Replica get(int i) {
         return list.get(i);
     }
 
-    public final int size()
-    {
+    public final int size() {
         return list.size();
     }
 
-    public final boolean isEmpty()
-    {
+    public final boolean isEmpty() {
         return list.isEmpty();
     }
 
-    public final Iterator<Replica> iterator()
-    {
+    public final Iterator<Replica> iterator() {
         return list.iterator();
     }
 
-    public final Stream<Replica> stream() { return list.stream(); }
+    public final Stream<Replica> stream() {
+        return list.stream();
+    }
 
     /**
      *  <p>
@@ -507,8 +540,7 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
      *  and use that to get order sensitive equals.
      *  </p>
      */
-    public final boolean equals(Object o)
-    {
+    public final boolean equals(Object o) {
         throw new UnsupportedOperationException("AbstractReplicaCollection equals unsupported");
     }
 
@@ -522,19 +554,16 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
      *  Don't implement this and pick one behavior over the other.
      *  </p>
      */
-    public final int hashCode()
-    {
+    public final int hashCode() {
         throw new UnsupportedOperationException("AbstractReplicaCollection hashCode unsupported");
     }
 
     @Override
-    public final String toString()
-    {
+    public final String toString() {
         return Iterables.toString(list);
     }
 
-    static <C extends AbstractReplicaCollection<C>> C concat(C replicas, C extraReplicas, Builder.Conflict ignoreConflicts)
-    {
+    static <C extends AbstractReplicaCollection<C>> C concat(C replicas, C extraReplicas, Builder.Conflict ignoreConflicts) {
         if (extraReplicas.isEmpty())
             return replicas;
         if (replicas.isEmpty())
@@ -544,5 +573,4 @@ public abstract class AbstractReplicaCollection<C extends AbstractReplicaCollect
         builder.addAll(extraReplicas, ignoreConflicts);
         return builder.build();
     }
-
 }

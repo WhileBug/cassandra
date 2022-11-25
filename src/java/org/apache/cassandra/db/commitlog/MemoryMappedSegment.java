@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.io.FSWriteError;
 import org.apache.cassandra.io.util.FileUtils;
@@ -33,15 +32,18 @@ import org.apache.cassandra.utils.SyncUtil;
  * mutation threads write. On sync forces the buffer to disk.
  * If possible, recycles used segment files to avoid reallocating large chunks of disk.
  */
-public class MemoryMappedSegment extends CommitLogSegment
-{
+public class MemoryMappedSegment extends CommitLogSegment {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemoryMappedSegment.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemoryMappedSegment.class);
+
     /**
      * Constructs a new segment file.
      *
      * @param commitLog the commit log it will be used with.
      */
-    MemoryMappedSegment(CommitLog commitLog, AbstractCommitLogSegmentManager manager)
-    {
+    MemoryMappedSegment(CommitLog commitLog, AbstractCommitLogSegmentManager manager) {
         super(commitLog, manager);
         // mark the initial sync marker as uninitialised
         int firstSync = buffer.position();
@@ -49,59 +51,47 @@ public class MemoryMappedSegment extends CommitLogSegment
         buffer.putInt(firstSync + 4, 0);
     }
 
-    ByteBuffer createBuffer(CommitLog commitLog)
-    {
-        try
-        {
+    ByteBuffer createBuffer(CommitLog commitLog) {
+        try {
             MappedByteBuffer mappedFile = channel.map(FileChannel.MapMode.READ_WRITE, 0, DatabaseDescriptor.getCommitLogSegmentSize());
             manager.addSize(DatabaseDescriptor.getCommitLogSegmentSize());
             return mappedFile;
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new FSWriteError(e, logFile);
         }
     }
 
     @Override
-    void write(int startMarker, int nextMarker)
-    {
+    void write(int startMarker, int nextMarker) {
         // if there's room in the discard section to write an empty header,
         // zero out the next sync marker so replayer can cleanly exit
-        if (nextMarker <= buffer.capacity() - SYNC_MARKER_SIZE)
-        {
+        if (nextMarker <= buffer.capacity() - SYNC_MARKER_SIZE) {
             buffer.putInt(nextMarker, 0);
             buffer.putInt(nextMarker + 4, 0);
         }
-
         // write previous sync marker to point to next sync marker
         // we don't chain the crcs here to ensure this method is idempotent if it fails
         writeSyncMarker(id, buffer, startMarker, startMarker, nextMarker);
     }
 
     @Override
-    protected void flush(int startMarker, int nextMarker)
-    {
-        try
-        {
+    protected void flush(int startMarker, int nextMarker) {
+        try {
             SyncUtil.force((MappedByteBuffer) buffer);
-        }
-        catch (Exception e) // MappedByteBuffer.force() does not declare IOException but can actually throw it
-        {
+        } catch (// MappedByteBuffer.force() does not declare IOException but can actually throw it
+        Exception e) {
             throw new FSWriteError(e, getPath());
         }
         NativeLibrary.trySkipCache(fd, startMarker, nextMarker, logFile.getAbsolutePath());
     }
 
     @Override
-    public long onDiskSize()
-    {
+    public long onDiskSize() {
         return DatabaseDescriptor.getCommitLogSegmentSize();
     }
 
     @Override
-    protected void internalClose()
-    {
+    protected void internalClose() {
         FileUtils.clean(buffer);
         super.internalClose();
     }

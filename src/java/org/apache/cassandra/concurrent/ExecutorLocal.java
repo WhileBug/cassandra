@@ -15,15 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.concurrent;
 
 import org.apache.cassandra.service.ClientWarn;
 import org.apache.cassandra.tracing.Tracing;
 
-public interface ExecutorLocal<T>
-{
-    ExecutorLocal[] all = { Tracing.instance, ClientWarn.instance };
+public interface ExecutorLocal<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExecutorLocal.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExecutorLocal.class);
+
+    transient ExecutorLocal[] all = { Tracing.instance, ClientWarn.instance };
 
     /**
      * This is called when scheduling the task, and also before calling {@link #set(Object)} when running on a

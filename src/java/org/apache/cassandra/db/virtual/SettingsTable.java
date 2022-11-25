@@ -24,12 +24,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-
 import org.apache.cassandra.audit.AuditLogOptions;
 import org.apache.cassandra.config.*;
 import org.apache.cassandra.db.DecoratedKey;
@@ -38,73 +36,51 @@ import org.apache.cassandra.dht.LocalPartitioner;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.transport.ServerError;
 
-final class SettingsTable extends AbstractVirtualTable
-{
-    private static final String NAME = "name";
-    private static final String VALUE = "value";
+final class SettingsTable extends AbstractVirtualTable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SettingsTable.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SettingsTable.class);
+
+    private static final transient String NAME = "name";
+
+    private static final transient String VALUE = "value";
 
     @VisibleForTesting
-    static final Map<String, Field> FIELDS =
-        Arrays.stream(Config.class.getFields())
-              .filter(f -> !Modifier.isStatic(f.getModifiers()))
-              .collect(Collectors.toMap(Field::getName, Functions.identity()));
+    static final transient Map<String, Field> FIELDS = Arrays.stream(Config.class.getFields()).filter(f -> !Modifier.isStatic(f.getModifiers())).collect(Collectors.toMap(Field::getName, Functions.identity()));
 
     @VisibleForTesting
-    final Map<String, BiConsumer<SimpleDataSet, Field>> overrides =
-        ImmutableMap.<String, BiConsumer<SimpleDataSet, Field>>builder()
-                    .put("audit_logging_options", this::addAuditLoggingOptions)
-                    .put("client_encryption_options", this::addEncryptionOptions)
-                    .put("server_encryption_options", this::addEncryptionOptions)
-                    .put("transparent_data_encryption_options", this::addTransparentEncryptionOptions)
-                    .build();
+    final transient Map<String, BiConsumer<SimpleDataSet, Field>> overrides = ImmutableMap.<String, BiConsumer<SimpleDataSet, Field>>builder().put("audit_logging_options", this::addAuditLoggingOptions).put("client_encryption_options", this::addEncryptionOptions).put("server_encryption_options", this::addEncryptionOptions).put("transparent_data_encryption_options", this::addTransparentEncryptionOptions).build();
 
-    private final Config config;
+    private final transient Config config;
 
-    SettingsTable(String keyspace)
-    {
+    SettingsTable(String keyspace) {
         this(keyspace, DatabaseDescriptor.getRawConfig());
     }
 
-    SettingsTable(String keyspace, Config config)
-    {
-        super(TableMetadata.builder(keyspace, "settings")
-                           .comment("current settings")
-                           .kind(TableMetadata.Kind.VIRTUAL)
-                           .partitioner(new LocalPartitioner(UTF8Type.instance))
-                           .addPartitionKeyColumn(NAME, UTF8Type.instance)
-                           .addRegularColumn(VALUE, UTF8Type.instance)
-                           .build());
+    SettingsTable(String keyspace, Config config) {
+        super(TableMetadata.builder(keyspace, "settings").comment("current settings").kind(TableMetadata.Kind.VIRTUAL).partitioner(new LocalPartitioner(UTF8Type.instance)).addPartitionKeyColumn(NAME, UTF8Type.instance).addRegularColumn(VALUE, UTF8Type.instance).build());
         this.config = config;
     }
 
     @VisibleForTesting
-    Object getValue(Field f)
-    {
+    Object getValue(Field f) {
         Object value;
-        try
-        {
+        try {
             value = f.get(config);
-        }
-        catch (IllegalAccessException | IllegalArgumentException e)
-        {
+        } catch (IllegalAccessException | IllegalArgumentException e) {
             throw new ServerError(e);
         }
         return value;
     }
 
-    private void addValue(SimpleDataSet result, Field f)
-    {
+    private void addValue(SimpleDataSet result, Field f) {
         Object value = getValue(f);
-        if (value == null)
-        {
+        if (value == null) {
             result.row(f.getName());
-        }
-        else if (overrides.containsKey(f.getName()))
-        {
+        } else if (overrides.containsKey(f.getName())) {
             overrides.get(f.getName()).accept(result, f);
-        }
-        else
-        {
+        } else {
             if (value.getClass().isArray())
                 value = Arrays.toString((Object[]) value);
             result.row(f.getName()).column(VALUE, value.toString());
@@ -112,38 +88,29 @@ final class SettingsTable extends AbstractVirtualTable
     }
 
     @Override
-    public DataSet data(DecoratedKey partitionKey)
-    {
+    public DataSet data(DecoratedKey partitionKey) {
         SimpleDataSet result = new SimpleDataSet(metadata());
         String name = UTF8Type.instance.compose(partitionKey.getKey());
         Field field = FIELDS.get(name);
-        if (field != null)
-        {
+        if (field != null) {
             addValue(result, field);
-        }
-        else
-        {
+        } else {
             // rows created by overrides might be directly queried so include them in result to be possibly filtered
-            for (String override : overrides.keySet())
-                if (name.startsWith(override))
-                    addValue(result, FIELDS.get(override));
+            for (String override : overrides.keySet()) if (name.startsWith(override))
+                addValue(result, FIELDS.get(override));
         }
         return result;
     }
 
     @Override
-    public DataSet data()
-    {
+    public DataSet data() {
         SimpleDataSet result = new SimpleDataSet(metadata());
-        for (Field setting : FIELDS.values())
-            addValue(result, setting);
+        for (Field setting : FIELDS.values()) addValue(result, setting);
         return result;
     }
 
-    private void addAuditLoggingOptions(SimpleDataSet result, Field f)
-    {
+    private void addAuditLoggingOptions(SimpleDataSet result, Field f) {
         Preconditions.checkArgument(AuditLogOptions.class.isAssignableFrom(f.getType()));
-
         AuditLogOptions value = (AuditLogOptions) getValue(f);
         result.row(f.getName() + "_enabled").column(VALUE, Boolean.toString(value.enabled));
         result.row(f.getName() + "_logger").column(VALUE, value.logger.class_name);
@@ -156,10 +123,8 @@ final class SettingsTable extends AbstractVirtualTable
         result.row(f.getName() + "_excluded_users").column(VALUE, value.excluded_users);
     }
 
-    private void addEncryptionOptions(SimpleDataSet result, Field f)
-    {
+    private void addEncryptionOptions(SimpleDataSet result, Field f) {
         Preconditions.checkArgument(EncryptionOptions.class.isAssignableFrom(f.getType()));
-
         EncryptionOptions value = (EncryptionOptions) getValue(f);
         result.row(f.getName() + "_enabled").column(VALUE, Boolean.toString(value.isEnabled()));
         result.row(f.getName() + "_algorithm").column(VALUE, value.algorithm);
@@ -168,19 +133,15 @@ final class SettingsTable extends AbstractVirtualTable
         result.row(f.getName() + "_client_auth").column(VALUE, Boolean.toString(value.require_client_auth));
         result.row(f.getName() + "_endpoint_verification").column(VALUE, Boolean.toString(value.require_endpoint_verification));
         result.row(f.getName() + "_optional").column(VALUE, Boolean.toString(value.isOptional()));
-
-        if (value instanceof EncryptionOptions.ServerEncryptionOptions)
-        {
+        if (value instanceof EncryptionOptions.ServerEncryptionOptions) {
             EncryptionOptions.ServerEncryptionOptions server = (EncryptionOptions.ServerEncryptionOptions) value;
             result.row(f.getName() + "_internode_encryption").column(VALUE, server.internode_encryption.toString());
             result.row(f.getName() + "_legacy_ssl_storage_port").column(VALUE, Boolean.toString(server.enable_legacy_ssl_storage_port));
         }
     }
 
-    private void addTransparentEncryptionOptions(SimpleDataSet result, Field f)
-    {
+    private void addTransparentEncryptionOptions(SimpleDataSet result, Field f) {
         Preconditions.checkArgument(TransparentDataEncryptionOptions.class.isAssignableFrom(f.getType()));
-
         TransparentDataEncryptionOptions value = (TransparentDataEncryptionOptions) getValue(f);
         result.row(f.getName() + "_enabled").column(VALUE, Boolean.toString(value.enabled));
         result.row(f.getName() + "_cipher").column(VALUE, value.cipher);

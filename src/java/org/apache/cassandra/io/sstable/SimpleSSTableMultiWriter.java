@@ -20,7 +20,6 @@ package org.apache.cassandra.io.sstable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
-
 import org.apache.cassandra.db.RowIndexEntry;
 import org.apache.cassandra.db.SerializationHeader;
 import org.apache.cassandra.db.lifecycle.LifecycleNewTracker;
@@ -32,92 +31,75 @@ import org.apache.cassandra.io.sstable.metadata.MetadataCollector;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.schema.TableMetadataRef;
 
-public class SimpleSSTableMultiWriter implements SSTableMultiWriter
-{
-    private final SSTableWriter writer;
-    private final LifecycleNewTracker lifecycleNewTracker;
+public class SimpleSSTableMultiWriter implements SSTableMultiWriter {
 
-    protected SimpleSSTableMultiWriter(SSTableWriter writer, LifecycleNewTracker lifecycleNewTracker)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SimpleSSTableMultiWriter.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SimpleSSTableMultiWriter.class);
+
+    private final transient SSTableWriter writer;
+
+    private final transient LifecycleNewTracker lifecycleNewTracker;
+
+    protected SimpleSSTableMultiWriter(SSTableWriter writer, LifecycleNewTracker lifecycleNewTracker) {
         this.lifecycleNewTracker = lifecycleNewTracker;
         this.writer = writer;
     }
 
-    public boolean append(UnfilteredRowIterator partition)
-    {
+    public boolean append(UnfilteredRowIterator partition) {
         RowIndexEntry<?> indexEntry = writer.append(partition);
         return indexEntry != null;
     }
 
-    public Collection<SSTableReader> finish(long repairedAt, long maxDataAge, boolean openResult)
-    {
+    public Collection<SSTableReader> finish(long repairedAt, long maxDataAge, boolean openResult) {
         return Collections.singleton(writer.finish(repairedAt, maxDataAge, openResult));
     }
 
-    public Collection<SSTableReader> finish(boolean openResult)
-    {
+    public Collection<SSTableReader> finish(boolean openResult) {
         return Collections.singleton(writer.finish(openResult));
     }
 
-    public Collection<SSTableReader> finished()
-    {
+    public Collection<SSTableReader> finished() {
         return Collections.singleton(writer.finished());
     }
 
-    public SSTableMultiWriter setOpenResult(boolean openResult)
-    {
+    public SSTableMultiWriter setOpenResult(boolean openResult) {
         writer.setOpenResult(openResult);
         return this;
     }
 
-    public String getFilename()
-    {
+    public String getFilename() {
         return writer.getFilename();
     }
 
-    public long getFilePointer()
-    {
+    public long getFilePointer() {
         return writer.getFilePointer();
     }
 
-    public TableId getTableId()
-    {
+    public TableId getTableId() {
         return writer.metadata().id;
     }
 
-    public Throwable commit(Throwable accumulate)
-    {
+    public Throwable commit(Throwable accumulate) {
         return writer.commit(accumulate);
     }
 
-    public Throwable abort(Throwable accumulate)
-    {
+    public Throwable abort(Throwable accumulate) {
         lifecycleNewTracker.untrackNew(writer);
         return writer.abort(accumulate);
     }
 
-    public void prepareToCommit()
-    {
+    public void prepareToCommit() {
         writer.prepareToCommit();
     }
 
-    public void close()
-    {
+    public void close() {
         writer.close();
     }
 
-    @SuppressWarnings("resource") // SimpleSSTableMultiWriter closes writer
-    public static SSTableMultiWriter create(Descriptor descriptor,
-                                            long keyCount,
-                                            long repairedAt,
-                                            UUID pendingRepair,
-                                            boolean isTransient,
-                                            TableMetadataRef metadata,
-                                            MetadataCollector metadataCollector,
-                                            SerializationHeader header,
-                                            Collection<Index> indexes,
-                                            LifecycleNewTracker lifecycleNewTracker)
-    {
+    // SimpleSSTableMultiWriter closes writer
+    @SuppressWarnings("resource")
+    public static SSTableMultiWriter create(Descriptor descriptor, long keyCount, long repairedAt, UUID pendingRepair, boolean isTransient, TableMetadataRef metadata, MetadataCollector metadataCollector, SerializationHeader header, Collection<Index> indexes, LifecycleNewTracker lifecycleNewTracker) {
         SSTableWriter writer = SSTableWriter.create(descriptor, keyCount, repairedAt, pendingRepair, isTransient, metadata, metadataCollector, header, indexes, lifecycleNewTracker);
         return new SimpleSSTableMultiWriter(writer, lifecycleNewTracker);
     }

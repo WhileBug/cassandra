@@ -19,20 +19,22 @@ package org.apache.cassandra.streaming;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.service.StorageService;
 
-public class ReplicationDoneVerbHandler implements IVerbHandler
-{
-    public static ReplicationDoneVerbHandler instance = new ReplicationDoneVerbHandler();
+public class ReplicationDoneVerbHandler implements IVerbHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(ReplicationDoneVerbHandler.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicationDoneVerbHandler.class);
 
-    public void doVerb(Message msg)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicationDoneVerbHandler.class);
+
+    public static transient ReplicationDoneVerbHandler instance = new ReplicationDoneVerbHandler();
+
+    private static final transient Logger logger = LoggerFactory.getLogger(ReplicationDoneVerbHandler.class);
+
+    public void doVerb(Message msg) {
         StorageService.instance.confirmReplication(msg.from());
         logger.debug("Replying to {}@{}", msg.id(), msg.from());
         MessagingService.instance().send(msg.emptyResponse(), msg.from());

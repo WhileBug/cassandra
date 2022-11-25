@@ -18,7 +18,6 @@
 package org.apache.cassandra.db;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
@@ -27,43 +26,43 @@ import org.apache.cassandra.io.util.DataOutputPlus;
  * This message is sent back the truncate operation and basically specifies if
  * the truncate succeeded.
  */
-public class TruncateResponse
-{
-    public static final TruncateResponseSerializer serializer = new TruncateResponseSerializer();
+public class TruncateResponse {
 
-    public final String keyspace;
-    public final String columnFamily;
-    public final boolean success;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncateResponse.class);
 
-    public TruncateResponse(String keyspace, String columnFamily, boolean success)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncateResponse.class);
+
+    public static final transient TruncateResponseSerializer serializer = new TruncateResponseSerializer();
+
+    public final transient String keyspace;
+
+    public final transient String columnFamily;
+
+    public final transient boolean success;
+
+    public TruncateResponse(String keyspace, String columnFamily, boolean success) {
         this.keyspace = keyspace;
         this.columnFamily = columnFamily;
         this.success = success;
     }
 
-    public static class TruncateResponseSerializer implements IVersionedSerializer<TruncateResponse>
-    {
-        public void serialize(TruncateResponse tr, DataOutputPlus out, int version) throws IOException
-        {
+    public static class TruncateResponseSerializer implements IVersionedSerializer<TruncateResponse> {
+
+        public void serialize(TruncateResponse tr, DataOutputPlus out, int version) throws IOException {
             out.writeUTF(tr.keyspace);
             out.writeUTF(tr.columnFamily);
             out.writeBoolean(tr.success);
         }
 
-        public TruncateResponse deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public TruncateResponse deserialize(DataInputPlus in, int version) throws IOException {
             String keyspace = in.readUTF();
             String columnFamily = in.readUTF();
             boolean success = in.readBoolean();
             return new TruncateResponse(keyspace, columnFamily, success);
         }
 
-        public long serializedSize(TruncateResponse tr, int version)
-        {
-            return TypeSizes.sizeof(tr.keyspace)
-                 + TypeSizes.sizeof(tr.columnFamily)
-                 + TypeSizes.sizeof(tr.success);
+        public long serializedSize(TruncateResponse tr, int version) {
+            return TypeSizes.sizeof(tr.keyspace) + TypeSizes.sizeof(tr.columnFamily) + TypeSizes.sizeof(tr.success);
         }
     }
 }

@@ -22,54 +22,51 @@ import java.util.Locale;
 /**
  * Basic/General Token Filters
  */
-public class BasicResultFilters
-{
-    private static final Locale DEFAULT_LOCALE = Locale.getDefault();
+public class BasicResultFilters {
 
-    public static class LowerCase extends FilterPipelineTask<String, String>
-    {
-        private Locale locale;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BasicResultFilters.class);
 
-        public LowerCase(Locale locale)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BasicResultFilters.class);
+
+    private static final transient Locale DEFAULT_LOCALE = Locale.getDefault();
+
+    public static class LowerCase extends FilterPipelineTask<String, String> {
+
+        private transient Locale locale;
+
+        public LowerCase(Locale locale) {
             this.locale = locale;
         }
 
-        public LowerCase()
-        {
+        public LowerCase() {
             this.locale = DEFAULT_LOCALE;
         }
 
-        public String process(String input) throws Exception
-        {
+        public String process(String input) throws Exception {
             return input.toLowerCase(locale);
         }
     }
 
-    public static class UpperCase extends FilterPipelineTask<String, String>
-    {
-        private Locale locale;
+    public static class UpperCase extends FilterPipelineTask<String, String> {
 
-        public UpperCase(Locale locale)
-        {
+        private transient Locale locale;
+
+        public UpperCase(Locale locale) {
             this.locale = locale;
         }
 
-        public UpperCase()
-        {
+        public UpperCase() {
             this.locale = DEFAULT_LOCALE;
         }
 
-        public String process(String input) throws Exception
-        {
+        public String process(String input) throws Exception {
             return input.toUpperCase(locale);
         }
     }
 
-    public static class NoOperation extends FilterPipelineTask<Object, Object>
-    {
-        public Object process(Object input) throws Exception
-        {
+    public static class NoOperation extends FilterPipelineTask<Object, Object> {
+
+        public Object process(Object input) throws Exception {
             return input;
         }
     }

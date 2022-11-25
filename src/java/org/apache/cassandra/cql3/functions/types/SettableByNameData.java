@@ -22,17 +22,18 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import com.google.common.reflect.TypeToken;
-
 import org.apache.cassandra.cql3.functions.types.exceptions.CodecNotFoundException;
 import org.apache.cassandra.cql3.functions.types.exceptions.InvalidTypeException;
 
 /**
  * Collection of (typed) CQL values that can set by name.
  */
-public interface SettableByNameData<T extends SettableData<T>>
-{
+public interface SettableByNameData<T extends SettableData<T>> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SettableByNameData.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SettableByNameData.class);
 
     /**
      * Sets the value for (all occurrences of) variable {@code name} to the provided boolean.

@@ -15,20 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.compaction;
 
-public interface ActiveCompactionsTracker
-{
+public interface ActiveCompactionsTracker {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ActiveCompactionsTracker.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ActiveCompactionsTracker.class);
+
     public void beginCompaction(CompactionInfo.Holder ci);
+
     public void finishCompaction(CompactionInfo.Holder ci);
 
-    public static final ActiveCompactionsTracker NOOP = new ActiveCompactionsTracker()
-    {
-        public void beginCompaction(CompactionInfo.Holder ci)
-        {}
+    public static final transient ActiveCompactionsTracker NOOP = new ActiveCompactionsTracker() {
 
-        public void finishCompaction(CompactionInfo.Holder ci)
-        {}
+        public void beginCompaction(CompactionInfo.Holder ci) {
+        }
+
+        public void finishCompaction(CompactionInfo.Holder ci) {
+        }
     };
 }

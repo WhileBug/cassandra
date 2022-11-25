@@ -15,23 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.auth;
 
 import org.apache.cassandra.config.DatabaseDescriptor;
 
-public class NetworkAuthCache extends AuthCache<RoleResource, DCPermissions>
-{
-    public NetworkAuthCache(INetworkAuthorizer authorizer)
-    {
-        super("NetworkAuthCache",
-              DatabaseDescriptor::setRolesValidity,
-              DatabaseDescriptor::getRolesValidity,
-              DatabaseDescriptor::setRolesUpdateInterval,
-              DatabaseDescriptor::getRolesUpdateInterval,
-              DatabaseDescriptor::setRolesCacheMaxEntries,
-              DatabaseDescriptor::getRolesCacheMaxEntries,
-              authorizer::authorize,
-              () -> DatabaseDescriptor.getAuthenticator().requireAuthentication());
+public class NetworkAuthCache extends AuthCache<RoleResource, DCPermissions> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NetworkAuthCache.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NetworkAuthCache.class);
+
+    public NetworkAuthCache(INetworkAuthorizer authorizer) {
+        super("NetworkAuthCache", DatabaseDescriptor::setRolesValidity, DatabaseDescriptor::getRolesValidity, DatabaseDescriptor::setRolesUpdateInterval, DatabaseDescriptor::getRolesUpdateInterval, DatabaseDescriptor::setRolesCacheMaxEntries, DatabaseDescriptor::getRolesCacheMaxEntries, authorizer::authorize, () -> DatabaseDescriptor.getAuthenticator().requireAuthentication());
     }
 }

@@ -17,15 +17,17 @@
  */
 package org.apache.cassandra.exceptions;
 
-public abstract class RequestExecutionException extends CassandraException
-{
-    protected RequestExecutionException(ExceptionCode code, String msg)
-    {
+public abstract class RequestExecutionException extends CassandraException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RequestExecutionException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RequestExecutionException.class);
+
+    protected RequestExecutionException(ExceptionCode code, String msg) {
         super(code, msg);
     }
 
-    protected RequestExecutionException(ExceptionCode code, String msg, Throwable e)
-    {
+    protected RequestExecutionException(ExceptionCode code, String msg, Throwable e) {
         super(code, msg, e);
     }
 }

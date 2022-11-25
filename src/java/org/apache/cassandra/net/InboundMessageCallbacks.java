@@ -18,7 +18,6 @@
 package org.apache.cassandra.net;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.net.Message.Header;
 
@@ -34,8 +33,12 @@ import org.apache.cassandra.net.Message.Header;
  * {@link #onFailedDeserialize(int, Header, Throwable)} to be invoked after {@link #onExecuting(int, Header, long, TimeUnit)},
  * whereas for small messages it isn't.
  */
-interface InboundMessageCallbacks
-{
+interface InboundMessageCallbacks {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InboundMessageCallbacks.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InboundMessageCallbacks.class);
+
     /**
      * Invoked once the header of a message has arrived, small or large.
      */

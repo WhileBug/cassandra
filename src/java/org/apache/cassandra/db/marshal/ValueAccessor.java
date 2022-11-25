@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.marshal;
 
 import java.io.IOException;
@@ -24,7 +23,6 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
-
 import org.apache.cassandra.db.Clustering;
 import org.apache.cassandra.db.ClusteringBound;
 import org.apache.cassandra.db.ClusteringBoundOrBoundary;
@@ -37,7 +35,6 @@ import org.apache.cassandra.db.rows.CellPath;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.schema.ColumnMetadata;
-
 import static org.apache.cassandra.db.ClusteringPrefix.Kind.*;
 
 /**
@@ -53,97 +50,98 @@ import static org.apache.cassandra.db.ClusteringPrefix.Kind.*;
  *
  * @param <V> the backing type
  */
-public interface ValueAccessor<V>
-{
+public interface ValueAccessor<V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ValueAccessor.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ValueAccessor.class);
 
     /**
      * Creates db objects using the given accessors value type. ObjectFactory instances are meant to be returned
      * by the factory() method of a value accessor.
      * @param <V> the backing type
      */
-    public interface ObjectFactory<V>
-    {
+    public interface ObjectFactory<V> {
+
         Cell<V> cell(ColumnMetadata column, long timestamp, int ttl, int localDeletionTime, V value, CellPath path);
+
         Clustering<V> clustering(V... values);
+
         Clustering<V> clustering();
+
         ClusteringBound<V> bound(ClusteringPrefix.Kind kind, V... values);
+
         ClusteringBound<V> bound(ClusteringPrefix.Kind kind);
+
         ClusteringBoundary<V> boundary(ClusteringPrefix.Kind kind, V... values);
-        default ClusteringBoundOrBoundary<V> boundOrBoundary(ClusteringPrefix.Kind kind, V... values)
-        {
+
+        default ClusteringBoundOrBoundary<V> boundOrBoundary(ClusteringPrefix.Kind kind, V... values) {
             return kind.isBoundary() ? boundary(kind, values) : bound(kind, values);
         }
 
-        default ClusteringBound<V> inclusiveOpen(boolean reversed, V[] boundValues)
-        {
+        default ClusteringBound<V> inclusiveOpen(boolean reversed, V[] boundValues) {
             return bound(reversed ? INCL_END_BOUND : INCL_START_BOUND, boundValues);
         }
 
-        default ClusteringBound<V> exclusiveOpen(boolean reversed, V[] boundValues)
-        {
+        default ClusteringBound<V> exclusiveOpen(boolean reversed, V[] boundValues) {
             return bound(reversed ? EXCL_END_BOUND : EXCL_START_BOUND, boundValues);
         }
 
-        default ClusteringBound<V> inclusiveClose(boolean reversed, V[] boundValues)
-        {
+        default ClusteringBound<V> inclusiveClose(boolean reversed, V[] boundValues) {
             return bound(reversed ? INCL_START_BOUND : INCL_END_BOUND, boundValues);
         }
 
-        default ClusteringBound<V> exclusiveClose(boolean reversed, V[] boundValues)
-        {
+        default ClusteringBound<V> exclusiveClose(boolean reversed, V[] boundValues) {
             return bound(reversed ? EXCL_START_BOUND : EXCL_END_BOUND, boundValues);
         }
 
-        default ClusteringBoundary<V> inclusiveCloseExclusiveOpen(boolean reversed, V[] boundValues)
-        {
+        default ClusteringBoundary<V> inclusiveCloseExclusiveOpen(boolean reversed, V[] boundValues) {
             return boundary(reversed ? EXCL_END_INCL_START_BOUNDARY : INCL_END_EXCL_START_BOUNDARY, boundValues);
         }
 
-        default ClusteringBoundary<V> exclusiveCloseInclusiveOpen(boolean reversed, V[] boundValues)
-        {
+        default ClusteringBoundary<V> exclusiveCloseInclusiveOpen(boolean reversed, V[] boundValues) {
             return boundary(reversed ? INCL_END_EXCL_START_BOUNDARY : EXCL_END_INCL_START_BOUNDARY, boundValues);
         }
-
     }
+
     /**
      * @return the size of the given value
      */
     int size(V value);
 
-    /** serializes size including a vint length prefix */
-    default int sizeWithVIntLength(V value)
-    {
+    /**
+     * serializes size including a vint length prefix
+     */
+    default int sizeWithVIntLength(V value) {
         int size = size(value);
         return TypeSizes.sizeofUnsignedVInt(size) + size;
     }
 
-    /** serialized size including a short length prefix */
-    default int sizeWithShortLength(V value)
-    {
+    /**
+     * serialized size including a short length prefix
+     */
+    default int sizeWithShortLength(V value) {
         return 2 + size(value);
     }
 
     /**
      * @return true if the size of the given value is zero, false otherwise
      */
-    default boolean isEmpty(V value)
-    {
+    default boolean isEmpty(V value) {
         return size(value) == 0;
     }
 
     /**
      * @return the number of bytes remaining in the value from the given offset
      */
-    default int sizeFromOffset(V value, int offset)
-    {
+    default int sizeFromOffset(V value, int offset) {
         return size(value) - offset;
     }
 
     /**
      * @return true if there are no bytes present after the given offset, false otherwise
      */
-    default boolean isEmptyFromOffset(V value, int offset)
-    {
+    default boolean isEmptyFromOffset(V value, int offset) {
         return sizeFromOffset(value, offset) == 0;
     }
 
@@ -158,8 +156,7 @@ public interface ValueAccessor<V>
      */
     void write(V value, DataOutputPlus out) throws IOException;
 
-    default void writeWithVIntLength(V value, DataOutputPlus out) throws IOException
-    {
+    default void writeWithVIntLength(V value, DataOutputPlus out) throws IOException {
         out.writeUnsignedVInt(size(value));
         write(value, out);
     }
@@ -196,8 +193,7 @@ public interface ValueAccessor<V>
     /**
      * updates {@param digest} with te contents of {@param value}
      */
-    default void digest(V value, Digest digest)
-    {
+    default void digest(V value, Digest digest) {
         digest(value, 0, size(value), digest);
     }
 
@@ -219,8 +215,7 @@ public interface ValueAccessor<V>
      * same as {@link ValueAccessor#slice(Object, int, int)}, except the length is taken from the first
      * 2 bytes from the given offset (and not included in the return value)
      */
-    default V sliceWithShortLength(V input, int offset)
-    {
+    default V sliceWithShortLength(V input, int offset) {
         int size = getUnsignedShort(input, offset);
         return slice(input, offset + 2, size);
     }
@@ -241,15 +236,11 @@ public interface ValueAccessor<V>
      */
     int compareByteBufferTo(ByteBuffer left, V right);
 
-    default int hashCode(V value)
-    {
+    default int hashCode(V value) {
         if (value == null)
             return 0;
-
         int result = 1;
-        for (int i=0, isize=size(value); i<isize; i++)
-            result = 31 * result + (int) getByte(value, i);
-
+        for (int i = 0, isize = size(value); i < isize; i++) result = 31 * result + (int) getByte(value, i);
         return result;
     }
 
@@ -280,46 +271,80 @@ public interface ValueAccessor<V>
      *  * return the value, if the backing type is byte[], offset is 0 and {@param length} == size(value)
      */
     byte[] toArray(V value, int offset, int length);
+
     String toString(V value, Charset charset) throws CharacterCodingException;
 
-    default String toString(V value) throws CharacterCodingException
-    {
+    default String toString(V value) throws CharacterCodingException {
         return toString(value, StandardCharsets.UTF_8);
     }
 
     String toHex(V value);
 
-    /** returns a boolean from offset {@param offset} */
-    default boolean getBoolean(V value, int offset)
-    {
+    /**
+     * returns a boolean from offset {@param offset}
+     */
+    default boolean getBoolean(V value, int offset) {
         return getByte(value, offset) != 0;
     }
 
-    /** returns a byte from offset 0 */
+    /**
+     * returns a byte from offset 0
+     */
     byte toByte(V value);
-    /** returns a byte from offset {@param offset} */
+
+    /**
+     * returns a byte from offset {@param offset}
+     */
     byte getByte(V value, int offset);
-    /** returns a short from offset 0 */
+
+    /**
+     * returns a short from offset 0
+     */
     short toShort(V value);
-    /** returns a short from offset {@param offset} */
+
+    /**
+     * returns a short from offset {@param offset}
+     */
     short getShort(V value, int offset);
-    /** returns an unsigned short from offset {@param offset} */
+
+    /**
+     * returns an unsigned short from offset {@param offset}
+     */
     int getUnsignedShort(V value, int offset);
-    /** returns an int from offset 0 */
+
+    /**
+     * returns an int from offset 0
+     */
     int toInt(V value);
-    /** returns an int from offset {@param offset} */
+
+    /**
+     * returns an int from offset {@param offset}
+     */
     int getInt(V value, int offset);
-    /** returns a long from offset 0 */
+
+    /**
+     * returns a long from offset 0
+     */
     long toLong(V value);
-    /** returns a long from offset {@param offset} */
+
+    /**
+     * returns a long from offset {@param offset}
+     */
     long getLong(V value, int offset);
-    /** returns a float from offset 0 */
+
+    /**
+     * returns a float from offset 0
+     */
     float toFloat(V value);
 
-    /** returns a double from offset 0 */
+    /**
+     * returns a double from offset 0
+     */
     double toDouble(V value);
 
-    /** returns a UUID from offset 0 */
+    /**
+     * returns a UUID from offset 0
+     */
     UUID toUUID(V value);
 
     /**
@@ -340,7 +365,9 @@ public interface ValueAccessor<V>
      */
     int putLong(V dst, int offset, long value);
 
-    /** return a value with a length of 0 */
+    /**
+     * return a value with a length of 0
+     */
     V empty();
 
     /**
@@ -359,24 +386,49 @@ public interface ValueAccessor<V>
      */
     V valueOf(ByteBuffer bytes);
 
-    /** return a value containing the bytes for the given string and charset */
+    /**
+     * return a value containing the bytes for the given string and charset
+     */
     V valueOf(String s, Charset charset);
 
-    /** return a value with the bytes from {@param v}*/
+    /**
+     * return a value with the bytes from {@param v}
+     */
     V valueOf(UUID v);
-    /** return a value with the bytes from {@param v}*/
+
+    /**
+     * return a value with the bytes from {@param v}
+     */
     V valueOf(boolean v);
-    /** return a value with the bytes from {@param v}*/
+
+    /**
+     * return a value with the bytes from {@param v}
+     */
     V valueOf(byte v);
-    /** return a value with the bytes from {@param v}*/
+
+    /**
+     * return a value with the bytes from {@param v}
+     */
     V valueOf(short v);
-    /** return a value with the bytes from {@param v}*/
+
+    /**
+     * return a value with the bytes from {@param v}
+     */
     V valueOf(int v);
-    /** return a value with the bytes from {@param v}*/
+
+    /**
+     * return a value with the bytes from {@param v}
+     */
     V valueOf(long v);
-    /** return a value with the bytes from {@param v}*/
+
+    /**
+     * return a value with the bytes from {@param v}
+     */
     V valueOf(float v);
-    /** return a value with the bytes from {@param v}*/
+
+    /**
+     * return a value with the bytes from {@param v}
+     */
     V valueOf(double v);
 
     /**
@@ -400,13 +452,11 @@ public interface ValueAccessor<V>
     /**
      * lexicographically compare {@param left} to {@param right}
      */
-    public static <L, R> int compare(L left, ValueAccessor<L> leftAccessor, R right, ValueAccessor<R> rightAccessor)
-    {
+    public static <L, R> int compare(L left, ValueAccessor<L> leftAccessor, R right, ValueAccessor<R> rightAccessor) {
         return leftAccessor.compare(left, right, rightAccessor);
     }
 
-    public static <L, R> boolean equals(L left, ValueAccessor<L> leftAccessor, R right, ValueAccessor<R> rightAccessor)
-    {
+    public static <L, R> boolean equals(L left, ValueAccessor<L> leftAccessor, R right, ValueAccessor<R> rightAccessor) {
         return compare(left, leftAccessor, right, rightAccessor) == 0;
     }
 }

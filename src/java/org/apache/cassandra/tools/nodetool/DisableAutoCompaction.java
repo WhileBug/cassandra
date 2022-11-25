@@ -19,33 +19,30 @@ package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "disableautocompaction", description = "Disable autocompaction for the given keyspace and table")
-public class DisableAutoCompaction extends NodeToolCmd
-{
+public class DisableAutoCompaction extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DisableAutoCompaction.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DisableAutoCompaction.class);
+
     @Arguments(usage = "[<keyspace> <tables>...]", description = "The keyspace followed by one or many tables")
-    private List<String> args = new ArrayList<>();
+    private transient List<String> args = new ArrayList<>();
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         List<String> keyspaces = parseOptionalKeyspace(args, probe);
         String[] tablenames = parseOptionalTables(args);
-
-        for (String keyspace : keyspaces)
-        {
-            try
-            {
+        for (String keyspace : keyspaces) {
+            try {
                 probe.disableAutoCompaction(keyspace, tablenames);
-            } catch (IOException e)
-            {
+            } catch (IOException e) {
                 throw new RuntimeException("Error occurred during disabling auto-compaction", e);
             }
         }

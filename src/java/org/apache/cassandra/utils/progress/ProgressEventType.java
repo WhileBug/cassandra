@@ -29,42 +29,36 @@ package org.apache.cassandra.utils.progress;
  * {@link #NOTIFICATION} event type is used to just notify message without progress.
  * </p>
  */
-public enum ProgressEventType
-{
+public enum ProgressEventType {
+
     /**
      * Fired first when progress starts.
      * Happens only once.
      */
     START,
-
     /**
      * Fire when progress happens.
      * This can be zero or more time after START.
      */
     PROGRESS,
-
     /**
      * When observing process completes with error, this is sent once before COMPLETE.
      */
     ERROR,
-
     /**
      * When observing process is aborted by user, this is sent once before COMPLETE.
      */
     ABORT,
-
     /**
      * When observing process completes successfully, this is sent once before COMPLETE.
      */
     SUCCESS,
-
     /**
      * Fire when progress complete.
      * This is fired once, after ERROR/ABORT/SUCCESS is fired.
      * After this, no more ProgressEvent should be fired for the same event.
      */
     COMPLETE,
-
     /**
      * Used when sending message without progress.
      */

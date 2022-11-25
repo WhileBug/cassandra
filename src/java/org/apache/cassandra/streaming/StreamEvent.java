@@ -21,42 +21,46 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
 import com.google.common.collect.ImmutableSet;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.locator.InetAddressAndPort;
 
-public abstract class StreamEvent
-{
-    public static enum Type
-    {
-        STREAM_PREPARED,
-        STREAM_COMPLETE,
-        FILE_PROGRESS,
+public abstract class StreamEvent {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamEvent.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamEvent.class);
+
+    public static enum Type {
+
+        STREAM_PREPARED, STREAM_COMPLETE, FILE_PROGRESS
     }
 
-    public final Type eventType;
-    public final UUID planId;
+    public final transient Type eventType;
 
-    protected StreamEvent(Type eventType, UUID planId)
-    {
+    public final transient UUID planId;
+
+    protected StreamEvent(Type eventType, UUID planId) {
         this.eventType = eventType;
         this.planId = planId;
     }
 
-    public static class SessionCompleteEvent extends StreamEvent
-    {
-        public final InetAddressAndPort peer;
-        public final boolean success;
-        public final int sessionIndex;
-        public final Set<StreamRequest> requests;
-        public final StreamOperation streamOperation;
-        public final Map<String, Set<Range<Token>>> transferredRangesPerKeyspace;
+    public static class SessionCompleteEvent extends StreamEvent {
 
-        public SessionCompleteEvent(StreamSession session)
-        {
+        public final transient InetAddressAndPort peer;
+
+        public final transient boolean success;
+
+        public final transient int sessionIndex;
+
+        public final transient Set<StreamRequest> requests;
+
+        public final transient StreamOperation streamOperation;
+
+        public final transient Map<String, Set<Range<Token>>> transferredRangesPerKeyspace;
+
+        public SessionCompleteEvent(StreamSession session) {
             super(Type.STREAM_COMPLETE, session.planId());
             this.peer = session.peer;
             this.success = session.isSuccess();
@@ -67,29 +71,26 @@ public abstract class StreamEvent
         }
     }
 
-    public static class ProgressEvent extends StreamEvent
-    {
-        public final ProgressInfo progress;
+    public static class ProgressEvent extends StreamEvent {
 
-        public ProgressEvent(UUID planId, ProgressInfo progress)
-        {
+        public final transient ProgressInfo progress;
+
+        public ProgressEvent(UUID planId, ProgressInfo progress) {
             super(Type.FILE_PROGRESS, planId);
             this.progress = progress;
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "<ProgressEvent " + progress + ">";
         }
     }
 
-    public static class SessionPreparedEvent extends StreamEvent
-    {
-        public final SessionInfo session;
+    public static class SessionPreparedEvent extends StreamEvent {
 
-        public SessionPreparedEvent(UUID planId, SessionInfo session)
-        {
+        public final transient SessionInfo session;
+
+        public SessionPreparedEvent(UUID planId, SessionInfo session) {
             super(Type.STREAM_PREPARED, planId);
             this.session = session;
         }

@@ -21,10 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelPipeline;
@@ -39,56 +37,59 @@ import org.apache.cassandra.concurrent.NamedThreadFactory;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.utils.FBUtilities;
 
-class InboundSockets
-{
+class InboundSockets {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InboundSockets.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InboundSockets.class);
+
     /**
      * A simple struct to wrap up the components needed for each listening socket.
      */
     @VisibleForTesting
-    static class InboundSocket
-    {
-        public final InboundConnectionSettings settings;
+    static class InboundSocket {
+
+        public final transient InboundConnectionSettings settings;
 
         /**
          * The base {@link Channel} that is doing the socket listen/accept.
          * Null only until open() is invoked and {@link #binding} has yet to complete.
          */
-        private volatile Channel listen;
+        private volatile transient Channel listen;
+
         /**
          * Once open() is invoked, this holds the future result of opening the socket,
          * so that its completion can be waited on. Once complete, it sets itself to null.
          */
-        private volatile ChannelFuture binding;
+        private volatile transient ChannelFuture binding;
 
         // purely to prevent close racing with open
-        private boolean closedWithoutOpening;
+        private transient boolean closedWithoutOpening;
 
         // used to prevent racing on close
-        private Future<Void> closeFuture;
+        private transient Future<Void> closeFuture;
 
         /**
          * A group of the open, inbound {@link Channel}s connected to this node. This is mostly interesting so that all of
          * the inbound connections/channels can be closed when the listening socket itself is being closed.
          */
-        private final ChannelGroup connections;
-        private final DefaultEventExecutor executor;
+        private final transient ChannelGroup connections;
 
-        private InboundSocket(InboundConnectionSettings settings)
-        {
+        private final transient DefaultEventExecutor executor;
+
+        private InboundSocket(InboundConnectionSettings settings) {
             this.settings = settings;
             this.executor = new DefaultEventExecutor(new NamedThreadFactory("Listen-" + settings.bindAddress));
             this.connections = new DefaultChannelGroup(settings.bindAddress.toString(), executor);
         }
 
-        private Future<Void> open()
-        {
-            return open(pipeline -> {});
+        private Future<Void> open() {
+            return open(pipeline -> {
+            });
         }
 
-        private Future<Void> open(Consumer<ChannelPipeline> pipelineInjector)
-        {
-            synchronized (this)
-            {
+        private Future<Void> open(Consumer<ChannelPipeline> pipelineInjector) {
+            synchronized (this) {
                 if (listen != null)
                     return new SucceededFuture<>(GlobalEventExecutor.INSTANCE, null);
                 if (binding != null)
@@ -97,10 +98,8 @@ class InboundSockets
                     throw new IllegalStateException();
                 binding = InboundConnectionInitiator.bind(settings, connections, pipelineInjector);
             }
-
             return binding.addListener(ignore -> {
-                synchronized (this)
-                {
+                synchronized (this) {
                     if (binding.isSuccess())
                         listen = binding.channel();
                     binding = null;
@@ -116,72 +115,53 @@ class InboundSockets
          *                          Note that the consumer will only be invoked once per InboundSocket.
          *                          Subsequent calls to close will not register a callback to different consumers.
          */
-        private Future<Void> close(Consumer<? super ExecutorService> shutdownExecutors)
-        {
+        private Future<Void> close(Consumer<? super ExecutorService> shutdownExecutors) {
             AsyncPromise<Void> done = AsyncPromise.uncancellable(GlobalEventExecutor.INSTANCE);
-
             Runnable close = () -> {
                 List<Future<Void>> closing = new ArrayList<>();
                 if (listen != null)
                     closing.add(listen.close());
                 closing.add(connections.close());
-                new FutureCombiner(closing)
-                       .addListener(future -> {
-                           executor.shutdownGracefully();
-                           shutdownExecutors.accept(executor);
-                       })
-                       .addListener(new PromiseNotifier<>(done));
+                new FutureCombiner(closing).addListener(future -> {
+                    executor.shutdownGracefully();
+                    shutdownExecutors.accept(executor);
+                }).addListener(new PromiseNotifier<>(done));
             };
-
-            synchronized (this)
-            {
-                if (listen == null && binding == null)
-                {
+            synchronized (this) {
+                if (listen == null && binding == null) {
                     closedWithoutOpening = true;
                     return new SucceededFuture<>(GlobalEventExecutor.INSTANCE, null);
                 }
-
-                if (closeFuture != null)
-                {
+                if (closeFuture != null) {
                     return closeFuture;
                 }
-
                 closeFuture = done;
-
-                if (listen != null)
-                {
+                if (listen != null) {
                     close.run();
-                }
-                else
-                {
+                } else {
                     binding.cancel(true);
                     binding.addListener(future -> close.run());
                 }
-
                 return done;
             }
         }
 
-        public boolean isOpen()
-        {
+        public boolean isOpen() {
             return listen != null && listen.isOpen();
         }
     }
 
-    private final List<InboundSocket> sockets;
+    private final transient List<InboundSocket> sockets;
 
-    InboundSockets(InboundConnectionSettings template)
-    {
+    InboundSockets(InboundConnectionSettings template) {
         this(withDefaultBindAddresses(template));
     }
 
-    InboundSockets(List<InboundConnectionSettings> templates)
-    {
+    InboundSockets(List<InboundConnectionSettings> templates) {
         this.sockets = bindings(templates);
     }
 
-    private static List<InboundConnectionSettings> withDefaultBindAddresses(InboundConnectionSettings template)
-    {
+    private static List<InboundConnectionSettings> withDefaultBindAddresses(InboundConnectionSettings template) {
         ImmutableList.Builder<InboundConnectionSettings> templates = ImmutableList.builder();
         templates.add(template.withBindAddress(FBUtilities.getLocalAddressAndPort()));
         if (shouldListenOnBroadcastAddress())
@@ -189,23 +169,17 @@ class InboundSockets
         return templates.build();
     }
 
-    private static List<InboundSocket> bindings(List<InboundConnectionSettings> templates)
-    {
+    private static List<InboundSocket> bindings(List<InboundConnectionSettings> templates) {
         ImmutableList.Builder<InboundSocket> sockets = ImmutableList.builder();
-        for (InboundConnectionSettings template : templates)
-            addBindings(template, sockets);
+        for (InboundConnectionSettings template : templates) addBindings(template, sockets);
         return sockets.build();
     }
 
-    private static void addBindings(InboundConnectionSettings template, ImmutableList.Builder<InboundSocket> out)
-    {
-        InboundConnectionSettings       settings = template.withDefaults();
+    private static void addBindings(InboundConnectionSettings template, ImmutableList.Builder<InboundSocket> out) {
+        InboundConnectionSettings settings = template.withDefaults();
         InboundConnectionSettings legacySettings = template.withLegacySslStoragePortDefaults();
-
-        if (settings.encryption.enable_legacy_ssl_storage_port)
-        {
+        if (settings.encryption.enable_legacy_ssl_storage_port) {
             out.add(new InboundSocket(legacySettings));
-
             /*
              * If the legacy ssl storage port and storage port match, only bind to the
              * legacy ssl port. This makes it possible to configure a 4.0 node like a 3.0
@@ -214,56 +188,44 @@ class InboundSockets
             if (settings.bindAddress.equals(legacySettings.bindAddress))
                 return;
         }
-
         out.add(new InboundSocket(settings));
     }
 
-    public Future<Void> open(Consumer<ChannelPipeline> pipelineInjector)
-    {
+    public Future<Void> open(Consumer<ChannelPipeline> pipelineInjector) {
         List<Future<Void>> opening = new ArrayList<>();
-        for (InboundSocket socket : sockets)
-            opening.add(socket.open(pipelineInjector));
-
+        for (InboundSocket socket : sockets) opening.add(socket.open(pipelineInjector));
         return new FutureCombiner(opening);
     }
 
-    public Future<Void> open()
-    {
+    public Future<Void> open() {
         List<Future<Void>> opening = new ArrayList<>();
-        for (InboundSocket socket : sockets)
-            opening.add(socket.open());
+        for (InboundSocket socket : sockets) opening.add(socket.open());
         return new FutureCombiner(opening);
     }
 
-    public boolean isListening()
-    {
-        for (InboundSocket socket : sockets)
-            if (socket.isOpen())
-                return true;
+    public boolean isListening() {
+        for (InboundSocket socket : sockets) if (socket.isOpen())
+            return true;
         return false;
     }
 
-    public Future<Void> close(Consumer<? super ExecutorService> shutdownExecutors)
-    {
+    public Future<Void> close(Consumer<? super ExecutorService> shutdownExecutors) {
         List<Future<Void>> closing = new ArrayList<>();
-        for (InboundSocket address : sockets)
-            closing.add(address.close(shutdownExecutors));
+        for (InboundSocket address : sockets) closing.add(address.close(shutdownExecutors));
         return new FutureCombiner(closing);
     }
-    public Future<Void> close()
-    {
-        return close(e -> {});
+
+    public Future<Void> close() {
+        return close(e -> {
+        });
     }
 
-    private static boolean shouldListenOnBroadcastAddress()
-    {
-        return DatabaseDescriptor.shouldListenOnBroadcastAddress()
-               && !FBUtilities.getLocalAddressAndPort().equals(FBUtilities.getBroadcastAddressAndPort());
+    private static boolean shouldListenOnBroadcastAddress() {
+        return DatabaseDescriptor.shouldListenOnBroadcastAddress() && !FBUtilities.getLocalAddressAndPort().equals(FBUtilities.getBroadcastAddressAndPort());
     }
 
     @VisibleForTesting
-    public List<InboundSocket> sockets()
-    {
+    public List<InboundSocket> sockets() {
         return sockets;
     }
 }

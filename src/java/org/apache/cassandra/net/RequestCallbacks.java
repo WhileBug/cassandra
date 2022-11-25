@@ -22,14 +22,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
-
 import javax.annotation.Nullable;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.DebuggableScheduledThreadPoolExecutor;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.ConsistencyLevel;
@@ -43,7 +39,6 @@ import org.apache.cassandra.service.AbstractWriteResponseHandler;
 import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.service.paxos.Commit;
 import org.apache.cassandra.utils.FBUtilities;
-
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -59,18 +54,22 @@ import static org.apache.cassandra.utils.MonotonicClock.preciseTime;
  * Since we reuse the same request id for multiple messages now, the map is keyed by (id, peer) tuples
  * rather than just id as it used to before 4.0.
  */
-public class RequestCallbacks implements OutboundMessageCallbacks
-{
-    private static final Logger logger = LoggerFactory.getLogger(RequestCallbacks.class);
+public class RequestCallbacks implements OutboundMessageCallbacks {
 
-    private final MessagingService messagingService;
-    private final ScheduledExecutorService executor = new DebuggableScheduledThreadPoolExecutor("Callback-Map-Reaper");
-    private final ConcurrentMap<CallbackKey, CallbackInfo> callbacks = new ConcurrentHashMap<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RequestCallbacks.class);
 
-    RequestCallbacks(MessagingService messagingService)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RequestCallbacks.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(RequestCallbacks.class);
+
+    private final transient MessagingService messagingService;
+
+    private final transient ScheduledExecutorService executor = new DebuggableScheduledThreadPoolExecutor("Callback-Map-Reaper");
+
+    private final transient ConcurrentMap<CallbackKey, CallbackInfo> callbacks = new ConcurrentHashMap<>();
+
+    RequestCallbacks(MessagingService messagingService) {
         this.messagingService = messagingService;
-
         long expirationInterval = DatabaseDescriptor.getMinRpcTimeout(NANOSECONDS) / 2;
         executor.scheduleWithFixedDelay(this::expire, expirationInterval, expirationInterval, NANOSECONDS);
     }
@@ -79,8 +78,7 @@ public class RequestCallbacks implements OutboundMessageCallbacks
      * @return the registered {@link CallbackInfo} for this id and peer, or {@code null} if unset or expired.
      */
     @Nullable
-    CallbackInfo get(long id, InetAddressAndPort peer)
-    {
+    CallbackInfo get(long id, InetAddressAndPort peer) {
         return callbacks.get(key(id, peer));
     }
 
@@ -88,16 +86,14 @@ public class RequestCallbacks implements OutboundMessageCallbacks
      * Remove and return the {@link CallbackInfo} associated with given id and peer, if known.
      */
     @Nullable
-    CallbackInfo remove(long id, InetAddressAndPort peer)
-    {
+    CallbackInfo remove(long id, InetAddressAndPort peer) {
         return callbacks.remove(key(id, peer));
     }
 
     /**
      * Register the provided {@link RequestCallback}, inferring expiry and id from the provided {@link Message}.
      */
-    void addWithExpiration(RequestCallback cb, Message message, InetAddressAndPort to)
-    {
+    void addWithExpiration(RequestCallback cb, Message message, InetAddressAndPort to) {
         // mutations need to call the overload with a ConsistencyLevel
         assert message.verb() != Verb.MUTATION_REQ && message.verb() != Verb.COUNTER_MUTATION_REQ && message.verb() != Verb.PAXOS_COMMIT_REQ;
         CallbackInfo previous = callbacks.put(key(message.id(), to), new CallbackInfo(message, to, cb));
@@ -105,46 +101,36 @@ public class RequestCallbacks implements OutboundMessageCallbacks
     }
 
     // FIXME: shouldn't need a special overload for writes; hinting should be part of AbstractWriteResponseHandler
-    public void addWithExpiration(AbstractWriteResponseHandler<?> cb,
-                                  Message<?> message,
-                                  Replica to,
-                                  ConsistencyLevel consistencyLevel,
-                                  boolean allowHints)
-    {
+    public void addWithExpiration(AbstractWriteResponseHandler<?> cb, Message<?> message, Replica to, ConsistencyLevel consistencyLevel, boolean allowHints) {
         assert message.verb() == Verb.MUTATION_REQ || message.verb() == Verb.COUNTER_MUTATION_REQ || message.verb() == Verb.PAXOS_COMMIT_REQ;
         CallbackInfo previous = callbacks.put(key(message.id(), to.endpoint()), new WriteCallbackInfo(message, to, cb, consistencyLevel, allowHints));
         assert previous == null : format("Callback already exists for id %d/%s! (%s)", message.id(), to.endpoint(), previous);
     }
 
-    <In,Out> IVersionedAsymmetricSerializer<In, Out> responseSerializer(long id, InetAddressAndPort peer)
-    {
+    <In, Out> IVersionedAsymmetricSerializer<In, Out> responseSerializer(long id, InetAddressAndPort peer) {
         CallbackInfo info = get(id, peer);
         return info == null ? null : info.responseVerb.serializer();
     }
 
     @VisibleForTesting
-    public void removeAndRespond(long id, InetAddressAndPort peer, Message message)
-    {
+    public void removeAndRespond(long id, InetAddressAndPort peer, Message message) {
         CallbackInfo ci = remove(id, peer);
-        if (null != ci) ci.callback.onResponse(message);
+        if (null != ci)
+            ci.callback.onResponse(message);
     }
 
-    private void removeAndExpire(long id, InetAddressAndPort peer)
-    {
+    private void removeAndExpire(long id, InetAddressAndPort peer) {
         CallbackInfo ci = remove(id, peer);
-        if (null != ci) onExpired(ci);
+        if (null != ci)
+            onExpired(ci);
     }
 
-    private void expire()
-    {
+    private void expire() {
         long start = preciseTime.now();
         int n = 0;
-        for (Map.Entry<CallbackKey, CallbackInfo> entry : callbacks.entrySet())
-        {
-            if (entry.getValue().isReadyToDieAt(start))
-            {
-                if (callbacks.remove(entry.getKey(), entry.getValue()))
-                {
+        for (Map.Entry<CallbackKey, CallbackInfo> entry : callbacks.entrySet()) {
+            if (entry.getValue().isReadyToDieAt(start)) {
+                if (callbacks.remove(entry.getKey(), entry.getValue())) {
                     n++;
                     onExpired(entry.getValue());
                 }
@@ -153,41 +139,32 @@ public class RequestCallbacks implements OutboundMessageCallbacks
         logger.trace("Expired {} entries", n);
     }
 
-    private void forceExpire()
-    {
-        for (Map.Entry<CallbackKey, CallbackInfo> entry : callbacks.entrySet())
-            if (callbacks.remove(entry.getKey(), entry.getValue()))
-                onExpired(entry.getValue());
+    private void forceExpire() {
+        for (Map.Entry<CallbackKey, CallbackInfo> entry : callbacks.entrySet()) if (callbacks.remove(entry.getKey(), entry.getValue()))
+            onExpired(entry.getValue());
     }
 
-    private void onExpired(CallbackInfo info)
-    {
+    private void onExpired(CallbackInfo info) {
         messagingService.latencySubscribers.maybeAdd(info.callback, info.peer, info.timeout(), NANOSECONDS);
-
         InternodeOutboundMetrics.totalExpiredCallbacks.mark();
         messagingService.markExpiredCallback(info.peer);
-
         if (info.invokeOnFailure())
             INTERNAL_RESPONSE.submit(() -> info.callback.onFailure(info.peer, RequestFailureReason.TIMEOUT));
-
         // FIXME: this has never belonged here, should be part of onFailure() in AbstractWriteResponseHandler
-        if (info.shouldHint())
-        {
+        if (info.shouldHint()) {
             WriteCallbackInfo writeCallbackInfo = ((WriteCallbackInfo) info);
             Mutation mutation = writeCallbackInfo.mutation();
             StorageProxy.submitHint(mutation, writeCallbackInfo.getReplica(), null);
         }
     }
 
-    void shutdownNow(boolean expireCallbacks)
-    {
+    void shutdownNow(boolean expireCallbacks) {
         executor.shutdownNow();
         if (expireCallbacks)
             forceExpire();
     }
 
-    void shutdownGracefully()
-    {
+    void shutdownGracefully() {
         expire();
         if (!callbacks.isEmpty())
             executor.schedule(this::shutdownGracefully, 100L, MILLISECONDS);
@@ -195,10 +172,8 @@ public class RequestCallbacks implements OutboundMessageCallbacks
             executor.shutdownNow();
     }
 
-    void awaitTerminationUntil(long deadlineNanos) throws TimeoutException, InterruptedException
-    {
-        if (!executor.isTerminated())
-        {
+    void awaitTerminationUntil(long deadlineNanos) throws TimeoutException, InterruptedException {
+        if (!executor.isTerminated()) {
             long wait = deadlineNanos - System.nanoTime();
             if (wait <= 0 || !executor.awaitTermination(wait, NANOSECONDS))
                 throw new TimeoutException();
@@ -206,30 +181,27 @@ public class RequestCallbacks implements OutboundMessageCallbacks
     }
 
     @VisibleForTesting
-    public void unsafeClear()
-    {
+    public void unsafeClear() {
         callbacks.clear();
     }
 
-    private static CallbackKey key(long id, InetAddressAndPort peer)
-    {
+    private static CallbackKey key(long id, InetAddressAndPort peer) {
         return new CallbackKey(id, peer);
     }
 
-    private static class CallbackKey
-    {
-        final long id;
-        final InetAddressAndPort peer;
+    private static class CallbackKey {
 
-        CallbackKey(long id, InetAddressAndPort peer)
-        {
+        final transient long id;
+
+        final transient InetAddressAndPort peer;
+
+        CallbackKey(long id, InetAddressAndPort peer) {
             this.id = id;
             this.peer = peer;
         }
 
         @Override
-        public boolean equals(Object o)
-        {
+        public boolean equals(Object o) {
             if (!(o instanceof CallbackKey))
                 return false;
             CallbackKey that = (CallbackKey) o;
@@ -237,31 +209,31 @@ public class RequestCallbacks implements OutboundMessageCallbacks
         }
 
         @Override
-        public int hashCode()
-        {
+        public int hashCode() {
             return Long.hashCode(id) + 31 * peer.hashCode();
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "{id:" + id + ", peer:" + peer + '}';
         }
     }
 
-    static class CallbackInfo
-    {
-        final long createdAtNanos;
-        final long expiresAtNanos;
+    static class CallbackInfo {
 
-        final InetAddressAndPort peer;
-        final RequestCallback callback;
+        final transient long createdAtNanos;
 
-        @Deprecated // for 3.0 compatibility purposes only
-        public final Verb responseVerb;
+        final transient long expiresAtNanos;
 
-        private CallbackInfo(Message message, InetAddressAndPort peer, RequestCallback callback)
-        {
+        final transient InetAddressAndPort peer;
+
+        final transient RequestCallback callback;
+
+        // for 3.0 compatibility purposes only
+        @Deprecated
+        public final transient Verb responseVerb;
+
+        private CallbackInfo(Message message, InetAddressAndPort peer, RequestCallback callback) {
             this.createdAtNanos = message.createdAtNanos();
             this.expiresAtNanos = message.expiresAtNanos();
             this.peer = peer;
@@ -269,107 +241,90 @@ public class RequestCallbacks implements OutboundMessageCallbacks
             this.responseVerb = message.verb().responseVerb;
         }
 
-        public long timeout()
-        {
+        public long timeout() {
             return expiresAtNanos - createdAtNanos;
         }
 
-        boolean isReadyToDieAt(long atNano)
-        {
+        boolean isReadyToDieAt(long atNano) {
             return atNano > expiresAtNanos;
         }
 
-        boolean shouldHint()
-        {
+        boolean shouldHint() {
             return false;
         }
 
-        boolean invokeOnFailure()
-        {
+        boolean invokeOnFailure() {
             return callback.invokeOnFailure();
         }
 
-        public String toString()
-        {
+        public String toString() {
             return "{peer:" + peer + ", callback:" + callback + ", invokeOnFailure:" + invokeOnFailure() + '}';
         }
     }
 
     // FIXME: shouldn't need a specialized container for write callbacks; hinting should be part of
-    //        AbstractWriteResponseHandler implementation.
-    static class WriteCallbackInfo extends CallbackInfo
-    {
+    // AbstractWriteResponseHandler implementation.
+    static class WriteCallbackInfo extends CallbackInfo {
+
         // either a Mutation, or a Paxos Commit (MessageOut)
-        private final Object mutation;
-        private final Replica replica;
+        private final transient Object mutation;
+
+        private final transient Replica replica;
 
         @VisibleForTesting
-        WriteCallbackInfo(Message message, Replica replica, RequestCallback<?> callback, ConsistencyLevel consistencyLevel, boolean allowHints)
-        {
+        WriteCallbackInfo(Message message, Replica replica, RequestCallback<?> callback, ConsistencyLevel consistencyLevel, boolean allowHints) {
             super(message, replica.endpoint(), callback);
             this.mutation = shouldHint(allowHints, message, consistencyLevel) ? message.payload : null;
-            //Local writes shouldn't go through messaging service (https://issues.apache.org/jira/browse/CASSANDRA-10477)
-            //noinspection AssertWithSideEffects
+            // Local writes shouldn't go through messaging service (https://issues.apache.org/jira/browse/CASSANDRA-10477)
+            // noinspection AssertWithSideEffects
             assert !peer.equals(FBUtilities.getBroadcastAddressAndPort());
             this.replica = replica;
         }
 
-        public boolean shouldHint()
-        {
+        public boolean shouldHint() {
             return mutation != null && StorageProxy.shouldHint(replica);
         }
 
-        public Replica getReplica()
-        {
+        public Replica getReplica() {
             return replica;
         }
 
-        public Mutation mutation()
-        {
+        public Mutation mutation() {
             return getMutation(mutation);
         }
 
-        private static Mutation getMutation(Object object)
-        {
+        private static Mutation getMutation(Object object) {
             assert object instanceof Commit || object instanceof Mutation : object;
-            return object instanceof Commit ? ((Commit) object).makeMutation()
-                                            : (Mutation) object;
+            return object instanceof Commit ? ((Commit) object).makeMutation() : (Mutation) object;
         }
 
-        private static boolean shouldHint(boolean allowHints, Message sentMessage, ConsistencyLevel consistencyLevel)
-        {
+        private static boolean shouldHint(boolean allowHints, Message sentMessage, ConsistencyLevel consistencyLevel) {
             return allowHints && sentMessage.verb() != Verb.COUNTER_MUTATION_REQ && consistencyLevel != ConsistencyLevel.ANY;
         }
     }
 
     @Override
-    public void onOverloaded(Message<?> message, InetAddressAndPort peer)
-    {
+    public void onOverloaded(Message<?> message, InetAddressAndPort peer) {
         removeAndExpire(message, peer);
     }
 
     @Override
-    public void onExpired(Message<?> message, InetAddressAndPort peer)
-    {
+    public void onExpired(Message<?> message, InetAddressAndPort peer) {
         removeAndExpire(message, peer);
     }
 
     @Override
-    public void onFailedSerialize(Message<?> message, InetAddressAndPort peer, int messagingVersion, int bytesWrittenToNetwork, Throwable failure)
-    {
+    public void onFailedSerialize(Message<?> message, InetAddressAndPort peer, int messagingVersion, int bytesWrittenToNetwork, Throwable failure) {
         removeAndExpire(message, peer);
     }
 
     @Override
-    public void onDiscardOnClose(Message<?> message, InetAddressAndPort peer)
-    {
+    public void onDiscardOnClose(Message<?> message, InetAddressAndPort peer) {
         removeAndExpire(message, peer);
     }
 
-    private void removeAndExpire(Message message, InetAddressAndPort peer)
-    {
+    private void removeAndExpire(Message message, InetAddressAndPort peer) {
         removeAndExpire(message.id(), peer);
-
         /* in case of a write sent to a different DC, also expire all forwarding targets */
         ForwardingInfo forwardTo = message.forwardTo();
         if (null != forwardTo)

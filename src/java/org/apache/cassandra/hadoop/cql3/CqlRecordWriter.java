@@ -22,13 +22,10 @@ import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.*;
-
 import org.apache.cassandra.db.marshal.ByteBufferAccessor;
 import org.apache.cassandra.db.marshal.CompositeType;
 import org.apache.cassandra.dht.IPartitioner;
@@ -40,7 +37,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.util.Progressable;
-
 import static java.util.stream.Collectors.toMap;
 
 /**
@@ -57,38 +53,44 @@ import static java.util.stream.Collectors.toMap;
  *
  * @see CqlOutputFormat
  */
-class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuffer>> implements
-        org.apache.hadoop.mapred.RecordWriter<Map<String, ByteBuffer>, List<ByteBuffer>>, AutoCloseable
-{
-    private static final Logger logger = LoggerFactory.getLogger(CqlRecordWriter.class);
+class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuffer>> implements org.apache.hadoop.mapred.RecordWriter<Map<String, ByteBuffer>, List<ByteBuffer>>, AutoCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CqlRecordWriter.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CqlRecordWriter.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(CqlRecordWriter.class);
 
     // The configuration this writer is associated with.
-    protected final Configuration conf;
+    protected final transient Configuration conf;
+
     // The number of mutations to buffer per endpoint
-    protected final int queueSize;
+    protected final transient int queueSize;
 
-    protected final long batchThreshold;
+    protected final transient long batchThreshold;
 
-    protected Progressable progressable;
-    protected TaskAttemptContext context;
+    protected transient Progressable progressable;
+
+    protected transient TaskAttemptContext context;
 
     // The ring cache that describes the token ranges each node in the ring is
     // responsible for. This is what allows us to group the mutations by
     // the endpoints they should be targeted at. The targeted endpoint
     // essentially
     // acts as the primary replica for the rows being affected by the mutations.
-    private final NativeRingCache ringCache;
+    private final transient NativeRingCache ringCache;
 
     // handles for clients for each range running in the threadpool
-    protected final Map<InetAddress, RangeClient> clients;
+    protected final transient Map<InetAddress, RangeClient> clients;
 
     // host to prepared statement id mappings
-    protected final ConcurrentHashMap<Session, PreparedStatement> preparedStatements = new ConcurrentHashMap<Session, PreparedStatement>();
+    protected final transient ConcurrentHashMap<Session, PreparedStatement> preparedStatements = new ConcurrentHashMap<Session, PreparedStatement>();
 
-    protected final String cql;
+    protected final transient String cql;
 
-    protected List<ColumnMetadata> partitionKeyColumns;
-    protected List<ColumnMetadata> clusterColumns;
+    protected transient List<ColumnMetadata> partitionKeyColumns;
+
+    protected transient List<ColumnMetadata> clusterColumns;
 
     /**
      * Upon construction, obtain the map that this writer will use to collect
@@ -97,41 +99,33 @@ class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuf
      * @param context the task attempt context
      * @throws IOException
      */
-    CqlRecordWriter(TaskAttemptContext context) throws IOException
-    {
+    CqlRecordWriter(TaskAttemptContext context) throws IOException {
         this(HadoopCompat.getConfiguration(context));
         this.context = context;
     }
 
-    CqlRecordWriter(Configuration conf, Progressable progressable)
-    {
+    CqlRecordWriter(Configuration conf, Progressable progressable) {
         this(conf);
         this.progressable = progressable;
     }
 
-    CqlRecordWriter(Configuration conf)
-    {
+    CqlRecordWriter(Configuration conf) {
         this.conf = conf;
         this.queueSize = conf.getInt(CqlOutputFormat.QUEUE_SIZE, 32 * FBUtilities.getAvailableProcessors());
         batchThreshold = conf.getLong(CqlOutputFormat.BATCH_THRESHOLD, 32);
         this.clients = new HashMap<>();
         String keyspace = ConfigHelper.getOutputKeyspace(conf);
-
-        try (Cluster cluster = CqlConfigHelper.getOutputCluster(ConfigHelper.getOutputInitialAddress(conf), conf))
-        {
+        try (Cluster cluster = CqlConfigHelper.getOutputCluster(ConfigHelper.getOutputInitialAddress(conf), conf)) {
             Metadata metadata = cluster.getMetadata();
             ringCache = new NativeRingCache(conf, metadata);
             TableMetadata tableMetadata = metadata.getKeyspace(Metadata.quote(keyspace)).getTable(ConfigHelper.getOutputColumnFamily(conf));
             clusterColumns = tableMetadata.getClusteringColumns();
             partitionKeyColumns = tableMetadata.getPartitionKey();
-
             String cqlQuery = CqlConfigHelper.getOutputCql(conf).trim();
             if (cqlQuery.toLowerCase(Locale.ENGLISH).startsWith("insert"))
                 throw new UnsupportedOperationException("INSERT with CqlRecordWriter is not supported, please use UPDATE/DELETE statement");
             cql = appendKeyWhereClauses(cqlQuery);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -143,35 +137,29 @@ class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuf
      * @param context the context of the task
      * @throws IOException
      */
-    public void close(TaskAttemptContext context) throws IOException, InterruptedException
-    {
+    public void close(TaskAttemptContext context) throws IOException, InterruptedException {
         close();
     }
 
-    /** Fills the deprecated RecordWriter interface for streaming. */
+    /**
+     * Fills the deprecated RecordWriter interface for streaming.
+     */
     @Deprecated
-    public void close(org.apache.hadoop.mapred.Reporter reporter) throws IOException
-    {
+    public void close(org.apache.hadoop.mapred.Reporter reporter) throws IOException {
         close();
     }
 
     @Override
-    public void close() throws IOException
-    {
+    public void close() throws IOException {
         // close all the clients before throwing anything
         IOException clientException = null;
-        for (RangeClient client : clients.values())
-        {
-            try
-            {
+        for (RangeClient client : clients.values()) {
+            try {
                 client.close();
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 clientException = e;
             }
         }
-
         if (clientException != null)
             throw clientException;
     }
@@ -191,46 +179,34 @@ class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuf
      * @throws IOException
      */
     @Override
-    public void write(Map<String, ByteBuffer> keyColumns, List<ByteBuffer> values) throws IOException
-    {
+    public void write(Map<String, ByteBuffer> keyColumns, List<ByteBuffer> values) throws IOException {
         TokenRange range = ringCache.getRange(getPartitionKey(keyColumns));
-
         // get the client for the given range, or create a new one
         final InetAddress address = ringCache.getEndpoints(range).get(0);
         RangeClient client = clients.get(address);
-        if (client == null)
-        {
+        if (client == null) {
             // haven't seen keys for this range: create new client
             client = new RangeClient(ringCache.getEndpoints(range));
             client.start();
             clients.put(address, client);
         }
-
         // add primary key columns to the bind variables
         List<ByteBuffer> allValues = new ArrayList<ByteBuffer>(values);
-        for (ColumnMetadata column : partitionKeyColumns)
-            allValues.add(keyColumns.get(column.getName()));
-        for (ColumnMetadata column : clusterColumns)
-            allValues.add(keyColumns.get(column.getName()));
-
+        for (ColumnMetadata column : partitionKeyColumns) allValues.add(keyColumns.get(column.getName()));
+        for (ColumnMetadata column : clusterColumns) allValues.add(keyColumns.get(column.getName()));
         client.put(allValues);
-
         if (progressable != null)
             progressable.progress();
         if (context != null)
             HadoopCompat.progress(context);
     }
 
-    private static void closeSession(Session session)
-    {
-        //Close the session to satisfy to avoid warnings for the resource not being closed
-        try
-        {
+    private static void closeSession(Session session) {
+        // Close the session to satisfy to avoid warnings for the resource not being closed
+        try {
             if (session != null)
                 session.getCluster().closeAsync();
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             logger.warn("Error closing connection", t);
         }
     }
@@ -239,26 +215,28 @@ class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuf
      * A client that runs in a threadpool and connects to the list of endpoints for a particular
      * range. Bound variables for keys in that range are sent to this client via a queue.
      */
-    public class RangeClient extends Thread
-    {
-        // The list of endpoints for this range
-        protected final List<InetAddress> endpoints;
-        protected Cluster cluster = null;
-        // A bounded queue of incoming mutations for this range
-        protected final BlockingQueue<List<ByteBuffer>> queue = new ArrayBlockingQueue<List<ByteBuffer>>(queueSize);
+    public class RangeClient extends Thread {
 
-        protected volatile boolean run = true;
+        // The list of endpoints for this range
+        protected final transient List<InetAddress> endpoints;
+
+        protected transient Cluster cluster = null;
+
+        // A bounded queue of incoming mutations for this range
+        protected final transient BlockingQueue<List<ByteBuffer>> queue = new ArrayBlockingQueue<List<ByteBuffer>>(queueSize);
+
+        protected volatile transient boolean run = true;
+
         // we want the caller to know if something went wrong, so we record any unrecoverable exception while writing
         // so we can throw it on the caller's stack when he calls put() again, or if there are no more put calls,
         // when the client is closed.
-        protected volatile IOException lastException;
+        protected volatile transient IOException lastException;
 
         /**
          * Constructs an {@link RangeClient} for the given endpoints.
          * @param endpoints the possible endpoints to execute the mutations on
          */
-        public RangeClient(List<InetAddress> endpoints)
-        {
+        public RangeClient(List<InetAddress> endpoints) {
             super("client-" + endpoints);
             this.endpoints = endpoints;
         }
@@ -266,19 +244,14 @@ class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuf
         /**
          * enqueues the given value to Cassandra
          */
-        public void put(List<ByteBuffer> value) throws IOException
-        {
-            while (true)
-            {
+        public void put(List<ByteBuffer> value) throws IOException {
+            while (true) {
                 if (lastException != null)
                     throw lastException;
-                try
-                {
+                try {
                     if (queue.offer(value, 100, TimeUnit.MILLISECONDS))
                         break;
-                }
-                catch (InterruptedException e)
-                {
+                } catch (InterruptedException e) {
                     throw new AssertionError(e);
                 }
             }
@@ -288,162 +261,120 @@ class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuf
          * Loops collecting cql binded variable values from the queue and sending to Cassandra
          */
         @SuppressWarnings("resource")
-        public void run()
-        {
+        public void run() {
             Session session = null;
-
-            try
-            {
-                outer:
-                while (run || !queue.isEmpty())
-                {
+            try {
+                outer: while (run || !queue.isEmpty()) {
                     List<ByteBuffer> bindVariables;
-                    try
-                    {
+                    try {
                         bindVariables = queue.take();
-                    }
-                    catch (InterruptedException e)
-                    {
+                    } catch (InterruptedException e) {
                         // re-check loop condition after interrupt
                         continue;
                     }
-
                     ListIterator<InetAddress> iter = endpoints.listIterator();
-                    while (true)
-                    {
+                    while (true) {
                         // send the mutation to the last-used endpoint.  first time through, this will NPE harmlessly.
-                        if (session != null)
-                        {
-                            try
-                            {
+                        if (session != null) {
+                            try {
                                 int i = 0;
                                 PreparedStatement statement = preparedStatement(session);
-                                while (bindVariables != null)
-                                {
+                                while (bindVariables != null) {
                                     BoundStatement boundStatement = new BoundStatement(statement);
-                                    for (int columnPosition = 0; columnPosition < bindVariables.size(); columnPosition++)
-                                    {
+                                    for (int columnPosition = 0; columnPosition < bindVariables.size(); columnPosition++) {
                                         boundStatement.setBytesUnsafe(columnPosition, bindVariables.get(columnPosition));
                                     }
                                     session.execute(boundStatement);
                                     i++;
-
                                     if (i >= batchThreshold)
                                         break;
                                     bindVariables = queue.poll();
                                 }
                                 break;
-                            }
-                            catch (Exception e)
-                            {
+                            } catch (Exception e) {
                                 closeInternal();
-                                if (!iter.hasNext())
-                                {
+                                if (!iter.hasNext()) {
                                     lastException = new IOException(e);
                                     break outer;
                                 }
                             }
                         }
-
                         // attempt to connect to a different endpoint
-                        try
-                        {
+                        try {
                             InetAddress address = iter.next();
                             String host = address.getHostName();
                             cluster = CqlConfigHelper.getOutputCluster(host, conf);
                             closeSession(session);
                             session = cluster.connect();
-                        }
-                        catch (Exception e)
-                        {
-                            //If connection died due to Interrupt, just try connecting to the endpoint again.
-                            //There are too many ways for the Thread.interrupted() state to be cleared, so
-                            //we can't rely on that here. Until the java driver gives us a better way of knowing
-                            //that this exception came from an InterruptedException, this is the best solution.
-                            if (canRetryDriverConnection(e))
-                            {
+                        } catch (Exception e) {
+                            // If connection died due to Interrupt, just try connecting to the endpoint again.
+                            // There are too many ways for the Thread.interrupted() state to be cleared, so
+                            // we can't rely on that here. Until the java driver gives us a better way of knowing
+                            // that this exception came from an InterruptedException, this is the best solution.
+                            if (canRetryDriverConnection(e)) {
                                 iter.previous();
                             }
                             closeInternal();
-
                             // Most exceptions mean something unexpected went wrong to that endpoint, so
                             // we should try again to another.  Other exceptions (auth or invalid request) are fatal.
-                            if ((e instanceof AuthenticationException || e instanceof InvalidQueryException) || !iter.hasNext())
-                            {
+                            if ((e instanceof AuthenticationException || e instanceof InvalidQueryException) || !iter.hasNext()) {
                                 lastException = new IOException(e);
                                 break outer;
                             }
                         }
                     }
                 }
-            }
-            finally
-            {
+            } finally {
                 closeSession(session);
                 // close all our connections once we are done.
                 closeInternal();
             }
         }
 
-        /** get prepared statement id from cache, otherwise prepare it from Cassandra server*/
-        private PreparedStatement preparedStatement(Session client)
-        {
+        /**
+         * get prepared statement id from cache, otherwise prepare it from Cassandra server
+         */
+        private PreparedStatement preparedStatement(Session client) {
             PreparedStatement statement = preparedStatements.get(client);
-            if (statement == null)
-            {
+            if (statement == null) {
                 PreparedStatement result;
-                try
-                {
+                try {
                     result = client.prepare(cql);
-                }
-                catch (NoHostAvailableException e)
-                {
+                } catch (NoHostAvailableException e) {
                     throw new RuntimeException("failed to prepare cql query " + cql, e);
                 }
-
                 PreparedStatement previousId = preparedStatements.putIfAbsent(client, result);
                 statement = previousId == null ? result : previousId;
             }
             return statement;
         }
 
-        public void close() throws IOException
-        {
+        public void close() throws IOException {
             // stop the run loop.  this will result in closeInternal being called by the time join() finishes.
             run = false;
             interrupt();
-            try
-            {
+            try {
                 this.join();
-            }
-            catch (InterruptedException e)
-            {
+            } catch (InterruptedException e) {
                 throw new AssertionError(e);
             }
-
             if (lastException != null)
                 throw lastException;
         }
 
-        protected void closeInternal()
-        {
-            if (cluster != null)
-            {
+        protected void closeInternal() {
+            if (cluster != null) {
                 cluster.close();
             }
         }
 
-        private boolean canRetryDriverConnection(Exception e)
-        {
+        private boolean canRetryDriverConnection(Exception e) {
             if (e instanceof DriverException && e.getMessage().contains("Connection thread interrupted"))
                 return true;
-            if (e instanceof NoHostAvailableException)
-            {
-                if (((NoHostAvailableException) e).getErrors().size() == 1)
-                {
+            if (e instanceof NoHostAvailableException) {
+                if (((NoHostAvailableException) e).getErrors().size() == 1) {
                     Throwable cause = ((NoHostAvailableException) e).getErrors().values().iterator().next();
-                    if (cause != null && cause.getCause() instanceof java.nio.channels.ClosedByInterruptException)
-                    {
+                    if (cause != null && cause.getCause() instanceof java.nio.channels.ClosedByInterruptException) {
                         return true;
                     }
                 }
@@ -452,19 +383,13 @@ class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuf
         }
     }
 
-    private ByteBuffer getPartitionKey(Map<String, ByteBuffer> keyColumns)
-    {
+    private ByteBuffer getPartitionKey(Map<String, ByteBuffer> keyColumns) {
         ByteBuffer partitionKey;
-        if (partitionKeyColumns.size() > 1)
-        {
+        if (partitionKeyColumns.size() > 1) {
             ByteBuffer[] keys = new ByteBuffer[partitionKeyColumns.size()];
-            for (int i = 0; i< keys.length; i++)
-                keys[i] = keyColumns.get(partitionKeyColumns.get(i).getName());
-
+            for (int i = 0; i < keys.length; i++) keys[i] = keyColumns.get(partitionKeyColumns.get(i).getName());
             partitionKey = CompositeType.build(ByteBufferAccessor.instance, keys);
-        }
-        else
-        {
+        } else {
             partitionKey = keyColumns.get(partitionKeyColumns.get(0).getName());
         }
         return partitionKey;
@@ -473,61 +398,50 @@ class CqlRecordWriter extends RecordWriter<Map<String, ByteBuffer>, List<ByteBuf
     /**
      * add where clauses for partition keys and cluster columns
      */
-    private String appendKeyWhereClauses(String cqlQuery)
-    {
+    private String appendKeyWhereClauses(String cqlQuery) {
         String keyWhereClause = "";
-
-        for (ColumnMetadata partitionKey : partitionKeyColumns)
-            keyWhereClause += String.format("%s = ?", keyWhereClause.isEmpty() ? quote(partitionKey.getName()) : (" AND " + quote(partitionKey.getName())));
-        for (ColumnMetadata clusterColumn : clusterColumns)
-            keyWhereClause += " AND " + quote(clusterColumn.getName()) + " = ?";
-
+        for (ColumnMetadata partitionKey : partitionKeyColumns) keyWhereClause += String.format("%s = ?", keyWhereClause.isEmpty() ? quote(partitionKey.getName()) : (" AND " + quote(partitionKey.getName())));
+        for (ColumnMetadata clusterColumn : clusterColumns) keyWhereClause += " AND " + quote(clusterColumn.getName()) + " = ?";
         return cqlQuery + " WHERE " + keyWhereClause;
     }
 
-    /** Quoting for working with uppercase */
-    private String quote(String identifier)
-    {
+    /**
+     * Quoting for working with uppercase
+     */
+    private String quote(String identifier) {
         return "\"" + identifier.replaceAll("\"", "\"\"") + "\"";
     }
 
-    static class NativeRingCache
-    {
-        private final Map<TokenRange, Set<Host>> rangeMap;
-        private final Metadata metadata;
-        private final IPartitioner partitioner;
+    static class NativeRingCache {
 
-        public NativeRingCache(Configuration conf, Metadata metadata)
-        {
+        private final transient Map<TokenRange, Set<Host>> rangeMap;
+
+        private final transient Metadata metadata;
+
+        private final transient IPartitioner partitioner;
+
+        public NativeRingCache(Configuration conf, Metadata metadata) {
             this.partitioner = ConfigHelper.getOutputPartitioner(conf);
             this.metadata = metadata;
             String keyspace = ConfigHelper.getOutputKeyspace(conf);
-            this.rangeMap = metadata.getTokenRanges()
-                                    .stream()
-                                    .collect(toMap(p -> p, p -> metadata.getReplicas('"' + keyspace + '"', p)));
+            this.rangeMap = metadata.getTokenRanges().stream().collect(toMap(p -> p, p -> metadata.getReplicas('"' + keyspace + '"', p)));
         }
 
-        public TokenRange getRange(ByteBuffer key)
-        {
+        public TokenRange getRange(ByteBuffer key) {
             Token t = partitioner.getToken(key);
             com.datastax.driver.core.Token driverToken = metadata.newToken(partitioner.getTokenFactory().toString(t));
-            for (TokenRange range : rangeMap.keySet())
-            {
-                if (range.contains(driverToken))
-                {
+            for (TokenRange range : rangeMap.keySet()) {
+                if (range.contains(driverToken)) {
                     return range;
                 }
             }
-
             throw new RuntimeException("Invalid token information returned by describe_ring: " + rangeMap);
         }
 
-        public List<InetAddress> getEndpoints(TokenRange range)
-        {
+        public List<InetAddress> getEndpoints(TokenRange range) {
             Set<Host> hostSet = rangeMap.get(range);
             List<InetAddress> addresses = new ArrayList<>(hostSet.size());
-            for (Host host: hostSet)
-            {
+            for (Host host : hostSet) {
                 addresses.add(host.getAddress());
             }
             return addresses;

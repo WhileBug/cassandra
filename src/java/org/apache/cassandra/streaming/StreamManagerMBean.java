@@ -21,9 +21,13 @@ import java.util.Set;
 import javax.management.NotificationEmitter;
 import javax.management.openmbean.CompositeData;
 
-public interface StreamManagerMBean extends NotificationEmitter
-{
-    public static final String OBJECT_NAME = "org.apache.cassandra.net:type=StreamManager";
+public interface StreamManagerMBean extends NotificationEmitter {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamManagerMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamManagerMBean.class);
+
+    public static final transient String OBJECT_NAME = "org.apache.cassandra.net:type=StreamManager";
 
     /**
      * Returns the current state of all ongoing streams.

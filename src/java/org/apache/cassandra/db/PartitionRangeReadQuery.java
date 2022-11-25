@@ -29,18 +29,15 @@ import org.apache.cassandra.transport.ProtocolVersion;
 /**
  *  A {@code ReadQuery} for a range of partitions.
  */
-public interface PartitionRangeReadQuery extends ReadQuery
-{
-    static ReadQuery create(TableMetadata table,
-                            int nowInSec,
-                            ColumnFilter columnFilter,
-                            RowFilter rowFilter,
-                            DataLimits limits,
-                            DataRange dataRange)
-    {
+public interface PartitionRangeReadQuery extends ReadQuery {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionRangeReadQuery.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionRangeReadQuery.class);
+
+    static ReadQuery create(TableMetadata table, int nowInSec, ColumnFilter columnFilter, RowFilter rowFilter, DataLimits limits, DataRange dataRange) {
         if (table.isVirtual())
             return VirtualTablePartitionRangeReadQuery.create(table, nowInSec, columnFilter, rowFilter, limits, dataRange);
-
         return PartitionRangeReadCommand.create(table, nowInSec, columnFilter, rowFilter, limits, dataRange);
     }
 
@@ -62,34 +59,27 @@ public interface PartitionRangeReadQuery extends ReadQuery
      */
     PartitionRangeReadQuery withUpdatedLimitsAndDataRange(DataLimits newLimits, DataRange newDataRange);
 
-    default QueryPager getPager(PagingState pagingState, ProtocolVersion protocolVersion)
-    {
+    default QueryPager getPager(PagingState pagingState, ProtocolVersion protocolVersion) {
         return new PartitionRangeQueryPager(this, pagingState, protocolVersion);
     }
 
-    default boolean selectsKey(DecoratedKey key)
-    {
+    default boolean selectsKey(DecoratedKey key) {
         if (!dataRange().contains(key))
             return false;
-
         return rowFilter().partitionKeyRestrictionsAreSatisfiedBy(key, metadata().partitionKeyType);
     }
 
-    default boolean selectsClustering(DecoratedKey key, Clustering<?> clustering)
-    {
+    default boolean selectsClustering(DecoratedKey key, Clustering<?> clustering) {
         if (clustering == Clustering.STATIC_CLUSTERING)
             return !columnFilter().fetchedColumns().statics.isEmpty();
-
         if (!dataRange().clusteringIndexFilter(key).selects(clustering))
             return false;
         return rowFilter().clusteringKeyRestrictionsAreSatisfiedBy(clustering);
     }
 
-    default boolean selectsFullPartition()
-    {
+    default boolean selectsFullPartition() {
         if (metadata().isStaticCompactTable())
             return true;
-
         return dataRange().selectsAllPartition() && !rowFilter().hasExpressionOnClusteringOrRegularColumns();
     }
 }

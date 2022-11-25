@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.compaction;
 
 import java.util.ArrayList;
@@ -24,26 +23,26 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
-
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 
-public class ActiveCompactions implements ActiveCompactionsTracker
-{
-    // a synchronized identity set of running tasks to their compaction info
-    private final Set<CompactionInfo.Holder> compactions = Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
+public class ActiveCompactions implements ActiveCompactionsTracker {
 
-    public List<CompactionInfo.Holder> getCompactions()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ActiveCompactions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ActiveCompactions.class);
+
+    // a synchronized identity set of running tasks to their compaction info
+    private final transient Set<CompactionInfo.Holder> compactions = Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
+
+    public List<CompactionInfo.Holder> getCompactions() {
         return new ArrayList<>(compactions);
     }
 
-    public void beginCompaction(CompactionInfo.Holder ci)
-    {
+    public void beginCompaction(CompactionInfo.Holder ci) {
         compactions.add(ci);
     }
 
-    public void finishCompaction(CompactionInfo.Holder ci)
-    {
+    public void finishCompaction(CompactionInfo.Holder ci) {
         compactions.remove(ci);
         CompactionManager.instance.getMetrics().bytesCompacted.inc(ci.getCompactionInfo().getTotal());
         CompactionManager.instance.getMetrics().totalCompactionsCompleted.mark();
@@ -54,16 +53,12 @@ public class ActiveCompactions implements ActiveCompactionsTracker
      *
      * Number of entries in compactions should be small (< 10) but avoid calling in any time-sensitive context
      */
-    public Collection<CompactionInfo> getCompactionsForSSTable(SSTableReader sstable, OperationType compactionType)
-    {
+    public Collection<CompactionInfo> getCompactionsForSSTable(SSTableReader sstable, OperationType compactionType) {
         List<CompactionInfo> toReturn = null;
-        synchronized (compactions)
-        {
-            for (CompactionInfo.Holder holder : compactions)
-            {
+        synchronized (compactions) {
+            for (CompactionInfo.Holder holder : compactions) {
                 CompactionInfo compactionInfo = holder.getCompactionInfo();
-                if (compactionInfo.getSSTables().contains(sstable) && compactionInfo.getTaskType() == compactionType)
-                {
+                if (compactionInfo.getSSTables().contains(sstable) && compactionInfo.getTaskType() == compactionType) {
                     if (toReturn == null)
                         toReturn = new ArrayList<>();
                     toReturn.add(compactionInfo);

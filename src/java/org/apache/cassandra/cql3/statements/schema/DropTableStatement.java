@@ -28,88 +28,72 @@ import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.transport.Event.SchemaChange;
 import org.apache.cassandra.transport.Event.SchemaChange.Change;
 import org.apache.cassandra.transport.Event.SchemaChange.Target;
-
 import static java.lang.String.join;
-
 import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.common.collect.Iterables.transform;
 
-public final class DropTableStatement extends AlterSchemaStatement
-{
-    private final String tableName;
-    private final boolean ifExists;
+public final class DropTableStatement extends AlterSchemaStatement {
 
-    public DropTableStatement(String keyspaceName, String tableName, boolean ifExists)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropTableStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DropTableStatement.class);
+
+    private final transient String tableName;
+
+    private final transient boolean ifExists;
+
+    public DropTableStatement(String keyspaceName, String tableName, boolean ifExists) {
         super(keyspaceName);
         this.tableName = tableName;
         this.ifExists = ifExists;
     }
 
-    public Keyspaces apply(Keyspaces schema)
-    {
+    public Keyspaces apply(Keyspaces schema) {
         KeyspaceMetadata keyspace = schema.getNullable(keyspaceName);
-
-        TableMetadata table = null == keyspace
-                            ? null
-                            : keyspace.getTableOrViewNullable(tableName);
-
-        if (null == table)
-        {
+        TableMetadata table = null == keyspace ? null : keyspace.getTableOrViewNullable(tableName);
+        if (null == table) {
             if (ifExists)
                 return schema;
-
             throw ire("Table '%s.%s' doesn't exist", keyspaceName, tableName);
         }
-
         if (table.isView())
             throw ire("Cannot use DROP TABLE on a materialized view. Please use DROP MATERIALIZED VIEW instead.");
-
         Iterable<ViewMetadata> views = keyspace.views.forTable(table.id);
-        if (!isEmpty(views))
-        {
-            throw ire("Cannot drop a table when materialized views still depend on it (%s)",
-                      keyspaceName,
-                      join(", ", transform(views, ViewMetadata::name)));
+        if (!isEmpty(views)) {
+            throw ire("Cannot drop a table when materialized views still depend on it (%s)", keyspaceName, join(", ", transform(views, ViewMetadata::name)));
         }
-
         return schema.withAddedOrUpdated(keyspace.withSwapped(keyspace.tables.without(table)));
     }
 
-    SchemaChange schemaChangeEvent(KeyspacesDiff diff)
-    {
+    SchemaChange schemaChangeEvent(KeyspacesDiff diff) {
         return new SchemaChange(Change.DROPPED, Target.TABLE, keyspaceName, tableName);
     }
 
-    public void authorize(ClientState client)
-    {
+    public void authorize(ClientState client) {
         client.ensureTablePermission(keyspaceName, tableName, Permission.DROP);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.DROP_TABLE, keyspaceName, tableName);
     }
 
-    public String toString()
-    {
+    public String toString() {
         return String.format("%s (%s, %s)", getClass().getSimpleName(), keyspaceName, tableName);
     }
 
-    public static final class Raw extends CQLStatement.Raw
-    {
-        private final QualifiedName name;
-        private final boolean ifExists;
+    public static final class Raw extends CQLStatement.Raw {
 
-        public Raw(QualifiedName name, boolean ifExists)
-        {
+        private final transient QualifiedName name;
+
+        private final transient boolean ifExists;
+
+        public Raw(QualifiedName name, boolean ifExists) {
             this.name = name;
             this.ifExists = ifExists;
         }
 
-        public DropTableStatement prepare(ClientState state)
-        {
+        public DropTableStatement prepare(ClientState state) {
             String keyspaceName = name.hasKeyspace() ? name.getKeyspace() : state.getKeyspace();
             return new DropTableStatement(keyspaceName, name.getName(), ifExists);
         }

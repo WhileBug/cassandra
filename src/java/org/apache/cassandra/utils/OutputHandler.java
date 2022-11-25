@@ -19,12 +19,15 @@
 package org.apache.cassandra.utils;
 
 import java.io.PrintStream;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public interface OutputHandler
-{
+public interface OutputHandler {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutputHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutputHandler.class);
+
     // called when an important info need to be displayed
     public void output(String msg);
 
@@ -33,73 +36,66 @@ public interface OutputHandler
 
     // called when the user needs to be warn
     public void warn(String msg);
+
     public void warn(String msg, Throwable th);
-    public default void warn(Throwable th)
-    {
+
+    public default void warn(Throwable th) {
         warn(th.getMessage(), th);
     }
 
-    public static class LogOutput implements OutputHandler
-    {
-        private static Logger logger = LoggerFactory.getLogger(LogOutput.class);
+    public static class LogOutput implements OutputHandler {
 
-        public void output(String msg)
-        {
+        private static transient Logger logger = LoggerFactory.getLogger(LogOutput.class);
+
+        public void output(String msg) {
             logger.info(msg);
         }
 
-        public void debug(String msg)
-        {
+        public void debug(String msg) {
             logger.trace(msg);
         }
 
-        public void warn(String msg)
-        {
+        public void warn(String msg) {
             logger.warn(msg);
         }
 
-        public void warn(String msg, Throwable th)
-        {
+        public void warn(String msg, Throwable th) {
             logger.warn(msg, th);
         }
     }
 
-    public static class SystemOutput implements OutputHandler
-    {
-        public final boolean debug;
-        public final boolean printStack;
-        public final PrintStream warnOut;
+    public static class SystemOutput implements OutputHandler {
 
-        public SystemOutput(boolean debug, boolean printStack)
-        {
+        public final transient boolean debug;
+
+        public final transient boolean printStack;
+
+        public final transient PrintStream warnOut;
+
+        public SystemOutput(boolean debug, boolean printStack) {
             this(debug, printStack, false);
         }
 
-        public SystemOutput(boolean debug, boolean printStack, boolean logWarnToStdErr)
-        {
+        public SystemOutput(boolean debug, boolean printStack, boolean logWarnToStdErr) {
             this.debug = debug;
             this.printStack = printStack;
             this.warnOut = logWarnToStdErr ? System.err : System.out;
         }
 
-        public void output(String msg)
-        {
+        public void output(String msg) {
             System.out.println(msg);
         }
 
-        public void debug(String msg)
-        {
+        public void debug(String msg) {
             if (debug)
                 System.out.println(msg);
         }
 
-        public void warn(String msg)
-        {
+        public void warn(String msg) {
             warn(msg, null);
         }
 
-        public void warn(String msg, Throwable th)
-        {
+        public void warn(String msg, Throwable th) {
             warnOut.println("WARNING: " + msg);
             if (printStack && th != null)
                 th.printStackTrace(warnOut);

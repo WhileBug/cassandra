@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3.selection;
 
 import java.util.List;
 import java.util.function.Predicate;
-
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.cql3.VariableSpecifications;
@@ -31,64 +30,57 @@ import org.apache.cassandra.schema.TableMetadata;
 /**
  * A {@code Selectable} with an alias.
  */
-final class AliasedSelectable implements Selectable
-{
+final class AliasedSelectable implements Selectable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AliasedSelectable.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AliasedSelectable.class);
+
     /**
      * The selectable
      */
-    private final Selectable selectable;
+    private final transient Selectable selectable;
 
     /**
      * The alias associated to the selectable.
      */
-    private final ColumnIdentifier alias;
+    private final transient ColumnIdentifier alias;
 
-    public AliasedSelectable(Selectable selectable, ColumnIdentifier alias)
-    {
+    public AliasedSelectable(Selectable selectable, ColumnIdentifier alias) {
         this.selectable = selectable;
         this.alias = alias;
     }
 
     @Override
-    public TestResult testAssignment(String keyspace, ColumnSpecification receiver)
-    {
+    public TestResult testAssignment(String keyspace, ColumnSpecification receiver) {
         return selectable.testAssignment(keyspace, receiver);
     }
 
     @Override
-    public Factory newSelectorFactory(TableMetadata table,
-                                      AbstractType<?> expectedType,
-                                      List<ColumnMetadata> defs,
-                                      VariableSpecifications boundNames)
-    {
+    public Factory newSelectorFactory(TableMetadata table, AbstractType<?> expectedType, List<ColumnMetadata> defs, VariableSpecifications boundNames) {
         final Factory delegate = selectable.newSelectorFactory(table, expectedType, defs, boundNames);
         final ColumnSpecification columnSpec = delegate.getColumnSpecification(table).withAlias(alias);
+        return new ForwardingFactory() {
 
-        return new ForwardingFactory()
-        {
             @Override
-            protected Factory delegate()
-            {
+            protected Factory delegate() {
                 return delegate;
             }
 
             @Override
-            public ColumnSpecification getColumnSpecification(TableMetadata table)
-            {
+            public ColumnSpecification getColumnSpecification(TableMetadata table) {
                 return columnSpec;
             }
         };
     }
 
     @Override
-    public AbstractType<?> getExactTypeIfKnown(String keyspace)
-    {
+    public AbstractType<?> getExactTypeIfKnown(String keyspace) {
         return selectable.getExactTypeIfKnown(keyspace);
     }
 
     @Override
-    public boolean selectColumns(Predicate<ColumnMetadata> predicate)
-    {
+    public boolean selectColumns(Predicate<ColumnMetadata> predicate) {
         return selectable.selectColumns(predicate);
     }
 }

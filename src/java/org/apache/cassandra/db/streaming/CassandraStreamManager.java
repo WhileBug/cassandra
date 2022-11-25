@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.streaming;
 
 import com.google.common.base.Predicate;
@@ -44,7 +43,6 @@ import org.apache.cassandra.utils.concurrent.Ref;
 import org.apache.cassandra.utils.concurrent.Refs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -58,98 +56,78 @@ import java.util.UUID;
  * remote node. The sending side performs a block-level transfer of the source stream, while the receiver
  * must deserilaize that data stream into an partitions and rows, and then write that out as an sstable.
  */
-public class CassandraStreamManager implements TableStreamManager
-{
-    private static final Logger logger = LoggerFactory.getLogger(CassandraStreamManager.class);
+public class CassandraStreamManager implements TableStreamManager {
 
-    private final ColumnFamilyStore cfs;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraStreamManager.class);
 
-    public CassandraStreamManager(ColumnFamilyStore cfs)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraStreamManager.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(CassandraStreamManager.class);
+
+    private final transient ColumnFamilyStore cfs;
+
+    public CassandraStreamManager(ColumnFamilyStore cfs) {
         this.cfs = cfs;
     }
 
     @Override
-    public IncomingStream prepareIncomingStream(StreamSession session, StreamMessageHeader header)
-    {
+    public IncomingStream prepareIncomingStream(StreamSession session, StreamMessageHeader header) {
         return new CassandraIncomingFile(cfs, session, header);
     }
 
     @Override
-    public StreamReceiver createStreamReceiver(StreamSession session, int totalStreams)
-    {
+    public StreamReceiver createStreamReceiver(StreamSession session, int totalStreams) {
         return new CassandraStreamReceiver(cfs, session, totalStreams);
     }
 
     @Override
-    public Collection<OutgoingStream> createOutgoingStreams(StreamSession session, RangesAtEndpoint replicas, UUID pendingRepair, PreviewKind previewKind)
-    {
+    public Collection<OutgoingStream> createOutgoingStreams(StreamSession session, RangesAtEndpoint replicas, UUID pendingRepair, PreviewKind previewKind) {
         Refs<SSTableReader> refs = new Refs<>();
-        try
-        {
+        try {
             final List<Range<PartitionPosition>> keyRanges = new ArrayList<>(replicas.size());
-            for (Replica replica : replicas)
-                keyRanges.add(Range.makeRowRange(replica.range()));
+            for (Replica replica : replicas) keyRanges.add(Range.makeRowRange(replica.range()));
             refs.addAll(cfs.selectAndReference(view -> {
                 Set<SSTableReader> sstables = Sets.newHashSet();
                 SSTableIntervalTree intervalTree = SSTableIntervalTree.build(view.select(SSTableSet.CANONICAL));
                 Predicate<SSTableReader> predicate;
-                if (previewKind.isPreview())
-                {
+                if (previewKind.isPreview()) {
                     predicate = previewKind.predicate();
-                }
-                else if (pendingRepair == ActiveRepairService.NO_PENDING_REPAIR)
-                {
+                } else if (pendingRepair == ActiveRepairService.NO_PENDING_REPAIR) {
                     predicate = Predicates.alwaysTrue();
-                }
-                else
-                {
+                } else {
                     predicate = s -> s.isPendingRepair() && s.getSSTableMetadata().pendingRepair.equals(pendingRepair);
                 }
-
-                for (Range<PartitionPosition> keyRange : keyRanges)
-                {
+                for (Range<PartitionPosition> keyRange : keyRanges) {
                     // keyRange excludes its start, while sstableInBounds is inclusive (of both start and end).
                     // This is fine however, because keyRange has been created from a token range through Range.makeRowRange (see above).
                     // And that later method uses the Token.maxKeyBound() method to creates the range, which return a "fake" key that
                     // sort after all keys having the token. That "fake" key cannot however be equal to any real key, so that even
                     // including keyRange.left will still exclude any key having the token of the original token range, and so we're
                     // still actually selecting what we wanted.
-                    for (SSTableReader sstable : Iterables.filter(View.sstablesInBounds(keyRange.left, keyRange.right, intervalTree), predicate))
-                    {
+                    for (SSTableReader sstable : Iterables.filter(View.sstablesInBounds(keyRange.left, keyRange.right, intervalTree), predicate)) {
                         sstables.add(sstable);
                     }
                 }
-
                 if (logger.isDebugEnabled())
                     logger.debug("ViewFilter for {}/{} sstables", sstables.size(), Iterables.size(view.select(SSTableSet.CANONICAL)));
                 return sstables;
             }).refs);
-
-
             List<Range<Token>> normalizedFullRanges = Range.normalize(replicas.onlyFull().ranges());
             List<Range<Token>> normalizedAllRanges = Range.normalize(replicas.ranges());
-            //Create outgoing file streams for ranges possibly skipping repaired ranges in sstables
+            // Create outgoing file streams for ranges possibly skipping repaired ranges in sstables
             List<OutgoingStream> streams = new ArrayList<>(refs.size());
-            for (SSTableReader sstable : refs)
-            {
+            for (SSTableReader sstable : refs) {
                 List<Range<Token>> ranges = sstable.isRepaired() ? normalizedFullRanges : normalizedAllRanges;
                 List<SSTableReader.PartitionPositionBounds> sections = sstable.getPositionsForRanges(ranges);
-
                 Ref<SSTableReader> ref = refs.get(sstable);
-                if (sections.isEmpty())
-                {
+                if (sections.isEmpty()) {
                     ref.release();
                     continue;
                 }
-                streams.add(new CassandraOutgoingFile(session.getStreamOperation(), ref, sections, ranges,
-                                                      sstable.estimatedKeysForRanges(ranges)));
+                streams.add(new CassandraOutgoingFile(session.getStreamOperation(), ref, sections, ranges, sstable.estimatedKeysForRanges(ranges)));
             }
-
             return streams;
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             refs.release();
             throw t;
         }

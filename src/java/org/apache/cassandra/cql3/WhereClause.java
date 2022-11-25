@@ -19,38 +19,36 @@ package org.apache.cassandra.cql3;
 
 import java.util.List;
 import java.util.Objects;
-
 import com.google.common.collect.ImmutableList;
-
 import org.antlr.runtime.RecognitionException;
 import org.apache.cassandra.cql3.restrictions.CustomIndexExpression;
 import org.apache.cassandra.exceptions.InvalidRequestException;
-
 import static java.lang.String.join;
-
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 
-public final class WhereClause
-{
-    private static final WhereClause EMPTY = new WhereClause(new Builder());
+public final class WhereClause {
 
-    public final List<Relation> relations;
-    public final List<CustomIndexExpression> expressions;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WhereClause.class);
 
-    private WhereClause(Builder builder)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WhereClause.class);
+
+    private static final transient WhereClause EMPTY = new WhereClause(new Builder());
+
+    public final transient List<Relation> relations;
+
+    public final transient List<CustomIndexExpression> expressions;
+
+    private WhereClause(Builder builder) {
         relations = builder.relations.build();
         expressions = builder.expressions.build();
     }
 
-    public static WhereClause empty()
-    {
+    public static WhereClause empty() {
         return EMPTY;
     }
 
-    public boolean containsCustomExpressions()
-    {
+    public boolean containsCustomExpressions() {
         return !expressions.isEmpty();
     }
 
@@ -60,27 +58,19 @@ public final class WhereClause
      * @param to the new identifier
      * @return a new WhereClause with with "from" replaced by "to" in all relations
      */
-    public WhereClause renameIdentifier(ColumnIdentifier from, ColumnIdentifier to)
-    {
+    public WhereClause renameIdentifier(ColumnIdentifier from, ColumnIdentifier to) {
         WhereClause.Builder builder = new WhereClause.Builder();
-
-        relations.stream()
-                 .map(r -> r.renameIdentifier(from, to))
-                 .forEach(builder::add);
-
+        relations.stream().map(r -> r.renameIdentifier(from, to)).forEach(builder::add);
         expressions.forEach(builder::add);
-
         return builder.build();
     }
 
-    public static WhereClause parse(String cql) throws RecognitionException
-    {
+    public static WhereClause parse(String cql) throws RecognitionException {
         return CQLFragmentParser.parseAnyUnhandled(CqlParser::whereClause, cql).build();
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toCQLString();
     }
 
@@ -89,29 +79,22 @@ public final class WhereClause
      *
      * @return a CQL representation of this WHERE clause
      */
-    public String toCQLString()
-    {
-        return join(" AND ",
-                    concat(transform(relations, Relation::toCQLString),
-                           transform(expressions, CustomIndexExpression::toCQLString)));
+    public String toCQLString() {
+        return join(" AND ", concat(transform(relations, Relation::toCQLString), transform(expressions, CustomIndexExpression::toCQLString)));
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof WhereClause))
             return false;
-
         WhereClause wc = (WhereClause) o;
         return relations.equals(wc.relations) && expressions.equals(wc.expressions);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(relations, expressions);
     }
 
@@ -120,35 +103,31 @@ public final class WhereClause
      *
      * @return {@code true} if it is the case, {@code false} otherwise.
      */
-    public boolean containsTokenRelations()
-    {
-        for (Relation rel : relations)
-        {
+    public boolean containsTokenRelations() {
+        for (Relation rel : relations) {
             if (rel.onToken())
                 return true;
         }
         return false;
     }
 
-    public static final class Builder
-    {
-        ImmutableList.Builder<Relation> relations = new ImmutableList.Builder<>();
-        ImmutableList.Builder<CustomIndexExpression> expressions = new ImmutableList.Builder<>();
+    public static final class Builder {
 
-        public Builder add(Relation relation)
-        {
+        transient ImmutableList.Builder<Relation> relations = new ImmutableList.Builder<>();
+
+        transient ImmutableList.Builder<CustomIndexExpression> expressions = new ImmutableList.Builder<>();
+
+        public Builder add(Relation relation) {
             relations.add(relation);
             return this;
         }
 
-        public Builder add(CustomIndexExpression expression)
-        {
+        public Builder add(CustomIndexExpression expression) {
             expressions.add(expression);
             return this;
         }
 
-        public WhereClause build()
-        {
+        public WhereClause build() {
             return new WhereClause(this);
         }
     }

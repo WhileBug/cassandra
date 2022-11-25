@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import org.apache.cassandra.db.filter.ClusteringIndexFilter;
@@ -28,62 +27,40 @@ import org.apache.cassandra.io.sstable.format.SSTableReadsListener;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.utils.FBUtilities;
 
-public interface StorageHook
-{
-    public static final StorageHook instance = createHook();
+public interface StorageHook {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StorageHook.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StorageHook.class);
+
+    public static final transient StorageHook instance = createHook();
 
     public void reportWrite(TableId tableId, PartitionUpdate partitionUpdate);
-    public void reportRead(TableId tableId, DecoratedKey key);
-    public UnfilteredRowIteratorWithLowerBound makeRowIteratorWithLowerBound(ColumnFamilyStore cfs,
-                                                                      DecoratedKey partitionKey,
-                                                                      SSTableReader sstable,
-                                                                      ClusteringIndexFilter filter,
-                                                                      ColumnFilter selectedColumns,
-                                                                      SSTableReadsListener listener);
-    public UnfilteredRowIterator makeRowIterator(ColumnFamilyStore cfs,
-                                                 SSTableReader sstable,
-                                                 DecoratedKey key,
-                                                 Slices slices,
-                                                 ColumnFilter selectedColumns,
-                                                 boolean reversed,
-                                                 SSTableReadsListener listener);
 
-    static StorageHook createHook()
-    {
-        String className =  System.getProperty("cassandra.storage_hook");
-        if (className != null)
-        {
+    public void reportRead(TableId tableId, DecoratedKey key);
+
+    public UnfilteredRowIteratorWithLowerBound makeRowIteratorWithLowerBound(ColumnFamilyStore cfs, DecoratedKey partitionKey, SSTableReader sstable, ClusteringIndexFilter filter, ColumnFilter selectedColumns, SSTableReadsListener listener);
+
+    public UnfilteredRowIterator makeRowIterator(ColumnFamilyStore cfs, SSTableReader sstable, DecoratedKey key, Slices slices, ColumnFilter selectedColumns, boolean reversed, SSTableReadsListener listener);
+
+    static StorageHook createHook() {
+        String className = System.getProperty("cassandra.storage_hook");
+        if (className != null) {
             return FBUtilities.construct(className, StorageHook.class.getSimpleName());
         }
+        return new StorageHook() {
 
-        return new StorageHook()
-        {
-            public void reportWrite(TableId tableId, PartitionUpdate partitionUpdate) {}
-
-            public void reportRead(TableId tableId, DecoratedKey key) {}
-
-            public UnfilteredRowIteratorWithLowerBound makeRowIteratorWithLowerBound(ColumnFamilyStore cfs,
-                                                                                     DecoratedKey partitionKey,
-                                                                                     SSTableReader sstable,
-                                                                                     ClusteringIndexFilter filter,
-                                                                                     ColumnFilter selectedColumns,
-                                                                                     SSTableReadsListener listener)
-            {
-                return new UnfilteredRowIteratorWithLowerBound(partitionKey,
-                                                               sstable,
-                                                               filter,
-                                                               selectedColumns,
-                                                               listener);
+            public void reportWrite(TableId tableId, PartitionUpdate partitionUpdate) {
             }
 
-            public UnfilteredRowIterator makeRowIterator(ColumnFamilyStore cfs,
-                                                         SSTableReader sstable,
-                                                         DecoratedKey key,
-                                                         Slices slices,
-                                                         ColumnFilter selectedColumns,
-                                                         boolean reversed,
-                                                         SSTableReadsListener listener)
-            {
+            public void reportRead(TableId tableId, DecoratedKey key) {
+            }
+
+            public UnfilteredRowIteratorWithLowerBound makeRowIteratorWithLowerBound(ColumnFamilyStore cfs, DecoratedKey partitionKey, SSTableReader sstable, ClusteringIndexFilter filter, ColumnFilter selectedColumns, SSTableReadsListener listener) {
+                return new UnfilteredRowIteratorWithLowerBound(partitionKey, sstable, filter, selectedColumns, listener);
+            }
+
+            public UnfilteredRowIterator makeRowIterator(ColumnFamilyStore cfs, SSTableReader sstable, DecoratedKey key, Slices slices, ColumnFilter selectedColumns, boolean reversed, SSTableReadsListener listener) {
                 return sstable.iterator(key, slices, selectedColumns, reversed, listener);
             }
         };

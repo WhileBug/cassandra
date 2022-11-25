@@ -15,16 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads.range;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.db.PartitionPosition;
@@ -39,22 +36,25 @@ import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.AbstractIterator;
 import org.apache.cassandra.utils.Pair;
 
-class ReplicaPlanIterator extends AbstractIterator<ReplicaPlan.ForRangeRead>
-{
-    private final Keyspace keyspace;
-    private final ConsistencyLevel consistency;
-    @VisibleForTesting
-    final Iterator<? extends AbstractBounds<PartitionPosition>> ranges;
-    private final int rangeCount;
+class ReplicaPlanIterator extends AbstractIterator<ReplicaPlan.ForRangeRead> {
 
-    ReplicaPlanIterator(AbstractBounds<PartitionPosition> keyRange, Keyspace keyspace, ConsistencyLevel consistency)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicaPlanIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicaPlanIterator.class);
+
+    private final transient Keyspace keyspace;
+
+    private final transient ConsistencyLevel consistency;
+
+    @VisibleForTesting
+    final transient Iterator<? extends AbstractBounds<PartitionPosition>> ranges;
+
+    private final transient int rangeCount;
+
+    ReplicaPlanIterator(AbstractBounds<PartitionPosition> keyRange, Keyspace keyspace, ConsistencyLevel consistency) {
         this.keyspace = keyspace;
         this.consistency = consistency;
-
-        List<? extends AbstractBounds<PartitionPosition>> l = keyspace.getReplicationStrategy() instanceof LocalStrategy
-                                                              ? keyRange.unwrap()
-                                                              : getRestrictedRanges(keyRange);
+        List<? extends AbstractBounds<PartitionPosition>> l = keyspace.getReplicationStrategy() instanceof LocalStrategy ? keyRange.unwrap() : getRestrictedRanges(keyRange);
         this.ranges = l.iterator();
         this.rangeCount = l.size();
     }
@@ -62,17 +62,14 @@ class ReplicaPlanIterator extends AbstractIterator<ReplicaPlan.ForRangeRead>
     /**
      * @return the number of {@link ReplicaPlan.ForRangeRead}s in this iterator
      */
-    int size()
-    {
+    int size() {
         return rangeCount;
     }
 
     @Override
-    protected ReplicaPlan.ForRangeRead computeNext()
-    {
+    protected ReplicaPlan.ForRangeRead computeNext() {
         if (!ranges.hasNext())
             return endOfData();
-
         return ReplicaPlans.forRangeRead(keyspace, consistency, ranges.next(), 1);
     }
 
@@ -80,22 +77,17 @@ class ReplicaPlanIterator extends AbstractIterator<ReplicaPlan.ForRangeRead>
      * Compute all ranges we're going to query, in sorted order. Nodes can be replica destinations for many ranges,
      * so we need to restrict each scan to the specific range we want, or else we'd get duplicate results.
      */
-    private static List<AbstractBounds<PartitionPosition>> getRestrictedRanges(final AbstractBounds<PartitionPosition> queryRange)
-    {
+    private static List<AbstractBounds<PartitionPosition>> getRestrictedRanges(final AbstractBounds<PartitionPosition> queryRange) {
         // special case for bounds containing exactly 1 (non-minimum) token
-        if (queryRange instanceof Bounds && queryRange.left.equals(queryRange.right) && !queryRange.left.isMinimum())
-        {
+        if (queryRange instanceof Bounds && queryRange.left.equals(queryRange.right) && !queryRange.left.isMinimum()) {
             return Collections.singletonList(queryRange);
         }
-
         TokenMetadata tokenMetadata = StorageService.instance.getTokenMetadata();
-
         List<AbstractBounds<PartitionPosition>> ranges = new ArrayList<>();
         // divide the queryRange into pieces delimited by the ring and minimum tokens
         Iterator<Token> ringIter = TokenMetadata.ringIterator(tokenMetadata.sortedTokens(), queryRange.left.getToken(), true);
         AbstractBounds<PartitionPosition> remainder = queryRange;
-        while (ringIter.hasNext())
-        {
+        while (ringIter.hasNext()) {
             /*
              * remainder is a range/bounds of partition positions and we want to split it with a token. We want to split
              * using the key returned by token.maxKeyBound. For instance, if remainder is [DK(10, 'foo'), DK(20, 'bar')],
@@ -112,12 +104,10 @@ class ReplicaPlanIterator extends AbstractIterator<ReplicaPlan.ForRangeRead>
             Pair<AbstractBounds<PartitionPosition>, AbstractBounds<PartitionPosition>> splits = remainder.split(upperBound);
             if (splits == null)
                 continue;
-
             ranges.add(splits.left);
             remainder = splits.right;
         }
         ranges.add(remainder);
-
         return ranges;
     }
 }

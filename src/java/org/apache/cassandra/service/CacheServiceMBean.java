@@ -19,24 +19,34 @@ package org.apache.cassandra.service;
 
 import java.util.concurrent.ExecutionException;
 
-public interface CacheServiceMBean
-{
+public interface CacheServiceMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CacheServiceMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CacheServiceMBean.class);
+
     public int getRowCacheSavePeriodInSeconds();
+
     public void setRowCacheSavePeriodInSeconds(int rcspis);
 
     public int getKeyCacheSavePeriodInSeconds();
+
     public void setKeyCacheSavePeriodInSeconds(int kcspis);
 
     public int getCounterCacheSavePeriodInSeconds();
+
     public void setCounterCacheSavePeriodInSeconds(int ccspis);
 
     public int getRowCacheKeysToSave();
+
     public void setRowCacheKeysToSave(int rckts);
 
     public int getKeyCacheKeysToSave();
+
     public void setKeyCacheKeysToSave(int kckts);
 
     public int getCounterCacheKeysToSave();
+
     public void setCounterCacheKeysToSave(int cckts);
 
     /**

@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
 import java.io.File;
@@ -28,38 +27,38 @@ import java.nio.file.attribute.BasicFileAttributes;
 /**
  * Walks directory recursively, summing up total contents of files within.
  */
-public class DirectorySizeCalculator extends SimpleFileVisitor<Path>
-{
-    protected volatile long size = 0;
-    protected final File path;
+public class DirectorySizeCalculator extends SimpleFileVisitor<Path> {
 
-    public DirectorySizeCalculator(File path)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DirectorySizeCalculator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DirectorySizeCalculator.class);
+
+    protected volatile transient long size = 0;
+
+    protected final transient File path;
+
+    public DirectorySizeCalculator(File path) {
         super();
         this.path = path;
     }
 
-    public boolean isAcceptable(Path file)
-    {
+    public boolean isAcceptable(Path file) {
         return true;
     }
 
     @Override
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
-    {
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
         if (isAcceptable(file))
             size += attrs.size();
         return FileVisitResult.CONTINUE;
     }
 
     @Override
-    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException
-    {
+    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
         return FileVisitResult.CONTINUE;
     }
 
-    public long getAllocatedSize()
-    {
+    public long getAllocatedSize() {
         return size;
     }
 }

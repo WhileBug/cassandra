@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3;
 
 import java.util.LinkedList;
-
 import org.antlr.runtime.BaseRecognizer;
 import org.antlr.runtime.Parser;
 import org.antlr.runtime.RecognitionException;
@@ -29,27 +28,31 @@ import org.apache.cassandra.exceptions.SyntaxException;
 /**
  * <code>ErrorListener</code> that collect and enhance the errors send by the CQL lexer and parser.
  */
-public final class ErrorCollector implements ErrorListener
-{
+public final class ErrorCollector implements ErrorListener {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ErrorCollector.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ErrorCollector.class);
+
     /**
      * The offset of the first token of the snippet.
      */
-    private static final int FIRST_TOKEN_OFFSET = 10;
+    private static final transient int FIRST_TOKEN_OFFSET = 10;
 
     /**
      * The offset of the last token of the snippet.
      */
-    private static final int LAST_TOKEN_OFFSET = 2;
+    private static final transient int LAST_TOKEN_OFFSET = 2;
 
     /**
      * The CQL query.
      */
-    private final String query;
+    private final transient String query;
 
     /**
      * The error messages.
      */
-    private final LinkedList<String> errorMsgs = new LinkedList<>();
+    private final transient LinkedList<String> errorMsgs = new LinkedList<>();
 
     /**
      * Creates a new <code>ErrorCollector</code> instance to collect the syntax errors associated to the specified CQL
@@ -57,8 +60,7 @@ public final class ErrorCollector implements ErrorListener
      *
      * @param query the CQL query that will be parsed
      */
-    public ErrorCollector(String query)
-    {
+    public ErrorCollector(String query) {
         this.query = query;
     }
 
@@ -66,18 +68,12 @@ public final class ErrorCollector implements ErrorListener
      * {@inheritDoc}
      */
     @Override
-    public void syntaxError(BaseRecognizer recognizer, String[] tokenNames, RecognitionException e)
-    {
+    public void syntaxError(BaseRecognizer recognizer, String[] tokenNames, RecognitionException e) {
         String hdr = recognizer.getErrorHeader(e);
         String msg = recognizer.getErrorMessage(e, tokenNames);
-
-        StringBuilder builder = new StringBuilder().append(hdr)
-                .append(' ')
-                .append(msg);
-
+        StringBuilder builder = new StringBuilder().append(hdr).append(' ').append(msg);
         if (recognizer instanceof Parser)
             appendQuerySnippet((Parser) recognizer, builder);
-
         errorMsgs.add(builder.toString());
     }
 
@@ -85,8 +81,7 @@ public final class ErrorCollector implements ErrorListener
      * {@inheritDoc}
      */
     @Override
-    public void syntaxError(BaseRecognizer recognizer, String errorMsg)
-    {
+    public void syntaxError(BaseRecognizer recognizer, String errorMsg) {
         errorMsgs.add(errorMsg);
     }
 
@@ -95,8 +90,7 @@ public final class ErrorCollector implements ErrorListener
      *
      * @throws SyntaxException the syntax error.
      */
-    public void throwFirstSyntaxError() throws SyntaxException
-    {
+    public void throwFirstSyntaxError() throws SyntaxException {
         if (!errorMsgs.isEmpty())
             throw new SyntaxException(errorMsgs.getFirst());
     }
@@ -107,16 +101,13 @@ public final class ErrorCollector implements ErrorListener
      * @param parser the parser used to parse the query
      * @param builder the <code>StringBuilder</code> used to build the error message
      */
-    private void appendQuerySnippet(Parser parser, StringBuilder builder)
-    {
+    private void appendQuerySnippet(Parser parser, StringBuilder builder) {
         TokenStream tokenStream = parser.getTokenStream();
         int index = tokenStream.index();
         int size = tokenStream.size();
-
         Token from = tokenStream.get(getSnippetFirstTokenIndex(index));
         Token to = tokenStream.get(getSnippetLastTokenIndex(index, size));
         Token offending = tokenStream.get(getOffendingTokenIndex(index, size));
-
         appendSnippet(builder, from, to, offending);
     }
 
@@ -127,37 +118,23 @@ public final class ErrorCollector implements ErrorListener
      * @param to the last token to include within the snippet
      * @param offending the token which is responsible for the error
      */
-    final void appendSnippet(StringBuilder builder,
-                             Token from,
-                             Token to,
-                             Token offending)
-    {
+    final void appendSnippet(StringBuilder builder, Token from, Token to, Token offending) {
         if (!areTokensValid(from, to, offending))
             return;
-
         String[] lines = query.split("\n");
-
         boolean includeQueryStart = (from.getLine() == 1) && (from.getCharPositionInLine() == 0);
-        boolean includeQueryEnd = (to.getLine() == lines.length)
-                && (getLastCharPositionInLine(to) == lines[lines.length - 1].length());
-
+        boolean includeQueryEnd = (to.getLine() == lines.length) && (getLastCharPositionInLine(to) == lines[lines.length - 1].length());
         builder.append(" (");
-
         if (!includeQueryStart)
             builder.append("...");
-
         String toLine = lines[lineIndex(to)];
         int toEnd = getLastCharPositionInLine(to);
         lines[lineIndex(to)] = toEnd >= toLine.length() ? toLine : toLine.substring(0, toEnd);
         lines[lineIndex(offending)] = highlightToken(lines[lineIndex(offending)], offending);
         lines[lineIndex(from)] = lines[lineIndex(from)].substring(from.getCharPositionInLine());
-
-        for (int i = lineIndex(from), m = lineIndex(to); i <= m; i++)
-            builder.append(lines[i]);
-
+        for (int i = lineIndex(from), m = lineIndex(to); i <= m; i++) builder.append(lines[i]);
         if (!includeQueryEnd)
             builder.append("...");
-
         builder.append(")");
     }
 
@@ -168,10 +145,8 @@ public final class ErrorCollector implements ErrorListener
      * @return <code>true</code> if all the specified tokens are valid ones,
      * <code>false</code> otherwise.
      */
-    private static boolean areTokensValid(Token... tokens)
-    {
-        for (Token token : tokens)
-        {
+    private static boolean areTokensValid(Token... tokens) {
+        for (Token token : tokens) {
             if (!isTokenValid(token))
                 return false;
         }
@@ -184,23 +159,21 @@ public final class ErrorCollector implements ErrorListener
      * @param token the token to check
      * @return <code>true</code> if it is considered as valid, <code>false</code> otherwise.
      */
-    private static boolean isTokenValid(Token token)
-    {
+    private static boolean isTokenValid(Token token) {
         return token.getLine() > 0 && token.getCharPositionInLine() >= 0;
     }
 
     /**
      * Returns the index of the offending token. <p>In the case where the offending token is an extra
      * character at the end, the index returned by the <code>TokenStream</code> might be after the last token.
-     * To avoid that problem we need to make sure that the index of the offending token is a valid index 
+     * To avoid that problem we need to make sure that the index of the offending token is a valid index
      * (one for which a token exist).</p>
      *
      * @param index the token index returned by the <code>TokenStream</code>
      * @param size the <code>TokenStream</code> size
      * @return the valid index of the offending token
      */
-    private static int getOffendingTokenIndex(int index, int size)
-    {
+    private static int getOffendingTokenIndex(int index, int size) {
         return Math.min(index, size - 1);
     }
 
@@ -210,8 +183,7 @@ public final class ErrorCollector implements ErrorListener
      * @param line the line containing the token
      * @param token the token to put within square brackets
      */
-    private static String highlightToken(String line, Token token)
-    {
+    private static String highlightToken(String line, Token token) {
         String newLine = insertChar(line, getLastCharPositionInLine(token), ']');
         return insertChar(newLine, token.getCharPositionInLine(), '[');
     }
@@ -222,8 +194,7 @@ public final class ErrorCollector implements ErrorListener
      * @param token the token
      * @return the index of the last character relative to the beginning of the line 0..n-1
      */
-    private static int getLastCharPositionInLine(Token token)
-    {
+    private static int getLastCharPositionInLine(Token token) {
         return token.getCharPositionInLine() + getLength(token);
     }
 
@@ -233,8 +204,7 @@ public final class ErrorCollector implements ErrorListener
      * @param token the token
      * @return the token length
      */
-    private static int getLength(Token token)
-    {
+    private static int getLength(Token token) {
         return token.getText().length();
     }
 
@@ -246,12 +216,8 @@ public final class ErrorCollector implements ErrorListener
      * @param c the character to insert
      * @return the modified <code>String</code>
      */
-    private static String insertChar(String s, int index, char c)
-    {
-        return new StringBuilder().append(s.substring(0, index))
-                .append(c)
-                .append(s.substring(index))
-                .toString();
+    private static String insertChar(String s, int index, char c) {
+        return new StringBuilder().append(s.substring(0, index)).append(c).append(s.substring(index)).toString();
     }
 
     /**
@@ -260,8 +226,7 @@ public final class ErrorCollector implements ErrorListener
      * @param token the token
      * @return the index of the line number on which this token was matched; index=0..n-1
      */
-    private static int lineIndex(Token token)
-    {
+    private static int lineIndex(Token token) {
         return token.getLine() - 1;
     }
 
@@ -272,8 +237,7 @@ public final class ErrorCollector implements ErrorListener
      * @param size the total number of tokens
      * @return the index of the last token which is part of the snippet.
      */
-    private static int getSnippetLastTokenIndex(int index, int size)
-    {
+    private static int getSnippetLastTokenIndex(int index, int size) {
         return Math.min(size - 1, index + LAST_TOKEN_OFFSET);
     }
 
@@ -283,8 +247,7 @@ public final class ErrorCollector implements ErrorListener
      * @param index the index of the token causing the error
      * @return the index of the first token which is part of the snippet.
      */
-    private static int getSnippetFirstTokenIndex(int index)
-    {
+    private static int getSnippetFirstTokenIndex(int index) {
         return Math.max(0, index - FIRST_TOKEN_OFFSET);
     }
 }

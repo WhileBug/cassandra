@@ -18,16 +18,18 @@
 package org.apache.cassandra.io.util;
 
 import java.io.*;
-
 import org.apache.cassandra.utils.vint.VIntCoding;
 
 /**
  * Extension to DataInput that provides support for reading varints
  */
-public interface DataInputPlus extends DataInput
-{
-    default long readVInt() throws IOException
-    {
+public interface DataInputPlus extends DataInput {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataInputPlus.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataInputPlus.class);
+
+    default long readVInt() throws IOException {
         return VIntCoding.readVInt(this);
     }
 
@@ -38,8 +40,7 @@ public interface DataInputPlus extends DataInput
      *
      * Signed, not a fan of unsigned values in protocols and formats
      */
-    default long readUnsignedVInt() throws IOException
-    {
+    default long readUnsignedVInt() throws IOException {
         return VIntCoding.readUnsignedVInt(this);
     }
 
@@ -51,8 +52,7 @@ public interface DataInputPlus extends DataInput
      */
     public int skipBytes(int n) throws IOException;
 
-    public default void skipBytesFully(int n) throws IOException
-    {
+    public default void skipBytesFully(int n) throws IOException {
         int skipped = skipBytes(n);
         if (skipped != n)
             throw new EOFException("EOF after " + skipped + " bytes out of " + n);
@@ -61,10 +61,9 @@ public interface DataInputPlus extends DataInput
     /**
      * Wrapper around an InputStream that provides no buffering but can decode varints
      */
-    public class DataInputStreamPlus extends DataInputStream implements DataInputPlus
-    {
-        public DataInputStreamPlus(InputStream is)
-        {
+    public class DataInputStreamPlus extends DataInputStream implements DataInputPlus {
+
+        public DataInputStreamPlus(InputStream is) {
             super(is);
         }
     }

@@ -20,56 +20,55 @@ package org.apache.cassandra.utils.progress;
 /**
  * Progress event
  */
-public class ProgressEvent
-{
-    private final ProgressEventType type;
-    private final int progressCount;
-    private final int total;
-    private final String message;
+public class ProgressEvent {
 
-    public static ProgressEvent createNotification(String message)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProgressEvent.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProgressEvent.class);
+
+    private final transient ProgressEventType type;
+
+    private final transient int progressCount;
+
+    private final transient int total;
+
+    private final transient String message;
+
+    public static ProgressEvent createNotification(String message) {
         return new ProgressEvent(ProgressEventType.NOTIFICATION, 0, 0, message);
     }
 
-    public ProgressEvent(ProgressEventType type, int progressCount, int total)
-    {
+    public ProgressEvent(ProgressEventType type, int progressCount, int total) {
         this(type, progressCount, total, null);
     }
 
-    public ProgressEvent(ProgressEventType type, int progressCount, int total, String message)
-    {
+    public ProgressEvent(ProgressEventType type, int progressCount, int total, String message) {
         this.type = type;
         this.progressCount = progressCount;
         this.total = total;
         this.message = message;
     }
 
-    public ProgressEventType getType()
-    {
+    public ProgressEventType getType() {
         return type;
     }
 
-    public int getProgressCount()
-    {
+    public int getProgressCount() {
         return progressCount;
     }
 
-    public int getTotal()
-    {
+    public int getTotal() {
         return total;
     }
 
-    public double getProgressPercentage()
-    {
+    public double getProgressPercentage() {
         return total != 0 ? progressCount * 100 / (double) total : 0;
     }
 
     /**
      * @return Message attached to this event. Can be null.
      */
-    public String getMessage()
-    {
+    public String getMessage() {
         return message;
     }
 }

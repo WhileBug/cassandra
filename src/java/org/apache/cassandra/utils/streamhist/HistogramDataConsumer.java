@@ -15,13 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils.streamhist;
 
 /**
  * This interface exists to avoid boxing primitive ints to Integers (otherwise <i>{@link java.util.function.BiConsumer}&lt;Integer, Integer&gt;</i> would have been sufficient).
  */
-public interface HistogramDataConsumer<T extends Exception>
-{
+public interface HistogramDataConsumer<T extends Exception> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HistogramDataConsumer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HistogramDataConsumer.class);
+
     void consume(int point, int value) throws T;
 }

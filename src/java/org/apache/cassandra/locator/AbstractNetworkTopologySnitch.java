@@ -21,8 +21,12 @@ package org.apache.cassandra.locator;
  * An endpoint snitch tells Cassandra information about network topology that it can use to route
  * requests more efficiently.
  */
-public abstract class AbstractNetworkTopologySnitch extends AbstractEndpointSnitch
-{
+public abstract class AbstractNetworkTopologySnitch extends AbstractEndpointSnitch {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractNetworkTopologySnitch.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractNetworkTopologySnitch.class);
+
     /**
      * Return the rack for which an endpoint resides in
      * @param endpoint a specified endpoint
@@ -38,15 +42,13 @@ public abstract class AbstractNetworkTopologySnitch extends AbstractEndpointSnit
     abstract public String getDatacenter(InetAddressAndPort endpoint);
 
     @Override
-    public int compareEndpoints(InetAddressAndPort address, Replica r1, Replica r2)
-    {
+    public int compareEndpoints(InetAddressAndPort address, Replica r1, Replica r2) {
         InetAddressAndPort a1 = r1.endpoint();
         InetAddressAndPort a2 = r2.endpoint();
         if (address.equals(a1) && !address.equals(a2))
             return -1;
         if (address.equals(a2) && !address.equals(a1))
             return 1;
-
         String addressDatacenter = getDatacenter(address);
         String a1Datacenter = getDatacenter(a1);
         String a2Datacenter = getDatacenter(a2);
@@ -54,7 +56,6 @@ public abstract class AbstractNetworkTopologySnitch extends AbstractEndpointSnit
             return -1;
         if (addressDatacenter.equals(a2Datacenter) && !addressDatacenter.equals(a1Datacenter))
             return 1;
-
         String addressRack = getRack(address);
         String a1Rack = getRack(a1);
         String a2Rack = getRack(a2);

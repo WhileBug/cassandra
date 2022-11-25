@@ -19,43 +19,42 @@
 package org.apache.cassandra.utils.memory;
 
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.utils.concurrent.OpOrder;
 import org.apache.cassandra.utils.concurrent.WaitQueue;
 
-public abstract class MemtableAllocator
-{
-    private static final Logger logger = LoggerFactory.getLogger(MemtableAllocator.class);
+public abstract class MemtableAllocator {
 
-    private final SubAllocator onHeap;
-    private final SubAllocator offHeap;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemtableAllocator.class);
 
-    enum LifeCycle
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemtableAllocator.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(MemtableAllocator.class);
+
+    private final transient SubAllocator onHeap;
+
+    private final transient SubAllocator offHeap;
+
+    enum LifeCycle {
+
         LIVE, DISCARDING, DISCARDED;
-        LifeCycle transition(LifeCycle targetState)
-        {
-            switch (targetState)
-            {
+
+        LifeCycle transition(LifeCycle targetState) {
+            switch(targetState) {
                 case DISCARDING:
                     assert this == LifeCycle.LIVE;
                     return LifeCycle.DISCARDING;
-
                 case DISCARDED:
                     assert this == LifeCycle.DISCARDING;
                     return LifeCycle.DISCARDED;
-
                 default:
                     throw new IllegalStateException();
             }
         }
     }
 
-    MemtableAllocator(SubAllocator onHeap, SubAllocator offHeap)
-    {
+    MemtableAllocator(SubAllocator onHeap, SubAllocator offHeap) {
         this.onHeap = onHeap;
         this.offHeap = offHeap;
     }
@@ -64,13 +63,11 @@ public abstract class MemtableAllocator
 
     public abstract Cloner cloner(OpOrder.Group opGroup);
 
-    public SubAllocator onHeap()
-    {
+    public SubAllocator onHeap() {
         return onHeap;
     }
 
-    public SubAllocator offHeap()
-    {
+    public SubAllocator offHeap() {
         return offHeap;
     }
 
@@ -78,8 +75,7 @@ public abstract class MemtableAllocator
      * Mark this allocator reclaiming; this will permit any outstanding allocations to temporarily
      * overshoot the maximum memory limit so that flushing can begin immediately
      */
-    public void setDiscarding()
-    {
+    public void setDiscarding() {
         onHeap.setDiscarding();
         offHeap.setDiscarding();
     }
@@ -88,34 +84,34 @@ public abstract class MemtableAllocator
      * Indicate the memory and resources owned by this allocator are no longer referenced,
      * and can be reclaimed/reused.
      */
-    public void setDiscarded()
-    {
+    public void setDiscarded() {
         onHeap.setDiscarded();
         offHeap.setDiscarded();
     }
 
-    public boolean isLive()
-    {
+    public boolean isLive() {
         return onHeap.state == LifeCycle.LIVE || offHeap.state == LifeCycle.LIVE;
     }
 
-    /** Mark the BB as unused, permitting it to be reclaimed */
-    public static final class SubAllocator
-    {
+    /**
+     * Mark the BB as unused, permitting it to be reclaimed
+     */
+    public static final class SubAllocator {
+
         // the tracker we are owning memory from
-        private final MemtablePool.SubPool parent;
+        private final transient MemtablePool.SubPool parent;
 
         // the state of the memtable
-        private volatile LifeCycle state;
+        private volatile transient LifeCycle state;
 
         // the amount of memory/resource owned by this object
-        private volatile long owns;
+        private volatile transient long owns;
+
         // the amount of memory we are reporting to collect; this may be inaccurate, but is close
         // and is used only to ensure that once we have reclaimed we mark the tracker with the same amount
-        private volatile long reclaiming;
+        private volatile transient long reclaiming;
 
-        SubAllocator(MemtablePool.SubPool parent)
-        {
+        SubAllocator(MemtablePool.SubPool parent) {
             this.parent = parent;
             this.state = LifeCycle.LIVE;
         }
@@ -124,8 +120,7 @@ public abstract class MemtableAllocator
          * Mark this allocator reclaiming; this will permit any outstanding allocations to temporarily
          * overshoot the maximum memory limit so that flushing can begin immediately
          */
-        void setDiscarding()
-        {
+        void setDiscarding() {
             state = state.transition(LifeCycle.DISCARDING);
             // mark the memory owned by this allocator as reclaiming
             updateReclaiming();
@@ -135,8 +130,7 @@ public abstract class MemtableAllocator
          * Indicate the memory and resources owned by this allocator are no longer referenced,
          * and can be reclaimed/reused.
          */
-        void setDiscarded()
-        {
+        void setDiscarded() {
             state = state.transition(LifeCycle.DISCARDED);
             // release any memory owned by this allocator; automatically signals waiters
             releaseAll();
@@ -146,8 +140,7 @@ public abstract class MemtableAllocator
          * Should only be called once we know we will never allocate to the object again.
          * currently no corroboration/enforcement of this is performed.
          */
-        void releaseAll()
-        {
+        void releaseAll() {
             parent.released(ownsUpdater.getAndSet(this, 0));
             parent.reclaimed(reclaimingUpdater.getAndSet(this, 0));
         }
@@ -155,8 +148,7 @@ public abstract class MemtableAllocator
         /**
          * Like allocate, but permits allocations to be negative.
          */
-        public void adjust(long size, OpOrder.Group opGroup)
-        {
+        public void adjust(long size, OpOrder.Group opGroup) {
             if (size <= 0)
                 released(-size);
             else
@@ -164,34 +156,29 @@ public abstract class MemtableAllocator
         }
 
         // allocate memory in the tracker, and mark ourselves as owning it
-        public void allocate(long size, OpOrder.Group opGroup)
-        {
+        public void allocate(long size, OpOrder.Group opGroup) {
             assert size >= 0;
-
-            while (true)
-            {
-                if (parent.tryAllocate(size))
-                {
+            while (true) {
+                if (parent.tryAllocate(size)) {
                     acquired(size);
                     return;
                 }
-                if (opGroup.isBlocking())
-                {
+                if (opGroup.isBlocking()) {
                     allocated(size);
                     return;
                 }
                 WaitQueue.Signal signal = opGroup.isBlockingSignal(parent.hasRoom().register(parent.blockedTimerContext()));
                 boolean allocated = parent.tryAllocate(size);
-                if (allocated || opGroup.isBlocking())
-                {
+                if (allocated || opGroup.isBlocking()) {
                     signal.cancel();
-                    if (allocated) // if we allocated, take ownership
+                    if (// if we allocated, take ownership
+                    allocated)
                         acquired(size);
-                    else // otherwise we're blocking so we're permitted to overshoot our constraints, to just allocate without blocking
+                    else
+                        // otherwise we're blocking so we're permitted to overshoot our constraints, to just allocate without blocking
                         allocated(size);
                     return;
-                }
-                else
+                } else
                     signal.awaitUninterruptibly();
             }
         }
@@ -201,13 +188,10 @@ public abstract class MemtableAllocator
          * then also update reclaiming since the flush operation is waiting at the barrier for in-flight writes,
          * and it will flush this memory too.
          */
-        private void allocated(long size)
-        {
+        private void allocated(long size) {
             parent.allocated(size);
             ownsUpdater.addAndGet(this, size);
-
-            if (state == LifeCycle.DISCARDING)
-            {
+            if (state == LifeCycle.DISCARDING) {
                 if (logger.isTraceEnabled())
                     logger.trace("Allocated {} bytes whilst discarding", size);
                 updateReclaiming();
@@ -219,13 +203,10 @@ public abstract class MemtableAllocator
          * then also update reclaiming since the flush operation is waiting at the barrier for in-flight writes,
          * and it will flush this memory too.
          */
-        private void acquired(long size)
-        {
+        private void acquired(long size) {
             parent.acquired();
             ownsUpdater.addAndGet(this, size);
-
-            if (state == LifeCycle.DISCARDING)
-            {
+            if (state == LifeCycle.DISCARDING) {
                 if (logger.isTraceEnabled())
                     logger.trace("Allocated {} bytes whilst discarding", size);
                 updateReclaiming();
@@ -241,15 +222,11 @@ public abstract class MemtableAllocator
          *
          * @param size the size that was released
          */
-        void released(long size)
-        {
-            if (state == LifeCycle.LIVE)
-            {
+        void released(long size) {
+            if (state == LifeCycle.LIVE) {
                 parent.released(size);
                 ownsUpdater.addAndGet(this, -size);
-            }
-            else
-            {
+            } else {
                 if (logger.isTraceEnabled())
                     logger.trace("Tried to release {} bytes whilst discarding", size);
             }
@@ -263,41 +240,34 @@ public abstract class MemtableAllocator
          * more memory that is allocated by these writes as reclaiming, since the memtable is waiting
          * on the barrier for these writes to complete, before it can actually start flushing data.
          */
-        void updateReclaiming()
-        {
-            while (true)
-            {
+        void updateReclaiming() {
+            while (true) {
                 long cur = owns;
                 long prev = reclaiming;
                 if (!reclaimingUpdater.compareAndSet(this, prev, cur))
                     continue;
-
                 parent.reclaiming(cur - prev);
                 return;
             }
         }
 
-        public long owns()
-        {
+        public long owns() {
             return owns;
         }
 
-        public long getReclaiming()
-        {
+        public long getReclaiming() {
             return reclaiming;
         }
 
-        public float ownershipRatio()
-        {
+        public float ownershipRatio() {
             float r = owns / (float) parent.limit;
             if (Float.isNaN(r))
                 return 0;
             return r;
         }
 
-        private static final AtomicLongFieldUpdater<SubAllocator> ownsUpdater = AtomicLongFieldUpdater.newUpdater(SubAllocator.class, "owns");
-        private static final AtomicLongFieldUpdater<SubAllocator> reclaimingUpdater = AtomicLongFieldUpdater.newUpdater(SubAllocator.class, "reclaiming");
+        private static final transient AtomicLongFieldUpdater<SubAllocator> ownsUpdater = AtomicLongFieldUpdater.newUpdater(SubAllocator.class, "owns");
+
+        private static final transient AtomicLongFieldUpdater<SubAllocator> reclaimingUpdater = AtomicLongFieldUpdater.newUpdater(SubAllocator.class, "reclaiming");
     }
-
-
 }

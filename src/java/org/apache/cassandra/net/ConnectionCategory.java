@@ -15,20 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.net;
 
-public enum ConnectionCategory
-{
+public enum ConnectionCategory {
+
     MESSAGING, STREAMING;
 
-    public boolean isStreaming()
-    {
+    public boolean isStreaming() {
         return this == STREAMING;
     }
 
-    public boolean isMessaging()
-    {
+    public boolean isMessaging() {
         return this == MESSAGING;
     }
 }

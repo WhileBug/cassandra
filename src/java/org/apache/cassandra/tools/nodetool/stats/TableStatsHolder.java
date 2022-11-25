@@ -15,50 +15,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool.stats;
 
 import java.util.*;
-
 import com.google.common.collect.ArrayListMultimap;
-
 import javax.management.InstanceNotFoundException;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.io.util.*;
 import org.apache.cassandra.metrics.*;
 import org.apache.cassandra.tools.*;
 
-public class TableStatsHolder implements StatsHolder
-{
-    public final List<StatsKeyspace> keyspaces;
-    public final int numberOfTables;
-    public final boolean humanReadable;
-    public final String sortKey;
-    public final int top;
-    public final boolean locationCheck;
+public class TableStatsHolder implements StatsHolder {
 
-    public TableStatsHolder(NodeProbe probe, boolean humanReadable, boolean ignore, List<String> tableNames, String sortKey, int top, boolean locationCheck)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableStatsHolder.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableStatsHolder.class);
+
+    public final transient List<StatsKeyspace> keyspaces;
+
+    public final transient int numberOfTables;
+
+    public final transient boolean humanReadable;
+
+    public final transient String sortKey;
+
+    public final transient int top;
+
+    public final transient boolean locationCheck;
+
+    public TableStatsHolder(NodeProbe probe, boolean humanReadable, boolean ignore, List<String> tableNames, String sortKey, int top, boolean locationCheck) {
         this.keyspaces = new ArrayList<>();
         this.humanReadable = humanReadable;
         this.sortKey = sortKey;
         this.top = top;
         this.locationCheck = locationCheck;
-
-        if (!this.isTestTableStatsHolder())
-        {
+        if (!this.isTestTableStatsHolder()) {
             this.numberOfTables = probe.getNumberOfTables();
             this.initializeKeyspaces(probe, ignore, tableNames);
-        }
-        else
-        {
+        } else {
             this.numberOfTables = 0;
         }
     }
 
     @Override
-    public Map<String, Object> convert2Map()
-    {
+    public Map<String, Object> convert2Map() {
         if (sortKey.isEmpty())
             return convertAllToMap();
         else
@@ -68,12 +68,10 @@ public class TableStatsHolder implements StatsHolder
     /**
      * @returns Map<String, Object> a nested HashMap of keyspaces, their tables, and the tables' statistics.
      */
-    private Map<String, Object> convertAllToMap()
-    {
+    private Map<String, Object> convertAllToMap() {
         HashMap<String, Object> mpRet = new HashMap<>();
         mpRet.put("total_number_of_tables", numberOfTables);
-        for (StatsKeyspace keyspace : keyspaces)
-        {
+        for (StatsKeyspace keyspace : keyspaces) {
             // store each keyspace's metrics to map
             HashMap<String, Object> mpKeyspace = new HashMap<>();
             mpKeyspace.put("read_latency", keyspace.readLatency());
@@ -82,12 +80,10 @@ public class TableStatsHolder implements StatsHolder
             mpKeyspace.put("write_count", keyspace.writeCount);
             mpKeyspace.put("write_latency_ms", keyspace.writeLatency());
             mpKeyspace.put("pending_flushes", keyspace.pendingFlushes);
-
             // store each table's metrics to map
             List<StatsTable> tables = keyspace.tables;
             Map<String, Map<String, Object>> mpTables = new HashMap<>();
-            for (StatsTable table : tables)
-            {
+            for (StatsTable table : tables) {
                 Map<String, Object> mpTable = convertStatsTableToMap(table);
                 mpTables.put(table.tableName, mpTable);
             }
@@ -100,13 +96,11 @@ public class TableStatsHolder implements StatsHolder
     /**
      * @returns Map<String, Object> a nested HashMap of the sorted and filtered table names and the HashMaps of their statistics.
      */
-    private Map<String, Object> convertSortedFilteredSubsetToMap()
-    {
+    private Map<String, Object> convertSortedFilteredSubsetToMap() {
         HashMap<String, Object> mpRet = new HashMap<>();
         mpRet.put("total_number_of_tables", numberOfTables);
         List<StatsTable> sortedFilteredTables = getSortedFilteredTables();
-        for (StatsTable table : sortedFilteredTables)
-        {
+        for (StatsTable table : sortedFilteredTables) {
             String tableDisplayName = table.keyspaceName + "." + table.tableName;
             Map<String, Object> mpTable = convertStatsTableToMap(table);
             mpRet.put(tableDisplayName, mpTable);
@@ -114,8 +108,7 @@ public class TableStatsHolder implements StatsHolder
         return mpRet;
     }
 
-    private Map<String, Object> convertStatsTableToMap(StatsTable table)
-    {
+    private Map<String, Object> convertStatsTableToMap(StatsTable table) {
         Map<String, Object> mpTable = new HashMap<>();
         mpTable.put("sstables_in_each_level", table.sstablesInEachLevel);
         mpTable.put("space_used_live", table.spaceUsedLive);
@@ -147,71 +140,52 @@ public class TableStatsHolder implements StatsHolder
         if (table.indexSummaryOffHeapUsed)
             mpTable.put("index_summary_off_heap_memory_used", table.indexSummaryOffHeapMemoryUsed);
         if (table.compressionMetadataOffHeapUsed)
-            mpTable.put("compression_metadata_off_heap_memory_used",
-                        table.compressionMetadataOffHeapMemoryUsed);
+            mpTable.put("compression_metadata_off_heap_memory_used", table.compressionMetadataOffHeapMemoryUsed);
         mpTable.put("compacted_partition_minimum_bytes", table.compactedPartitionMinimumBytes);
         mpTable.put("compacted_partition_maximum_bytes", table.compactedPartitionMaximumBytes);
         mpTable.put("compacted_partition_mean_bytes", table.compactedPartitionMeanBytes);
-        mpTable.put("average_live_cells_per_slice_last_five_minutes",
-                    table.averageLiveCellsPerSliceLastFiveMinutes);
-        mpTable.put("maximum_live_cells_per_slice_last_five_minutes",
-                    table.maximumLiveCellsPerSliceLastFiveMinutes);
-        mpTable.put("average_tombstones_per_slice_last_five_minutes",
-                    table.averageTombstonesPerSliceLastFiveMinutes);
-        mpTable.put("maximum_tombstones_per_slice_last_five_minutes",
-                    table.maximumTombstonesPerSliceLastFiveMinutes);
+        mpTable.put("average_live_cells_per_slice_last_five_minutes", table.averageLiveCellsPerSliceLastFiveMinutes);
+        mpTable.put("maximum_live_cells_per_slice_last_five_minutes", table.maximumLiveCellsPerSliceLastFiveMinutes);
+        mpTable.put("average_tombstones_per_slice_last_five_minutes", table.averageTombstonesPerSliceLastFiveMinutes);
+        mpTable.put("maximum_tombstones_per_slice_last_five_minutes", table.maximumTombstonesPerSliceLastFiveMinutes);
         mpTable.put("dropped_mutations", table.droppedMutations);
-        mpTable.put("droppable_tombstone_ratio",
-                    String.format("%01.5f", table.droppableTombstoneRatio));
+        mpTable.put("droppable_tombstone_ratio", String.format("%01.5f", table.droppableTombstoneRatio));
         if (locationCheck)
             mpTable.put("sstables_in_correct_location", table.isInCorrectLocation);
         return mpTable;
     }
 
-    private void initializeKeyspaces(NodeProbe probe, boolean ignore, List<String> tableNames)
-    {
+    private void initializeKeyspaces(NodeProbe probe, boolean ignore, List<String> tableNames) {
         OptionFilter filter = new OptionFilter(ignore, tableNames);
         ArrayListMultimap<String, ColumnFamilyStoreMBean> selectedTableMbeans = ArrayListMultimap.create();
         Map<String, StatsKeyspace> keyspaceStats = new HashMap<>();
-
         // get a list of table stores
         Iterator<Map.Entry<String, ColumnFamilyStoreMBean>> tableMBeans = probe.getColumnFamilyStoreMBeanProxies();
-
-        while (tableMBeans.hasNext())
-        {
+        while (tableMBeans.hasNext()) {
             Map.Entry<String, ColumnFamilyStoreMBean> entry = tableMBeans.next();
             String keyspaceName = entry.getKey();
             ColumnFamilyStoreMBean tableProxy = entry.getValue();
-
-            if (filter.isKeyspaceIncluded(keyspaceName))
-            {
+            if (filter.isKeyspaceIncluded(keyspaceName)) {
                 StatsKeyspace stats = keyspaceStats.get(keyspaceName);
-                if (stats == null)
-                {
+                if (stats == null) {
                     stats = new StatsKeyspace(probe, keyspaceName);
                     keyspaceStats.put(keyspaceName, stats);
                 }
                 stats.add(tableProxy);
-
                 if (filter.isTableIncluded(keyspaceName, tableProxy.getTableName()))
                     selectedTableMbeans.put(keyspaceName, tableProxy);
             }
         }
-
         // make sure all specified keyspace and tables exist
         filter.verifyKeyspaces(probe.getKeyspaces());
         filter.verifyTables();
-
         // get metrics of keyspace
-        for (Map.Entry<String, Collection<ColumnFamilyStoreMBean>> entry : selectedTableMbeans.asMap().entrySet())
-        {
+        for (Map.Entry<String, Collection<ColumnFamilyStoreMBean>> entry : selectedTableMbeans.asMap().entrySet()) {
             String keyspaceName = entry.getKey();
             Collection<ColumnFamilyStoreMBean> tables = entry.getValue();
             StatsKeyspace statsKeyspace = keyspaceStats.get(keyspaceName);
-
             // get metrics of table statistics for this keyspace
-            for (ColumnFamilyStoreMBean table : tables)
-            {
+            for (ColumnFamilyStoreMBean table : tables) {
                 String tableName = table.getTableName();
                 StatsTable statsTable = new StatsTable();
                 statsTable.fullName = keyspaceName + "." + tableName;
@@ -220,26 +194,21 @@ public class TableStatsHolder implements StatsHolder
                 statsTable.isIndex = tableName.contains(".");
                 statsTable.sstableCount = probe.getColumnFamilyMetric(keyspaceName, tableName, "LiveSSTableCount");
                 statsTable.oldSSTableCount = probe.getColumnFamilyMetric(keyspaceName, tableName, "OldVersionSSTableCount");
-
                 int[] leveledSStables = table.getSSTableCountPerLevel();
-                if (leveledSStables != null)
-                {
+                if (leveledSStables != null) {
                     statsTable.isLeveledSstable = true;
-
-                    for (int level = 0; level < leveledSStables.length; level++)
-                    {
+                    for (int level = 0; level < leveledSStables.length; level++) {
                         int count = leveledSStables[level];
-                        long maxCount = 4L; // for L0
+                        // for L0
+                        long maxCount = 4L;
                         if (level > 0)
                             maxCount = (long) Math.pow(table.getLevelFanoutSize(), level);
                         // show max threshold for level when exceeded
                         statsTable.sstablesInEachLevel.add(count + ((count > maxCount) ? "/" + maxCount : ""));
                     }
                 }
-
                 if (locationCheck)
                     statsTable.isInCorrectLocation = !table.hasMisplacedSSTables();
-
                 Long memtableOffHeapSize = null;
                 Long bloomFilterOffHeapSize = null;
                 Long indexSummaryOffHeapSize = null;
@@ -249,9 +218,7 @@ public class TableStatsHolder implements StatsHolder
                 Long bytesRepaired = null;
                 Long bytesUnrepaired = null;
                 Long bytesPendingRepair = null;
-
-                try
-                {
+                try {
                     memtableOffHeapSize = (Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "MemtableOffHeapSize");
                     bloomFilterOffHeapSize = (Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "BloomFilterOffHeapMemoryUsed");
                     indexSummaryOffHeapSize = (Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "IndexSummaryOffHeapMemoryUsed");
@@ -261,88 +228,67 @@ public class TableStatsHolder implements StatsHolder
                     bytesRepaired = (Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "BytesRepaired");
                     bytesUnrepaired = (Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "BytesUnrepaired");
                     bytesPendingRepair = (Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "BytesPendingRepair");
-                }
-                catch (RuntimeException e)
-                {
+                } catch (RuntimeException e) {
                     // offheap-metrics introduced in 2.1.3 - older versions do not have the appropriate mbeans
                     if (!(e.getCause() instanceof InstanceNotFoundException))
                         throw e;
                 }
-
                 statsTable.spaceUsedLive = format((Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "LiveDiskSpaceUsed"), humanReadable);
                 statsTable.spaceUsedTotal = format((Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "TotalDiskSpaceUsed"), humanReadable);
                 statsTable.spaceUsedBySnapshotsTotal = format((Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "SnapshotsSize"), humanReadable);
-                if (offHeapSize != null)
-                {
+                if (offHeapSize != null) {
                     statsTable.offHeapUsed = true;
                     statsTable.offHeapMemoryUsedTotal = format(offHeapSize, humanReadable);
-
                 }
-                if (percentRepaired != null)
-                {
+                if (percentRepaired != null) {
                     statsTable.percentRepaired = Math.round(100 * percentRepaired) / 100.0;
                 }
-
                 statsTable.bytesRepaired = bytesRepaired != null ? bytesRepaired : 0;
                 statsTable.bytesUnrepaired = bytesUnrepaired != null ? bytesUnrepaired : 0;
                 statsTable.bytesPendingRepair = bytesPendingRepair != null ? bytesPendingRepair : 0;
-
                 statsTable.sstableCompressionRatio = probe.getColumnFamilyMetric(keyspaceName, tableName, "CompressionRatio");
                 Object estimatedPartitionCount = probe.getColumnFamilyMetric(keyspaceName, tableName, "EstimatedPartitionCount");
-                if (Long.valueOf(-1L).equals(estimatedPartitionCount))
-                {
+                if (Long.valueOf(-1L).equals(estimatedPartitionCount)) {
                     estimatedPartitionCount = 0L;
                 }
                 statsTable.numberOfPartitionsEstimate = estimatedPartitionCount;
-
                 statsTable.memtableCellCount = probe.getColumnFamilyMetric(keyspaceName, tableName, "MemtableColumnsCount");
                 statsTable.memtableDataSize = format((Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "MemtableLiveDataSize"), humanReadable);
-                if (memtableOffHeapSize != null)
-                {
+                if (memtableOffHeapSize != null) {
                     statsTable.memtableOffHeapUsed = true;
                     statsTable.memtableOffHeapMemoryUsed = format(memtableOffHeapSize, humanReadable);
                 }
                 statsTable.memtableSwitchCount = probe.getColumnFamilyMetric(keyspaceName, tableName, "MemtableSwitchCount");
                 statsTable.localReadCount = ((CassandraMetricsRegistry.JmxTimerMBean) probe.getColumnFamilyMetric(keyspaceName, tableName, "ReadLatency")).getCount();
-
                 double localReadLatency = ((CassandraMetricsRegistry.JmxTimerMBean) probe.getColumnFamilyMetric(keyspaceName, tableName, "ReadLatency")).getMean() / 1000;
                 double localRLatency = localReadLatency > 0 ? localReadLatency : Double.NaN;
                 statsTable.localReadLatencyMs = localRLatency;
                 statsTable.localWriteCount = ((CassandraMetricsRegistry.JmxTimerMBean) probe.getColumnFamilyMetric(keyspaceName, tableName, "WriteLatency")).getCount();
-
                 double localWriteLatency = ((CassandraMetricsRegistry.JmxTimerMBean) probe.getColumnFamilyMetric(keyspaceName, tableName, "WriteLatency")).getMean() / 1000;
                 double localWLatency = localWriteLatency > 0 ? localWriteLatency : Double.NaN;
                 statsTable.localWriteLatencyMs = localWLatency;
                 statsTable.pendingFlushes = probe.getColumnFamilyMetric(keyspaceName, tableName, "PendingFlushes");
-
                 statsTable.bloomFilterFalsePositives = probe.getColumnFamilyMetric(keyspaceName, tableName, "BloomFilterFalsePositives");
                 statsTable.bloomFilterFalseRatio = probe.getColumnFamilyMetric(keyspaceName, tableName, "RecentBloomFilterFalseRatio");
                 statsTable.bloomFilterSpaceUsed = format((Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "BloomFilterDiskSpaceUsed"), humanReadable);
-
-                if (bloomFilterOffHeapSize != null)
-                {
+                if (bloomFilterOffHeapSize != null) {
                     statsTable.bloomFilterOffHeapUsed = true;
                     statsTable.bloomFilterOffHeapMemoryUsed = format(bloomFilterOffHeapSize, humanReadable);
                 }
-
-                if (indexSummaryOffHeapSize != null)
-                {
+                if (indexSummaryOffHeapSize != null) {
                     statsTable.indexSummaryOffHeapUsed = true;
                     statsTable.indexSummaryOffHeapMemoryUsed = format(indexSummaryOffHeapSize, humanReadable);
                 }
-                if (compressionMetadataOffHeapSize != null)
-                {
+                if (compressionMetadataOffHeapSize != null) {
                     statsTable.compressionMetadataOffHeapUsed = true;
                     statsTable.compressionMetadataOffHeapMemoryUsed = format(compressionMetadataOffHeapSize, humanReadable);
                 }
                 statsTable.compactedPartitionMinimumBytes = (Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "MinPartitionSize");
                 statsTable.compactedPartitionMaximumBytes = (Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "MaxPartitionSize");
                 statsTable.compactedPartitionMeanBytes = (Long) probe.getColumnFamilyMetric(keyspaceName, tableName, "MeanPartitionSize");
-
                 CassandraMetricsRegistry.JmxHistogramMBean histogram = (CassandraMetricsRegistry.JmxHistogramMBean) probe.getColumnFamilyMetric(keyspaceName, tableName, "LiveScannedHistogram");
                 statsTable.averageLiveCellsPerSliceLastFiveMinutes = histogram.getMean();
                 statsTable.maximumLiveCellsPerSliceLastFiveMinutes = histogram.getMax();
-
                 histogram = (CassandraMetricsRegistry.JmxHistogramMBean) probe.getColumnFamilyMetric(keyspaceName, tableName, "TombstoneScannedHistogram");
                 statsTable.averageTombstonesPerSliceLastFiveMinutes = histogram.getMean();
                 statsTable.maximumTombstonesPerSliceLastFiveMinutes = histogram.getMax();
@@ -354,8 +300,7 @@ public class TableStatsHolder implements StatsHolder
         }
     }
 
-    private String format(long bytes, boolean humanReadable)
-    {
+    private String format(long bytes, boolean humanReadable) {
         return humanReadable ? FileUtils.stringifyFileSize(bytes) : Long.toString(bytes);
     }
 
@@ -364,8 +309,7 @@ public class TableStatsHolder implements StatsHolder
      */
     public List<StatsTable> getSortedFilteredTables() {
         List<StatsTable> tables = new ArrayList<>();
-        for (StatsKeyspace keyspace : keyspaces)
-            tables.addAll(keyspace.tables);
+        for (StatsKeyspace keyspace : keyspaces) tables.addAll(keyspace.tables);
         Collections.sort(tables, new StatsTableComparator(sortKey, humanReadable));
         int k = (tables.size() >= top) ? top : tables.size();
         if (k > 0)
@@ -380,83 +324,70 @@ public class TableStatsHolder implements StatsHolder
     /**
      * Used for filtering keyspaces and tables to be displayed using the tablestats command.
      */
-    private static class OptionFilter
-    {
-        private final Map<String, List<String>> filter = new HashMap<>();
-        private final Map<String, List<String>> verifier = new HashMap<>(); // Same as filter initially, but we remove tables every time we've checked them for inclusion
-        // in isTableIncluded() so that we detect if those table requested don't exist (verifyTables())
-        private final List<String> filterList = new ArrayList<>();
-        private final boolean ignoreMode;
+    private static class OptionFilter {
 
-        OptionFilter(boolean ignoreMode, List<String> filterList)
-        {
+        private final transient Map<String, List<String>> filter = new HashMap<>();
+
+        // Same as filter initially, but we remove tables every time we've checked them for inclusion
+        private final transient Map<String, List<String>> verifier = new HashMap<>();
+
+        // in isTableIncluded() so that we detect if those table requested don't exist (verifyTables())
+        private final transient List<String> filterList = new ArrayList<>();
+
+        private final transient boolean ignoreMode;
+
+        OptionFilter(boolean ignoreMode, List<String> filterList) {
             this.filterList.addAll(filterList);
             this.ignoreMode = ignoreMode;
-
-            for (String s : filterList)
-            {
+            for (String s : filterList) {
                 String[] keyValues = s.split("\\.", 2);
-
                 // build the map that stores the keyspaces and tables to use
-                if (!filter.containsKey(keyValues[0]))
-                {
+                if (!filter.containsKey(keyValues[0])) {
                     filter.put(keyValues[0], new ArrayList<>());
                     verifier.put(keyValues[0], new ArrayList<>());
                 }
-
-                if (keyValues.length == 2)
-                {
+                if (keyValues.length == 2) {
                     filter.get(keyValues[0]).add(keyValues[1]);
                     verifier.get(keyValues[0]).add(keyValues[1]);
                 }
             }
         }
 
-        public boolean isTableIncluded(String keyspace, String table)
-        {
+        public boolean isTableIncluded(String keyspace, String table) {
             // supplying empty params list is treated as wanting to display all keyspaces and tables
             if (filterList.isEmpty())
                 return !ignoreMode;
-
             List<String> tables = filter.get(keyspace);
-
             // no such keyspace is in the map
             if (tables == null)
                 return ignoreMode;
-                // only a keyspace with no tables was supplied
-                // so ignore or include (based on the flag) every column family in specified keyspace
-            else if (tables.isEmpty())
+            else // only a keyspace with no tables was supplied
+            // so ignore or include (based on the flag) every column family in specified keyspace
+            if (tables.isEmpty())
                 return !ignoreMode;
-
             // keyspace exists, and it contains specific table
             verifier.get(keyspace).remove(table);
             return ignoreMode ^ tables.contains(table);
         }
 
-        public boolean isKeyspaceIncluded(String keyspace)
-        {
+        public boolean isKeyspaceIncluded(String keyspace) {
             // supplying empty params list is treated as wanting to display all keyspaces and tables
             if (filterList.isEmpty())
                 return !ignoreMode;
-
             // Note that if there is any table for the keyspace, we want to include the keyspace irregarding
             // of the ignoreMode, since the ignoreMode then apply to the table inside the keyspace but the
             // keyspace itself is not ignored
             return filter.get(keyspace) != null || ignoreMode;
         }
 
-        public void verifyKeyspaces(List<String> keyspaces)
-        {
-            for (String ks : verifier.keySet())
-                if (!keyspaces.contains(ks))
-                    throw new IllegalArgumentException("Unknown keyspace: " + ks);
+        public void verifyKeyspaces(List<String> keyspaces) {
+            for (String ks : verifier.keySet()) if (!keyspaces.contains(ks))
+                throw new IllegalArgumentException("Unknown keyspace: " + ks);
         }
 
-        public void verifyTables()
-        {
-            for (String ks : filter.keySet())
-                if (!verifier.get(ks).isEmpty())
-                    throw new IllegalArgumentException("Unknown tables: " + verifier.get(ks) + " in keyspace: " + ks);
+        public void verifyTables() {
+            for (String ks : filter.keySet()) if (!verifier.get(ks).isEmpty())
+                throw new IllegalArgumentException("Unknown tables: " + verifier.get(ks) + " in keyspace: " + ks);
         }
     }
 }

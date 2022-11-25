@@ -21,7 +21,6 @@
 package org.apache.cassandra.io.util;
 
 import java.nio.ByteBuffer;
-
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.RateLimiter;
 
@@ -31,26 +30,32 @@ import com.google.common.util.concurrent.RateLimiter;
  * Instantiated once per RandomAccessReader, thread-unsafe.
  * The instances reuse themselves as the BufferHolder to avoid having to return a new object for each rebuffer call.
  */
-public class LimitingRebufferer implements Rebufferer, Rebufferer.BufferHolder
-{
-    final private Rebufferer wrapped;
-    final private RateLimiter limiter;
-    final private int limitQuant;
+public class LimitingRebufferer implements Rebufferer, Rebufferer.BufferHolder {
 
-    private BufferHolder bufferHolder;
-    private ByteBuffer buffer;
-    private long offset;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LimitingRebufferer.class);
 
-    public LimitingRebufferer(Rebufferer wrapped, RateLimiter limiter, int limitQuant)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(LimitingRebufferer.class);
+
+    final private transient Rebufferer wrapped;
+
+    final private transient RateLimiter limiter;
+
+    final private transient int limitQuant;
+
+    private transient BufferHolder bufferHolder;
+
+    private transient ByteBuffer buffer;
+
+    private transient long offset;
+
+    public LimitingRebufferer(Rebufferer wrapped, RateLimiter limiter, int limitQuant) {
         this.wrapped = wrapped;
         this.limiter = limiter;
         this.limitQuant = limitQuant;
     }
 
     @Override
-    public BufferHolder rebuffer(long position)
-    {
+    public BufferHolder rebuffer(long position) {
         bufferHolder = wrapped.rebuffer(position);
         buffer = bufferHolder.buffer();
         offset = bufferHolder.offset();
@@ -58,10 +63,9 @@ public class LimitingRebufferer implements Rebufferer, Rebufferer.BufferHolder
         int remaining = buffer.limit() - posInBuffer;
         if (remaining == 0)
             return this;
-
-        if (remaining > limitQuant)
-        {
-            buffer.limit(posInBuffer + limitQuant); // certainly below current limit
+        if (remaining > limitQuant) {
+            // certainly below current limit
+            buffer.limit(posInBuffer + limitQuant);
             remaining = limitQuant;
         }
         limiter.acquire(remaining);
@@ -69,58 +73,48 @@ public class LimitingRebufferer implements Rebufferer, Rebufferer.BufferHolder
     }
 
     @Override
-    public ChannelProxy channel()
-    {
+    public ChannelProxy channel() {
         return wrapped.channel();
     }
 
     @Override
-    public long fileLength()
-    {
+    public long fileLength() {
         return wrapped.fileLength();
     }
 
     @Override
-    public double getCrcCheckChance()
-    {
+    public double getCrcCheckChance() {
         return wrapped.getCrcCheckChance();
     }
 
     @Override
-    public void close()
-    {
+    public void close() {
         wrapped.close();
     }
 
     @Override
-    public void closeReader()
-    {
+    public void closeReader() {
         wrapped.closeReader();
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "LimitingRebufferer[" + limiter + "]:" + wrapped;
     }
 
     // BufferHolder methods
-
     @Override
-    public ByteBuffer buffer()
-    {
+    public ByteBuffer buffer() {
         return buffer;
     }
 
     @Override
-    public long offset()
-    {
+    public long offset() {
         return offset;
     }
 
     @Override
-    public void release()
-    {
+    public void release() {
         bufferHolder.release();
     }
 }

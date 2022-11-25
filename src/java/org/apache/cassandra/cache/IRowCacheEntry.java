@@ -17,6 +17,9 @@
  */
 package org.apache.cassandra.cache;
 
-public interface IRowCacheEntry
-{
+public interface IRowCacheEntry {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IRowCacheEntry.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IRowCacheEntry.class);
 }

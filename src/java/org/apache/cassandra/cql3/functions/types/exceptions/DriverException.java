@@ -20,18 +20,19 @@ package org.apache.cassandra.cql3.functions.types.exceptions;
 /**
  * Top level class for exceptions thrown by the driver.
  */
-public class DriverException extends RuntimeException
-{
+public class DriverException extends RuntimeException {
 
-    private static final long serialVersionUID = 0;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DriverException.class);
 
-    DriverException(String message)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DriverException.class);
+
+    private static final transient long serialVersionUID = 0;
+
+    DriverException(String message) {
         super(message);
     }
 
-    DriverException(String message, Throwable cause)
-    {
+    DriverException(String message, Throwable cause) {
         super(message, cause);
     }
 }

@@ -26,51 +26,49 @@ import org.apache.cassandra.db.rows.EncodingStats;
 import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 
-final class UnfilteredRows extends BaseRows<Unfiltered, UnfilteredRowIterator> implements UnfilteredRowIterator
-{
-    private RegularAndStaticColumns regularAndStaticColumns;
-    private DeletionTime partitionLevelDeletion;
+final class UnfilteredRows extends BaseRows<Unfiltered, UnfilteredRowIterator> implements UnfilteredRowIterator {
 
-    public UnfilteredRows(UnfilteredRowIterator input)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnfilteredRows.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnfilteredRows.class);
+
+    private transient RegularAndStaticColumns regularAndStaticColumns;
+
+    private transient DeletionTime partitionLevelDeletion;
+
+    public UnfilteredRows(UnfilteredRowIterator input) {
         this(input, input.columns());
     }
 
-    public UnfilteredRows(UnfilteredRowIterator input, RegularAndStaticColumns columns)
-    {
+    public UnfilteredRows(UnfilteredRowIterator input, RegularAndStaticColumns columns) {
         super(input);
         regularAndStaticColumns = columns;
         partitionLevelDeletion = input.partitionLevelDeletion();
     }
 
     @Override
-    void add(Transformation add)
-    {
+    void add(Transformation add) {
         super.add(add);
         regularAndStaticColumns = add.applyToPartitionColumns(regularAndStaticColumns);
         partitionLevelDeletion = add.applyToDeletion(partitionLevelDeletion);
     }
 
     @Override
-    public RegularAndStaticColumns columns()
-    {
+    public RegularAndStaticColumns columns() {
         return regularAndStaticColumns;
     }
 
     @Override
-    public DeletionTime partitionLevelDeletion()
-    {
+    public DeletionTime partitionLevelDeletion() {
         return partitionLevelDeletion;
     }
 
-    public EncodingStats stats()
-    {
+    public EncodingStats stats() {
         return input.stats();
     }
 
     @Override
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return staticRow().isEmpty() && partitionLevelDeletion().isLive() && !hasNext();
     }
 }

@@ -19,7 +19,6 @@ package org.apache.cassandra.auth;
 
 import java.util.EnumSet;
 import java.util.Set;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
@@ -29,20 +28,19 @@ import com.google.common.collect.Sets;
  * IAuthorizer implementations may encode permissions using ordinals, so the Enum order must never change order.
  * Adding new values is ok.
  */
-public enum Permission
-{
+public enum Permission {
+
     @Deprecated
     READ,
     @Deprecated
     WRITE,
-
     // schema and role management
     // CREATE, ALTER and DROP permissions granted on an appropriate DataResource are required for
     // CREATE KEYSPACE and CREATE TABLE.
     // ALTER KEYSPACE, ALTER TABLE, CREATE INDEX and DROP INDEX require ALTER permission on the
     // relevant DataResource.
     // DROP KEYSPACE and DROP TABLE require DROP permission.
-    //
+    // 
     // In the context of Role management, these permissions may also be granted on a RoleResource.
     // CREATE is only granted on the root-level role resource, and is required to create new roles.
     // ALTER & DROP may be granted on either the root-level role resource, giving permissions on
@@ -50,20 +48,21 @@ public enum Permission
     CREATE,
     ALTER,
     DROP,
-
     // data access
-    SELECT, // required for SELECT on a table
-    MODIFY, // required for INSERT, UPDATE, DELETE, TRUNCATE on a DataResource.
-
+    // required for SELECT on a table
+    SELECT,
+    // required for INSERT, UPDATE, DELETE, TRUNCATE on a DataResource.
+    MODIFY,
     // permission management
-    AUTHORIZE, // required for GRANT and REVOKE of permissions or roles.
-
-    DESCRIBE, // required on the root-level RoleResource to list all Roles
-
+    // required for GRANT and REVOKE of permissions or roles.
+    AUTHORIZE,
+    // required on the root-level RoleResource to list all Roles
+    DESCRIBE,
     // UDF permissions
-    EXECUTE;  // required to invoke any user defined function or aggregate
+    // required to invoke any user defined function or aggregate
+    EXECUTE;
 
-    public static final Set<Permission> ALL =
-            Sets.immutableEnumSet(EnumSet.range(Permission.CREATE, Permission.EXECUTE));
+    public static final Set<Permission> ALL = Sets.immutableEnumSet(EnumSet.range(Permission.CREATE, Permission.EXECUTE));
+
     public static final Set<Permission> NONE = ImmutableSet.of();
 }

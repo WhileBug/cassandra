@@ -29,56 +29,51 @@ import org.apache.cassandra.service.QueryState;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class UseStatement extends CQLStatement.Raw implements CQLStatement
-{
-    private final String keyspace;
+public class UseStatement extends CQLStatement.Raw implements CQLStatement {
 
-    public UseStatement(String keyspace)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UseStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UseStatement.class);
+
+    private final transient String keyspace;
+
+    public UseStatement(String keyspace) {
         this.keyspace = keyspace;
     }
 
-    public UseStatement prepare(ClientState state)
-    {
+    public UseStatement prepare(ClientState state) {
         return this;
     }
 
-    public void authorize(ClientState state) throws UnauthorizedException
-    {
+    public void authorize(ClientState state) throws UnauthorizedException {
         state.validateLogin();
     }
 
-    public void validate(ClientState state) throws InvalidRequestException
-    {
+    public void validate(ClientState state) throws InvalidRequestException {
     }
 
-    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime) throws InvalidRequestException
-    {
+    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime) throws InvalidRequestException {
         state.getClientState().setKeyspace(keyspace);
         return new ResultMessage.SetKeyspace(keyspace);
     }
 
-    public ResultMessage executeLocally(QueryState state, QueryOptions options) throws InvalidRequestException
-    {
+    public ResultMessage executeLocally(QueryState state, QueryOptions options) throws InvalidRequestException {
         // In production, internal queries are exclusively on the system keyspace and 'use' is thus useless
         // but for some unit tests we need to set the keyspace (e.g. for tests with DROP INDEX)
         return execute(state, options, System.nanoTime());
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.USE_KEYSPACE, keyspace);
     }
 
-    public String keyspace()
-    {
+    public String keyspace() {
         return keyspace;
     }
 }

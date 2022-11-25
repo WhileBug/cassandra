@@ -20,44 +20,47 @@ package org.apache.cassandra.schema;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Iterables;
 
-public class Diff<T extends Iterable, S>
-{
-    public final T created;
-    public final T dropped;
-    public final ImmutableCollection<Altered<S>> altered;
+public class Diff<T extends Iterable, S> {
 
-    Diff(T created, T dropped, ImmutableCollection<Altered<S>> altered)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Diff.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Diff.class);
+
+    public final transient T created;
+
+    public final transient T dropped;
+
+    public final transient ImmutableCollection<Altered<S>> altered;
+
+    Diff(T created, T dropped, ImmutableCollection<Altered<S>> altered) {
         this.created = created;
         this.dropped = dropped;
         this.altered = altered;
     }
 
-    boolean isEmpty()
-    {
+    boolean isEmpty() {
         return Iterables.isEmpty(created) && Iterables.isEmpty(dropped) && Iterables.isEmpty(altered);
     }
 
-    Iterable<Altered<S>> altered(Difference kind)
-    {
+    Iterable<Altered<S>> altered(Difference kind) {
         return Iterables.filter(altered, a -> a.kind == kind);
     }
 
-    public static final class Altered<T>
-    {
-        public final T before;
-        public final T after;
-        public final Difference kind;
+    public static final class Altered<T> {
 
-        Altered(T before, T after, Difference kind)
-        {
+        public final transient T before;
+
+        public final transient T after;
+
+        public final transient Difference kind;
+
+        Altered(T before, T after, Difference kind) {
             this.before = before;
             this.after = after;
             this.kind = kind;
         }
 
-        public String toString()
-        {
+        public String toString() {
             return String.format("%s -> %s (%s)", before, after, kind);
         }
     }

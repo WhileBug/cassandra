@@ -18,24 +18,25 @@
 package org.apache.cassandra.net;
 
 import java.nio.ByteBuffer;
-
 import io.netty.buffer.ByteBuf;
 import org.apache.cassandra.utils.memory.BufferPool;
 
 /**
  * Primary {@link ByteBuf} / {@link ByteBuffer} allocator - using the global {@link BufferPool}.
  */
-public class GlobalBufferPoolAllocator extends BufferPoolAllocator
-{
-    public static final GlobalBufferPoolAllocator instance = new GlobalBufferPoolAllocator();
+public class GlobalBufferPoolAllocator extends BufferPoolAllocator {
 
-    private GlobalBufferPoolAllocator()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GlobalBufferPoolAllocator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GlobalBufferPoolAllocator.class);
+
+    public static final transient GlobalBufferPoolAllocator instance = new GlobalBufferPoolAllocator();
+
+    private GlobalBufferPoolAllocator() {
         super();
     }
 
-    static ByteBuf wrap(ByteBuffer buffer)
-    {
+    static ByteBuf wrap(ByteBuffer buffer) {
         return new Wrapped(instance, buffer, buffer.capacity());
     }
 }

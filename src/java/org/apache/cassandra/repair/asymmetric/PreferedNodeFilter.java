@@ -15,14 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.asymmetric;
 
 import java.util.Set;
-
 import org.apache.cassandra.locator.InetAddressAndPort;
 
-public interface PreferedNodeFilter
-{
+public interface PreferedNodeFilter {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PreferedNodeFilter.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PreferedNodeFilter.class);
+
     public Set<InetAddressAndPort> apply(InetAddressAndPort streamingNode, Set<InetAddressAndPort> toStream);
 }

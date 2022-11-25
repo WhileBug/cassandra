@@ -15,45 +15,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import com.google.common.base.Preconditions;
-
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.utils.concurrent.OpOrder;
 
-public class CassandraWriteContext implements WriteContext
-{
-    private final OpOrder.Group opGroup;
-    private final CommitLogPosition position;
+public class CassandraWriteContext implements WriteContext {
 
-    public CassandraWriteContext(OpOrder.Group opGroup, CommitLogPosition position)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraWriteContext.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraWriteContext.class);
+
+    private final transient OpOrder.Group opGroup;
+
+    private final transient CommitLogPosition position;
+
+    public CassandraWriteContext(OpOrder.Group opGroup, CommitLogPosition position) {
         Preconditions.checkArgument(opGroup != null);
         this.opGroup = opGroup;
         this.position = position;
     }
 
-    public static CassandraWriteContext fromContext(WriteContext context)
-    {
+    public static CassandraWriteContext fromContext(WriteContext context) {
         Preconditions.checkArgument(context instanceof CassandraWriteContext);
         return (CassandraWriteContext) context;
     }
 
-    public OpOrder.Group getGroup()
-    {
+    public OpOrder.Group getGroup() {
         return opGroup;
     }
 
-    public CommitLogPosition getPosition()
-    {
+    public CommitLogPosition getPosition() {
         return position;
     }
 
     @Override
-    public void close()
-    {
+    public void close() {
         opGroup.close();
     }
 }

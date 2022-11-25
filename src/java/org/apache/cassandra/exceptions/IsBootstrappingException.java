@@ -17,10 +17,13 @@
  */
 package org.apache.cassandra.exceptions;
 
-public class IsBootstrappingException extends RequestExecutionException
-{
-    public IsBootstrappingException()
-    {
+public class IsBootstrappingException extends RequestExecutionException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IsBootstrappingException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IsBootstrappingException.class);
+
+    public IsBootstrappingException() {
         super(ExceptionCode.IS_BOOTSTRAPPING, "Cannot read from a bootstrapping node");
     }
 }

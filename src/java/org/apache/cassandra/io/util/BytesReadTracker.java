@@ -15,16 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
-public interface BytesReadTracker
-{
+public interface BytesReadTracker {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BytesReadTracker.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BytesReadTracker.class);
+
     public long getBytesRead();
 
     /**
      * reset counter to @param count
      */
     public void reset(long count);
-
 }

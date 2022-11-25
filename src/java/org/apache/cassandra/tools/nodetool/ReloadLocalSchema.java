@@ -22,11 +22,14 @@ import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "reloadlocalschema", description = "Reload local node schema from system tables")
-public class ReloadLocalSchema extends NodeToolCmd
-{
+public class ReloadLocalSchema extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReloadLocalSchema.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReloadLocalSchema.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.reloadLocalSchema();
     }
 }

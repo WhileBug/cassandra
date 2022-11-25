@@ -17,8 +17,12 @@
  */
 package org.apache.cassandra.batchlog;
 
-public interface BatchlogManagerMBean
-{
+public interface BatchlogManagerMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchlogManagerMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchlogManagerMBean.class);
+
     /**
      * Counts all batches currently in the batchlog.
      *

@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
-
 import org.apache.cassandra.cql3.statements.BatchStatement;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.QueryState;
@@ -31,55 +30,41 @@ import org.apache.cassandra.utils.MD5Digest;
  * Used to facilitate testing.
  * Enabled with system property cassandra.custom_query_handler_class.
  */
-public class CustomPayloadMirroringQueryHandler implements QueryHandler
-{
-    static QueryProcessor queryProcessor = QueryProcessor.instance;
+public class CustomPayloadMirroringQueryHandler implements QueryHandler {
 
-    public CQLStatement parse(String query, QueryState state, QueryOptions options)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CustomPayloadMirroringQueryHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CustomPayloadMirroringQueryHandler.class);
+
+    static transient QueryProcessor queryProcessor = QueryProcessor.instance;
+
+    public CQLStatement parse(String query, QueryState state, QueryOptions options) {
         return queryProcessor.parse(query, state, options);
     }
 
-    public ResultMessage process(CQLStatement statement,
-                                 QueryState state,
-                                 QueryOptions options,
-                                 Map<String, ByteBuffer> customPayload,
-                                 long queryStartNanoTime)
-    {
+    public ResultMessage process(CQLStatement statement, QueryState state, QueryOptions options, Map<String, ByteBuffer> customPayload, long queryStartNanoTime) {
         ResultMessage result = queryProcessor.process(statement, state, options, customPayload, queryStartNanoTime);
         result.setCustomPayload(customPayload);
         return result;
     }
 
-    public ResultMessage.Prepared prepare(String query, ClientState clientState, Map<String, ByteBuffer> customPayload)
-    {
+    public ResultMessage.Prepared prepare(String query, ClientState clientState, Map<String, ByteBuffer> customPayload) {
         ResultMessage.Prepared prepared = queryProcessor.prepare(query, clientState, customPayload);
         prepared.setCustomPayload(customPayload);
         return prepared;
     }
 
-    public QueryProcessor.Prepared getPrepared(MD5Digest id)
-    {
+    public QueryProcessor.Prepared getPrepared(MD5Digest id) {
         return queryProcessor.getPrepared(id);
     }
 
-    public ResultMessage processPrepared(CQLStatement statement,
-                                         QueryState state,
-                                         QueryOptions options,
-                                         Map<String, ByteBuffer> customPayload,
-                                         long queryStartNanoTime)
-    {
+    public ResultMessage processPrepared(CQLStatement statement, QueryState state, QueryOptions options, Map<String, ByteBuffer> customPayload, long queryStartNanoTime) {
         ResultMessage result = queryProcessor.processPrepared(statement, state, options, customPayload, queryStartNanoTime);
         result.setCustomPayload(customPayload);
         return result;
     }
 
-    public ResultMessage processBatch(BatchStatement statement,
-                                      QueryState state,
-                                      BatchQueryOptions options,
-                                      Map<String, ByteBuffer> customPayload,
-                                      long queryStartNanoTime)
-    {
+    public ResultMessage processBatch(BatchStatement statement, QueryState state, BatchQueryOptions options, Map<String, ByteBuffer> customPayload, long queryStartNanoTime) {
         ResultMessage result = queryProcessor.processBatch(statement, state, options, customPayload, queryStartNanoTime);
         result.setCustomPayload(customPayload);
         return result;

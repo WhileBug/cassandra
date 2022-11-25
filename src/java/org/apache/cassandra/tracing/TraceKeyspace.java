@@ -20,7 +20,6 @@ package org.apache.cassandra.tracing;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import org.apache.cassandra.cql3.statements.schema.CreateTableStatement;
 import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
@@ -34,13 +33,15 @@ import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.schema.Tables;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.UUIDGen;
-
 import static java.lang.String.format;
 
-public final class TraceKeyspace
-{
-    private TraceKeyspace()
-    {
+public final class TraceKeyspace {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TraceKeyspace.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TraceKeyspace.class);
+
+    private TraceKeyspace() {
     }
 
     /**
@@ -58,100 +59,49 @@ public final class TraceKeyspace
      *   tables in the same way that we created the purely local 'system' keyspace - using current time on node bounce
      *   (+1). For new definitions to take, we need to bump the generation further than that.
      */
-    public static final long GENERATION = 1577836800000002L;
+    public static final transient long GENERATION = 1577836800000002L;
 
-    public static final String SESSIONS = "sessions";
-    public static final String EVENTS = "events";
+    public static final transient String SESSIONS = "sessions";
 
-    private static final TableMetadata Sessions =
-        parse(SESSIONS,
-                "tracing sessions",
-                "CREATE TABLE %s ("
-                + "session_id uuid,"
-                + "command text,"
-                + "client inet,"
-                + "coordinator inet,"
-                + "coordinator_port int,"
-                + "duration int,"
-                + "parameters map<text, text>,"
-                + "request text,"
-                + "started_at timestamp,"
-                + "PRIMARY KEY ((session_id)))");
+    public static final transient String EVENTS = "events";
 
-    private static final TableMetadata Events =
-        parse(EVENTS,
-                "tracing events",
-                "CREATE TABLE %s ("
-                + "session_id uuid,"
-                + "event_id timeuuid,"
-                + "activity text,"
-                + "source inet,"
-                + "source_port int,"
-                + "source_elapsed int,"
-                + "thread text,"
-                + "PRIMARY KEY ((session_id), event_id))");
+    private static final transient TableMetadata Sessions = parse(SESSIONS, "tracing sessions", "CREATE TABLE %s (" + "session_id uuid," + "command text," + "client inet," + "coordinator inet," + "coordinator_port int," + "duration int," + "parameters map<text, text>," + "request text," + "started_at timestamp," + "PRIMARY KEY ((session_id)))");
 
-    private static TableMetadata parse(String table, String description, String cql)
-    {
-        return CreateTableStatement.parse(format(cql, table), SchemaConstants.TRACE_KEYSPACE_NAME)
-                                   .id(TableId.forSystemTable(SchemaConstants.TRACE_KEYSPACE_NAME, table))
-                                   .gcGraceSeconds(0)
-                                   .comment(description)
-                                   .build();
+    private static final transient TableMetadata Events = parse(EVENTS, "tracing events", "CREATE TABLE %s (" + "session_id uuid," + "event_id timeuuid," + "activity text," + "source inet," + "source_port int," + "source_elapsed int," + "thread text," + "PRIMARY KEY ((session_id), event_id))");
+
+    private static TableMetadata parse(String table, String description, String cql) {
+        return CreateTableStatement.parse(format(cql, table), SchemaConstants.TRACE_KEYSPACE_NAME).id(TableId.forSystemTable(SchemaConstants.TRACE_KEYSPACE_NAME, table)).gcGraceSeconds(0).comment(description).build();
     }
 
-    public static KeyspaceMetadata metadata()
-    {
+    public static KeyspaceMetadata metadata() {
         return KeyspaceMetadata.create(SchemaConstants.TRACE_KEYSPACE_NAME, KeyspaceParams.simple(2), Tables.of(Sessions, Events));
     }
 
-    static Mutation makeStartSessionMutation(ByteBuffer sessionId,
-                                             InetAddress client,
-                                             Map<String, String> parameters,
-                                             String request,
-                                             long startedAt,
-                                             String command,
-                                             int ttl)
-    {
+    static Mutation makeStartSessionMutation(ByteBuffer sessionId, InetAddress client, Map<String, String> parameters, String request, long startedAt, String command, int ttl) {
         PartitionUpdate.SimpleBuilder builder = PartitionUpdate.simpleBuilder(Sessions, sessionId);
         Row.SimpleBuilder rb = builder.row();
-        rb.ttl(ttl)
-          .add("client", client)
-          .add("coordinator", FBUtilities.getBroadcastAddressAndPort().address);
+        rb.ttl(ttl).add("client", client).add("coordinator", FBUtilities.getBroadcastAddressAndPort().address);
         if (!Gossiper.instance.hasMajorVersion3Nodes())
             rb.add("coordinator_port", FBUtilities.getBroadcastAddressAndPort().port);
-        rb.add("request", request)
-          .add("started_at", new Date(startedAt))
-          .add("command", command)
-          .appendAll("parameters", parameters);
-
+        rb.add("request", request).add("started_at", new Date(startedAt)).add("command", command).appendAll("parameters", parameters);
         return builder.buildAsMutation();
     }
 
-    static Mutation makeStopSessionMutation(ByteBuffer sessionId, int elapsed, int ttl)
-    {
+    static Mutation makeStopSessionMutation(ByteBuffer sessionId, int elapsed, int ttl) {
         PartitionUpdate.SimpleBuilder builder = PartitionUpdate.simpleBuilder(Sessions, sessionId);
-        builder.row()
-               .ttl(ttl)
-               .add("duration", elapsed);
+        builder.row().ttl(ttl).add("duration", elapsed);
         return builder.buildAsMutation();
     }
 
-    static Mutation makeEventMutation(ByteBuffer sessionId, String message, int elapsed, String threadName, int ttl)
-    {
+    static Mutation makeEventMutation(ByteBuffer sessionId, String message, int elapsed, String threadName, int ttl) {
         PartitionUpdate.SimpleBuilder builder = PartitionUpdate.simpleBuilder(Events, sessionId);
-        Row.SimpleBuilder rowBuilder = builder.row(UUIDGen.getTimeUUID())
-                                              .ttl(ttl);
-
-        rowBuilder.add("activity", message)
-                  .add("source", FBUtilities.getBroadcastAddressAndPort().address);
+        Row.SimpleBuilder rowBuilder = builder.row(UUIDGen.getTimeUUID()).ttl(ttl);
+        rowBuilder.add("activity", message).add("source", FBUtilities.getBroadcastAddressAndPort().address);
         if (!Gossiper.instance.hasMajorVersion3Nodes())
             rowBuilder.add("source_port", FBUtilities.getBroadcastAddressAndPort().port);
         rowBuilder.add("thread", threadName);
-
         if (elapsed >= 0)
             rowBuilder.add("source_elapsed", elapsed);
-
         return builder.buildAsMutation();
     }
 }

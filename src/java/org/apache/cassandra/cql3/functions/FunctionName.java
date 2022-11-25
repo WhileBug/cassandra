@@ -18,84 +18,71 @@
 package org.apache.cassandra.cql3.functions;
 
 import com.google.common.base.Objects;
-
 import org.apache.cassandra.cql3.CqlBuilder;
 import org.apache.cassandra.schema.SchemaConstants;
 
-public final class FunctionName
-{
+public final class FunctionName {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FunctionName.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FunctionName.class);
+
     // We special case the token function because that's the only function which name is a reserved keyword
-    private static final FunctionName TOKEN_FUNCTION_NAME = FunctionName.nativeFunction("token");
+    private static final transient FunctionName TOKEN_FUNCTION_NAME = FunctionName.nativeFunction("token");
 
-    public final String keyspace;
-    public final String name;
+    public final transient String keyspace;
 
-    public static FunctionName nativeFunction(String name)
-    {
+    public final transient String name;
+
+    public static FunctionName nativeFunction(String name) {
         return new FunctionName(SchemaConstants.SYSTEM_KEYSPACE_NAME, name);
     }
 
-    public FunctionName(String keyspace, String name)
-    {
+    public FunctionName(String keyspace, String name) {
         assert name != null : "Name parameter must not be null";
         this.keyspace = keyspace;
         this.name = name;
     }
 
-    public FunctionName asNativeFunction()
-    {
+    public FunctionName asNativeFunction() {
         return FunctionName.nativeFunction(name);
     }
 
-    public boolean hasKeyspace()
-    {
+    public boolean hasKeyspace() {
         return keyspace != null;
     }
 
     @Override
-    public final int hashCode()
-    {
+    public final int hashCode() {
         return Objects.hashCode(keyspace, name);
     }
 
     @Override
-    public final boolean equals(Object o)
-    {
+    public final boolean equals(Object o) {
         if (!(o instanceof FunctionName))
             return false;
-
-        FunctionName that = (FunctionName)o;
-        return Objects.equal(this.keyspace, that.keyspace)
-            && Objects.equal(this.name, that.name);
+        FunctionName that = (FunctionName) o;
+        return Objects.equal(this.keyspace, that.keyspace) && Objects.equal(this.name, that.name);
     }
 
-    public final boolean equalsNativeFunction(FunctionName nativeFunction)
-    {
+    public final boolean equalsNativeFunction(FunctionName nativeFunction) {
         assert nativeFunction.keyspace.equals(SchemaConstants.SYSTEM_KEYSPACE_NAME);
         if (this.hasKeyspace() && !this.keyspace.equals(SchemaConstants.SYSTEM_KEYSPACE_NAME))
             return false;
-
         return Objects.equal(this.name, nativeFunction.name);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return keyspace == null ? name : keyspace + "." + name;
     }
 
-    public void appendCqlTo(CqlBuilder builder)
-    {
-        if (equalsNativeFunction(TOKEN_FUNCTION_NAME))
-        {
+    public void appendCqlTo(CqlBuilder builder) {
+        if (equalsNativeFunction(TOKEN_FUNCTION_NAME)) {
             builder.append(name);
-        }
-        else
-        {
-            if (keyspace != null)
-            {
-                builder.appendQuotingIfNeeded(keyspace)
-                       .append('.');
+        } else {
+            if (keyspace != null) {
+                builder.appendQuotingIfNeeded(keyspace).append('.');
             }
             builder.appendQuotingIfNeeded(name);
         }

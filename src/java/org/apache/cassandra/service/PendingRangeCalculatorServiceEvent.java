@@ -15,52 +15,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service;
 
 import java.io.Serializable;
 import java.util.HashMap;
-
 import org.apache.cassandra.diag.DiagnosticEvent;
 
 /**
  * Events related to {@link PendingRangeCalculatorService}.
  */
-final class PendingRangeCalculatorServiceEvent extends DiagnosticEvent
-{
-    private final PendingRangeCalculatorServiceEventType type;
-    private final PendingRangeCalculatorService source;
-    private final int taskCount;
+final class PendingRangeCalculatorServiceEvent extends DiagnosticEvent {
 
-    public enum PendingRangeCalculatorServiceEventType
-    {
-        TASK_STARTED,
-        TASK_FINISHED_SUCCESSFULLY,
-        TASK_EXECUTION_REJECTED,
-        TASK_COUNT_CHANGED
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PendingRangeCalculatorServiceEvent.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PendingRangeCalculatorServiceEvent.class);
+
+    private final transient PendingRangeCalculatorServiceEventType type;
+
+    private final transient PendingRangeCalculatorService source;
+
+    private final transient int taskCount;
+
+    public enum PendingRangeCalculatorServiceEventType {
+
+        TASK_STARTED, TASK_FINISHED_SUCCESSFULLY, TASK_EXECUTION_REJECTED, TASK_COUNT_CHANGED
     }
 
-    PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType type,
-                                       PendingRangeCalculatorService service,
-                                       int taskCount)
-    {
+    PendingRangeCalculatorServiceEvent(PendingRangeCalculatorServiceEventType type, PendingRangeCalculatorService service, int taskCount) {
         this.type = type;
         this.source = service;
         this.taskCount = taskCount;
     }
 
-    public int getTaskCount()
-    {
+    public int getTaskCount() {
         return taskCount;
     }
 
-    public PendingRangeCalculatorServiceEventType getType()
-    {
+    public PendingRangeCalculatorServiceEventType getType() {
         return type;
     }
 
-    public HashMap<String, Serializable> toMap()
-    {
+    public HashMap<String, Serializable> toMap() {
         // be extra defensive against nulls and bugs
         HashMap<String, Serializable> ret = new HashMap<>();
         ret.put("taskCount", taskCount);

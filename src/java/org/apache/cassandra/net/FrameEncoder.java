@@ -18,7 +18,6 @@
 package org.apache.cassandra.net;
 
 import java.nio.ByteBuffer;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
@@ -27,75 +26,76 @@ import org.apache.cassandra.io.compress.BufferType;
 import org.apache.cassandra.utils.memory.BufferPool;
 import org.apache.cassandra.utils.memory.BufferPools;
 
-public abstract class FrameEncoder extends ChannelOutboundHandlerAdapter
-{
-    protected static final BufferPool bufferPool = BufferPools.forNetworking();
+public abstract class FrameEncoder extends ChannelOutboundHandlerAdapter {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameEncoder.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameEncoder.class);
+
+    protected static final transient BufferPool bufferPool = BufferPools.forNetworking();
 
     /**
      * An abstraction useful for transparently allocating buffers that can be written to upstream
      * of the {@code FrameEncoder} without knowledge of the encoder's frame layout, while ensuring
      * enough space to write the remainder of the frame's contents is reserved.
      */
-    public static class Payload
-    {
-        public static final int MAX_SIZE = 1 << 17;
-        // isSelfContained is a flag in the Frame API, indicating if the contents consists of only complete messages
-        private boolean isSelfContained;
-        // the buffer to write to
-        public final ByteBuffer buffer;
-        // the number of header bytes to reserve
-        final int headerLength;
-        // the number of trailer bytes to reserve
-        final int trailerLength;
-        // an API-misuse detector
-        private boolean isFinished = false;
+    public static class Payload {
 
-        Payload(boolean isSelfContained, int payloadCapacity)
-        {
+        public static final transient int MAX_SIZE = 1 << 17;
+
+        // isSelfContained is a flag in the Frame API, indicating if the contents consists of only complete messages
+        private transient boolean isSelfContained;
+
+        // the buffer to write to
+        public final transient ByteBuffer buffer;
+
+        // the number of header bytes to reserve
+        final transient int headerLength;
+
+        // the number of trailer bytes to reserve
+        final transient int trailerLength;
+
+        // an API-misuse detector
+        private transient boolean isFinished = false;
+
+        Payload(boolean isSelfContained, int payloadCapacity) {
             this(isSelfContained, payloadCapacity, 0, 0);
         }
 
-        Payload(boolean isSelfContained, int payloadCapacity, int headerLength, int trailerLength)
-        {
+        Payload(boolean isSelfContained, int payloadCapacity, int headerLength, int trailerLength) {
             this.isSelfContained = isSelfContained;
             this.headerLength = headerLength;
             this.trailerLength = trailerLength;
-
             buffer = bufferPool.getAtLeast(payloadCapacity + headerLength + trailerLength, BufferType.OFF_HEAP);
             assert buffer.capacity() >= payloadCapacity + headerLength + trailerLength;
             buffer.position(headerLength);
             buffer.limit(buffer.capacity() - trailerLength);
         }
 
-        void setSelfContained(boolean isSelfContained)
-        {
+        void setSelfContained(boolean isSelfContained) {
             this.isSelfContained = isSelfContained;
         }
 
         // do not invoke after finish()
-        int length()
-        {
+        int length() {
             assert !isFinished;
             return buffer.position() - headerLength;
         }
 
         // do not invoke after finish()
-        public int remaining()
-        {
+        public int remaining() {
             assert !isFinished;
             return buffer.remaining();
         }
 
         // do not invoke after finish()
-        void trim(int length)
-        {
+        void trim(int length) {
             assert !isFinished;
             buffer.position(headerLength + length);
         }
 
         // may not be written to or queried, after this is invoked; must be passed straight to an encoder (or release called)
-        public void finish()
-        {
+        public void finish() {
             assert !isFinished;
             isFinished = true;
             buffer.limit(buffer.position() + trailerLength);
@@ -103,20 +103,19 @@ public abstract class FrameEncoder extends ChannelOutboundHandlerAdapter
             bufferPool.putUnusedPortion(buffer);
         }
 
-        public void release()
-        {
+        public void release() {
             bufferPool.put(buffer);
         }
     }
 
-    public interface PayloadAllocator
-    {
-        public static final PayloadAllocator simple = Payload::new;
+    public interface PayloadAllocator {
+
+        public static final transient PayloadAllocator simple = Payload::new;
+
         Payload allocate(boolean isSelfContained, int capacity);
     }
 
-    public PayloadAllocator allocator()
-    {
+    public PayloadAllocator allocator() {
         return PayloadAllocator.simple;
     }
 
@@ -125,11 +124,9 @@ public abstract class FrameEncoder extends ChannelOutboundHandlerAdapter
      */
     abstract ByteBuf encode(boolean isSelfContained, ByteBuffer buffer);
 
-    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception
-    {
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (!(msg instanceof Payload))
             throw new IllegalStateException("Unexpected type: " + msg);
-
         Payload payload = (Payload) msg;
         ByteBuf write = encode(payload.isSelfContained, payload.buffer);
         ctx.write(write, promise);

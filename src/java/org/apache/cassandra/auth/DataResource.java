@@ -18,11 +18,9 @@
 package org.apache.cassandra.auth;
 
 import java.util.Set;
-
 import com.google.common.base.Objects;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
-
 import org.apache.cassandra.schema.Schema;
 
 /**
@@ -33,50 +31,47 @@ import org.apache.cassandra.schema.Schema;
  * "data/keyspace_name"                   - keyspace-level data resource.
  * "data/keyspace_name/table_name"        - table-level data resource.
  */
-public class DataResource implements IResource
-{
-    enum Level
-    {
+public class DataResource implements IResource {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataResource.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DataResource.class);
+
+    enum Level {
+
         ROOT, KEYSPACE, TABLE
     }
 
     // permissions which may be granted on tables
-    private static final Set<Permission> TABLE_LEVEL_PERMISSIONS = Sets.immutableEnumSet(Permission.ALTER,
-                                                                                         Permission.DROP,
-                                                                                         Permission.SELECT,
-                                                                                         Permission.MODIFY,
-                                                                                         Permission.AUTHORIZE);
-    // permissions which may be granted on one or all keyspaces
-    private static final Set<Permission> KEYSPACE_LEVEL_PERMISSIONS = Sets.immutableEnumSet(Permission.CREATE,
-                                                                                            Permission.ALTER,
-                                                                                            Permission.DROP,
-                                                                                            Permission.SELECT,
-                                                                                            Permission.MODIFY,
-                                                                                            Permission.AUTHORIZE);
-    private static final String ROOT_NAME = "data";
-    private static final DataResource ROOT_RESOURCE = new DataResource(Level.ROOT, null, null);
+    private static final transient Set<Permission> TABLE_LEVEL_PERMISSIONS = Sets.immutableEnumSet(Permission.ALTER, Permission.DROP, Permission.SELECT, Permission.MODIFY, Permission.AUTHORIZE);
 
-    private final Level level;
-    private final String keyspace;
-    private final String table;
+    // permissions which may be granted on one or all keyspaces
+    private static final transient Set<Permission> KEYSPACE_LEVEL_PERMISSIONS = Sets.immutableEnumSet(Permission.CREATE, Permission.ALTER, Permission.DROP, Permission.SELECT, Permission.MODIFY, Permission.AUTHORIZE);
+
+    private static final transient String ROOT_NAME = "data";
+
+    private static final transient DataResource ROOT_RESOURCE = new DataResource(Level.ROOT, null, null);
+
+    private final transient Level level;
+
+    private final transient String keyspace;
+
+    private final transient String table;
 
     // memoized hashcode since DataRessource is immutable and used in hashmaps often
     private final transient int hash;
 
-    private DataResource(Level level, String keyspace, String table)
-    {
+    private DataResource(Level level, String keyspace, String table) {
         this.level = level;
         this.keyspace = keyspace;
         this.table = table;
-
         this.hash = Objects.hashCode(level, keyspace, table);
     }
 
     /**
      * @return the root-level resource.
      */
-    public static DataResource root()
-    {
+    public static DataResource root() {
         return ROOT_RESOURCE;
     }
 
@@ -86,8 +81,7 @@ public class DataResource implements IResource
      * @param keyspace Name of the keyspace.
      * @return DataResource instance representing the keyspace.
      */
-    public static DataResource keyspace(String keyspace)
-    {
+    public static DataResource keyspace(String keyspace) {
         return new DataResource(Level.KEYSPACE, keyspace, null);
     }
 
@@ -98,8 +92,7 @@ public class DataResource implements IResource
      * @param table Name of the table.
      * @return DataResource instance representing the column family.
      */
-    public static DataResource table(String keyspace, String table)
-    {
+    public static DataResource table(String keyspace, String table) {
         return new DataResource(Level.TABLE, keyspace, table);
     }
 
@@ -109,29 +102,22 @@ public class DataResource implements IResource
      * @param name Name of the data resource.
      * @return DataResource instance matching the name.
      */
-    public static DataResource fromName(String name)
-    {
+    public static DataResource fromName(String name) {
         String[] parts = StringUtils.split(name, '/');
-
         if (!parts[0].equals(ROOT_NAME) || parts.length > 3)
             throw new IllegalArgumentException(String.format("%s is not a valid data resource name", name));
-
         if (parts.length == 1)
             return root();
-
         if (parts.length == 2)
             return keyspace(parts[1]);
-
         return table(parts[1], parts[2]);
     }
 
     /**
      * @return Printable name of the resource.
      */
-    public String getName()
-    {
-        switch (level)
-        {
+    public String getName() {
+        switch(level) {
             case ROOT:
                 return ROOT_NAME;
             case KEYSPACE:
@@ -145,10 +131,8 @@ public class DataResource implements IResource
     /**
      * @return Parent of the resource, if any. Throws IllegalStateException if it's the root-level resource.
      */
-    public IResource getParent()
-    {
-        switch (level)
-        {
+    public IResource getParent() {
+        switch(level) {
             case KEYSPACE:
                 return root();
             case TABLE:
@@ -157,25 +141,22 @@ public class DataResource implements IResource
         throw new IllegalStateException("Root-level resource can't have a parent");
     }
 
-    public boolean isRootLevel()
-    {
+    public boolean isRootLevel() {
         return level == Level.ROOT;
     }
 
-    public boolean isKeyspaceLevel()
-    {
+    public boolean isKeyspaceLevel() {
         return level == Level.KEYSPACE;
     }
 
-    public boolean isTableLevel()
-    {
+    public boolean isTableLevel() {
         return level == Level.TABLE;
     }
+
     /**
      * @return keyspace of the resource. Throws IllegalStateException if it's the root-level resource.
      */
-    public String getKeyspace()
-    {
+    public String getKeyspace() {
         if (isRootLevel())
             throw new IllegalStateException("ROOT data resource has no keyspace");
         return keyspace;
@@ -184,8 +165,7 @@ public class DataResource implements IResource
     /**
      * @return column family of the resource. Throws IllegalStateException if it's not a table-level resource.
      */
-    public String getTable()
-    {
+    public String getTable() {
         if (!isTableLevel())
             throw new IllegalStateException(String.format("%s data resource has no table", level));
         return table;
@@ -194,18 +174,15 @@ public class DataResource implements IResource
     /**
      * @return Whether or not the resource has a parent in the hierarchy.
      */
-    public boolean hasParent()
-    {
+    public boolean hasParent() {
         return level != Level.ROOT;
     }
 
     /**
      * @return Whether or not the resource exists in Cassandra.
      */
-    public boolean exists()
-    {
-        switch (level)
-        {
+    public boolean exists() {
+        switch(level) {
             case ROOT:
                 return true;
             case KEYSPACE:
@@ -216,10 +193,8 @@ public class DataResource implements IResource
         throw new AssertionError();
     }
 
-    public Set<Permission> applicablePermissions()
-    {
-        switch (level)
-        {
+    public Set<Permission> applicablePermissions() {
+        switch(level) {
             case ROOT:
             case KEYSPACE:
                 return KEYSPACE_LEVEL_PERMISSIONS;
@@ -230,10 +205,8 @@ public class DataResource implements IResource
     }
 
     @Override
-    public String toString()
-    {
-        switch (level)
-        {
+    public String toString() {
+        switch(level) {
             case ROOT:
                 return "<all keyspaces>";
             case KEYSPACE:
@@ -245,24 +218,17 @@ public class DataResource implements IResource
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof DataResource))
             return false;
-
         DataResource ds = (DataResource) o;
-
-        return Objects.equal(level, ds.level)
-            && Objects.equal(keyspace, ds.keyspace)
-            && Objects.equal(table, ds.table);
+        return Objects.equal(level, ds.level) && Objects.equal(keyspace, ds.keyspace) && Objects.equal(table, ds.table);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return hash;
     }
 }

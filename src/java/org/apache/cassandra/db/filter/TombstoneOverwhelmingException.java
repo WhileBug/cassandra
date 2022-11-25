@@ -19,50 +19,40 @@
 package org.apache.cassandra.db.filter;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.marshal.*;
 
-public class TombstoneOverwhelmingException extends RuntimeException
-{
-    public TombstoneOverwhelmingException(int numTombstones, String query, TableMetadata metadata, DecoratedKey lastPartitionKey, ClusteringPrefix<?> lastClustering)
-    {
-        super(String.format("Scanned over %d tombstones during query '%s' (last scanned row token was %s and partion key was (%s)); query aborted",
-                            numTombstones, query, lastPartitionKey.getToken(), makePKString(metadata, lastPartitionKey.getKey(), lastClustering)));
+public class TombstoneOverwhelmingException extends RuntimeException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TombstoneOverwhelmingException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TombstoneOverwhelmingException.class);
+
+    public TombstoneOverwhelmingException(int numTombstones, String query, TableMetadata metadata, DecoratedKey lastPartitionKey, ClusteringPrefix<?> lastClustering) {
+        super(String.format("Scanned over %d tombstones during query '%s' (last scanned row token was %s and partion key was (%s)); query aborted", numTombstones, query, lastPartitionKey.getToken(), makePKString(metadata, lastPartitionKey.getKey(), lastClustering)));
     }
 
-    private static String makePKString(TableMetadata metadata, ByteBuffer partitionKey, ClusteringPrefix<?> clustering)
-    {
+    private static String makePKString(TableMetadata metadata, ByteBuffer partitionKey, ClusteringPrefix<?> clustering) {
         StringBuilder sb = new StringBuilder();
-
         if (clustering.size() > 0)
             sb.append("(");
-
         // TODO: We should probably make that a lot easier/transparent for partition keys
         AbstractType<?> pkType = metadata.partitionKeyType;
-        if (pkType instanceof CompositeType)
-        {
-            CompositeType ct = (CompositeType)pkType;
+        if (pkType instanceof CompositeType) {
+            CompositeType ct = (CompositeType) pkType;
             ByteBuffer[] values = ct.split(partitionKey);
-            for (int i = 0; i < values.length; i++)
-            {
+            for (int i = 0; i < values.length; i++) {
                 if (i > 0)
                     sb.append(", ");
                 sb.append(ct.types.get(i).getString(values[i]));
             }
-        }
-        else
-        {
+        } else {
             sb.append(pkType.getString(partitionKey));
         }
-
         if (clustering.size() > 0)
             sb.append(")");
-
-        for (int i = 0; i < clustering.size(); i++)
-            sb.append(", ").append(clustering.stringAt(i, metadata.comparator));
-
+        for (int i = 0; i < clustering.size(); i++) sb.append(", ").append(clustering.stringAt(i, metadata.comparator));
         return sb.toString();
     }
 }

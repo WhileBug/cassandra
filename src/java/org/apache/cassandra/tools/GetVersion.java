@@ -20,6 +20,11 @@ package org.apache.cassandra.tools;
 import static org.apache.cassandra.utils.FBUtilities.getReleaseVersionString;
 
 public class GetVersion {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetVersion.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetVersion.class);
+
     public static void main(String[] args) {
         System.out.println(getReleaseVersionString());
     }

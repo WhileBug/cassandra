@@ -19,12 +19,10 @@ package org.apache.cassandra.db.marshal;
 
 import java.nio.ByteBuffer;
 import java.util.Date;
-
 import org.apache.cassandra.cql3.Constants;
 import org.apache.cassandra.cql3.Term;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.cql3.CQL3Type;
 import org.apache.cassandra.serializers.TypeSerializer;
 import org.apache.cassandra.serializers.TimestampSerializer;
@@ -37,90 +35,75 @@ import org.apache.cassandra.utils.ByteBufferUtil;
  * correctly. This is kept for backward compatibility but shouldn't be used in new code.
  */
 @Deprecated
-public class DateType extends AbstractType<Date>
-{
-    private static final Logger logger = LoggerFactory.getLogger(DateType.class);
+public class DateType extends AbstractType<Date> {
 
-    public static final DateType instance = new DateType();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DateType.class);
 
-    DateType() {super(ComparisonType.BYTE_ORDER);} // singleton
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DateType.class);
 
-    public boolean isEmptyValueMeaningless()
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(DateType.class);
+
+    public static final transient DateType instance = new DateType();
+
+    // singleton
+    DateType() {
+        super(ComparisonType.BYTE_ORDER);
+    }
+
+    public boolean isEmptyValueMeaningless() {
         return true;
     }
 
-    public ByteBuffer fromString(String source) throws MarshalException
-    {
-      // Return an empty ByteBuffer for an empty string.
-      if (source.isEmpty())
-          return ByteBufferUtil.EMPTY_BYTE_BUFFER;
-
-      return ByteBufferUtil.bytes(TimestampSerializer.dateStringToTimestamp(source));
+    public ByteBuffer fromString(String source) throws MarshalException {
+        // Return an empty ByteBuffer for an empty string.
+        if (source.isEmpty())
+            return ByteBufferUtil.EMPTY_BYTE_BUFFER;
+        return ByteBufferUtil.bytes(TimestampSerializer.dateStringToTimestamp(source));
     }
 
     @Override
-    public Term fromJSONObject(Object parsed) throws MarshalException
-    {
+    public Term fromJSONObject(Object parsed) throws MarshalException {
         if (parsed instanceof Long)
             return new Constants.Value(ByteBufferUtil.bytes((Long) parsed));
-
-        try
-        {
+        try {
             return new Constants.Value(TimestampType.instance.fromString((String) parsed));
-        }
-        catch (ClassCastException exc)
-        {
-            throw new MarshalException(String.format(
-                    "Expected a long or a datestring representation of a date value, but got a %s: %s",
-                    parsed.getClass().getSimpleName(), parsed));
+        } catch (ClassCastException exc) {
+            throw new MarshalException(String.format("Expected a long or a datestring representation of a date value, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
         }
     }
 
     @Override
-    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion)
-    {
+    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion) {
         return '"' + TimestampSerializer.getJsonDateFormatter().format(TimestampSerializer.instance.deserialize(buffer)) + '"';
     }
 
     @Override
-    public boolean isCompatibleWith(AbstractType<?> previous)
-    {
+    public boolean isCompatibleWith(AbstractType<?> previous) {
         if (super.isCompatibleWith(previous))
             return true;
-
-        if (previous instanceof TimestampType)
-        {
-            logger.warn("Changing from TimestampType to DateType is allowed, but be wary that they sort differently for pre-unix-epoch timestamps "
-                      + "(negative timestamp values) and thus this change will corrupt your data if you have such negative timestamp. There is no "
-                      + "reason to switch from DateType to TimestampType except if you were using DateType in the first place and switched to "
-                      + "TimestampType by mistake.");
+        if (previous instanceof TimestampType) {
+            logger.warn("Changing from TimestampType to DateType is allowed, but be wary that they sort differently for pre-unix-epoch timestamps " + "(negative timestamp values) and thus this change will corrupt your data if you have such negative timestamp. There is no " + "reason to switch from DateType to TimestampType except if you were using DateType in the first place and switched to " + "TimestampType by mistake.");
             return true;
         }
-
         return false;
     }
 
     @Override
-    public boolean isValueCompatibleWithInternal(AbstractType<?> otherType)
-    {
+    public boolean isValueCompatibleWithInternal(AbstractType<?> otherType) {
         return this == otherType || otherType == TimestampType.instance || otherType == LongType.instance;
     }
 
     @Override
-    public CQL3Type asCQL3Type()
-    {
+    public CQL3Type asCQL3Type() {
         return CQL3Type.Native.TIMESTAMP;
     }
 
-    public TypeSerializer<Date> getSerializer()
-    {
+    public TypeSerializer<Date> getSerializer() {
         return TimestampSerializer.instance;
     }
 
     @Override
-    public int valueLengthIfFixed()
-    {
+    public int valueLengthIfFixed() {
         return 8;
     }
 }

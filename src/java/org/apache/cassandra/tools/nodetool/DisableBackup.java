@@ -18,16 +18,18 @@
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "disablebackup", description = "Disable incremental backup")
-public class DisableBackup extends NodeToolCmd
-{
+public class DisableBackup extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DisableBackup.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DisableBackup.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.setIncrementalBackupsEnabled(false);
     }
 }

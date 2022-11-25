@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.aggregation;
 
 import java.io.IOException;
-
 import org.apache.cassandra.db.ClusteringComparator;
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -27,18 +26,21 @@ import org.apache.cassandra.io.util.DataOutputPlus;
 /**
  * Defines how rows should be grouped for creating aggregates.
  */
-public abstract class AggregationSpecification
-{
-    public static final Serializer serializer = new Serializer();
+public abstract class AggregationSpecification {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AggregationSpecification.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AggregationSpecification.class);
+
+    public static final transient Serializer serializer = new Serializer();
 
     /**
      * <code>AggregationSpecification</code> that group all the row together.
      */
-    public static final AggregationSpecification AGGREGATE_EVERYTHING = new AggregationSpecification(Kind.AGGREGATE_EVERYTHING)
-    {
+    public static final transient AggregationSpecification AGGREGATE_EVERYTHING = new AggregationSpecification(Kind.AGGREGATE_EVERYTHING) {
+
         @Override
-        public GroupMaker newGroupMaker(GroupingState state)
-        {
+        public GroupMaker newGroupMaker(GroupingState state) {
             return GroupMaker.GROUP_EVERYTHING;
         }
     };
@@ -46,13 +48,13 @@ public abstract class AggregationSpecification
     /**
      * The <code>AggregationSpecification</code> kind.
      */
-    private final Kind kind;
+    private final transient Kind kind;
 
     /**
      * The <code>AggregationSpecification</code> kinds.
      */
-    public static enum Kind
-    {
+    public static enum Kind {
+
         AGGREGATE_EVERYTHING, AGGREGATE_BY_PK_PREFIX
     }
 
@@ -60,13 +62,11 @@ public abstract class AggregationSpecification
      * Returns the <code>AggregationSpecification</code> kind.
      * @return the <code>AggregationSpecification</code> kind
      */
-    public Kind kind()
-    {
+    public Kind kind() {
         return kind;
     }
 
-    private AggregationSpecification(Kind kind)
-    {
+    private AggregationSpecification(Kind kind) {
         this.kind = kind;
     }
 
@@ -75,8 +75,7 @@ public abstract class AggregationSpecification
      *
      * @return a new <code>GroupMaker</code> instance
      */
-    public final GroupMaker newGroupMaker()
-    {
+    public final GroupMaker newGroupMaker() {
         return newGroupMaker(GroupingState.EMPTY_STATE);
     }
 
@@ -97,47 +96,42 @@ public abstract class AggregationSpecification
      * @return a new <code>AggregationSpecification</code> instance that will build aggregates based on primary key
      * columns
      */
-    public static AggregationSpecification aggregatePkPrefix(ClusteringComparator comparator, int clusteringPrefixSize)
-    {
+    public static AggregationSpecification aggregatePkPrefix(ClusteringComparator comparator, int clusteringPrefixSize) {
         return new AggregateByPkPrefix(comparator, clusteringPrefixSize);
     }
 
     /**
      * <code>AggregationSpecification</code> that build aggregates based on primary key columns
      */
-    private static final class AggregateByPkPrefix extends AggregationSpecification
-    {
+    private static final class AggregateByPkPrefix extends AggregationSpecification {
+
         /**
          * The number of clustering component to compare.
          */
-        private final int clusteringPrefixSize;
+        private final transient int clusteringPrefixSize;
 
         /**
          * The comparator used to compare the clustering prefixes.
          */
-        private final ClusteringComparator comparator;
+        private final transient ClusteringComparator comparator;
 
-        public AggregateByPkPrefix(ClusteringComparator comparator, int clusteringPrefixSize)
-        {
+        public AggregateByPkPrefix(ClusteringComparator comparator, int clusteringPrefixSize) {
             super(Kind.AGGREGATE_BY_PK_PREFIX);
             this.comparator = comparator;
             this.clusteringPrefixSize = clusteringPrefixSize;
         }
 
         @Override
-        public GroupMaker newGroupMaker(GroupingState state)
-        {
+        public GroupMaker newGroupMaker(GroupingState state) {
             return GroupMaker.newInstance(comparator, clusteringPrefixSize, state);
         }
     }
 
-    public static class Serializer
-    {
-        public void serialize(AggregationSpecification aggregationSpec, DataOutputPlus out, int version) throws IOException
-        {
+    public static class Serializer {
+
+        public void serialize(AggregationSpecification aggregationSpec, DataOutputPlus out, int version) throws IOException {
             out.writeByte(aggregationSpec.kind().ordinal());
-            switch (aggregationSpec.kind())
-            {
+            switch(aggregationSpec.kind()) {
                 case AGGREGATE_EVERYTHING:
                     break;
                 case AGGREGATE_BY_PK_PREFIX:
@@ -148,11 +142,9 @@ public abstract class AggregationSpecification
             }
         }
 
-        public AggregationSpecification deserialize(DataInputPlus in, int version, ClusteringComparator comparator) throws IOException
-        {
+        public AggregationSpecification deserialize(DataInputPlus in, int version, ClusteringComparator comparator) throws IOException {
             Kind kind = Kind.values()[in.readUnsignedByte()];
-            switch (kind)
-            {
+            switch(kind) {
                 case AGGREGATE_EVERYTHING:
                     return AggregationSpecification.AGGREGATE_EVERYTHING;
                 case AGGREGATE_BY_PK_PREFIX:
@@ -163,11 +155,9 @@ public abstract class AggregationSpecification
             }
         }
 
-        public long serializedSize(AggregationSpecification aggregationSpec, int version)
-        {
+        public long serializedSize(AggregationSpecification aggregationSpec, int version) {
             long size = TypeSizes.sizeof((byte) aggregationSpec.kind().ordinal());
-            switch (aggregationSpec.kind())
-            {
+            switch(aggregationSpec.kind()) {
                 case AGGREGATE_EVERYTHING:
                     break;
                 case AGGREGATE_BY_PK_PREFIX:

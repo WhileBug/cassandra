@@ -20,7 +20,6 @@ package org.apache.cassandra.db;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import org.apache.cassandra.cache.IMeasurableMemory;
 import org.apache.cassandra.config.*;
 import org.apache.cassandra.db.marshal.ByteArrayAccessor;
@@ -48,9 +47,13 @@ import org.apache.cassandra.utils.ByteBufferUtil;
  *   3) {@code ClusteringBoundary} represents the threshold between two adjacent range tombstones.
  * See those classes for more details.
  */
-public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
-{
-    public static final Serializer serializer = new Serializer();
+public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringPrefix.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClusteringPrefix.class);
+
+    public static final transient Serializer serializer = new Serializer();
 
     /**
      * The kind of clustering prefix this actually is.
@@ -58,18 +61,17 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
      * The kind {@code STATIC_CLUSTERING} is only implemented by {@link Clustering#STATIC_CLUSTERING} and {@code CLUSTERING} is
      * implemented by the {@link Clustering} class. The rest is used by {@link ClusteringBound} and {@link ClusteringBoundary}.
      */
-    public enum Kind
-    {
-        // WARNING: the ordering of that enum matters because we use ordinal() in the serialization
+    public enum Kind {
 
-        EXCL_END_BOUND              (0, -1),
-        INCL_START_BOUND            (0, -1),
+        // WARNING: the ordering of that enum matters because we use ordinal() in the serialization
+        EXCL_END_BOUND(0, -1),
+        INCL_START_BOUND(0, -1),
         EXCL_END_INCL_START_BOUNDARY(0, -1),
-        STATIC_CLUSTERING           (1, -1),
-        CLUSTERING                  (2,  0),
-        INCL_END_EXCL_START_BOUNDARY(3,  1),
-        INCL_END_BOUND              (3,  1),
-        EXCL_START_BOUND            (3,  1);
+        STATIC_CLUSTERING(1, -1),
+        CLUSTERING(2, 0),
+        INCL_END_EXCL_START_BOUNDARY(3, 1),
+        INCL_END_BOUND(3, 1),
+        EXCL_START_BOUND(3, 1);
 
         private final int comparison;
 
@@ -79,8 +81,7 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
          */
         public final int comparedToClustering;
 
-        Kind(int comparison, int comparedToClustering)
-        {
+        Kind(int comparison, int comparedToClustering) {
             this.comparison = comparison;
             this.comparedToClustering = comparedToClustering;
         }
@@ -91,8 +92,7 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
          * Note: this should be used instead of {@link #compareTo} when comparing clustering prefixes. We do
          * not override that latter method because it is final for an enum.
          */
-        public static int compare(Kind k1, Kind k2)
-        {
+        public static int compare(Kind k1, Kind k2) {
             return Integer.compare(k1.comparison, k2.comparison);
         }
 
@@ -104,24 +104,27 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
          * @return the invert of this kind. For instance, if this kind is an exlusive start, this return
          * an inclusive end.
          */
-        public Kind invert()
-        {
-            switch (this)
-            {
-                case EXCL_START_BOUND:              return INCL_END_BOUND;
-                case INCL_START_BOUND:              return EXCL_END_BOUND;
-                case EXCL_END_BOUND:                return INCL_START_BOUND;
-                case INCL_END_BOUND:                return EXCL_START_BOUND;
-                case EXCL_END_INCL_START_BOUNDARY:  return INCL_END_EXCL_START_BOUNDARY;
-                case INCL_END_EXCL_START_BOUNDARY:  return EXCL_END_INCL_START_BOUNDARY;
-                default:                            return this;
+        public Kind invert() {
+            switch(this) {
+                case EXCL_START_BOUND:
+                    return INCL_END_BOUND;
+                case INCL_START_BOUND:
+                    return EXCL_END_BOUND;
+                case EXCL_END_BOUND:
+                    return INCL_START_BOUND;
+                case INCL_END_BOUND:
+                    return EXCL_START_BOUND;
+                case EXCL_END_INCL_START_BOUNDARY:
+                    return INCL_END_EXCL_START_BOUNDARY;
+                case INCL_END_EXCL_START_BOUNDARY:
+                    return EXCL_END_INCL_START_BOUNDARY;
+                default:
+                    return this;
             }
         }
 
-        public boolean isBound()
-        {
-            switch (this)
-            {
+        public boolean isBound() {
+            switch(this) {
                 case INCL_START_BOUND:
                 case INCL_END_BOUND:
                 case EXCL_START_BOUND:
@@ -132,10 +135,8 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
             }
         }
 
-        public boolean isBoundary()
-        {
-            switch (this)
-            {
+        public boolean isBoundary() {
+            switch(this) {
                 case INCL_END_EXCL_START_BOUNDARY:
                 case EXCL_END_INCL_START_BOUNDARY:
                     return true;
@@ -144,10 +145,8 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
             }
         }
 
-        public boolean isStart()
-        {
-            switch (this)
-            {
+        public boolean isStart() {
+            switch(this) {
                 case INCL_START_BOUND:
                 case EXCL_END_INCL_START_BOUNDARY:
                 case INCL_END_EXCL_START_BOUNDARY:
@@ -158,10 +157,8 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
             }
         }
 
-        public boolean isEnd()
-        {
-            switch (this)
-            {
+        public boolean isEnd() {
+            switch(this) {
                 case INCL_END_BOUND:
                 case EXCL_END_INCL_START_BOUNDARY:
                 case INCL_END_EXCL_START_BOUNDARY:
@@ -172,40 +169,30 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
             }
         }
 
-        public boolean isOpen(boolean reversed)
-        {
+        public boolean isOpen(boolean reversed) {
             return isBoundary() || (reversed ? isEnd() : isStart());
         }
 
-        public boolean isClose(boolean reversed)
-        {
+        public boolean isClose(boolean reversed) {
             return isBoundary() || (reversed ? isStart() : isEnd());
         }
 
-        public Kind closeBoundOfBoundary(boolean reversed)
-        {
+        public Kind closeBoundOfBoundary(boolean reversed) {
             assert isBoundary();
-            return reversed
-                 ? (this == INCL_END_EXCL_START_BOUNDARY ? EXCL_START_BOUND : INCL_START_BOUND)
-                 : (this == INCL_END_EXCL_START_BOUNDARY ? INCL_END_BOUND : EXCL_END_BOUND);
+            return reversed ? (this == INCL_END_EXCL_START_BOUNDARY ? EXCL_START_BOUND : INCL_START_BOUND) : (this == INCL_END_EXCL_START_BOUNDARY ? INCL_END_BOUND : EXCL_END_BOUND);
         }
 
-        public Kind openBoundOfBoundary(boolean reversed)
-        {
+        public Kind openBoundOfBoundary(boolean reversed) {
             assert isBoundary();
-            return reversed
-                 ? (this == INCL_END_EXCL_START_BOUNDARY ? INCL_END_BOUND : EXCL_END_BOUND)
-                 : (this == INCL_END_EXCL_START_BOUNDARY ? EXCL_START_BOUND : INCL_START_BOUND);
+            return reversed ? (this == INCL_END_EXCL_START_BOUNDARY ? INCL_END_BOUND : EXCL_END_BOUND) : (this == INCL_END_EXCL_START_BOUNDARY ? EXCL_START_BOUND : INCL_START_BOUND);
         }
     }
 
-    default boolean isBottom()
-    {
+    default boolean isBottom() {
         return kind() == Kind.INCL_START_BOUND && size() == 0;
     }
 
-    default boolean isTop()
-    {
+    default boolean isTop() {
         return kind() == Kind.INCL_END_BOUND && size() == 0;
     }
 
@@ -220,8 +207,7 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
      */
     public int size();
 
-    default boolean isEmpty()
-    {
+    default boolean isEmpty() {
         return size() == 0;
     }
 
@@ -236,18 +222,15 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
 
     public ValueAccessor<V> accessor();
 
-    default ByteBuffer bufferAt(int i)
-    {
+    default ByteBuffer bufferAt(int i) {
         return accessor().toBuffer(get(i));
     }
 
-    default String stringAt(int i, ClusteringComparator comparator)
-    {
+    default String stringAt(int i, ClusteringComparator comparator) {
         return comparator.subtype(i).getString(get(i), accessor());
     }
 
-    default void validate(int i, ClusteringComparator comparator)
-    {
+    default void validate(int i, ClusteringComparator comparator) {
         comparator.subtype(i).validate(get(i), accessor());
     }
 
@@ -256,10 +239,8 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
      *
      * @param digest the Digest instance to which to add this prefix.
      */
-    default void digest(Digest digest)
-    {
-        for (int i = 0; i < size(); i++)
-        {
+    default void digest(Digest digest) {
+        for (int i = 0; i < size(); i++) {
             V value = get(i);
             if (value != null)
                 digest.update(value, accessor());
@@ -273,11 +254,9 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
      * @return the size of the data hold by this prefix (this is not the size of the object in memory, just
      * the size of the data it stores).
      */
-    default int dataSize()
-    {
+    default int dataSize() {
         int size = 0;
-        for (int i = 0; i < size(); i++)
-        {
+        for (int i = 0; i < size(); i++) {
             V v = get(i);
             size += v == null ? 0 : accessor().size(v);
         }
@@ -298,16 +277,14 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
      * allows to use buildBound(), it's actually used for partition keys only when every restriction
      * is an equal, so we could easily create a specific method for keys for that.
      */
-    default ByteBuffer serializeAsPartitionKey()
-    {
+    default ByteBuffer serializeAsPartitionKey() {
         if (size() == 1)
             return accessor().toBuffer(get(0));
-
         ByteBuffer[] values = new ByteBuffer[size()];
-        for (int i = 0; i < size(); i++)
-            values[i] = accessor().toBuffer(get(i));
+        for (int i = 0; i < size(); i++) values[i] = accessor().toBuffer(get(i));
         return CompositeType.build(ByteBufferAccessor.instance, values);
     }
+
     /**
      * The values of this prefix as an array.
      * <p>
@@ -327,25 +304,20 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
      */
     public ClusteringPrefix<V> minimize();
 
-    public static class Serializer
-    {
-        public void serialize(ClusteringPrefix<?> clustering, DataOutputPlus out, int version, List<AbstractType<?>> types) throws IOException
-        {
+    public static class Serializer {
+
+        public void serialize(ClusteringPrefix<?> clustering, DataOutputPlus out, int version, List<AbstractType<?>> types) throws IOException {
             // We shouldn't serialize static clusterings
             assert clustering.kind() != Kind.STATIC_CLUSTERING;
-            if (clustering.kind() == Kind.CLUSTERING)
-            {
+            if (clustering.kind() == Kind.CLUSTERING) {
                 out.writeByte(clustering.kind().ordinal());
-                Clustering.serializer.serialize((Clustering<?>)clustering, out, version, types);
-            }
-            else
-            {
-                ClusteringBoundOrBoundary.serializer.serialize((ClusteringBoundOrBoundary<?>)clustering, out, version, types);
+                Clustering.serializer.serialize((Clustering<?>) clustering, out, version, types);
+            } else {
+                ClusteringBoundOrBoundary.serializer.serialize((ClusteringBoundOrBoundary<?>) clustering, out, version, types);
             }
         }
 
-        public void skip(DataInputPlus in, int version, List<AbstractType<?>> types) throws IOException
-        {
+        public void skip(DataInputPlus in, int version, List<AbstractType<?>> types) throws IOException {
             Kind kind = Kind.values()[in.readByte()];
             // We shouldn't serialize static clusterings
             assert kind != Kind.STATIC_CLUSTERING;
@@ -355,8 +327,7 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
                 ClusteringBoundOrBoundary.serializer.skipValues(in, kind, version, types);
         }
 
-        public ClusteringPrefix<byte[]> deserialize(DataInputPlus in, int version, List<AbstractType<?>> types) throws IOException
-        {
+        public ClusteringPrefix<byte[]> deserialize(DataInputPlus in, int version, List<AbstractType<?>> types) throws IOException {
             Kind kind = Kind.values()[in.readByte()];
             // We shouldn't serialize static clusterings
             assert kind != Kind.STATIC_CLUSTERING;
@@ -366,32 +337,28 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
                 return ClusteringBoundOrBoundary.serializer.deserializeValues(in, kind, version, types);
         }
 
-        public long serializedSize(ClusteringPrefix<?> clustering, int version, List<AbstractType<?>> types)
-        {
+        public long serializedSize(ClusteringPrefix<?> clustering, int version, List<AbstractType<?>> types) {
             // We shouldn't serialize static clusterings
             assert clustering.kind() != Kind.STATIC_CLUSTERING;
             if (clustering.kind() == Kind.CLUSTERING)
-                return 1 + Clustering.serializer.serializedSize((Clustering<?>)clustering, version, types);
+                return 1 + Clustering.serializer.serializedSize((Clustering<?>) clustering, version, types);
             else
-                return ClusteringBoundOrBoundary.serializer.serializedSize((ClusteringBoundOrBoundary<?>)clustering, version, types);
+                return ClusteringBoundOrBoundary.serializer.serializedSize((ClusteringBoundOrBoundary<?>) clustering, version, types);
         }
 
-        <V> void serializeValuesWithoutSize(ClusteringPrefix<V> clustering, DataOutputPlus out, int version, List<AbstractType<?>> types) throws IOException
-        {
+        <V> void serializeValuesWithoutSize(ClusteringPrefix<V> clustering, DataOutputPlus out, int version, List<AbstractType<?>> types) throws IOException {
             int offset = 0;
             int clusteringSize = clustering.size();
             ValueAccessor<V> accessor = clustering.accessor();
             // serialize in batches of 32, to avoid garbage when deserializing headers
-            while (offset < clusteringSize)
-            {
+            while (offset < clusteringSize) {
                 // we micro-batch the headers, so that we can incur fewer method calls,
                 // and generate no garbage on deserialization;
                 // we piggyback on vint encoding so that, typically, only 1 byte is used per 32 clustering values,
                 // i.e. more than we ever expect to see
                 int limit = Math.min(clusteringSize, offset + 32);
                 out.writeUnsignedVInt(makeHeader(clustering, offset, limit));
-                while (offset < limit)
-                {
+                while (offset < limit) {
                     V v = clustering.get(offset);
                     if (v != null && !accessor.isEmpty(v))
                         types.get(offset).writeValue(v, accessor, out);
@@ -400,64 +367,52 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
             }
         }
 
-        <V> long valuesWithoutSizeSerializedSize(ClusteringPrefix<V> clustering, int version, List<AbstractType<?>> types)
-        {
+        <V> long valuesWithoutSizeSerializedSize(ClusteringPrefix<V> clustering, int version, List<AbstractType<?>> types) {
             long result = 0;
             int offset = 0;
             int clusteringSize = clustering.size();
-            while (offset < clusteringSize)
-            {
+            while (offset < clusteringSize) {
                 int limit = Math.min(clusteringSize, offset + 32);
                 result += TypeSizes.sizeofUnsignedVInt(makeHeader(clustering, offset, limit));
                 offset = limit;
             }
             ValueAccessor<V> accessor = clustering.accessor();
-            for (int i = 0; i < clusteringSize; i++)
-            {
+            for (int i = 0; i < clusteringSize; i++) {
                 V v = clustering.get(i);
                 if (v == null || accessor.isEmpty(v))
-                    continue; // handled in the header
-
+                    // handled in the header
+                    continue;
                 result += types.get(i).writtenLength(v, accessor);
             }
             return result;
         }
 
-        byte[][] deserializeValuesWithoutSize(DataInputPlus in, int size, int version, List<AbstractType<?>> types) throws IOException
-        {
+        byte[][] deserializeValuesWithoutSize(DataInputPlus in, int size, int version, List<AbstractType<?>> types) throws IOException {
             // Callers of this method should handle the case where size = 0 (in all case we want to return a special value anyway).
             assert size > 0;
             byte[][] values = new byte[size][];
             int offset = 0;
-            while (offset < size)
-            {
+            while (offset < size) {
                 long header = in.readUnsignedVInt();
                 int limit = Math.min(size, offset + 32);
-                while (offset < limit)
-                {
-                    values[offset] = isNull(header, offset)
-                                     ? null
-                                     : (isEmpty(header, offset) ? ByteArrayUtil.EMPTY_BYTE_ARRAY
-                                                                : types.get(offset).readArray(in, DatabaseDescriptor.getMaxValueSize()));
+                while (offset < limit) {
+                    values[offset] = isNull(header, offset) ? null : (isEmpty(header, offset) ? ByteArrayUtil.EMPTY_BYTE_ARRAY : types.get(offset).readArray(in, DatabaseDescriptor.getMaxValueSize()));
                     offset++;
                 }
             }
             return values;
         }
 
-        void skipValuesWithoutSize(DataInputPlus in, int size, int version, List<AbstractType<?>> types) throws IOException
-        {
+        void skipValuesWithoutSize(DataInputPlus in, int size, int version, List<AbstractType<?>> types) throws IOException {
             // Callers of this method should handle the case where size = 0 (in all case we want to return a special value anyway).
             assert size > 0;
             int offset = 0;
-            while (offset < size)
-            {
+            while (offset < size) {
                 long header = in.readUnsignedVInt();
                 int limit = Math.min(size, offset + 32);
-                while (offset < limit)
-                {
+                while (offset < limit) {
                     if (!isNull(header, offset) && !isEmpty(header, offset))
-                         types.get(offset).skipValue(in);
+                        types.get(offset).skipValue(in);
                     offset++;
                 }
             }
@@ -469,12 +424,10 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
          * empty values too. So for that, every clustering prefix includes a "header" that contains 2 bits per element in the prefix. For each element,
          * those 2 bits encode whether the element is null, empty, or none of those.
          */
-        private static <V> long makeHeader(ClusteringPrefix<V> clustering, int offset, int limit)
-        {
+        private static <V> long makeHeader(ClusteringPrefix<V> clustering, int offset, int limit) {
             long header = 0;
             ValueAccessor<V> accessor = clustering.accessor();
-            for (int i = offset ; i < limit ; i++)
-            {
+            for (int i = offset; i < limit; i++) {
                 V v = clustering.get(i);
                 // no need to do modulo arithmetic for i, since the left-shift execute on the modulus of RH operand by definition
                 if (v == null)
@@ -486,15 +439,13 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
         }
 
         // no need to do modulo arithmetic for i, since the left-shift execute on the modulus of RH operand by definition
-        private static boolean isNull(long header, int i)
-        {
+        private static boolean isNull(long header, int i) {
             long mask = 1L << (i * 2) + 1;
             return (header & mask) != 0;
         }
 
         // no need to do modulo arithmetic for i, since the left-shift execute on the modulus of RH operand by definition
-        private static boolean isEmpty(long header, int i)
-        {
+        private static boolean isEmpty(long header, int i) {
             long mask = 1L << (i * 2);
             return (header & mask) != 0;
         }
@@ -509,38 +460,41 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
      * little work as possible. It does that by providing a comparison method that deserialize only what is needed
      * to decide of the comparison.
      */
-    public static class Deserializer
-    {
-        private final ClusteringComparator comparator;
-        private final DataInputPlus in;
-        private final SerializationHeader serializationHeader;
+    public static class Deserializer {
 
-        private boolean nextIsRow;
-        private long nextHeader;
+        private final transient ClusteringComparator comparator;
 
-        private int nextSize;
-        private ClusteringPrefix.Kind nextKind;
-        private int deserializedSize;
-        private byte[][] nextValues;
-        private final ValueAccessor<byte[]> accessor = ByteArrayAccessor.instance;
+        private final transient DataInputPlus in;
 
-        public Deserializer(ClusteringComparator comparator, DataInputPlus in, SerializationHeader header)
-        {
+        private final transient SerializationHeader serializationHeader;
+
+        private transient boolean nextIsRow;
+
+        private transient long nextHeader;
+
+        private transient int nextSize;
+
+        private transient ClusteringPrefix.Kind nextKind;
+
+        private transient int deserializedSize;
+
+        private transient byte[][] nextValues;
+
+        private final transient ValueAccessor<byte[]> accessor = ByteArrayAccessor.instance;
+
+        public Deserializer(ClusteringComparator comparator, DataInputPlus in, SerializationHeader header) {
             this.comparator = comparator;
             this.in = in;
             this.serializationHeader = header;
         }
 
-        public void prepare(int flags, int extendedFlags) throws IOException
-        {
+        public void prepare(int flags, int extendedFlags) throws IOException {
             if (UnfilteredSerializer.isStatic(extendedFlags))
                 throw new IOException("Corrupt flags value for clustering prefix (isStatic flag set): " + flags);
-
             this.nextIsRow = UnfilteredSerializer.kind(flags) == Unfiltered.Kind.ROW;
             this.nextKind = nextIsRow ? Kind.CLUSTERING : ClusteringPrefix.Kind.values()[in.readByte()];
             this.nextSize = nextIsRow ? comparator.size() : in.readUnsignedShort();
             this.deserializedSize = 0;
-
             // The point of the deserializer is that some of the clustering prefix won't actually be used (because they are not
             // within the bounds of the query), and we want to reduce allocation for them. So we only reuse the values array
             // between elements if 1) we haven't returned the previous element (if we have, nextValues will be null) and 2)
@@ -550,63 +504,44 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
                 this.nextValues = new byte[nextSize][];
         }
 
-        public <T> int compareNextTo(ClusteringBoundOrBoundary<T> bound) throws IOException
-        {
+        public <T> int compareNextTo(ClusteringBoundOrBoundary<T> bound) throws IOException {
             if (bound.isTop())
                 return -1;
-
-            for (int i = 0; i < bound.size(); i++)
-            {
+            for (int i = 0; i < bound.size(); i++) {
                 if (!hasComponent(i))
                     return nextKind.comparedToClustering;
-
                 int cmp = comparator.compareComponent(i, nextValues[i], accessor, bound.get(i), bound.accessor());
                 if (cmp != 0)
                     return cmp;
             }
-
             if (bound.size() == nextSize)
                 return Kind.compare(nextKind, bound.kind());
-
             // We know that we'll have exited already if nextSize < bound.size
             return -bound.kind().comparedToClustering;
         }
 
-        private boolean hasComponent(int i) throws IOException
-        {
+        private boolean hasComponent(int i) throws IOException {
             if (i >= nextSize)
                 return false;
-
-            while (deserializedSize <= i)
-                deserializeOne();
-
+            while (deserializedSize <= i) deserializeOne();
             return true;
         }
 
-        private boolean deserializeOne() throws IOException
-        {
+        private boolean deserializeOne() throws IOException {
             if (deserializedSize == nextSize)
                 return false;
-
             if ((deserializedSize % 32) == 0)
                 nextHeader = in.readUnsignedVInt();
-
             int i = deserializedSize++;
-            nextValues[i] = Serializer.isNull(nextHeader, i)
-                          ? null
-                          : (Serializer.isEmpty(nextHeader, i) ? ByteArrayUtil.EMPTY_BYTE_ARRAY
-                                                               : serializationHeader.clusteringTypes().get(i).readArray(in, DatabaseDescriptor.getMaxValueSize()));
+            nextValues[i] = Serializer.isNull(nextHeader, i) ? null : (Serializer.isEmpty(nextHeader, i) ? ByteArrayUtil.EMPTY_BYTE_ARRAY : serializationHeader.clusteringTypes().get(i).readArray(in, DatabaseDescriptor.getMaxValueSize()));
             return true;
         }
 
-        private void deserializeAll() throws IOException
-        {
-            while (deserializeOne())
-                continue;
+        private void deserializeAll() throws IOException {
+            while (deserializeOne()) continue;
         }
 
-        public ClusteringBoundOrBoundary<byte[]> deserializeNextBound() throws IOException
-        {
+        public ClusteringBoundOrBoundary<byte[]> deserializeNextBound() throws IOException {
             assert !nextIsRow;
             deserializeAll();
             ClusteringBoundOrBoundary<byte[]> bound = accessor.factory().boundOrBoundary(nextKind, nextValues);
@@ -614,8 +549,7 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
             return bound;
         }
 
-        public Clustering<byte[]> deserializeNextClustering() throws IOException
-        {
+        public Clustering<byte[]> deserializeNextClustering() throws IOException {
             assert nextIsRow;
             deserializeAll();
             Clustering<byte[]> clustering = accessor.factory().clustering(nextValues);
@@ -623,10 +557,8 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
             return clustering;
         }
 
-        public ClusteringPrefix.Kind skipNext() throws IOException
-        {
-            for (int i = deserializedSize; i < nextSize; i++)
-            {
+        public ClusteringPrefix.Kind skipNext() throws IOException {
+            for (int i = deserializedSize; i < nextSize; i++) {
                 if ((i % 32) == 0)
                     nextHeader = in.readUnsignedVInt();
                 if (!Serializer.isNull(nextHeader, i) && !Serializer.isEmpty(nextHeader, i))
@@ -637,43 +569,31 @@ public interface ClusteringPrefix<V> extends IMeasurableMemory, Clusterable<V>
         }
     }
 
-    public static <V> int hashCode(ClusteringPrefix<V> prefix)
-    {
+    public static <V> int hashCode(ClusteringPrefix<V> prefix) {
         int result = 31;
-        for (int i = 0; i < prefix.size(); i++)
-            result += 31 * prefix.accessor().hashCode(prefix.get(i));
+        for (int i = 0; i < prefix.size(); i++) result += 31 * prefix.accessor().hashCode(prefix.get(i));
         return 31 * result + Objects.hashCode(prefix.kind());
     }
 
-    static <V1, V2> boolean equals(ClusteringPrefix<V1> left, ClusteringPrefix<V2> right)
-    {
+    static <V1, V2> boolean equals(ClusteringPrefix<V1> left, ClusteringPrefix<V2> right) {
         if (left.kind() != right.kind() || left.size() != right.size())
             return false;
-
-        for (int i = 0; i < left.size(); i++)
-        {
+        for (int i = 0; i < left.size(); i++) {
             V1 lVal = left.get(i);
             V2 rVal = right.get(i);
-
             if (lVal == null && rVal == null)
                 continue;
-
             if (lVal == null || rVal == null)
                 return false;
-
             if (!ValueAccessor.equals(lVal, left.accessor(), rVal, right.accessor()))
                 return false;
         }
-
         return true;
     }
 
-    public static boolean equals(ClusteringPrefix<?> prefix, Object o)
-    {
-        if(!(o instanceof ClusteringPrefix))
+    public static boolean equals(ClusteringPrefix<?> prefix, Object o) {
+        if (!(o instanceof ClusteringPrefix))
             return false;
-
         return equals(prefix, (ClusteringPrefix<?>) o);
     }
-
 }

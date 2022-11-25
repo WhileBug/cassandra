@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import org.apache.cassandra.db.commitlog.CommitLog;
@@ -24,56 +23,49 @@ import org.apache.cassandra.exceptions.RequestExecutionException;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.concurrent.OpOrder;
 
-public class CassandraKeyspaceWriteHandler implements KeyspaceWriteHandler
-{
-    private final Keyspace keyspace;
+public class CassandraKeyspaceWriteHandler implements KeyspaceWriteHandler {
 
-    public CassandraKeyspaceWriteHandler(Keyspace keyspace)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraKeyspaceWriteHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CassandraKeyspaceWriteHandler.class);
+
+    private final transient Keyspace keyspace;
+
+    public CassandraKeyspaceWriteHandler(Keyspace keyspace) {
         this.keyspace = keyspace;
     }
 
     @Override
-    @SuppressWarnings("resource") // group is closed when CassandraWriteContext is closed
-    public WriteContext beginWrite(Mutation mutation, boolean makeDurable) throws RequestExecutionException
-    {
+    // group is closed when CassandraWriteContext is closed
+    @SuppressWarnings("resource")
+    public WriteContext beginWrite(Mutation mutation, boolean makeDurable) throws RequestExecutionException {
         OpOrder.Group group = null;
-        try
-        {
+        try {
             group = Keyspace.writeOrder.start();
-
             // write the mutation to the commitlog and memtables
             CommitLogPosition position = null;
-            if (makeDurable)
-            {
+            if (makeDurable) {
                 Tracing.trace("Appending to commitlog");
                 position = CommitLog.instance.add(mutation);
             }
             return new CassandraWriteContext(group, position);
-        }
-        catch (Throwable t)
-        {
-            if (group != null)
-            {
+        } catch (Throwable t) {
+            if (group != null) {
                 group.close();
             }
             throw t;
         }
     }
 
-    @SuppressWarnings("resource") // group is closed when CassandraWriteContext is closed
-    private WriteContext createEmptyContext()
-    {
+    // group is closed when CassandraWriteContext is closed
+    @SuppressWarnings("resource")
+    private WriteContext createEmptyContext() {
         OpOrder.Group group = null;
-        try
-        {
+        try {
             group = Keyspace.writeOrder.start();
             return new CassandraWriteContext(group, null);
-        }
-        catch (Throwable t)
-        {
-            if (group != null)
-            {
+        } catch (Throwable t) {
+            if (group != null) {
                 group.close();
             }
             throw t;
@@ -81,14 +73,12 @@ public class CassandraKeyspaceWriteHandler implements KeyspaceWriteHandler
     }
 
     @Override
-    public WriteContext createContextForIndexing()
-    {
+    public WriteContext createContextForIndexing() {
         return createEmptyContext();
     }
 
     @Override
-    public WriteContext createContextForRead()
-    {
+    public WriteContext createContextForRead() {
         return createEmptyContext();
     }
 }

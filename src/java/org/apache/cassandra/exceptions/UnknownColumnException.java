@@ -17,10 +17,13 @@
  */
 package org.apache.cassandra.exceptions;
 
-public final class UnknownColumnException extends IncompatibleSchemaException
-{
-    public UnknownColumnException(String msg)
-    {
+public final class UnknownColumnException extends IncompatibleSchemaException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnknownColumnException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnknownColumnException.class);
+
+    public UnknownColumnException(String msg) {
         super(msg);
     }
 }

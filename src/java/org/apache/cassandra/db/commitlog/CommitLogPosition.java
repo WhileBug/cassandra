@@ -19,7 +19,6 @@ package org.apache.cassandra.db.commitlog;
 
 import java.io.IOException;
 import java.util.Comparator;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.ISerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -29,93 +28,84 @@ import org.apache.cassandra.io.util.DataOutputPlus;
  * Contains a segment id and a position for CommitLogSegment identification.
  * Used for both replay and general CommitLog file reading.
  */
-public class CommitLogPosition implements Comparable<CommitLogPosition>
-{
-    public static final CommitLogPositionSerializer serializer = new CommitLogPositionSerializer();
+public class CommitLogPosition implements Comparable<CommitLogPosition> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CommitLogPosition.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CommitLogPosition.class);
+
+    public static final transient CommitLogPositionSerializer serializer = new CommitLogPositionSerializer();
 
     // NONE is used for SSTables that are streamed from other nodes and thus have no relationship
     // with our local commitlog. The values satisfy the criteria that
-    //  - no real commitlog segment will have the given id
-    //  - it will sort before any real CommitLogPosition, so it will be effectively ignored by getCommitLogPosition
-    public static final CommitLogPosition NONE = new CommitLogPosition(-1, 0);
+    // - no real commitlog segment will have the given id
+    // - it will sort before any real CommitLogPosition, so it will be effectively ignored by getCommitLogPosition
+    public static final transient CommitLogPosition NONE = new CommitLogPosition(-1, 0);
 
-    public final long segmentId;
+    public final transient long segmentId;
+
     // Indicates the end position of the mutation in the CommitLog
-    public final int position;
+    public final transient int position;
 
-    public static final Comparator<CommitLogPosition> comparator = new Comparator<CommitLogPosition>()
-    {
-        public int compare(CommitLogPosition o1, CommitLogPosition o2)
-        {
+    public static final transient Comparator<CommitLogPosition> comparator = new Comparator<CommitLogPosition>() {
+
+        public int compare(CommitLogPosition o1, CommitLogPosition o2) {
             if (o1.segmentId != o2.segmentId)
-            	return Long.compare(o1.segmentId,  o2.segmentId);
-
+                return Long.compare(o1.segmentId, o2.segmentId);
             return Integer.compare(o1.position, o2.position);
         }
     };
 
-    public CommitLogPosition(long segmentId, int position)
-    {
+    public CommitLogPosition(long segmentId, int position) {
         this.segmentId = segmentId;
         assert position >= 0;
         this.position = position;
     }
 
-    public int compareTo(CommitLogPosition other)
-    {
+    public int compareTo(CommitLogPosition other) {
         return comparator.compare(this, other);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         CommitLogPosition that = (CommitLogPosition) o;
-
-        if (position != that.position) return false;
+        if (position != that.position)
+            return false;
         return segmentId == that.segmentId;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         int result = (int) (segmentId ^ (segmentId >>> 32));
         result = 31 * result + position;
         return result;
     }
 
     @Override
-    public String toString()
-    {
-        return "CommitLogPosition(" +
-               "segmentId=" + segmentId +
-               ", position=" + position +
-               ')';
+    public String toString() {
+        return "CommitLogPosition(" + "segmentId=" + segmentId + ", position=" + position + ')';
     }
 
-    public CommitLogPosition clone()
-    {
+    public CommitLogPosition clone() {
         return new CommitLogPosition(segmentId, position);
     }
 
+    public static class CommitLogPositionSerializer implements ISerializer<CommitLogPosition> {
 
-    public static class CommitLogPositionSerializer implements ISerializer<CommitLogPosition>
-    {
-        public void serialize(CommitLogPosition clsp, DataOutputPlus out) throws IOException
-        {
+        public void serialize(CommitLogPosition clsp, DataOutputPlus out) throws IOException {
             out.writeLong(clsp.segmentId);
             out.writeInt(clsp.position);
         }
 
-        public CommitLogPosition deserialize(DataInputPlus in) throws IOException
-        {
+        public CommitLogPosition deserialize(DataInputPlus in) throws IOException {
             return new CommitLogPosition(in.readLong(), in.readInt());
         }
 
-        public long serializedSize(CommitLogPosition clsp)
-        {
+        public long serializedSize(CommitLogPosition clsp) {
             return TypeSizes.sizeof(clsp.segmentId) + TypeSizes.sizeof(clsp.position);
         }
     }

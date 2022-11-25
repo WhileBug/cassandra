@@ -22,7 +22,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.ClusteringIndexFilter;
 import org.apache.cassandra.db.filter.ClusteringIndexNamesFilter;
@@ -41,47 +40,43 @@ import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.schema.TableMetadataRef;
 import org.apache.cassandra.utils.*;
 
-public final class CounterCacheKey extends CacheKey
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new CounterCacheKey(TableMetadata.builder("ks", "tab")
-                                                                                                .addPartitionKeyColumn("pk", UTF8Type.instance)
-                                                                                                .build(), ByteBufferUtil.EMPTY_BYTE_BUFFER, ByteBuffer.allocate(1)));
+public final class CounterCacheKey extends CacheKey {
 
-    private final byte[] partitionKey;
-    private final byte[] cellName;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CounterCacheKey.class);
 
-    private CounterCacheKey(TableMetadata tableMetadata, byte[] partitionKey, byte[] cellName)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CounterCacheKey.class);
+
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new CounterCacheKey(TableMetadata.builder("ks", "tab").addPartitionKeyColumn("pk", UTF8Type.instance).build(), ByteBufferUtil.EMPTY_BYTE_BUFFER, ByteBuffer.allocate(1)));
+
+    private final transient byte[] partitionKey;
+
+    private final transient byte[] cellName;
+
+    private CounterCacheKey(TableMetadata tableMetadata, byte[] partitionKey, byte[] cellName) {
         super(tableMetadata);
         this.partitionKey = partitionKey;
         this.cellName = cellName;
     }
 
-    private CounterCacheKey(TableMetadata tableMetadata, ByteBuffer partitionKey, ByteBuffer cellName)
-    {
+    private CounterCacheKey(TableMetadata tableMetadata, ByteBuffer partitionKey, ByteBuffer cellName) {
         this(tableMetadata, ByteBufferUtil.getArray(partitionKey), ByteBufferUtil.getArray(cellName));
     }
 
-    public static CounterCacheKey create(TableMetadata tableMetadata, ByteBuffer partitionKey, Clustering<?> clustering, ColumnMetadata c, CellPath path)
-    {
+    public static CounterCacheKey create(TableMetadata tableMetadata, ByteBuffer partitionKey, Clustering<?> clustering, ColumnMetadata c, CellPath path) {
         return new CounterCacheKey(tableMetadata, partitionKey, makeCellName(clustering, c, path));
     }
 
-    private static ByteBuffer makeCellName(Clustering<?> clustering, ColumnMetadata c, CellPath path)
-    {
+    private static ByteBuffer makeCellName(Clustering<?> clustering, ColumnMetadata c, CellPath path) {
         int cs = clustering.size();
         ByteBuffer[] values = new ByteBuffer[cs + 1 + (path == null ? 0 : path.size())];
-        for (int i = 0; i < cs; i++)
-            values[i] = clustering.bufferAt(i);
+        for (int i = 0; i < cs; i++) values[i] = clustering.bufferAt(i);
         values[cs] = c.name.bytes;
         if (path != null)
-            for (int i = 0; i < path.size(); i++)
-                values[cs + 1 + i] = path.get(i);
+            for (int i = 0; i < path.size(); i++) values[cs + 1 + i] = path.get(i);
         return CompositeType.build(ByteBufferAccessor.instance, values);
     }
 
-    public ByteBuffer partitionKey()
-    {
+    public ByteBuffer partitionKey() {
         return ByteBuffer.wrap(partitionKey);
     }
 
@@ -92,100 +87,71 @@ public final class CounterCacheKey extends CacheKey
      * @return the value for the counter represented by this key, or {@code null} if there
      * is not such counter.
      */
-    public ByteBuffer readCounterValue(ColumnFamilyStore cfs)
-    {
+    public ByteBuffer readCounterValue(ColumnFamilyStore cfs) {
         TableMetadata metadata = cfs.metadata();
         assert metadata.id.equals(tableId) && Objects.equals(metadata.indexName().orElse(null), indexName);
-
         DecoratedKey key = cfs.decorateKey(partitionKey());
-
         int clusteringSize = metadata.comparator.size();
         List<ByteBuffer> buffers = CompositeType.splitName(ByteBuffer.wrap(cellName), ByteBufferAccessor.instance);
-        assert buffers.size() >= clusteringSize + 1; // See makeCellName above
-
+        // See makeCellName above
+        assert buffers.size() >= clusteringSize + 1;
         Clustering<?> clustering = Clustering.make(buffers.subList(0, clusteringSize).toArray(new ByteBuffer[clusteringSize]));
         ColumnMetadata column = metadata.getColumn(buffers.get(clusteringSize));
         // This can theoretically happen if a column is dropped after the cache is saved and we
         // try to load it. Not point if failing in any case, just skip the value.
         if (column == null)
             return null;
-
         CellPath path = column.isComplex() ? CellPath.create(buffers.get(buffers.size() - 1)) : null;
-
         int nowInSec = FBUtilities.nowInSeconds();
         ColumnFilter.Builder builder = ColumnFilter.selectionBuilder();
         if (path == null)
             builder.add(column);
         else
             builder.select(column, path);
-
         ClusteringIndexFilter filter = new ClusteringIndexNamesFilter(FBUtilities.singleton(clustering, metadata.comparator), false);
         SinglePartitionReadCommand cmd = SinglePartitionReadCommand.create(metadata, nowInSec, key, builder.build(), filter);
         try (ReadExecutionController controller = cmd.executionController();
-             RowIterator iter = UnfilteredRowIterators.filter(cmd.queryMemtableAndDisk(cfs, controller), nowInSec))
-        {
+            RowIterator iter = UnfilteredRowIterators.filter(cmd.queryMemtableAndDisk(cfs, controller), nowInSec)) {
             ByteBuffer value = null;
             if (column.isStatic())
                 value = iter.staticRow().getCell(column).buffer();
             else if (iter.hasNext())
                 value = iter.next().getCell(column).buffer();
-
             return value;
         }
     }
 
-    public void write(DataOutputPlus out)
-    throws IOException
-    {
+    public void write(DataOutputPlus out) throws IOException {
         ByteArrayUtil.writeWithLength(partitionKey, out);
         ByteArrayUtil.writeWithLength(cellName, out);
     }
 
-    public static CounterCacheKey read(TableMetadata tableMetadata, DataInputPlus in)
-    throws IOException
-    {
-        return new CounterCacheKey(tableMetadata,
-                                   ByteBufferUtil.readBytesWithLength(in),
-                                   ByteBufferUtil.readBytesWithLength(in));
+    public static CounterCacheKey read(TableMetadata tableMetadata, DataInputPlus in) throws IOException {
+        return new CounterCacheKey(tableMetadata, ByteBufferUtil.readBytesWithLength(in), ByteBufferUtil.readBytesWithLength(in));
     }
 
-    public long unsharedHeapSize()
-    {
-        return EMPTY_SIZE
-               + ObjectSizes.sizeOfArray(partitionKey)
-               + ObjectSizes.sizeOfArray(cellName);
+    public long unsharedHeapSize() {
+        return EMPTY_SIZE + ObjectSizes.sizeOfArray(partitionKey) + ObjectSizes.sizeOfArray(cellName);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         TableMetadataRef tableRef = Schema.instance.getTableMetadataRef(tableId);
-        return String.format("CounterCacheKey(%s, %s, %s, %s)",
-                             tableRef, indexName,
-                             ByteBufferUtil.bytesToHex(ByteBuffer.wrap(partitionKey)),
-                             ByteBufferUtil.bytesToHex(ByteBuffer.wrap(cellName)));
+        return String.format("CounterCacheKey(%s, %s, %s, %s)", tableRef, indexName, ByteBufferUtil.bytesToHex(ByteBuffer.wrap(partitionKey)), ByteBufferUtil.bytesToHex(ByteBuffer.wrap(cellName)));
     }
 
     @Override
-    public int hashCode()
-    {
-        return Arrays.deepHashCode(new Object[]{tableId, indexName, partitionKey, cellName});
+    public int hashCode() {
+        return Arrays.deepHashCode(new Object[] { tableId, indexName, partitionKey, cellName });
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof CounterCacheKey))
             return false;
-
         CounterCacheKey cck = (CounterCacheKey) o;
-
-        return tableId.equals(cck.tableId)
-            && Objects.equals(indexName, cck.indexName)
-            && Arrays.equals(partitionKey, cck.partitionKey)
-            && Arrays.equals(cellName, cck.cellName);
+        return tableId.equals(cck.tableId) && Objects.equals(indexName, cck.indexName) && Arrays.equals(partitionKey, cck.partitionKey) && Arrays.equals(cellName, cck.cellName);
     }
 }

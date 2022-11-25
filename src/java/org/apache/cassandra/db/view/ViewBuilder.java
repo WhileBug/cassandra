@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.view;
 
 import java.util.List;
@@ -25,7 +24,6 @@ import java.util.UUID;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.FutureCallback;
@@ -34,7 +32,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.ScheduledExecutors;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.ColumnFamilyStore;
@@ -49,7 +46,6 @@ import org.apache.cassandra.repair.SystemDistributedKeyspace;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.Pair;
-
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -58,144 +54,111 @@ import static java.util.stream.Collectors.toList;
  * The build is split in at least {@link #NUM_TASKS} {@link ViewBuilderTask tasks}, suitable of being parallelized by
  * the {@link CompactionManager} which will execute them.
  */
-class ViewBuilder
-{
-    private static final Logger logger = LoggerFactory.getLogger(ViewBuilder.class);
+class ViewBuilder {
 
-    private static final int NUM_TASKS = Runtime.getRuntime().availableProcessors() * 4;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ViewBuilder.class);
 
-    private final ColumnFamilyStore baseCfs;
-    private final View view;
-    private final String ksName;
-    private final UUID localHostId = SystemKeyspace.getOrInitializeLocalHostId();
-    private final Set<Range<Token>> builtRanges = Sets.newConcurrentHashSet();
-    private final Map<Range<Token>, Pair<Token, Long>> pendingRanges = Maps.newConcurrentMap();
-    private final Set<ViewBuilderTask> tasks = Sets.newConcurrentHashSet();
-    private volatile long keysBuilt = 0;
-    private volatile boolean isStopped = false;
-    private volatile Future<?> future = Futures.immediateFuture(null);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ViewBuilder.class);
 
-    ViewBuilder(ColumnFamilyStore baseCfs, View view)
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(ViewBuilder.class);
+
+    private static final transient int NUM_TASKS = Runtime.getRuntime().availableProcessors() * 4;
+
+    private final transient ColumnFamilyStore baseCfs;
+
+    private final transient View view;
+
+    private final transient String ksName;
+
+    private final transient UUID localHostId = SystemKeyspace.getOrInitializeLocalHostId();
+
+    private final transient Set<Range<Token>> builtRanges = Sets.newConcurrentHashSet();
+
+    private final transient Map<Range<Token>, Pair<Token, Long>> pendingRanges = Maps.newConcurrentMap();
+
+    private final transient Set<ViewBuilderTask> tasks = Sets.newConcurrentHashSet();
+
+    private volatile transient long keysBuilt = 0;
+
+    private volatile transient boolean isStopped = false;
+
+    private volatile transient Future<?> future = Futures.immediateFuture(null);
+
+    ViewBuilder(ColumnFamilyStore baseCfs, View view) {
         this.baseCfs = baseCfs;
         this.view = view;
         ksName = baseCfs.metadata.keyspace;
     }
 
-    public void start()
-    {
-        if (SystemKeyspace.isViewBuilt(ksName, view.name))
-        {
+    public void start() {
+        if (SystemKeyspace.isViewBuilt(ksName, view.name)) {
             logger.debug("View already marked built for {}.{}", ksName, view.name);
             if (!SystemKeyspace.isViewStatusReplicated(ksName, view.name))
                 updateDistributed();
-        }
-        else
-        {
+        } else {
             SystemDistributedKeyspace.startViewBuild(ksName, view.name, localHostId);
-
-            logger.debug("Starting build of view({}.{}). Flushing base table {}.{}",
-                         ksName, view.name, ksName, baseCfs.name);
+            logger.debug("Starting build of view({}.{}). Flushing base table {}.{}", ksName, view.name, ksName, baseCfs.name);
             baseCfs.forceBlockingFlush();
-
             loadStatusAndBuild();
         }
     }
 
-    private void loadStatusAndBuild()
-    {
+    private void loadStatusAndBuild() {
         loadStatus();
         build();
     }
 
-    private void loadStatus()
-    {
+    private void loadStatus() {
         builtRanges.clear();
         pendingRanges.clear();
-        SystemKeyspace.getViewBuildStatus(ksName, view.name)
-                      .forEach((range, pair) ->
-                               {
-                                   Token lastToken = pair.left;
-                                   if (lastToken != null && lastToken.equals(range.right))
-                                   {
-                                       builtRanges.add(range);
-                                       keysBuilt += pair.right;
-                                   }
-                                   else
-                                   {
-                                       pendingRanges.put(range, pair);
-                                   }
-                               });
+        SystemKeyspace.getViewBuildStatus(ksName, view.name).forEach((range, pair) -> {
+            Token lastToken = pair.left;
+            if (lastToken != null && lastToken.equals(range.right)) {
+                builtRanges.add(range);
+                keysBuilt += pair.right;
+            } else {
+                pendingRanges.put(range, pair);
+            }
+        });
     }
 
-    private synchronized void build()
-    {
-        if (isStopped)
-        {
+    private synchronized void build() {
+        if (isStopped) {
             logger.debug("Stopped build for view({}.{}) after covering {} keys", ksName, view.name, keysBuilt);
             return;
         }
-
         // Get the local ranges for which the view hasn't already been built nor it's building
         RangesAtEndpoint replicatedRanges = StorageService.instance.getLocalReplicas(ksName);
         Replicas.temporaryAssertFull(replicatedRanges);
-        Set<Range<Token>> newRanges = replicatedRanges.ranges()
-                                                      .stream()
-                                                      .map(r -> r.subtractAll(builtRanges))
-                                                      .flatMap(Set::stream)
-                                                      .map(r -> r.subtractAll(pendingRanges.keySet()))
-                                                      .flatMap(Set::stream)
-                                                      .collect(Collectors.toSet());
+        Set<Range<Token>> newRanges = replicatedRanges.ranges().stream().map(r -> r.subtractAll(builtRanges)).flatMap(Set::stream).map(r -> r.subtractAll(pendingRanges.keySet())).flatMap(Set::stream).collect(Collectors.toSet());
         // If there are no new nor pending ranges we should finish the build
-        if (newRanges.isEmpty() && pendingRanges.isEmpty())
-        {
+        if (newRanges.isEmpty() && pendingRanges.isEmpty()) {
             finish();
             return;
         }
-
         // Split the new local ranges and add them to the pending set
-        DatabaseDescriptor.getPartitioner()
-                          .splitter()
-                          .map(s -> s.split(newRanges, NUM_TASKS))
-                          .orElse(newRanges)
-                          .forEach(r -> pendingRanges.put(r, Pair.<Token, Long>create(null, 0L)));
-
+        DatabaseDescriptor.getPartitioner().splitter().map(s -> s.split(newRanges, NUM_TASKS)).orElse(newRanges).forEach(r -> pendingRanges.put(r, Pair.<Token, Long>create(null, 0L)));
         // Submit a new view build task for each building range.
         // We keep record of all the submitted tasks to be able of stopping them.
-        List<ListenableFuture<Long>> futures = pendingRanges.entrySet()
-                                                            .stream()
-                                                            .map(e -> new ViewBuilderTask(baseCfs,
-                                                                                          view,
-                                                                                          e.getKey(),
-                                                                                          e.getValue().left,
-                                                                                          e.getValue().right))
-                                                            .peek(tasks::add)
-                                                            .map(CompactionManager.instance::submitViewBuilder)
-                                                            .collect(toList());
-
+        List<ListenableFuture<Long>> futures = pendingRanges.entrySet().stream().map(e -> new ViewBuilderTask(baseCfs, view, e.getKey(), e.getValue().left, e.getValue().right)).peek(tasks::add).map(CompactionManager.instance::submitViewBuilder).collect(toList());
         // Add a callback to process any eventual new local range and mark the view as built, doing a delayed retry if
         // the tasks don't succeed
         ListenableFuture<List<Long>> future = Futures.allAsList(futures);
-        Futures.addCallback(future, new FutureCallback<List<Long>>()
-        {
-            public void onSuccess(List<Long> result)
-            {
+        Futures.addCallback(future, new FutureCallback<List<Long>>() {
+
+            public void onSuccess(List<Long> result) {
                 keysBuilt += result.stream().mapToLong(x -> x).sum();
                 builtRanges.addAll(pendingRanges.keySet());
                 pendingRanges.clear();
                 build();
             }
 
-            public void onFailure(Throwable t)
-            {
-                if (t instanceof CompactionInterruptedException)
-                {
+            public void onFailure(Throwable t) {
+                if (t instanceof CompactionInterruptedException) {
                     internalStop(true);
                     keysBuilt = tasks.stream().mapToLong(ViewBuilderTask::keysBuilt).sum();
                     logger.info("Interrupted build for view({}.{}) after covering {} keys", ksName, view.name, keysBuilt);
-                }
-                else
-                {
+                } else {
                     ScheduledExecutors.nonPeriodicTasks.schedule(() -> loadStatusAndBuild(), 5, TimeUnit.MINUTES);
                     logger.warn("Materialized View failed to complete, sleeping 5 minutes before restarting", t);
                 }
@@ -204,22 +167,17 @@ class ViewBuilder
         this.future = future;
     }
 
-    private void finish()
-    {
+    private void finish() {
         logger.debug("Marking view({}.{}) as built after covering {} keys ", ksName, view.name, keysBuilt);
         SystemKeyspace.finishViewBuildStatus(ksName, view.name);
         updateDistributed();
     }
 
-    private void updateDistributed()
-    {
-        try
-        {
+    private void updateDistributed() {
+        try {
             SystemDistributedKeyspace.successfulViewBuild(ksName, view.name, localHostId);
             SystemKeyspace.setViewBuiltReplicated(ksName, view.name);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             ScheduledExecutors.nonPeriodicTasks.schedule(this::updateDistributed, 5, TimeUnit.MINUTES);
             logger.warn("Failed to update the distributed status of view, sleeping 5 minutes before retrying", e);
         }
@@ -228,16 +186,14 @@ class ViewBuilder
     /**
      * Stops the view building.
      */
-    synchronized void stop()
-    {
+    synchronized void stop() {
         boolean wasStopped = isStopped;
         internalStop(false);
         if (!wasStopped)
             FBUtilities.waitOnFuture(future);
     }
 
-    private void internalStop(boolean isCompactionInterrupted)
-    {
+    private void internalStop(boolean isCompactionInterrupted) {
         isStopped = true;
         tasks.forEach(task -> task.stop(isCompactionInterrupted));
     }

@@ -15,33 +15,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.auth;
 
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.exceptions.InvalidRequestException;
 
-public class AllowAllNetworkAuthorizer implements INetworkAuthorizer
-{
-    public void setup() {}
+public class AllowAllNetworkAuthorizer implements INetworkAuthorizer {
 
-    public DCPermissions authorize(RoleResource role)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AllowAllNetworkAuthorizer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AllowAllNetworkAuthorizer.class);
+
+    public void setup() {
+    }
+
+    public DCPermissions authorize(RoleResource role) {
         return DCPermissions.all();
     }
 
-    public void setRoleDatacenters(RoleResource role, DCPermissions permissions)
-    {
+    public void setRoleDatacenters(RoleResource role, DCPermissions permissions) {
         throw new InvalidRequestException("ACCESS TO DATACENTERS operations not supported by AllowAllNetworkAuthorizer");
     }
 
-    public void drop(RoleResource role) {}
+    public void drop(RoleResource role) {
+    }
 
-    public void validateConfiguration() throws ConfigurationException {}
+    public void validateConfiguration() throws ConfigurationException {
+    }
 
     @Override
-    public boolean requireAuthorization()
-    {
+    public boolean requireAuthorization() {
         return false;
     }
 }

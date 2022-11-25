@@ -19,40 +19,38 @@ package org.apache.cassandra.cql3.statements;
 
 import java.util.*;
 import java.util.regex.Pattern;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.exceptions.SyntaxException;
 
-public class PropertyDefinitions
-{
-    private static final Pattern POSITIVE_PATTERN = Pattern.compile("(1|true|yes)");
-    private static final Pattern NEGATIVE_PATTERN = Pattern.compile("(0|false|no)");
-    
-    protected static final Logger logger = LoggerFactory.getLogger(PropertyDefinitions.class);
+public class PropertyDefinitions {
 
-    protected final Map<String, Object> properties = new HashMap<String, Object>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PropertyDefinitions.class);
 
-    public void addProperty(String name, String value) throws SyntaxException
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PropertyDefinitions.class);
+
+    private static final transient Pattern POSITIVE_PATTERN = Pattern.compile("(1|true|yes)");
+
+    private static final transient Pattern NEGATIVE_PATTERN = Pattern.compile("(0|false|no)");
+
+    protected static final transient Logger logger = LoggerFactory.getLogger(PropertyDefinitions.class);
+
+    protected final transient Map<String, Object> properties = new HashMap<String, Object>();
+
+    public void addProperty(String name, String value) throws SyntaxException {
         if (properties.put(name, value) != null)
             throw new SyntaxException(String.format("Multiple definition for property '%s'", name));
     }
 
-    public void addProperty(String name, Map<String, String> value) throws SyntaxException
-    {
+    public void addProperty(String name, Map<String, String> value) throws SyntaxException {
         if (properties.put(name, value) != null)
             throw new SyntaxException(String.format("Multiple definition for property '%s'", name));
     }
 
-    public void validate(Set<String> keywords, Set<String> obsolete) throws SyntaxException
-    {
-        for (String name : properties.keySet())
-        {
+    public void validate(Set<String> keywords, Set<String> obsolete) throws SyntaxException {
+        for (String name : properties.keySet()) {
             if (keywords.contains(name))
                 continue;
-
             if (obsolete.contains(name))
                 logger.warn("Ignoring obsolete property {}", name);
             else
@@ -60,98 +58,72 @@ public class PropertyDefinitions
         }
     }
 
-    protected String getSimple(String name) throws SyntaxException
-    {
+    protected String getSimple(String name) throws SyntaxException {
         Object val = properties.get(name);
         if (val == null)
             return null;
         if (!(val instanceof String))
             throw new SyntaxException(String.format("Invalid value for property '%s'. It should be a string", name));
-        return (String)val;
+        return (String) val;
     }
 
-    protected Map<String, String> getMap(String name) throws SyntaxException
-    {
+    protected Map<String, String> getMap(String name) throws SyntaxException {
         Object val = properties.get(name);
         if (val == null)
             return null;
         if (!(val instanceof Map))
             throw new SyntaxException(String.format("Invalid value for property '%s'. It should be a map.", name));
-        return (Map<String, String>)val;
+        return (Map<String, String>) val;
     }
 
-    public Boolean hasProperty(String name)
-    {
+    public Boolean hasProperty(String name) {
         return properties.containsKey(name);
     }
 
-    public static boolean parseBoolean(String key, String value) throws SyntaxException
-    {
+    public static boolean parseBoolean(String key, String value) throws SyntaxException {
         if (null == value)
             throw new IllegalArgumentException("value argument can't be null");
-
         String lowerCasedValue = value.toLowerCase();
-
         if (POSITIVE_PATTERN.matcher(lowerCasedValue).matches())
             return true;
         else if (NEGATIVE_PATTERN.matcher(lowerCasedValue).matches())
             return false;
-
-        throw new SyntaxException(String.format("Invalid boolean value %s for '%s'. " +
-                                                "Positive values can be '1', 'true' or 'yes'. " +
-                                                "Negative values can be '0', 'false' or 'no'.",
-                                                value, key));
+        throw new SyntaxException(String.format("Invalid boolean value %s for '%s'. " + "Positive values can be '1', 'true' or 'yes'. " + "Negative values can be '0', 'false' or 'no'.", value, key));
     }
 
     // Return a property value, typed as a Boolean
-    public Boolean getBoolean(String key, Boolean defaultValue) throws SyntaxException
-    {
+    public Boolean getBoolean(String key, Boolean defaultValue) throws SyntaxException {
         String value = getSimple(key);
         return (value == null) ? defaultValue : parseBoolean(key, value);
     }
 
     // Return a property value, typed as a double
-    public double getDouble(String key, double defaultValue) throws SyntaxException
-    {
+    public double getDouble(String key, double defaultValue) throws SyntaxException {
         String value = getSimple(key);
-        if (value == null)
-        {
+        if (value == null) {
             return defaultValue;
-        }
-        else
-        {
-            try
-            {
+        } else {
+            try {
                 return Double.parseDouble(value);
-            }
-            catch (NumberFormatException e)
-            {
+            } catch (NumberFormatException e) {
                 throw new SyntaxException(String.format("Invalid double value %s for '%s'", value, key));
             }
         }
     }
 
     // Return a property value, typed as an Integer
-    public Integer getInt(String key, Integer defaultValue) throws SyntaxException
-    {
+    public Integer getInt(String key, Integer defaultValue) throws SyntaxException {
         String value = getSimple(key);
         return toInt(key, value, defaultValue);
     }
 
-    public static Integer toInt(String key, String value, Integer defaultValue) throws SyntaxException
-    {
-        if (value == null)
-        {
+    public static Integer toInt(String key, String value, Integer defaultValue) throws SyntaxException {
+        if (value == null) {
             return defaultValue;
-        }
-        else
-        {
-            try
-            {
+        } else {
+            try {
                 return Integer.valueOf(value);
-            }
-            catch (NumberFormatException e)
-            {
+            } catch (NumberFormatException e) {
                 throw new SyntaxException(String.format("Invalid integer value %s for '%s'", value, key));
             }
         }

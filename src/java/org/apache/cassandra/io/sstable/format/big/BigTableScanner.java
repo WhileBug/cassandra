@@ -20,13 +20,10 @@ package org.apache.cassandra.io.sstable.format.big;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.AbstractIterator;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.*;
 import org.apache.cassandra.db.filter.*;
@@ -44,105 +41,94 @@ import org.apache.cassandra.io.sstable.format.SSTableReadsListener;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.io.util.RandomAccessReader;
 import org.apache.cassandra.utils.ByteBufferUtil;
-
 import static org.apache.cassandra.dht.AbstractBounds.isEmpty;
 import static org.apache.cassandra.dht.AbstractBounds.maxLeft;
 import static org.apache.cassandra.dht.AbstractBounds.minRight;
 
-public class BigTableScanner implements ISSTableScanner
-{
-    private final AtomicBoolean isClosed = new AtomicBoolean(false);
-    protected final RandomAccessReader dfile;
-    protected final RandomAccessReader ifile;
-    public final SSTableReader sstable;
+public class BigTableScanner implements ISSTableScanner {
 
-    private final Iterator<AbstractBounds<PartitionPosition>> rangeIterator;
-    private AbstractBounds<PartitionPosition> currentRange;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BigTableScanner.class);
 
-    private final ColumnFilter columns;
-    private final DataRange dataRange;
-    private final RowIndexEntry.IndexSerializer rowIndexEntrySerializer;
-    private final SSTableReadsListener listener;
-    private long startScan = -1;
-    private long bytesScanned = 0;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BigTableScanner.class);
 
-    protected Iterator<UnfilteredRowIterator> iterator;
+    private final transient AtomicBoolean isClosed = new AtomicBoolean(false);
+
+    protected final transient RandomAccessReader dfile;
+
+    protected final transient RandomAccessReader ifile;
+
+    public final transient SSTableReader sstable;
+
+    private final transient Iterator<AbstractBounds<PartitionPosition>> rangeIterator;
+
+    private transient AbstractBounds<PartitionPosition> currentRange;
+
+    private final transient ColumnFilter columns;
+
+    private final transient DataRange dataRange;
+
+    private final transient RowIndexEntry.IndexSerializer rowIndexEntrySerializer;
+
+    private final transient SSTableReadsListener listener;
+
+    private transient long startScan = -1;
+
+    private transient long bytesScanned = 0;
+
+    protected transient Iterator<UnfilteredRowIterator> iterator;
 
     // Full scan of the sstables
-    public static ISSTableScanner getScanner(SSTableReader sstable)
-    {
+    public static ISSTableScanner getScanner(SSTableReader sstable) {
         return getScanner(sstable, Iterators.singletonIterator(fullRange(sstable)));
     }
 
-    public static ISSTableScanner getScanner(SSTableReader sstable,
-                                             ColumnFilter columns,
-                                             DataRange dataRange,
-                                             SSTableReadsListener listener)
-    {
+    public static ISSTableScanner getScanner(SSTableReader sstable, ColumnFilter columns, DataRange dataRange, SSTableReadsListener listener) {
         return new BigTableScanner(sstable, columns, dataRange, makeBounds(sstable, dataRange).iterator(), listener);
     }
 
-    public static ISSTableScanner getScanner(SSTableReader sstable, Collection<Range<Token>> tokenRanges)
-    {
+    public static ISSTableScanner getScanner(SSTableReader sstable, Collection<Range<Token>> tokenRanges) {
         // We want to avoid allocating a SSTableScanner if the range don't overlap the sstable (#5249)
         List<SSTableReader.PartitionPositionBounds> positions = sstable.getPositionsForRanges(tokenRanges);
         if (positions.isEmpty())
             return new EmptySSTableScanner(sstable);
-
         return getScanner(sstable, makeBounds(sstable, tokenRanges).iterator());
     }
 
-    public static ISSTableScanner getScanner(SSTableReader sstable, Iterator<AbstractBounds<PartitionPosition>> rangeIterator)
-    {
+    public static ISSTableScanner getScanner(SSTableReader sstable, Iterator<AbstractBounds<PartitionPosition>> rangeIterator) {
         return new BigTableScanner(sstable, ColumnFilter.all(sstable.metadata()), null, rangeIterator, SSTableReadsListener.NOOP_LISTENER);
     }
 
-    private BigTableScanner(SSTableReader sstable,
-                            ColumnFilter columns,
-                            DataRange dataRange,
-                            Iterator<AbstractBounds<PartitionPosition>> rangeIterator,
-                            SSTableReadsListener listener)
-    {
+    private BigTableScanner(SSTableReader sstable, ColumnFilter columns, DataRange dataRange, Iterator<AbstractBounds<PartitionPosition>> rangeIterator, SSTableReadsListener listener) {
         assert sstable != null;
-
         this.dfile = sstable.openDataReader();
         this.ifile = sstable.openIndexReader();
         this.sstable = sstable;
         this.columns = columns;
         this.dataRange = dataRange;
-        this.rowIndexEntrySerializer = sstable.descriptor.version.getSSTableFormat().getIndexSerializer(sstable.metadata(),
-                                                                                                        sstable.descriptor.version,
-                                                                                                        sstable.header);
+        this.rowIndexEntrySerializer = sstable.descriptor.version.getSSTableFormat().getIndexSerializer(sstable.metadata(), sstable.descriptor.version, sstable.header);
         this.rangeIterator = rangeIterator;
         this.listener = listener;
     }
 
-    private static List<AbstractBounds<PartitionPosition>> makeBounds(SSTableReader sstable, Collection<Range<Token>> tokenRanges)
-    {
+    private static List<AbstractBounds<PartitionPosition>> makeBounds(SSTableReader sstable, Collection<Range<Token>> tokenRanges) {
         List<AbstractBounds<PartitionPosition>> boundsList = new ArrayList<>(tokenRanges.size());
-        for (Range<Token> range : Range.normalize(tokenRanges))
-            addRange(sstable, Range.makeRowRange(range), boundsList);
+        for (Range<Token> range : Range.normalize(tokenRanges)) addRange(sstable, Range.makeRowRange(range), boundsList);
         return boundsList;
     }
 
-    private static List<AbstractBounds<PartitionPosition>> makeBounds(SSTableReader sstable, DataRange dataRange)
-    {
+    private static List<AbstractBounds<PartitionPosition>> makeBounds(SSTableReader sstable, DataRange dataRange) {
         List<AbstractBounds<PartitionPosition>> boundsList = new ArrayList<>(2);
         addRange(sstable, dataRange.keyRange(), boundsList);
         return boundsList;
     }
 
-    private static AbstractBounds<PartitionPosition> fullRange(SSTableReader sstable)
-    {
+    private static AbstractBounds<PartitionPosition> fullRange(SSTableReader sstable) {
         return new Bounds<PartitionPosition>(sstable.first, sstable.last);
     }
 
-    private static void addRange(SSTableReader sstable, AbstractBounds<PartitionPosition> requested, List<AbstractBounds<PartitionPosition>> boundsList)
-    {
-        if (requested instanceof Range && ((Range)requested).isWrapAround())
-        {
-            if (requested.right.compareTo(sstable.first) >= 0)
-            {
+    private static void addRange(SSTableReader sstable, AbstractBounds<PartitionPosition> requested, List<AbstractBounds<PartitionPosition>> boundsList) {
+        if (requested instanceof Range && ((Range) requested).isWrapAround()) {
+            if (requested.right.compareTo(sstable.first) >= 0) {
                 // since we wrap, we must contain the whole sstable prior to stopKey()
                 Boundary<PartitionPosition> left = new Boundary<PartitionPosition>(sstable.first, true);
                 Boundary<PartitionPosition> right;
@@ -151,8 +137,7 @@ public class BigTableScanner implements ISSTableScanner
                 if (!isEmpty(left, right))
                     boundsList.add(AbstractBounds.bounds(left, right));
             }
-            if (requested.left.compareTo(sstable.last) <= 0)
-            {
+            if (requested.left.compareTo(sstable.last) <= 0) {
                 // since we wrap, we must contain the whole sstable after dataRange.startKey()
                 Boundary<PartitionPosition> right = new Boundary<PartitionPosition>(sstable.last, true);
                 Boundary<PartitionPosition> left;
@@ -161,222 +146,170 @@ public class BigTableScanner implements ISSTableScanner
                 if (!isEmpty(left, right))
                     boundsList.add(AbstractBounds.bounds(left, right));
             }
-        }
-        else
-        {
+        } else {
             assert requested.left.compareTo(requested.right) <= 0 || requested.right.isMinimum();
             Boundary<PartitionPosition> left, right;
             left = requested.leftBoundary();
             right = requested.rightBoundary();
             left = maxLeft(left, sstable.first, true);
             // apparently isWrapAround() doesn't count Bounds that extend to the limit (min) as wrapping
-            right = requested.right.isMinimum() ? new Boundary<PartitionPosition>(sstable.last, true)
-                                                    : minRight(right, sstable.last, true);
+            right = requested.right.isMinimum() ? new Boundary<PartitionPosition>(sstable.last, true) : minRight(right, sstable.last, true);
             if (!isEmpty(left, right))
                 boundsList.add(AbstractBounds.bounds(left, right));
         }
     }
 
-    private void seekToCurrentRangeStart()
-    {
+    private void seekToCurrentRangeStart() {
         long indexPosition = sstable.getIndexScanPosition(currentRange.left);
         ifile.seek(indexPosition);
-        try
-        {
-
-            while (!ifile.isEOF())
-            {
+        try {
+            while (!ifile.isEOF()) {
                 indexPosition = ifile.getFilePointer();
                 DecoratedKey indexDecoratedKey = sstable.decorateKey(ByteBufferUtil.readWithShortLength(ifile));
-                if (indexDecoratedKey.compareTo(currentRange.left) > 0 || currentRange.contains(indexDecoratedKey))
-                {
+                if (indexDecoratedKey.compareTo(currentRange.left) > 0 || currentRange.contains(indexDecoratedKey)) {
                     // Found, just read the dataPosition and seek into index and data files
                     long dataPosition = RowIndexEntry.Serializer.readPosition(ifile);
                     ifile.seek(indexPosition);
                     dfile.seek(dataPosition);
                     break;
-                }
-                else
-                {
+                } else {
                     RowIndexEntry.Serializer.skip(ifile, sstable.descriptor.version);
                 }
             }
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             sstable.markSuspect();
             throw new CorruptSSTableException(e, sstable.getFilename());
         }
     }
 
-    public void close()
-    {
-        try
-        {
+    public void close() {
+        try {
             if (isClosed.compareAndSet(false, true))
                 FileUtils.close(dfile, ifile);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             sstable.markSuspect();
             throw new CorruptSSTableException(e, sstable.getFilename());
         }
     }
 
-    public long getLengthInBytes()
-    {
+    public long getLengthInBytes() {
         return dfile.length();
     }
 
-    public long getCurrentPosition()
-    {
+    public long getCurrentPosition() {
         return dfile.getFilePointer();
     }
 
-    public long getBytesScanned()
-    {
+    public long getBytesScanned() {
         return bytesScanned;
     }
 
-    public long getCompressedLengthInBytes()
-    {
+    public long getCompressedLengthInBytes() {
         return sstable.onDiskLength();
     }
 
-    public Set<SSTableReader> getBackingSSTables()
-    {
+    public Set<SSTableReader> getBackingSSTables() {
         return ImmutableSet.of(sstable);
     }
 
-
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return sstable.metadata();
     }
 
-    public boolean hasNext()
-    {
+    public boolean hasNext() {
         if (iterator == null)
             iterator = createIterator();
         return iterator.hasNext();
     }
 
-    public UnfilteredRowIterator next()
-    {
+    public UnfilteredRowIterator next() {
         if (iterator == null)
             iterator = createIterator();
         return iterator.next();
     }
 
-    public void remove()
-    {
+    public void remove() {
         throw new UnsupportedOperationException();
     }
 
-    private Iterator<UnfilteredRowIterator> createIterator()
-    {
+    private Iterator<UnfilteredRowIterator> createIterator() {
         this.listener.onScanningStarted(sstable);
         return new KeyScanningIterator();
     }
 
-    protected class KeyScanningIterator extends AbstractIterator<UnfilteredRowIterator>
-    {
-        private DecoratedKey nextKey;
-        private RowIndexEntry nextEntry;
-        private DecoratedKey currentKey;
-        private RowIndexEntry currentEntry;
+    protected class KeyScanningIterator extends AbstractIterator<UnfilteredRowIterator> {
 
-        protected UnfilteredRowIterator computeNext()
-        {
-            try
-            {
-                if (nextEntry == null)
-                {
-                    do
-                    {
+        private transient DecoratedKey nextKey;
+
+        private transient RowIndexEntry nextEntry;
+
+        private transient DecoratedKey currentKey;
+
+        private transient RowIndexEntry currentEntry;
+
+        protected UnfilteredRowIterator computeNext() {
+            try {
+                if (nextEntry == null) {
+                    do {
                         if (startScan != -1)
                             bytesScanned += dfile.getFilePointer() - startScan;
-
                         // we're starting the first range or we just passed the end of the previous range
                         if (!rangeIterator.hasNext())
                             return endOfData();
-
                         currentRange = rangeIterator.next();
                         seekToCurrentRangeStart();
                         startScan = dfile.getFilePointer();
-
                         if (ifile.isEOF())
                             return endOfData();
-
                         currentKey = sstable.decorateKey(ByteBufferUtil.readWithShortLength(ifile));
                         currentEntry = rowIndexEntrySerializer.deserialize(ifile);
                     } while (!currentRange.contains(currentKey));
-                }
-                else
-                {
+                } else {
                     // we're in the middle of a range
                     currentKey = nextKey;
                     currentEntry = nextEntry;
                 }
-
-                if (ifile.isEOF())
-                {
+                if (ifile.isEOF()) {
                     nextEntry = null;
                     nextKey = null;
-                }
-                else
-                {
+                } else {
                     // we need the position of the start of the next key, regardless of whether it falls in the current range
                     nextKey = sstable.decorateKey(ByteBufferUtil.readWithShortLength(ifile));
                     nextEntry = rowIndexEntrySerializer.deserialize(ifile);
-
-                    if (!currentRange.contains(nextKey))
-                    {
+                    if (!currentRange.contains(nextKey)) {
                         nextKey = null;
                         nextEntry = null;
                     }
                 }
-
                 /*
                  * For a given partition key, we want to avoid hitting the data
                  * file unless we're explicitely asked to. This is important
                  * for PartitionRangeReadCommand#checkCacheFilter.
                  */
-                return new LazilyInitializedUnfilteredRowIterator(currentKey)
-                {
-                    protected UnfilteredRowIterator initializeIterator()
-                    {
+                return new LazilyInitializedUnfilteredRowIterator(currentKey) {
 
+                    protected UnfilteredRowIterator initializeIterator() {
                         if (startScan != -1)
                             bytesScanned += dfile.getFilePointer() - startScan;
-
-                        try
-                        {
-                            if (dataRange == null)
-                            {
+                        try {
+                            if (dataRange == null) {
                                 dfile.seek(currentEntry.position);
                                 startScan = dfile.getFilePointer();
-                                ByteBufferUtil.skipShortLength(dfile); // key
+                                // key
+                                ByteBufferUtil.skipShortLength(dfile);
                                 return SSTableIdentityIterator.create(sstable, dfile, partitionKey());
-                            }
-                            else
-                            {
+                            } else {
                                 startScan = dfile.getFilePointer();
                             }
-
                             ClusteringIndexFilter filter = dataRange.clusteringIndexFilter(partitionKey());
                             return sstable.iterator(dfile, partitionKey(), currentEntry, filter.getSlices(BigTableScanner.this.metadata()), columns, filter.isReversed());
-                        }
-                        catch (CorruptSSTableException | IOException e)
-                        {
+                        } catch (CorruptSSTableException | IOException e) {
                             sstable.markSuspect();
                             throw new CorruptSSTableException(e, sstable.getFilename());
                         }
                     }
                 };
-            }
-            catch (CorruptSSTableException | IOException e)
-            {
+            } catch (CorruptSSTableException | IOException e) {
                 sstable.markSuspect();
                 throw new CorruptSSTableException(e, sstable.getFilename());
             }
@@ -384,61 +317,47 @@ public class BigTableScanner implements ISSTableScanner
     }
 
     @Override
-    public String toString()
-    {
-        return getClass().getSimpleName() + "(" +
-               "dfile=" + dfile +
-               " ifile=" + ifile +
-               " sstable=" + sstable +
-               ")";
+    public String toString() {
+        return getClass().getSimpleName() + "(" + "dfile=" + dfile + " ifile=" + ifile + " sstable=" + sstable + ")";
     }
 
-    public static class EmptySSTableScanner extends AbstractUnfilteredPartitionIterator implements ISSTableScanner
-    {
-        private final SSTableReader sstable;
+    public static class EmptySSTableScanner extends AbstractUnfilteredPartitionIterator implements ISSTableScanner {
 
-        public EmptySSTableScanner(SSTableReader sstable)
-        {
+        private final transient SSTableReader sstable;
+
+        public EmptySSTableScanner(SSTableReader sstable) {
             this.sstable = sstable;
         }
 
-        public long getLengthInBytes()
-        {
+        public long getLengthInBytes() {
             return 0;
         }
 
-        public long getCurrentPosition()
-        {
+        public long getCurrentPosition() {
             return 0;
         }
 
-        public long getBytesScanned()
-        {
+        public long getBytesScanned() {
             return 0;
         }
 
-        public long getCompressedLengthInBytes()
-        {
+        public long getCompressedLengthInBytes() {
             return 0;
         }
 
-        public Set<SSTableReader> getBackingSSTables()
-        {
+        public Set<SSTableReader> getBackingSSTables() {
             return ImmutableSet.of(sstable);
         }
 
-        public TableMetadata metadata()
-        {
+        public TableMetadata metadata() {
             return sstable.metadata();
         }
 
-        public boolean hasNext()
-        {
+        public boolean hasNext() {
             return false;
         }
 
-        public UnfilteredRowIterator next()
-        {
+        public UnfilteredRowIterator next() {
             return null;
         }
     }

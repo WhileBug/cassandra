@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads.repair;
 
 import java.io.Serializable;
@@ -26,11 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import javax.annotation.Nullable;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.diag.DiagnosticEvent;
@@ -39,31 +35,39 @@ import org.apache.cassandra.service.reads.DigestResolver;
 import org.apache.cassandra.service.reads.DigestResolver.DigestResolverDebugResult;
 import org.apache.cassandra.service.reads.SpeculativeRetryPolicy;
 
-final class ReadRepairEvent extends DiagnosticEvent
-{
+final class ReadRepairEvent extends DiagnosticEvent {
 
-    private final ReadRepairEventType type;
-    private final Keyspace keyspace;
-    private final String tableName;
-    private final String cqlCommand;
-    private final ConsistencyLevel consistency;
-    private final SpeculativeRetryPolicy.Kind speculativeRetry;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadRepairEvent.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadRepairEvent.class);
+
+    private final transient ReadRepairEventType type;
+
+    private final transient Keyspace keyspace;
+
+    private final transient String tableName;
+
+    private final transient String cqlCommand;
+
+    private final transient ConsistencyLevel consistency;
+
+    private final transient SpeculativeRetryPolicy.Kind speculativeRetry;
+
     @VisibleForTesting
-    final Collection<InetAddressAndPort> destinations;
+    final transient Collection<InetAddressAndPort> destinations;
+
     @VisibleForTesting
-    final Collection<InetAddressAndPort> allEndpoints;
+    final transient Collection<InetAddressAndPort> allEndpoints;
+
     @Nullable
-    private final DigestResolverDebugResult[] digestsByEndpoint;
+    private final transient DigestResolverDebugResult[] digestsByEndpoint;
 
-    enum ReadRepairEventType
-    {
-        START_REPAIR,
-        SPECULATED_READ
+    enum ReadRepairEventType {
+
+        START_REPAIR, SPECULATED_READ
     }
 
-    ReadRepairEvent(ReadRepairEventType type, AbstractReadRepair readRepair, Collection<InetAddressAndPort> destinations,
-                    Collection<InetAddressAndPort> allEndpoints, DigestResolver digestResolver)
-    {
+    ReadRepairEvent(ReadRepairEventType type, AbstractReadRepair readRepair, Collection<InetAddressAndPort> destinations, Collection<InetAddressAndPort> allEndpoints, DigestResolver digestResolver) {
         this.keyspace = readRepair.cfs.keyspace;
         this.tableName = readRepair.cfs.getTableName();
         this.cqlCommand = readRepair.command.toCQLString();
@@ -75,29 +79,22 @@ final class ReadRepairEvent extends DiagnosticEvent
         this.type = type;
     }
 
-    public ReadRepairEventType getType()
-    {
+    public ReadRepairEventType getType() {
         return type;
     }
 
-    public Map<String, Serializable> toMap()
-    {
+    public Map<String, Serializable> toMap() {
         HashMap<String, Serializable> ret = new HashMap<>();
-
         ret.put("keyspace", keyspace.getName());
         ret.put("table", tableName);
         ret.put("command", cqlCommand);
         ret.put("consistency", consistency.name());
         ret.put("speculativeRetry", speculativeRetry.name());
-
         Set<String> eps = destinations.stream().map(InetAddressAndPort::toString).collect(Collectors.toSet());
         ret.put("endpointDestinations", new HashSet<>(eps));
-
-        if (digestsByEndpoint != null)
-        {
+        if (digestsByEndpoint != null) {
             HashMap<String, Serializable> digestsMap = new HashMap<>();
-            for (DigestResolverDebugResult digestsByEndpoint : digestsByEndpoint)
-            {
+            for (DigestResolverDebugResult digestsByEndpoint : digestsByEndpoint) {
                 HashMap<String, Serializable> digests = new HashMap<>();
                 digests.put("digestHex", digestsByEndpoint.digestHex);
                 digests.put("isDigestResponse", digestsByEndpoint.isDigestResponse);
@@ -105,8 +102,7 @@ final class ReadRepairEvent extends DiagnosticEvent
             }
             ret.put("digestsByEndpoint", digestsMap);
         }
-        if (allEndpoints != null)
-        {
+        if (allEndpoints != null) {
             eps = allEndpoints.stream().map(InetAddressAndPort::toString).collect(Collectors.toSet());
             ret.put("allEndpoints", new HashSet<>(eps));
         }

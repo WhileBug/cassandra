@@ -18,27 +18,34 @@
 package org.apache.cassandra.metrics;
 
 import com.codahale.metrics.Meter;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
 /**
  * Metrics related to Read Repair.
  */
-public class ReadRepairMetrics
-{
-    private static final MetricNameFactory factory = new DefaultNameFactory("ReadRepair");
+public class ReadRepairMetrics {
 
-    public static final Meter repairedBlocking = Metrics.meter(factory.createMetricName("RepairedBlocking"));
-    public static final Meter reconcileRead = Metrics.meter(factory.createMetricName("ReconcileRead"));
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadRepairMetrics.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadRepairMetrics.class);
+
+    private static final transient MetricNameFactory factory = new DefaultNameFactory("ReadRepair");
+
+    public static final transient Meter repairedBlocking = Metrics.meter(factory.createMetricName("RepairedBlocking"));
+
+    public static final transient Meter reconcileRead = Metrics.meter(factory.createMetricName("ReconcileRead"));
 
     @Deprecated
-    public static final Meter repairedBackground = Metrics.meter(factory.createMetricName("RepairedBackground"));
+    public static final transient Meter repairedBackground = Metrics.meter(factory.createMetricName("RepairedBackground"));
+
     @Deprecated
-    public static final Meter attempted = Metrics.meter(factory.createMetricName("Attempted"));
+    public static final transient Meter attempted = Metrics.meter(factory.createMetricName("Attempted"));
 
     // Incremented when additional requests were sent during blocking read repair due to unavailable or slow nodes
-    public static final Meter speculatedRead = Metrics.meter(factory.createMetricName("SpeculatedRead"));
-    public static final Meter speculatedWrite = Metrics.meter(factory.createMetricName("SpeculatedWrite"));
+    public static final transient Meter speculatedRead = Metrics.meter(factory.createMetricName("SpeculatedRead"));
 
-    public static void init() {}
+    public static final transient Meter speculatedWrite = Metrics.meter(factory.createMetricName("SpeculatedWrite"));
+
+    public static void init() {
+    }
 }

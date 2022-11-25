@@ -21,7 +21,6 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -29,55 +28,44 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 /**
  * This class tracks the last 100 connections per protocol version
  */
-public class ProtocolVersionTracker
-{
-    private static final int DEFAULT_MAX_CAPACITY = 100;
+public class ProtocolVersionTracker {
 
-    private final EnumMap<ProtocolVersion, LoadingCache<InetAddress, Long>> clientsByProtocolVersion;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProtocolVersionTracker.class);
 
-    ProtocolVersionTracker()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ProtocolVersionTracker.class);
+
+    private static final transient int DEFAULT_MAX_CAPACITY = 100;
+
+    private final transient EnumMap<ProtocolVersion, LoadingCache<InetAddress, Long>> clientsByProtocolVersion;
+
+    ProtocolVersionTracker() {
         this(DEFAULT_MAX_CAPACITY);
     }
 
-    private ProtocolVersionTracker(int capacity)
-    {
+    private ProtocolVersionTracker(int capacity) {
         clientsByProtocolVersion = new EnumMap<>(ProtocolVersion.class);
-
-        for (ProtocolVersion version : ProtocolVersion.values())
-        {
-            clientsByProtocolVersion.put(version, Caffeine.newBuilder().maximumSize(capacity)
-                                                          .build(key -> System.currentTimeMillis()));
+        for (ProtocolVersion version : ProtocolVersion.values()) {
+            clientsByProtocolVersion.put(version, Caffeine.newBuilder().maximumSize(capacity).build(key -> System.currentTimeMillis()));
         }
     }
 
-    void addConnection(InetAddress addr, ProtocolVersion version)
-    {
+    void addConnection(InetAddress addr, ProtocolVersion version) {
         clientsByProtocolVersion.get(version).put(addr, System.currentTimeMillis());
     }
 
-    List<ClientStat> getAll()
-    {
+    List<ClientStat> getAll() {
         List<ClientStat> result = new ArrayList<>();
-
-        clientsByProtocolVersion.forEach((version, cache) ->
-            cache.asMap().forEach((address, lastSeenTime) -> result.add(new ClientStat(address, version, lastSeenTime))));
-
+        clientsByProtocolVersion.forEach((version, cache) -> cache.asMap().forEach((address, lastSeenTime) -> result.add(new ClientStat(address, version, lastSeenTime))));
         return result;
     }
 
-    List<ClientStat> getAll(ProtocolVersion version)
-    {
+    List<ClientStat> getAll(ProtocolVersion version) {
         List<ClientStat> result = new ArrayList<>();
-
-        clientsByProtocolVersion.get(version).asMap().forEach((address, lastSeenTime) ->
-            result.add(new ClientStat(address, version, lastSeenTime)));
-
+        clientsByProtocolVersion.get(version).asMap().forEach((address, lastSeenTime) -> result.add(new ClientStat(address, version, lastSeenTime)));
         return result;
     }
 
-    public void clear()
-    {
+    public void clear() {
         clientsByProtocolVersion.values().forEach(Cache::invalidateAll);
     }
 }

@@ -19,17 +19,19 @@ package org.apache.cassandra.auth;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import com.google.common.base.Optional;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.utils.FBUtilities;
 
-public class RoleOptions
-{
-    private final Map<IRoleManager.Option, Object> options = new HashMap<>();
+public class RoleOptions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RoleOptions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RoleOptions.class);
+
+    private final transient Map<IRoleManager.Option, Object> options = new HashMap<>();
 
     /**
      * Set a value for a specific option.
@@ -37,8 +39,7 @@ public class RoleOptions
      * @param option
      * @param value
      */
-    public void setOption(IRoleManager.Option option, Object value)
-    {
+    public void setOption(IRoleManager.Option option, Object value) {
         if (options.containsKey(option))
             throw new SyntaxException(String.format("Multiple definition for property '%s'", option.name()));
         options.put(option, value);
@@ -48,8 +49,7 @@ public class RoleOptions
      * Return true if there are no options with values set, false otherwise
      * @return whether any options have values set or not
      */
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return options.isEmpty();
     }
 
@@ -57,8 +57,7 @@ public class RoleOptions
      * Return a map of all the options which have been set
      * @return all options with values
      */
-    public Map<IRoleManager.Option, Object> getOptions()
-    {
+    public Map<IRoleManager.Option, Object> getOptions() {
         return options;
     }
 
@@ -66,27 +65,24 @@ public class RoleOptions
      * Return a boolean value of the superuser option
      * @return superuser option value
      */
-    public Optional<Boolean> getSuperuser()
-    {
-        return Optional.fromNullable((Boolean)options.get(IRoleManager.Option.SUPERUSER));
+    public Optional<Boolean> getSuperuser() {
+        return Optional.fromNullable((Boolean) options.get(IRoleManager.Option.SUPERUSER));
     }
 
     /**
      * Return a boolean value of the login option
      * @return login option value
      */
-    public Optional<Boolean> getLogin()
-    {
-        return Optional.fromNullable((Boolean)options.get(IRoleManager.Option.LOGIN));
+    public Optional<Boolean> getLogin() {
+        return Optional.fromNullable((Boolean) options.get(IRoleManager.Option.LOGIN));
     }
 
     /**
      * Return the string value of the password option
      * @return password option value
      */
-    public Optional<String> getPassword()
-    {
-        return Optional.fromNullable((String)options.get(IRoleManager.Option.PASSWORD));
+    public Optional<String> getPassword() {
+        return Optional.fromNullable((String) options.get(IRoleManager.Option.PASSWORD));
     }
 
     /**
@@ -97,9 +93,8 @@ public class RoleOptions
      * @return map of custom options
      */
     @SuppressWarnings("unchecked")
-    public Optional<Map<String, String>> getCustomOptions()
-    {
-        return Optional.fromNullable((Map<String, String>)options.get(IRoleManager.Option.OPTIONS));
+    public Optional<Map<String, String>> getCustomOptions() {
+        return Optional.fromNullable((Map<String, String>) options.get(IRoleManager.Option.OPTIONS));
     }
 
     /**
@@ -112,42 +107,29 @@ public class RoleOptions
      * @throws InvalidRequestException if any options which are not supported by the configured IRoleManager
      *     are set or if any option value is of an incorrect type.
      */
-    public void validate()
-    {
-        for (Map.Entry<IRoleManager.Option, Object> option : options.entrySet())
-        {
+    public void validate() {
+        for (Map.Entry<IRoleManager.Option, Object> option : options.entrySet()) {
             if (!DatabaseDescriptor.getRoleManager().supportedOptions().contains(option.getKey()))
-                throw new InvalidRequestException(String.format("%s doesn't support %s",
-                                                                DatabaseDescriptor.getRoleManager().getClass().getName(),
-                                                                option.getKey()));
-            switch (option.getKey())
-            {
+                throw new InvalidRequestException(String.format("%s doesn't support %s", DatabaseDescriptor.getRoleManager().getClass().getName(), option.getKey()));
+            switch(option.getKey()) {
                 case LOGIN:
                 case SUPERUSER:
                     if (!(option.getValue() instanceof Boolean))
-                        throw new InvalidRequestException(String.format("Invalid value for property '%s'. " +
-                                                                        "It must be a boolean",
-                                                                        option.getKey()));
+                        throw new InvalidRequestException(String.format("Invalid value for property '%s'. " + "It must be a boolean", option.getKey()));
                     break;
                 case PASSWORD:
                     if (!(option.getValue() instanceof String))
-                        throw new InvalidRequestException(String.format("Invalid value for property '%s'. " +
-                                                                        "It must be a string",
-                                                                        option.getKey()));
+                        throw new InvalidRequestException(String.format("Invalid value for property '%s'. " + "It must be a string", option.getKey()));
                     break;
                 case OPTIONS:
                     if (!(option.getValue() instanceof Map))
-                        throw new InvalidRequestException(String.format("Invalid value for property '%s'. " +
-                                                                        "It must be a map",
-                                                                        option.getKey()));
+                        throw new InvalidRequestException(String.format("Invalid value for property '%s'. " + "It must be a map", option.getKey()));
                     break;
-
             }
         }
     }
 
-    public String toString()
-    {
+    public String toString() {
         return FBUtilities.toString(options);
     }
 }

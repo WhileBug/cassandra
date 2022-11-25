@@ -19,16 +19,18 @@ package org.apache.cassandra.utils;
 
 import java.util.concurrent.TimeUnit;
 
-public interface TimeSource
-{
+public interface TimeSource {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TimeSource.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TimeSource.class);
+
     /**
-     *
      * @return the current time in milliseconds
      */
     long currentTimeMillis();
 
     /**
-     *
      * @return Returns the current time value in nanoseconds.
      *
      * <p>This method can only be used to measure elapsed time and is

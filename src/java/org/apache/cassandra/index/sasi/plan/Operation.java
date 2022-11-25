@@ -20,7 +20,6 @@ package org.apache.cassandra.index.sasi.plan;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.ColumnMetadata.Kind;
 import org.apache.cassandra.cql3.Operator;
@@ -34,56 +33,49 @@ import org.apache.cassandra.index.sasi.plan.Expression.Op;
 import org.apache.cassandra.index.sasi.utils.RangeIntersectionIterator;
 import org.apache.cassandra.index.sasi.utils.RangeIterator;
 import org.apache.cassandra.index.sasi.utils.RangeUnionIterator;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.*;
-
 import org.apache.cassandra.utils.FBUtilities;
 
 @SuppressWarnings("resource")
-public class Operation extends RangeIterator<Long, Token>
-{
-    public enum OperationType
-    {
+public class Operation extends RangeIterator<Long, Token> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Operation.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Operation.class);
+
+    public enum OperationType {
+
         AND, OR;
 
-        public boolean apply(boolean a, boolean b)
-        {
-            switch (this)
-            {
+        public boolean apply(boolean a, boolean b) {
+            switch(this) {
                 case OR:
                     return a | b;
-
                 case AND:
                     return a & b;
-
                 default:
                     throw new AssertionError();
             }
         }
     }
 
-    private final QueryController controller;
+    private final transient QueryController controller;
 
-    protected final OperationType op;
-    protected final ListMultimap<ColumnMetadata, Expression> expressions;
-    protected final RangeIterator<Long, Token> range;
+    protected final transient OperationType op;
 
-    protected Operation left, right;
+    protected final transient ListMultimap<ColumnMetadata, Expression> expressions;
 
-    private Operation(OperationType operation,
-                      QueryController controller,
-                      ListMultimap<ColumnMetadata, Expression> expressions,
-                      RangeIterator<Long, Token> range,
-                      Operation left, Operation right)
-    {
+    protected final transient RangeIterator<Long, Token> range;
+
+    protected transient Operation left, right;
+
+    private Operation(OperationType operation, QueryController controller, ListMultimap<ColumnMetadata, Expression> expressions, RangeIterator<Long, Token> range, Operation left, Operation right) {
         super(range);
-
         this.op = operation;
         this.controller = controller;
         this.expressions = expressions;
         this.range = range;
-
         this.left = left;
         this.right = right;
     }
@@ -108,7 +100,6 @@ public class Operation extends RangeIterator<Long, Token>
      *                             \
      * #4                          AND (address, street, city)
      *
-     *
      * Evaluation of the key1 is top-down depth-first search:
      *
      * --- going down ---
@@ -127,33 +118,23 @@ public class Operation extends RangeIterator<Long, Token>
      * @return true if give Row satisfied all of the expressions in the tree,
      *         false otherwise.
      */
-    public boolean satisfiedBy(Unfiltered currentCluster, Row staticRow, boolean allowMissingColumns)
-    {
+    public boolean satisfiedBy(Unfiltered currentCluster, Row staticRow, boolean allowMissingColumns) {
         boolean sideL, sideR;
-
-        if (expressions == null || expressions.isEmpty())
-        {
-            sideL =  left != null &&  left.satisfiedBy(currentCluster, staticRow, allowMissingColumns);
+        if (expressions == null || expressions.isEmpty()) {
+            sideL = left != null && left.satisfiedBy(currentCluster, staticRow, allowMissingColumns);
             sideR = right != null && right.satisfiedBy(currentCluster, staticRow, allowMissingColumns);
-
             // one of the expressions was skipped
             // because it had no indexes attached
             if (left == null)
                 return sideR;
-        }
-        else
-        {
+        } else {
             sideL = localSatisfiedBy(currentCluster, staticRow, allowMissingColumns);
-
             // if there is no right it means that this expression
             // is last in the sequence, we can just return result from local expressions
             if (right == null)
                 return sideL;
-
             sideR = right.satisfiedBy(currentCluster, staticRow, allowMissingColumns);
         }
-
-
         return op.apply(sideL, sideR);
     }
 
@@ -199,26 +180,19 @@ public class Operation extends RangeIterator<Long, Token>
      * @return true if give Row satisfied all of the analyzed expressions,
      *         false otherwise.
      */
-    private boolean localSatisfiedBy(Unfiltered currentCluster, Row staticRow, boolean allowMissingColumns)
-    {
+    private boolean localSatisfiedBy(Unfiltered currentCluster, Row staticRow, boolean allowMissingColumns) {
         if (currentCluster == null || !currentCluster.isRow())
             return false;
-
         final int now = FBUtilities.nowInSeconds();
         boolean result = false;
         int idx = 0;
-
-        for (ColumnMetadata column : expressions.keySet())
-        {
+        for (ColumnMetadata column : expressions.keySet()) {
             if (column.kind == Kind.PARTITION_KEY)
                 continue;
-
             ByteBuffer value = ColumnIndex.getValueOf(column, column.kind == Kind.STATIC ? staticRow : (Row) currentCluster, now);
             boolean isMissingColumn = value == null;
-
             if (!allowMissingColumns && isMissingColumn)
                 throw new IllegalStateException("All indexed columns should be included into the column slice, missing: " + column);
-
             boolean isMatch = false;
             // If there is a column with multiple expressions that effectively means an OR
             // e.g. comment = 'x y z' could be split into 'comment' EQ 'x', 'comment' EQ 'y', 'comment' EQ 'z'
@@ -228,12 +202,10 @@ public class Operation extends RangeIterator<Long, Token>
             // NOT_EQ condition on first EQ/RANGE condition satisfied, instead of checking every
             // single expression in the column filter list.
             List<Expression> filters = expressions.get(column);
-            for (int i = filters.size() - 1; i >= 0; i--)
-            {
+            for (int i = filters.size() - 1; i >= 0; i--) {
                 Expression expression = filters.get(i);
                 isMatch = !isMissingColumn && expression.isSatisfiedBy(value);
-                if (expression.getOp() == Op.NOT_EQ)
-                {
+                if (expression.getOp() == Op.NOT_EQ) {
                     // since this is NOT_EQ operation we have to
                     // inverse match flag (to check against other expressions),
                     // and break in case of negative inverse because that means
@@ -241,34 +213,25 @@ public class Operation extends RangeIterator<Long, Token>
                     isMatch = !isMatch;
                     if (!isMatch)
                         break;
-                } // if it was a match on EQ/RANGE or column is missing
-                else if (isMatch || isMissingColumn)
+                } else // if it was a match on EQ/RANGE or column is missing
+                if (isMatch || isMissingColumn)
                     break;
             }
-
-            if (idx++ == 0)
-            {
+            if (idx++ == 0) {
                 result = isMatch;
                 continue;
             }
-
             result = op.apply(result, isMatch);
-
             // exit early because we already got a single false
             if (op == OperationType.AND && !result)
                 return false;
         }
-
         return idx == 0 || result;
     }
 
     @VisibleForTesting
-    protected static ListMultimap<ColumnMetadata, Expression> analyzeGroup(QueryController controller,
-                                                                           OperationType op,
-                                                                           List<RowFilter.Expression> expressions)
-    {
+    protected static ListMultimap<ColumnMetadata, Expression> analyzeGroup(QueryController controller, OperationType op, List<RowFilter.Expression> expressions) {
         ListMultimap<ColumnMetadata, Expression> analyzed = ArrayListMultimap.create();
-
         // sort all of the expressions in the operation by name and priority of the logical operator
         // this gives us an efficient way to handle inequality and combining into ranges without extra processing
         // and converting expressions from one type to another.
@@ -276,18 +239,13 @@ public class Operation extends RangeIterator<Long, Token>
             int cmp = a.column().compareTo(b.column());
             return cmp == 0 ? -Integer.compare(getPriority(a.operator()), getPriority(b.operator())) : cmp;
         });
-
-        for (final RowFilter.Expression e : expressions)
-        {
+        for (final RowFilter.Expression e : expressions) {
             ColumnIndex columnIndex = controller.getIndex(e);
             List<Expression> perColumn = analyzed.get(e.column());
-
             if (columnIndex == null)
                 columnIndex = new ColumnIndex(controller.getKeyValidator(), e.column(), null);
-
             AbstractAnalyzer analyzer = columnIndex.getAnalyzer();
             analyzer.reset(e.getIndexValue().duplicate());
-
             // EQ/LIKE_*/NOT_EQ can have multiple expressions e.g. text = "Hello World",
             // becomes text = "Hello" OR text = "World" because "space" is always interpreted as a split point (by analyzer),
             // NOT_EQ is made an independent expression only in case of pre-existing multiple EQ expressions, or
@@ -295,35 +253,26 @@ public class Operation extends RangeIterator<Long, Token>
             // in such case we know exactly that there would be no more EQ/RANGE expressions for given column
             // since NOT_EQ has the lowest priority.
             boolean isMultiExpression = false;
-            switch (e.operator())
-            {
+            switch(e.operator()) {
                 case EQ:
                     isMultiExpression = false;
                     break;
-
                 case LIKE_PREFIX:
                 case LIKE_SUFFIX:
                 case LIKE_CONTAINS:
                 case LIKE_MATCHES:
                     isMultiExpression = true;
                     break;
-
                 case NEQ:
-                    isMultiExpression = (perColumn.size() == 0 || perColumn.size() > 1
-                                     || (perColumn.size() == 1 && perColumn.get(0).getOp() == Op.NOT_EQ));
+                    isMultiExpression = (perColumn.size() == 0 || perColumn.size() > 1 || (perColumn.size() == 1 && perColumn.get(0).getOp() == Op.NOT_EQ));
                     break;
             }
-
-            if (isMultiExpression)
-            {
-                while (analyzer.hasNext())
-                {
+            if (isMultiExpression) {
+                while (analyzer.hasNext()) {
                     final ByteBuffer token = analyzer.next();
                     perColumn.add(new Expression(controller, columnIndex).add(e.operator(), token));
                 }
-            }
-            else
-            // "range" or not-equals operator, combines both bounds together into the single expression,
+            } else // "range" or not-equals operator, combines both bounds together into the single expression,
             // iff operation of the group is AND, otherwise we are forced to create separate expressions,
             // not-equals is combined with the range iff operator is AND.
             {
@@ -332,133 +281,104 @@ public class Operation extends RangeIterator<Long, Token>
                     perColumn.add((range = new Expression(controller, columnIndex)));
                 else
                     range = Iterables.getLast(perColumn);
-
-                while (analyzer.hasNext())
-                    range.add(e.operator(), analyzer.next());
+                while (analyzer.hasNext()) range.add(e.operator(), analyzer.next());
             }
         }
-
         return analyzed;
     }
 
-    private static int getPriority(Operator op)
-    {
-        switch (op)
-        {
+    private static int getPriority(Operator op) {
+        switch(op) {
             case EQ:
                 return 5;
-
             case LIKE_PREFIX:
             case LIKE_SUFFIX:
             case LIKE_CONTAINS:
             case LIKE_MATCHES:
                 return 4;
-
             case GTE:
             case GT:
                 return 3;
-
             case LTE:
             case LT:
                 return 2;
-
             case NEQ:
                 return 1;
-
             default:
                 return 0;
         }
     }
 
-    protected Token computeNext()
-    {
+    protected Token computeNext() {
         return range != null && range.hasNext() ? range.next() : endOfData();
     }
 
-    protected void performSkipTo(Long nextToken)
-    {
+    protected void performSkipTo(Long nextToken) {
         if (range != null)
             range.skipTo(nextToken);
     }
 
-    public void close() throws IOException
-    {
+    public void close() throws IOException {
         controller.releaseIndexes(this);
     }
 
-    public static class Builder
-    {
-        private final QueryController controller;
+    public static class Builder {
 
-        protected final OperationType op;
-        protected final List<RowFilter.Expression> expressions;
+        private final transient QueryController controller;
 
-        protected Builder left, right;
+        protected final transient OperationType op;
 
-        public Builder(OperationType operation, QueryController controller, RowFilter.Expression... columns)
-        {
+        protected final transient List<RowFilter.Expression> expressions;
+
+        protected transient Builder left, right;
+
+        public Builder(OperationType operation, QueryController controller, RowFilter.Expression... columns) {
             this.op = operation;
             this.controller = controller;
             this.expressions = new ArrayList<>();
             Collections.addAll(expressions, columns);
         }
 
-        public Builder setRight(Builder operation)
-        {
+        public Builder setRight(Builder operation) {
             this.right = operation;
             return this;
         }
 
-        public Builder setLeft(Builder operation)
-        {
+        public Builder setLeft(Builder operation) {
             this.left = operation;
             return this;
         }
 
-        public void add(RowFilter.Expression e)
-        {
+        public void add(RowFilter.Expression e) {
             expressions.add(e);
         }
 
-        public void add(Collection<RowFilter.Expression> newExpressions)
-        {
+        public void add(Collection<RowFilter.Expression> newExpressions) {
             if (expressions != null)
                 expressions.addAll(newExpressions);
         }
 
-        public Operation complete()
-        {
-            if (!expressions.isEmpty())
-            {
+        public Operation complete() {
+            if (!expressions.isEmpty()) {
                 ListMultimap<ColumnMetadata, Expression> analyzedExpressions = analyzeGroup(controller, op, expressions);
                 RangeIterator.Builder<Long, Token> range = controller.getIndexes(op, analyzedExpressions.values());
-
                 Operation rightOp = null;
-                if (right != null)
-                {
+                if (right != null) {
                     rightOp = right.complete();
                     range.add(rightOp);
                 }
-
                 return new Operation(op, controller, analyzedExpressions, range.build(), null, rightOp);
-            }
-            else
-            {
+            } else {
                 Operation leftOp = null, rightOp = null;
                 boolean leftIndexes = false, rightIndexes = false;
-
-                if (left != null)
-                {
+                if (left != null) {
                     leftOp = left.complete();
                     leftIndexes = leftOp != null && leftOp.range != null;
                 }
-
-                if (right != null)
-                {
+                if (right != null) {
                     rightOp = right.complete();
                     rightIndexes = rightOp != null && rightOp.range != null;
                 }
-
                 RangeIterator<Long, Token> join;
                 /**
                  * Operation should allow one of it's sub-trees to wrap no indexes, that is related  to the fact that we
@@ -488,17 +408,11 @@ public class Operation extends RangeIterator<Long, Token>
                     join = leftOp;
                 else if (!leftIndexes && rightIndexes)
                     join = rightOp;
-                else if (leftIndexes)
-                {
-                    RangeIterator.Builder<Long, Token> builder = op == OperationType.OR
-                                                ? RangeUnionIterator.<Long, Token>builder()
-                                                : RangeIntersectionIterator.<Long, Token>builder();
-
+                else if (leftIndexes) {
+                    RangeIterator.Builder<Long, Token> builder = op == OperationType.OR ? RangeUnionIterator.<Long, Token>builder() : RangeIntersectionIterator.<Long, Token>builder();
                     join = builder.add(leftOp).add(rightOp).build();
-                }
-                else
+                } else
                     throw new AssertionError("both sub-trees have 0 indexes.");
-
                 return new Operation(op, controller, null, join, leftOp, rightOp);
             }
         }

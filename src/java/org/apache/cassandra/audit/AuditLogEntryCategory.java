@@ -15,13 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.audit;
 
 /**
  * Enum to categorize AuditLogEntries
  */
-public enum AuditLogEntryCategory
-{
-    QUERY, DML, DDL, DCL, OTHER, AUTH, ERROR, PREPARE
+public enum AuditLogEntryCategory {
+
+    QUERY,
+    DML,
+    DDL,
+    DCL,
+    OTHER,
+    AUTH,
+    ERROR,
+    PREPARE
 }

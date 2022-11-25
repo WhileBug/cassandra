@@ -19,23 +19,28 @@ package org.apache.cassandra.tools.nodetool;
 
 import java.net.InetAddress;
 
-public class HostStat
-{
-    public final InetAddress endpoint;
-    public final boolean resolveIp;
-    public final Float owns;
-    public final String token;
+public class HostStat {
 
-    public HostStat(String token, InetAddress endpoint, boolean resolveIp, Float owns)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HostStat.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HostStat.class);
+
+    public final transient InetAddress endpoint;
+
+    public final transient boolean resolveIp;
+
+    public final transient Float owns;
+
+    public final transient String token;
+
+    public HostStat(String token, InetAddress endpoint, boolean resolveIp, Float owns) {
         this.token = token;
         this.endpoint = endpoint;
         this.resolveIp = resolveIp;
         this.owns = owns;
     }
 
-    public String ipOrDns()
-    {
+    public String ipOrDns() {
         return resolveIp ? endpoint.getHostName() : endpoint.getHostAddress();
     }
 }

@@ -23,8 +23,11 @@ import java.io.Reader;
 /**
  * Internal interface for supporting versioned grammars.
  */
-public interface StandardTokenizerInterface
-{
+public interface StandardTokenizerInterface {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StandardTokenizerInterface.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StandardTokenizerInterface.class);
 
     String getText();
 

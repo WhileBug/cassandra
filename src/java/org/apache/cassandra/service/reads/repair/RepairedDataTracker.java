@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads.repair;
 
 import java.nio.ByteBuffer;
@@ -25,63 +24,58 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
-
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class RepairedDataTracker
-{
-    private final RepairedDataVerifier verifier;
+public class RepairedDataTracker {
 
-    public final Multimap<ByteBuffer, InetAddressAndPort> digests = HashMultimap.create();
-    public final Set<InetAddressAndPort> inconclusiveDigests = new HashSet<>();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairedDataTracker.class);
 
-    public RepairedDataTracker(RepairedDataVerifier verifier)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairedDataTracker.class);
+
+    private final transient RepairedDataVerifier verifier;
+
+    public final transient Multimap<ByteBuffer, InetAddressAndPort> digests = HashMultimap.create();
+
+    public final transient Set<InetAddressAndPort> inconclusiveDigests = new HashSet<>();
+
+    public RepairedDataTracker(RepairedDataVerifier verifier) {
         this.verifier = verifier;
     }
 
-    public void recordDigest(InetAddressAndPort source, ByteBuffer digest, boolean isConclusive)
-    {
+    public void recordDigest(InetAddressAndPort source, ByteBuffer digest, boolean isConclusive) {
         digests.put(digest, source);
         if (!isConclusive)
             inconclusiveDigests.add(source);
     }
 
-    public void verify()
-    {
+    public void verify() {
         verifier.verify(this);
     }
 
-    public String toString()
-    {
-        return MoreObjects.toStringHelper(this)
-                          .add("digests", hexDigests())
-                          .add("inconclusive", inconclusiveDigests).toString();
+    public String toString() {
+        return MoreObjects.toStringHelper(this).add("digests", hexDigests()).add("inconclusive", inconclusiveDigests).toString();
     }
 
-    private Map<String, Collection<InetAddressAndPort>> hexDigests()
-    {
+    private Map<String, Collection<InetAddressAndPort>> hexDigests() {
         Map<String, Collection<InetAddressAndPort>> hexDigests = new HashMap<>();
         digests.asMap().forEach((k, v) -> hexDigests.put(ByteBufferUtil.bytesToHex(k), v));
         return hexDigests;
     }
 
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         RepairedDataTracker that = (RepairedDataTracker) o;
-        return Objects.equals(digests, that.digests) &&
-               Objects.equals(inconclusiveDigests, that.inconclusiveDigests);
+        return Objects.equals(digests, that.digests) && Objects.equals(inconclusiveDigests, that.inconclusiveDigests);
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(digests, inconclusiveDigests);
     }
 }

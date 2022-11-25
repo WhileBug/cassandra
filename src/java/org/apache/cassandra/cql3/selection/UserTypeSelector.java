@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.cql3.FieldIdentifier;
@@ -39,64 +38,56 @@ import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
  * <code>Selector</code> for literal map (e.g. {'min' : min(value), 'max' : max(value), 'count' : count(value)}).
- *
  */
-final class UserTypeSelector extends Selector
-{
+final class UserTypeSelector extends Selector {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UserTypeSelector.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UserTypeSelector.class);
+
     /**
      * The map type.
      */
-    private final AbstractType<?> type;
+    private final transient AbstractType<?> type;
 
     /**
      * The user type fields
      */
-    private final Map<FieldIdentifier, Selector> fields;
+    private final transient Map<FieldIdentifier, Selector> fields;
 
-    public static Factory newFactory(final AbstractType<?> type, final Map<FieldIdentifier, Factory> factories)
-    {
-        return new Factory()
-        {
-            protected String getColumnName()
-            {
+    public static Factory newFactory(final AbstractType<?> type, final Map<FieldIdentifier, Factory> factories) {
+        return new Factory() {
+
+            protected String getColumnName() {
                 return UserTypes.userTypeToString(factories, Factory::getColumnName);
             }
 
-            protected AbstractType<?> getReturnType()
-            {
+            protected AbstractType<?> getReturnType() {
                 return type;
             }
 
-            protected final void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn)
-            {
+            protected final void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultsColumn) {
                 SelectionColumnMapping tmpMapping = SelectionColumnMapping.newMapping();
-                for (Factory factory : factories.values())
-                {
+                for (Factory factory : factories.values()) {
                     factory.addColumnMapping(tmpMapping, resultsColumn);
                 }
-
                 if (tmpMapping.getMappings().get(resultsColumn).isEmpty())
                     // add a null mapping for cases where the collection is empty
-                    mapping.addMapping(resultsColumn, (ColumnMetadata)null);
+                    mapping.addMapping(resultsColumn, (ColumnMetadata) null);
                 else
                     // collate the mapped columns from the child factories & add those
                     mapping.addMapping(resultsColumn, tmpMapping.getMappings().values());
             }
 
-            public Selector newInstance(final QueryOptions options)
-            {
+            public Selector newInstance(final QueryOptions options) {
                 Map<FieldIdentifier, Selector> fields = new HashMap<>(factories.size());
-                for (Entry<FieldIdentifier, Factory> factory : factories.entrySet())
-                    fields.put(factory.getKey(), factory.getValue().newInstance(options));
-
+                for (Entry<FieldIdentifier, Factory> factory : factories.entrySet()) fields.put(factory.getKey(), factory.getValue().newInstance(options));
                 return new UserTypeSelector(type, fields);
             }
 
             @Override
-            public boolean isAggregateSelectorFactory()
-            {
-                for (Factory factory : factories.values())
-                {
+            public boolean isAggregateSelectorFactory() {
+                for (Factory factory : factories.values()) {
                     if (factory.isAggregateSelectorFactory())
                         return true;
                 }
@@ -104,17 +95,13 @@ final class UserTypeSelector extends Selector
             }
 
             @Override
-            public void addFunctionsTo(List<Function> functions)
-            {
-                for (Factory factory : factories.values())
-                    factory.addFunctionsTo(functions);
+            public void addFunctionsTo(List<Function> functions) {
+                for (Factory factory : factories.values()) factory.addFunctionsTo(functions);
             }
 
             @Override
-            public boolean isWritetimeSelectorFactory()
-            {
-                for (Factory factory : factories.values())
-                {
+            public boolean isWritetimeSelectorFactory() {
+                for (Factory factory : factories.values()) {
                     if (factory.isWritetimeSelectorFactory())
                         return true;
                 }
@@ -122,10 +109,8 @@ final class UserTypeSelector extends Selector
             }
 
             @Override
-            public boolean isTTLSelectorFactory()
-            {
-                for (Factory factory : factories.values())
-                {
+            public boolean isTTLSelectorFactory() {
+                for (Factory factory : factories.values()) {
                     if (factory.isTTLSelectorFactory())
                         return true;
                 }
@@ -133,10 +118,8 @@ final class UserTypeSelector extends Selector
             }
 
             @Override
-            boolean areAllFetchedColumnsKnown()
-            {
-                for (Factory factory : factories.values())
-                {
+            boolean areAllFetchedColumnsKnown() {
+                for (Factory factory : factories.values()) {
                     if (!factory.areAllFetchedColumnsKnown())
                         return false;
                 }
@@ -144,32 +127,24 @@ final class UserTypeSelector extends Selector
             }
 
             @Override
-            void addFetchedColumns(Builder builder)
-            {
-                for (Factory factory : factories.values())
-                    factory.addFetchedColumns(builder);
+            void addFetchedColumns(Builder builder) {
+                for (Factory factory : factories.values()) factory.addFetchedColumns(builder);
             }
         };
     }
 
-    public void addFetchedColumns(ColumnFilter.Builder builder)
-    {
-        for (Selector field : fields.values())
-            field.addFetchedColumns(builder);
+    public void addFetchedColumns(ColumnFilter.Builder builder) {
+        for (Selector field : fields.values()) field.addFetchedColumns(builder);
     }
 
-    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException
-    {
-        for (Selector field : fields.values())
-            field.addInput(protocolVersion, rs);
+    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException {
+        for (Selector field : fields.values()) field.addInput(protocolVersion, rs);
     }
 
-    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException
-    {
+    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException {
         UserType userType = (UserType) type;
         ByteBuffer[] buffers = new ByteBuffer[userType.size()];
-        for (int i = 0, m = userType.size(); i < m; i++)
-        {
+        for (int i = 0, m = userType.size(); i < m; i++) {
             Selector selector = fields.get(userType.fieldName(i));
             if (selector != null)
                 buffers[i] = selector.getOutput(protocolVersion);
@@ -177,25 +152,20 @@ final class UserTypeSelector extends Selector
         return TupleType.buildValue(buffers);
     }
 
-    public void reset()
-    {
-        for (Selector field : fields.values())
-            field.reset();
+    public void reset() {
+        for (Selector field : fields.values()) field.reset();
     }
 
-    public AbstractType<?> getType()
-    {
+    public AbstractType<?> getType() {
         return type;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return UserTypes.userTypeToString(fields);
     }
 
-    private UserTypeSelector(AbstractType<?> type, Map<FieldIdentifier, Selector> fields)
-    {
+    private UserTypeSelector(AbstractType<?> type, Map<FieldIdentifier, Selector> fields) {
         this.type = type;
         this.fields = fields;
     }

@@ -24,74 +24,60 @@ import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.RegularAndStaticColumns;
 import org.apache.cassandra.db.rows.*;
-
 import static org.apache.cassandra.utils.Throwables.merge;
 
-public abstract class BaseRows<R extends Unfiltered, I extends BaseRowIterator<? extends Unfiltered>>
-extends BaseIterator<Unfiltered, I, R>
-implements BaseRowIterator<R>
-{
+public abstract class BaseRows<R extends Unfiltered, I extends BaseRowIterator<? extends Unfiltered>> extends BaseIterator<Unfiltered, I, R> implements BaseRowIterator<R> {
 
-    private Row staticRow;
-    private DecoratedKey partitionKey;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BaseRows.class);
 
-    public BaseRows(I input)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BaseRows.class);
+
+    private transient Row staticRow;
+
+    private transient DecoratedKey partitionKey;
+
+    public BaseRows(I input) {
         super(input);
         staticRow = input.staticRow();
         partitionKey = input.partitionKey();
     }
 
     // swap parameter order to avoid casting errors
-    BaseRows(BaseRows<?, ? extends I> copyFrom)
-    {
+    BaseRows(BaseRows<?, ? extends I> copyFrom) {
         super(copyFrom);
         staticRow = copyFrom.staticRow;
         partitionKey = copyFrom.partitionKey();
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return input.metadata();
     }
 
-    public boolean isReverseOrder()
-    {
+    public boolean isReverseOrder() {
         return input.isReverseOrder();
     }
 
-    public RegularAndStaticColumns columns()
-    {
+    public RegularAndStaticColumns columns() {
         return input.columns();
     }
 
-    public DecoratedKey partitionKey()
-    {
+    public DecoratedKey partitionKey() {
         return input.partitionKey();
     }
 
-    public Row staticRow()
-    {
+    public Row staticRow() {
         return staticRow == null ? Rows.EMPTY_STATIC_ROW : staticRow;
     }
 
-
     // **************************
-
-
     @Override
-    protected Throwable runOnClose(int length)
-    {
+    protected Throwable runOnClose(int length) {
         Throwable fail = null;
         Transformation[] fs = stack;
-        for (int i = 0 ; i < length ; i++)
-        {
-            try
-            {
+        for (int i = 0; i < length; i++) {
+            try {
                 fs[i].onPartitionClose();
-            }
-            catch (Throwable t)
-            {
+            } catch (Throwable t) {
                 fail = merge(fail, t);
             }
         }
@@ -99,11 +85,9 @@ implements BaseRowIterator<R>
     }
 
     @Override
-    void add(Transformation transformation)
-    {
+    void add(Transformation transformation) {
         transformation.attachTo(this);
         super.add(transformation);
-
         // transform any existing data
         if (staticRow != null)
             staticRow = transformation.applyToStatic(staticRow);
@@ -112,50 +96,32 @@ implements BaseRowIterator<R>
     }
 
     @Override
-    protected Unfiltered applyOne(Unfiltered value, Transformation transformation)
-    {
-        return value == null
-               ? null
-               : value instanceof Row
-                 ? transformation.applyToRow((Row) value)
-                 : transformation.applyToMarker((RangeTombstoneMarker) value);
+    protected Unfiltered applyOne(Unfiltered value, Transformation transformation) {
+        return value == null ? null : value instanceof Row ? transformation.applyToRow((Row) value) : transformation.applyToMarker((RangeTombstoneMarker) value);
     }
 
     @Override
-    public final boolean hasNext()
-    {
+    public final boolean hasNext() {
         Stop stop = this.stop;
-        while (this.next == null)
-        {
+        while (this.next == null) {
             Transformation[] fs = stack;
             int len = length;
-
-            while (!stop.isSignalled && !stopChild.isSignalled && input.hasNext())
-            {
+            while (!stop.isSignalled && !stopChild.isSignalled && input.hasNext()) {
                 Unfiltered next = input.next();
-
-                if (next.isRow())
-                {
+                if (next.isRow()) {
                     Row row = (Row) next;
-                    for (int i = 0 ; row != null && i < len ; i++)
-                        row = fs[i].applyToRow(row);
+                    for (int i = 0; row != null && i < len; i++) row = fs[i].applyToRow(row);
                     next = row;
-                }
-                else
-                {
+                } else {
                     RangeTombstoneMarker rtm = (RangeTombstoneMarker) next;
-                    for (int i = 0 ; rtm != null && i < len ; i++)
-                        rtm = fs[i].applyToMarker(rtm);
+                    for (int i = 0; rtm != null && i < len; i++) rtm = fs[i].applyToMarker(rtm);
                     next = rtm;
                 }
-
-                if (next != null)
-                {
+                if (next != null) {
                     this.next = next;
                     return true;
                 }
             }
-
             if (stop.isSignalled || stopChild.isSignalled || !hasMoreContents())
                 return false;
         }

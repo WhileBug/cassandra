@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.repair;
 
 import java.util.ArrayList;
@@ -28,7 +27,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
@@ -38,10 +36,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.compaction.CompactionInfo;
 import org.apache.cassandra.db.compaction.CompactionManager;
@@ -54,7 +50,6 @@ import org.apache.cassandra.io.sstable.metadata.StatsMetadata;
 import org.apache.cassandra.locator.RangesAtEndpoint;
 import org.apache.cassandra.service.ActiveRepairService;
 import org.apache.cassandra.utils.concurrent.Refs;
-
 import static org.apache.cassandra.service.ActiveRepairService.NO_PENDING_REPAIR;
 import static org.apache.cassandra.service.ActiveRepairService.UNREPAIRED_SSTABLE;
 
@@ -63,28 +58,34 @@ import static org.apache.cassandra.service.ActiveRepairService.UNREPAIRED_SSTABL
  * for a give token range into a pending repair group so they can't be compacted with other sstables
  * while they are being repaired.
  */
-public class PendingAntiCompaction
-{
-    private static final Logger logger = LoggerFactory.getLogger(PendingAntiCompaction.class);
-    private static final int ACQUIRE_SLEEP_MS = Integer.getInteger("cassandra.acquire_sleep_ms", 1000);
-    private static final int ACQUIRE_RETRY_SECONDS = Integer.getInteger("cassandra.acquire_retry_seconds", 60);
+public class PendingAntiCompaction {
 
-    public static class AcquireResult
-    {
-        final ColumnFamilyStore cfs;
-        final Refs<SSTableReader> refs;
-        final LifecycleTransaction txn;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PendingAntiCompaction.class);
 
-        AcquireResult(ColumnFamilyStore cfs, Refs<SSTableReader> refs, LifecycleTransaction txn)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PendingAntiCompaction.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(PendingAntiCompaction.class);
+
+    private static final transient int ACQUIRE_SLEEP_MS = Integer.getInteger("cassandra.acquire_sleep_ms", 1000);
+
+    private static final transient int ACQUIRE_RETRY_SECONDS = Integer.getInteger("cassandra.acquire_retry_seconds", 60);
+
+    public static class AcquireResult {
+
+        final transient ColumnFamilyStore cfs;
+
+        final transient Refs<SSTableReader> refs;
+
+        final transient LifecycleTransaction txn;
+
+        AcquireResult(ColumnFamilyStore cfs, Refs<SSTableReader> refs, LifecycleTransaction txn) {
             this.cfs = cfs;
             this.refs = refs;
             this.txn = txn;
         }
 
         @VisibleForTesting
-        public void abort()
-        {
+        public void abort() {
             if (txn != null)
                 txn.abort();
             if (refs != null)
@@ -92,62 +93,47 @@ public class PendingAntiCompaction
         }
     }
 
-    static class SSTableAcquisitionException extends RuntimeException
-    {
-        SSTableAcquisitionException(String message)
-        {
+    static class SSTableAcquisitionException extends RuntimeException {
+
+        SSTableAcquisitionException(String message) {
             super(message);
         }
     }
 
     @VisibleForTesting
-    static class AntiCompactionPredicate implements Predicate<SSTableReader>
-    {
-        private final Collection<Range<Token>> ranges;
-        private final UUID prsid;
+    static class AntiCompactionPredicate implements Predicate<SSTableReader> {
 
-        public AntiCompactionPredicate(Collection<Range<Token>> ranges, UUID prsid)
-        {
+        private final transient Collection<Range<Token>> ranges;
+
+        private final transient UUID prsid;
+
+        public AntiCompactionPredicate(Collection<Range<Token>> ranges, UUID prsid) {
             this.ranges = ranges;
             this.prsid = prsid;
         }
 
-        public boolean apply(SSTableReader sstable)
-        {
+        public boolean apply(SSTableReader sstable) {
             if (!sstable.intersects(ranges))
                 return false;
-
             StatsMetadata metadata = sstable.getSSTableMetadata();
-
             // exclude repaired sstables
             if (metadata.repairedAt != UNREPAIRED_SSTABLE)
                 return false;
-
-            if (!sstable.descriptor.version.hasPendingRepair())
-            {
-                String message = String.format("Prepare phase failed because it encountered legacy sstables that don't " +
-                                               "support pending repair, run upgradesstables before starting incremental " +
-                                               "repairs, repair session (%s)", prsid);
+            if (!sstable.descriptor.version.hasPendingRepair()) {
+                String message = String.format("Prepare phase failed because it encountered legacy sstables that don't " + "support pending repair, run upgradesstables before starting incremental " + "repairs, repair session (%s)", prsid);
                 throw new SSTableAcquisitionException(message);
             }
-
             // exclude sstables pending repair, but record session ids for
             // non-finalized sessions for a later error message
-            if (metadata.pendingRepair != NO_PENDING_REPAIR)
-            {
-                if (!ActiveRepairService.instance.consistent.local.isSessionFinalized(metadata.pendingRepair))
-                {
-                    String message = String.format("Prepare phase for incremental repair session %s has failed because it encountered " +
-                                                   "intersecting sstables belonging to another incremental repair session (%s). This is " +
-                                                   "caused by starting an incremental repair session before a previous one has completed. " +
-                                                   "Check nodetool repair_admin for hung sessions and fix them.", prsid, metadata.pendingRepair);
+            if (metadata.pendingRepair != NO_PENDING_REPAIR) {
+                if (!ActiveRepairService.instance.consistent.local.isSessionFinalized(metadata.pendingRepair)) {
+                    String message = String.format("Prepare phase for incremental repair session %s has failed because it encountered " + "intersecting sstables belonging to another incremental repair session (%s). This is " + "caused by starting an incremental repair session before a previous one has completed. " + "Check nodetool repair_admin for hung sessions and fix them.", prsid, metadata.pendingRepair);
                     throw new SSTableAcquisitionException(message);
                 }
                 return false;
             }
             Collection<CompactionInfo> cis = CompactionManager.instance.active.getCompactionsForSSTable(sstable, OperationType.ANTICOMPACTION);
-            if (cis != null && !cis.isEmpty())
-            {
+            if (cis != null && !cis.isEmpty()) {
                 // todo: start tracking the parent repair session id that created the anticompaction to be able to give a better error messsage here:
                 StringBuilder sb = new StringBuilder();
                 sb.append("Prepare phase for incremental repair session ");
@@ -155,31 +141,32 @@ public class PendingAntiCompaction
                 sb.append(" has failed because it encountered intersecting sstables belonging to another incremental repair session. ");
                 sb.append("This is caused by starting multiple conflicting incremental repairs at the same time. ");
                 sb.append("Conflicting anticompactions: ");
-                for (CompactionInfo ci : cis)
-                    sb.append(ci.getTaskId() == null ? "no compaction id" : ci.getTaskId()).append(':').append(ci.getSSTables()).append(',');
+                for (CompactionInfo ci : cis) sb.append(ci.getTaskId() == null ? "no compaction id" : ci.getTaskId()).append(':').append(ci.getSSTables()).append(',');
                 throw new SSTableAcquisitionException(sb.toString());
             }
             return true;
         }
     }
 
-    public static class AcquisitionCallable implements Callable<AcquireResult>
-    {
-        private final ColumnFamilyStore cfs;
-        private final UUID sessionID;
-        private final AntiCompactionPredicate predicate;
-        private final int acquireRetrySeconds;
-        private final int acquireSleepMillis;
+    public static class AcquisitionCallable implements Callable<AcquireResult> {
+
+        private final transient ColumnFamilyStore cfs;
+
+        private final transient UUID sessionID;
+
+        private final transient AntiCompactionPredicate predicate;
+
+        private final transient int acquireRetrySeconds;
+
+        private final transient int acquireSleepMillis;
 
         @VisibleForTesting
-        public AcquisitionCallable(ColumnFamilyStore cfs, Collection<Range<Token>> ranges, UUID sessionID, int acquireRetrySeconds, int acquireSleepMillis)
-        {
+        public AcquisitionCallable(ColumnFamilyStore cfs, Collection<Range<Token>> ranges, UUID sessionID, int acquireRetrySeconds, int acquireSleepMillis) {
             this(cfs, sessionID, acquireRetrySeconds, acquireSleepMillis, new AntiCompactionPredicate(ranges, sessionID));
         }
 
         @VisibleForTesting
-        AcquisitionCallable(ColumnFamilyStore cfs, UUID sessionID, int acquireRetrySeconds, int acquireSleepMillis, AntiCompactionPredicate predicate)
-        {
+        AcquisitionCallable(ColumnFamilyStore cfs, UUID sessionID, int acquireRetrySeconds, int acquireSleepMillis, AntiCompactionPredicate predicate) {
             this.cfs = cfs;
             this.sessionID = sessionID;
             this.predicate = predicate;
@@ -188,33 +175,26 @@ public class PendingAntiCompaction
         }
 
         @SuppressWarnings("resource")
-        private AcquireResult acquireTuple()
-        {
+        private AcquireResult acquireTuple() {
             // this method runs with compactions stopped & disabled
-            try
-            {
+            try {
                 // using predicate might throw if there are conflicting ranges
                 Set<SSTableReader> sstables = cfs.getLiveSSTables().stream().filter(predicate).collect(Collectors.toSet());
                 if (sstables.isEmpty())
                     return new AcquireResult(cfs, null, null);
-
                 LifecycleTransaction txn = cfs.getTracker().tryModify(sstables, OperationType.ANTICOMPACTION);
                 if (txn != null)
                     return new AcquireResult(cfs, Refs.ref(sstables), txn);
                 else
                     logger.error("Could not mark compacting for {} (sstables = {}, compacting = {})", sessionID, sstables, cfs.getTracker().getCompacting());
-            }
-            catch (SSTableAcquisitionException e)
-            {
+            } catch (SSTableAcquisitionException e) {
                 logger.warn(e.getMessage());
                 logger.debug("Got exception trying to acquire sstables", e);
             }
-
             return null;
         }
 
-        public AcquireResult call()
-        {
+        public AcquireResult call() {
             logger.debug("acquiring sstables for pending anti compaction on session {}", sessionID);
             // try to modify after cancelling running compactions. This will attempt to cancel in flight compactions including the given sstables for
             // up to a minute, after which point, null will be returned
@@ -224,29 +204,17 @@ public class PendingAntiCompaction
             // and we only retry when runWithCompactionsDisabled throws when uses the predicate, not when acquireTuple is.
             // This avoids the case when we have an sstable [0, 100] and a user starts a repair on [0, 50] and then [51, 100] before
             // anticompaction has finished but not when the second repair is [25, 75] for example - then we will fail it without retry.
-            do
-            {
-                try
-                {
+            do {
+                try {
                     // Note that anticompactions are not disabled when running this. This is safe since runWithCompactionsDisabled
                     // is synchronized - acquireTuple and predicate can only be run by a single thread (for the given cfs).
                     return cfs.runWithCompactionsDisabled(this::acquireTuple, predicate, false, false, false);
-                }
-                catch (SSTableAcquisitionException e)
-                {
-                    logger.warn("Session {} failed acquiring sstables: {}, retrying every {}ms for another {}s",
-                                sessionID,
-                                e.getMessage(),
-                                acquireSleepMillis,
-                                TimeUnit.SECONDS.convert(delay + start - System.currentTimeMillis(), TimeUnit.MILLISECONDS));
+                } catch (SSTableAcquisitionException e) {
+                    logger.warn("Session {} failed acquiring sstables: {}, retrying every {}ms for another {}s", sessionID, e.getMessage(), acquireSleepMillis, TimeUnit.SECONDS.convert(delay + start - System.currentTimeMillis(), TimeUnit.MILLISECONDS));
                     Uninterruptibles.sleepUninterruptibly(acquireSleepMillis, TimeUnit.MILLISECONDS);
-
                     if (System.currentTimeMillis() - start > delay)
                         logger.warn("{} Timed out waiting to acquire sstables", sessionID, e);
-
-                }
-                catch (Throwable t)
-                {
+                } catch (Throwable t) {
                     logger.error("Got exception disabling compactions for session {}", sessionID, t);
                     throw t;
                 }
@@ -255,29 +223,27 @@ public class PendingAntiCompaction
         }
     }
 
-    static class AcquisitionCallback implements AsyncFunction<List<AcquireResult>, Object>
-    {
-        private final UUID parentRepairSession;
-        private final RangesAtEndpoint tokenRanges;
-        private final BooleanSupplier isCancelled;
+    static class AcquisitionCallback implements AsyncFunction<List<AcquireResult>, Object> {
 
-        public AcquisitionCallback(UUID parentRepairSession, RangesAtEndpoint tokenRanges, BooleanSupplier isCancelled)
-        {
+        private final transient UUID parentRepairSession;
+
+        private final transient RangesAtEndpoint tokenRanges;
+
+        private final transient BooleanSupplier isCancelled;
+
+        public AcquisitionCallback(UUID parentRepairSession, RangesAtEndpoint tokenRanges, BooleanSupplier isCancelled) {
             this.parentRepairSession = parentRepairSession;
             this.tokenRanges = tokenRanges;
             this.isCancelled = isCancelled;
         }
 
-        ListenableFuture<?> submitPendingAntiCompaction(AcquireResult result)
-        {
+        ListenableFuture<?> submitPendingAntiCompaction(AcquireResult result) {
             return CompactionManager.instance.submitPendingAntiCompaction(result.cfs, tokenRanges, result.refs, result.txn, parentRepairSession, isCancelled);
         }
 
-        private static boolean shouldAbort(AcquireResult result)
-        {
+        private static boolean shouldAbort(AcquireResult result) {
             if (result == null)
                 return true;
-
             // sstables in the acquire result are now marked compacting and are locked to this anti compaction. If any
             // of them are marked repaired or pending repair, acquisition raced with another pending anti-compaction, or
             // possibly even a repair session, and we need to abort to prevent sstables from moving between sessions.
@@ -287,69 +253,51 @@ public class PendingAntiCompaction
             });
         }
 
-        public ListenableFuture apply(List<AcquireResult> results) throws Exception
-        {
-            if (Iterables.any(results, AcquisitionCallback::shouldAbort))
-            {
+        public ListenableFuture apply(List<AcquireResult> results) throws Exception {
+            if (Iterables.any(results, AcquisitionCallback::shouldAbort)) {
                 // Release all sstables, and report failure back to coordinator
-                for (AcquireResult result : results)
-                {
-                    if (result != null)
-                    {
+                for (AcquireResult result : results) {
+                    if (result != null) {
                         logger.info("Releasing acquired sstables for {}.{}", result.cfs.metadata.keyspace, result.cfs.metadata.name);
                         result.abort();
                     }
                 }
-                String message = String.format("Prepare phase for incremental repair session %s was unable to " +
-                                               "acquire exclusive access to the neccesary sstables. " +
-                                               "This is usually caused by running multiple incremental repairs on nodes that share token ranges",
-                                               parentRepairSession);
+                String message = String.format("Prepare phase for incremental repair session %s was unable to " + "acquire exclusive access to the neccesary sstables. " + "This is usually caused by running multiple incremental repairs on nodes that share token ranges", parentRepairSession);
                 logger.warn(message);
                 return Futures.immediateFailedFuture(new SSTableAcquisitionException(message));
-            }
-            else
-            {
+            } else {
                 List<ListenableFuture<?>> pendingAntiCompactions = new ArrayList<>(results.size());
-                for (AcquireResult result : results)
-                {
-                    if (result.txn != null)
-                    {
+                for (AcquireResult result : results) {
+                    if (result.txn != null) {
                         ListenableFuture<?> future = submitPendingAntiCompaction(result);
                         pendingAntiCompactions.add(future);
                     }
                 }
-
                 return Futures.allAsList(pendingAntiCompactions);
             }
         }
     }
 
-    private final UUID prsId;
-    private final Collection<ColumnFamilyStore> tables;
-    private final RangesAtEndpoint tokenRanges;
-    private final ExecutorService executor;
-    private final int acquireRetrySeconds;
-    private final int acquireSleepMillis;
-    private final BooleanSupplier isCancelled;
+    private final transient UUID prsId;
 
-    public PendingAntiCompaction(UUID prsId,
-                                 Collection<ColumnFamilyStore> tables,
-                                 RangesAtEndpoint tokenRanges,
-                                 ExecutorService executor,
-                                 BooleanSupplier isCancelled)
-    {
+    private final transient Collection<ColumnFamilyStore> tables;
+
+    private final transient RangesAtEndpoint tokenRanges;
+
+    private final transient ExecutorService executor;
+
+    private final transient int acquireRetrySeconds;
+
+    private final transient int acquireSleepMillis;
+
+    private final transient BooleanSupplier isCancelled;
+
+    public PendingAntiCompaction(UUID prsId, Collection<ColumnFamilyStore> tables, RangesAtEndpoint tokenRanges, ExecutorService executor, BooleanSupplier isCancelled) {
         this(prsId, tables, tokenRanges, ACQUIRE_RETRY_SECONDS, ACQUIRE_SLEEP_MS, executor, isCancelled);
     }
 
     @VisibleForTesting
-    PendingAntiCompaction(UUID prsId,
-                          Collection<ColumnFamilyStore> tables,
-                          RangesAtEndpoint tokenRanges,
-                          int acquireRetrySeconds,
-                          int acquireSleepMillis,
-                          ExecutorService executor,
-                          BooleanSupplier isCancelled)
-    {
+    PendingAntiCompaction(UUID prsId, Collection<ColumnFamilyStore> tables, RangesAtEndpoint tokenRanges, int acquireRetrySeconds, int acquireSleepMillis, ExecutorService executor, BooleanSupplier isCancelled) {
         this.prsId = prsId;
         this.tables = tables;
         this.tokenRanges = tokenRanges;
@@ -359,11 +307,9 @@ public class PendingAntiCompaction
         this.isCancelled = isCancelled;
     }
 
-    public ListenableFuture run()
-    {
+    public ListenableFuture run() {
         List<ListenableFutureTask<AcquireResult>> tasks = new ArrayList<>(tables.size());
-        for (ColumnFamilyStore cfs : tables)
-        {
+        for (ColumnFamilyStore cfs : tables) {
             cfs.forceBlockingFlush();
             ListenableFutureTask<AcquireResult> task = ListenableFutureTask.create(getAcquisitionCallable(cfs, tokenRanges.ranges(), prsId, acquireRetrySeconds, acquireSleepMillis));
             executor.submit(task);
@@ -375,14 +321,12 @@ public class PendingAntiCompaction
     }
 
     @VisibleForTesting
-    protected AcquisitionCallable getAcquisitionCallable(ColumnFamilyStore cfs, Set<Range<Token>> ranges, UUID prsId, int acquireRetrySeconds, int acquireSleepMillis)
-    {
+    protected AcquisitionCallable getAcquisitionCallable(ColumnFamilyStore cfs, Set<Range<Token>> ranges, UUID prsId, int acquireRetrySeconds, int acquireSleepMillis) {
         return new AcquisitionCallable(cfs, ranges, prsId, acquireRetrySeconds, acquireSleepMillis);
     }
 
     @VisibleForTesting
-    protected AcquisitionCallback getAcquisitionCallback(UUID prsId, RangesAtEndpoint tokenRanges)
-    {
+    protected AcquisitionCallback getAcquisitionCallback(UUID prsId, RangesAtEndpoint tokenRanges) {
         return new AcquisitionCallback(prsId, tokenRanges, isCancelled);
     }
 }

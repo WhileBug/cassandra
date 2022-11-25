@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.datastax.driver.core;
 
 import java.io.UnsupportedEncodingException;
@@ -24,9 +23,13 @@ import java.security.NoSuchAlgorithmException;
 
 // Unfortunately, MD5Digest and fields in PreparedStatement are package-private, so the easiest way to test these
 // things while still using the driver was to create a class in DS package.
-public class PreparedStatementHelper
-{
-    private static final MessageDigest cachedDigest;
+public class PreparedStatementHelper {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PreparedStatementHelper.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PreparedStatementHelper.class);
+
+    private static final transient MessageDigest cachedDigest;
 
     static {
         try {
@@ -36,67 +39,49 @@ public class PreparedStatementHelper
         }
     }
 
-    private static MD5Digest id(PreparedStatement statement)
-    {
+    private static MD5Digest id(PreparedStatement statement) {
         return statement.getPreparedId().boundValuesMetadata.id;
     }
 
-    public static void assertStable(PreparedStatement first, PreparedStatement subsequent)
-    {
-        if (!id(first).equals(id(subsequent)))
-        {
-            throw new AssertionError(String.format("Subsequent id (%s) is different from the first one (%s)",
-                                                   id(first),
-                                                   id(subsequent)));
+    public static void assertStable(PreparedStatement first, PreparedStatement subsequent) {
+        if (!id(first).equals(id(subsequent))) {
+            throw new AssertionError(String.format("Subsequent id (%s) is different from the first one (%s)", id(first), id(subsequent)));
         }
     }
 
-    public static void assertHashWithoutKeyspace(PreparedStatement statement, String queryString, String ks)
-    {
+    public static void assertHashWithoutKeyspace(PreparedStatement statement, String queryString, String ks) {
         MD5Digest returned = id(statement);
-        if (!returned.equals(hashWithoutKeyspace(queryString, ks)))
-        {
+        if (!returned.equals(hashWithoutKeyspace(queryString, ks))) {
             if (returned.equals(hashWithKeyspace(queryString, ks)))
-                throw new AssertionError(String.format("Got hash with keyspace from the cluster: %s, should have gotten %s",
-                                                       returned, hashWithoutKeyspace(queryString, ks)));
+                throw new AssertionError(String.format("Got hash with keyspace from the cluster: %s, should have gotten %s", returned, hashWithoutKeyspace(queryString, ks)));
             else
-                throw new AssertionError(String.format("Got unrecognized hash: %s",
-                                                       returned));
+                throw new AssertionError(String.format("Got unrecognized hash: %s", returned));
         }
     }
 
-    public static void assertHashWithKeyspace(PreparedStatement statement, String queryString, String ks)
-    {
+    public static void assertHashWithKeyspace(PreparedStatement statement, String queryString, String ks) {
         MD5Digest returned = id(statement);
-        if (!returned.equals(hashWithKeyspace(queryString, ks)))
-        {
+        if (!returned.equals(hashWithKeyspace(queryString, ks))) {
             if (returned.equals(hashWithoutKeyspace(queryString, ks)))
-                throw new AssertionError(String.format("Got hash without keyspace from the cluster: %s, should have gotten %s",
-                                                       returned, hashWithKeyspace(queryString, ks)));
+                throw new AssertionError(String.format("Got hash without keyspace from the cluster: %s, should have gotten %s", returned, hashWithKeyspace(queryString, ks)));
             else
-                throw new AssertionError(String.format("Got unrecognized hash: %s",
-                                                       returned));
+                throw new AssertionError(String.format("Got unrecognized hash: %s", returned));
         }
-
     }
 
-    public static boolean equalsToHashWithKeyspace(byte[] digest, String queryString, String ks)
-    {
+    public static boolean equalsToHashWithKeyspace(byte[] digest, String queryString, String ks) {
         return MD5Digest.wrap(digest).equals(hashWithKeyspace(queryString, ks));
     }
 
-    public static MD5Digest hashWithKeyspace(String queryString, String ks)
-    {
+    public static MD5Digest hashWithKeyspace(String queryString, String ks) {
         return computeId(queryString, ks);
     }
 
-    public static boolean equalsToHashWithoutKeyspace(byte[] digest, String queryString, String ks)
-    {
+    public static boolean equalsToHashWithoutKeyspace(byte[] digest, String queryString, String ks) {
         return MD5Digest.wrap(digest).equals(hashWithoutKeyspace(queryString, ks));
     }
 
-    public static MD5Digest hashWithoutKeyspace(String queryString, String ks)
-    {
+    public static MD5Digest hashWithoutKeyspace(String queryString, String ks) {
         return computeId(queryString, null);
     }
 

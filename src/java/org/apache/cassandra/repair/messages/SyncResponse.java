@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -32,28 +31,34 @@ import org.apache.cassandra.repair.RepairJobDesc;
 import org.apache.cassandra.streaming.SessionSummary;
 
 /**
- *
  * @since 2.0
  */
-public class SyncResponse extends RepairMessage
-{
-    /** nodes that involved in this sync */
-    public final SyncNodePair nodes;
-    /** true if sync success, false otherwise */
-    public final boolean success;
+public class SyncResponse extends RepairMessage {
 
-    public final List<SessionSummary> summaries;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SyncResponse.class);
 
-    public SyncResponse(RepairJobDesc desc, SyncNodePair nodes, boolean success, List<SessionSummary> summaries)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SyncResponse.class);
+
+    /**
+     * nodes that involved in this sync
+     */
+    public final transient SyncNodePair nodes;
+
+    /**
+     * true if sync success, false otherwise
+     */
+    public final transient boolean success;
+
+    public final transient List<SessionSummary> summaries;
+
+    public SyncResponse(RepairJobDesc desc, SyncNodePair nodes, boolean success, List<SessionSummary> summaries) {
         super(desc);
         this.nodes = nodes;
         this.success = success;
         this.summaries = summaries;
     }
 
-    public SyncResponse(RepairJobDesc desc, InetAddressAndPort endpoint1, InetAddressAndPort endpoint2, boolean success, List<SessionSummary> summaries)
-    {
+    public SyncResponse(RepairJobDesc desc, InetAddressAndPort endpoint1, InetAddressAndPort endpoint2, boolean success, List<SessionSummary> summaries) {
         super(desc);
         this.summaries = summaries;
         this.nodes = new SyncNodePair(endpoint1, endpoint2);
@@ -61,66 +66,50 @@ public class SyncResponse extends RepairMessage
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (!(o instanceof SyncResponse))
             return false;
-        SyncResponse other = (SyncResponse)o;
-        return desc.equals(other.desc) &&
-               success == other.success &&
-               nodes.equals(other.nodes) &&
-               summaries.equals(other.summaries);
+        SyncResponse other = (SyncResponse) o;
+        return desc.equals(other.desc) && success == other.success && nodes.equals(other.nodes) && summaries.equals(other.summaries);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(desc, success, nodes, summaries);
     }
 
-    public static final IVersionedSerializer<SyncResponse> serializer = new IVersionedSerializer<SyncResponse>()
-    {
-        public void serialize(SyncResponse message, DataOutputPlus out, int version) throws IOException
-        {
+    public static final transient IVersionedSerializer<SyncResponse> serializer = new IVersionedSerializer<SyncResponse>() {
+
+        public void serialize(SyncResponse message, DataOutputPlus out, int version) throws IOException {
             RepairJobDesc.serializer.serialize(message.desc, out, version);
             SyncNodePair.serializer.serialize(message.nodes, out, version);
             out.writeBoolean(message.success);
-
             out.writeInt(message.summaries.size());
-            for (SessionSummary summary: message.summaries)
-            {
+            for (SessionSummary summary : message.summaries) {
                 SessionSummary.serializer.serialize(summary, out, version);
             }
         }
 
-        public SyncResponse deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public SyncResponse deserialize(DataInputPlus in, int version) throws IOException {
             RepairJobDesc desc = RepairJobDesc.serializer.deserialize(in, version);
             SyncNodePair nodes = SyncNodePair.serializer.deserialize(in, version);
             boolean success = in.readBoolean();
-
             int numSummaries = in.readInt();
             List<SessionSummary> summaries = new ArrayList<>(numSummaries);
-            for (int i=0; i<numSummaries; i++)
-            {
+            for (int i = 0; i < numSummaries; i++) {
                 summaries.add(SessionSummary.serializer.deserialize(in, version));
             }
-
             return new SyncResponse(desc, nodes, success, summaries);
         }
 
-        public long serializedSize(SyncResponse message, int version)
-        {
+        public long serializedSize(SyncResponse message, int version) {
             long size = RepairJobDesc.serializer.serializedSize(message.desc, version);
             size += SyncNodePair.serializer.serializedSize(message.nodes, version);
             size += TypeSizes.sizeof(message.success);
-
             size += TypeSizes.sizeof(message.summaries.size());
-            for (SessionSummary summary: message.summaries)
-            {
+            for (SessionSummary summary : message.summaries) {
                 size += SessionSummary.serializer.serializedSize(summary, version);
             }
-
             return size;
         }
     };

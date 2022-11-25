@@ -22,7 +22,6 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
-
 import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.sstable.format.Version;
@@ -31,11 +30,14 @@ import org.apache.cassandra.io.util.DataOutputPlus;
 /**
  * Interface for SSTable metadata serializer
  */
-public interface IMetadataSerializer
-{
+public interface IMetadataSerializer {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IMetadataSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IMetadataSerializer.class);
+
     /**
      * Serialize given metadata components
-     *
      *
      * @param components Metadata components to serialize
      * @param out

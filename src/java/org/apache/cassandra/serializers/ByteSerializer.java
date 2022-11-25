@@ -15,41 +15,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class ByteSerializer extends TypeSerializer<Byte>
-{
-    public static final ByteSerializer instance = new ByteSerializer();
+public class ByteSerializer extends TypeSerializer<Byte> {
 
-    public <V> Byte deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ByteSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ByteSerializer.class);
+
+    public static final transient ByteSerializer instance = new ByteSerializer();
+
+    public <V> Byte deserialize(V value, ValueAccessor<V> accessor) {
         return value == null || accessor.isEmpty(value) ? null : accessor.toByte(value);
     }
 
-    public ByteBuffer serialize(Byte value)
-    {
+    public ByteBuffer serialize(Byte value) {
         return value == null ? ByteBufferUtil.EMPTY_BYTE_BUFFER : ByteBufferUtil.bytes(value);
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (accessor.size(value) != 1)
             throw new MarshalException(String.format("Expected 1 byte for a tinyint (%d)", accessor.size(value)));
     }
 
-    public String toString(Byte value)
-    {
+    public String toString(Byte value) {
         return value == null ? "" : String.valueOf(value);
     }
 
-    public Class<Byte> getType()
-    {
+    public Class<Byte> getType() {
         return Byte.class;
     }
 }

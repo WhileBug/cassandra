@@ -20,7 +20,6 @@ package org.apache.cassandra.index.sasi.utils;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
-
 import org.apache.cassandra.io.util.FileUtils;
 
 /**
@@ -37,127 +36,98 @@ import org.apache.cassandra.io.util.FileUtils;
  * @param <D> The container type which is going to be returned by {@link Iterator#next()}.
  */
 @SuppressWarnings("resource")
-public class RangeUnionIterator<K extends Comparable<K>, D extends CombinedValue<K>> extends RangeIterator<K, D>
-{
-    private final PriorityQueue<RangeIterator<K, D>> ranges;
+public class RangeUnionIterator<K extends Comparable<K>, D extends CombinedValue<K>> extends RangeIterator<K, D> {
 
-    private RangeUnionIterator(Builder.Statistics<K, D> statistics, PriorityQueue<RangeIterator<K, D>> ranges)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RangeUnionIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RangeUnionIterator.class);
+
+    private final transient PriorityQueue<RangeIterator<K, D>> ranges;
+
+    private RangeUnionIterator(Builder.Statistics<K, D> statistics, PriorityQueue<RangeIterator<K, D>> ranges) {
         super(statistics);
         this.ranges = ranges;
     }
 
-    public D computeNext()
-    {
+    public D computeNext() {
         RangeIterator<K, D> head = null;
-
-        while (!ranges.isEmpty())
-        {
+        while (!ranges.isEmpty()) {
             head = ranges.poll();
             if (head.hasNext())
                 break;
-
             FileUtils.closeQuietly(head);
         }
-
         if (head == null || !head.hasNext())
             return endOfData();
-
         D candidate = head.next();
-
         List<RangeIterator<K, D>> processedRanges = new ArrayList<>();
-
         if (head.hasNext())
             processedRanges.add(head);
         else
             FileUtils.closeQuietly(head);
-
-        while (!ranges.isEmpty())
-        {
+        while (!ranges.isEmpty()) {
             // peek here instead of poll is an optimization
             // so we can re-insert less ranges back if candidate
             // is less than head of the current range.
             RangeIterator<K, D> range = ranges.peek();
-
             int cmp = candidate.get().compareTo(range.getCurrent());
-
             assert cmp <= 0;
-
-            if (cmp < 0)
-            {
-                break; // candidate is smaller than next token, return immediately
-            }
-            else if (cmp == 0)
-            {
-                candidate.merge(range.next()); // consume and merge
-
+            if (cmp < 0) {
+                // candidate is smaller than next token, return immediately
+                break;
+            } else if (cmp == 0) {
+                // consume and merge
+                candidate.merge(range.next());
                 range = ranges.poll();
                 // re-prioritize changed range
-
                 if (range.hasNext())
                     processedRanges.add(range);
                 else
                     FileUtils.closeQuietly(range);
             }
         }
-
         ranges.addAll(processedRanges);
         return candidate;
     }
 
-    protected void performSkipTo(K nextToken)
-    {
+    protected void performSkipTo(K nextToken) {
         List<RangeIterator<K, D>> changedRanges = new ArrayList<>();
-
-        while (!ranges.isEmpty())
-        {
+        while (!ranges.isEmpty()) {
             if (ranges.peek().getCurrent().compareTo(nextToken) >= 0)
                 break;
-
             RangeIterator<K, D> head = ranges.poll();
-
-            if (head.getMaximum().compareTo(nextToken) >= 0)
-            {
+            if (head.getMaximum().compareTo(nextToken) >= 0) {
                 head.skipTo(nextToken);
                 changedRanges.add(head);
                 continue;
             }
-
             FileUtils.closeQuietly(head);
         }
-
         ranges.addAll(changedRanges.stream().collect(Collectors.toList()));
     }
 
-    public void close() throws IOException
-    {
+    public void close() throws IOException {
         ranges.forEach(FileUtils::closeQuietly);
     }
 
-    public static <K extends Comparable<K>, D extends CombinedValue<K>> Builder<K, D> builder()
-    {
+    public static <K extends Comparable<K>, D extends CombinedValue<K>> Builder<K, D> builder() {
         return new Builder<>();
     }
 
-    public static <K extends Comparable<K>, D extends CombinedValue<K>> RangeIterator<K, D> build(List<RangeIterator<K, D>> tokens)
-    {
+    public static <K extends Comparable<K>, D extends CombinedValue<K>> RangeIterator<K, D> build(List<RangeIterator<K, D>> tokens) {
         return new Builder<K, D>().add(tokens).build();
     }
 
-    public static class Builder<K extends Comparable<K>, D extends CombinedValue<K>> extends RangeIterator.Builder<K, D>
-    {
-        public Builder()
-        {
+    public static class Builder<K extends Comparable<K>, D extends CombinedValue<K>> extends RangeIterator.Builder<K, D> {
+
+        public Builder() {
             super(IteratorType.UNION);
         }
 
-        protected RangeIterator<K, D> buildIterator()
-        {
-            switch (rangeCount())
-            {
+        protected RangeIterator<K, D> buildIterator() {
+            switch(rangeCount()) {
                 case 1:
                     return ranges.poll();
-
                 default:
                     return new RangeUnionIterator<>(statistics, ranges);
             }

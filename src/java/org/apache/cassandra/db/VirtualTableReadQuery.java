@@ -29,35 +29,29 @@ import org.apache.cassandra.service.ClientState;
 /**
  * Base class for the {@code ReadQuery} implementations use to query virtual tables.
  */
-public abstract class VirtualTableReadQuery extends AbstractReadQuery
-{
-    protected VirtualTableReadQuery(TableMetadata metadata,
-                                    int nowInSec,
-                                    ColumnFilter columnFilter,
-                                    RowFilter rowFilter,
-                                    DataLimits limits)
-    {
+public abstract class VirtualTableReadQuery extends AbstractReadQuery {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VirtualTableReadQuery.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VirtualTableReadQuery.class);
+
+    protected VirtualTableReadQuery(TableMetadata metadata, int nowInSec, ColumnFilter columnFilter, RowFilter rowFilter, DataLimits limits) {
         super(metadata, nowInSec, columnFilter, rowFilter, limits);
     }
 
     @Override
-    public ReadExecutionController executionController()
-    {
+    public ReadExecutionController executionController() {
         return ReadExecutionController.empty();
     }
 
     @Override
-    public PartitionIterator execute(ConsistencyLevel consistency,
-                                     ClientState clientState,
-                                     long queryStartNanoTime) throws RequestExecutionException
-    {
+    public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState, long queryStartNanoTime) throws RequestExecutionException {
         return executeInternal(executionController());
     }
 
     @Override
     @SuppressWarnings("resource")
-    public UnfilteredPartitionIterator executeLocally(ReadExecutionController executionController)
-    {
+    public UnfilteredPartitionIterator executeLocally(ReadExecutionController executionController) {
         UnfilteredPartitionIterator resultIterator = queryVirtualTable();
         return limits().filter(rowFilter().filter(resultIterator, nowInSec()), nowInSec(), selectsFullPartition());
     }

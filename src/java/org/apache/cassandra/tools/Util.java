@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools;
 
 import static java.lang.String.format;
-
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.EnumSet;
@@ -33,7 +31,6 @@ import java.util.Map.Entry;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.SerializationHeader;
@@ -47,105 +44,126 @@ import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.EstimatedHistogram;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.streamhist.TombstoneHistogram;
-
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 
 @SuppressWarnings("serial")
-public final class Util
-{
-    public static final String ALLOW_TOOL_REINIT_FOR_TEST = Util.class.getName() + "ALLOW_TOOL_REINIT_FOR_TEST"; // Necessary for testing
-    static final String RESET = "\u001B[0m";
-    static final String BLUE = "\u001B[34m";
-    static final String CYAN = "\u001B[36m";
-    static final String WHITE = "\u001B[37m";
-    private static final List<String> ANSI_COLORS = Lists.newArrayList(RESET, BLUE, CYAN, WHITE);
+public final class Util {
 
-    private static final String FULL_BAR_UNICODE = Strings.repeat("\u2593", 30);
-    private static final String EMPTY_BAR_UNICODE = Strings.repeat("\u2591", 30);
-    private static final String FULL_BAR_ASCII = Strings.repeat("#", 30);
-    private static final String EMPTY_BAR_ASCII = Strings.repeat("-", 30);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Util.class);
 
-    private static final TreeMap<Double, String> BARS_UNICODE = new TreeMap<Double, String>()
-    {{
-        this.put(1.0,       "\u2589"); // full, actually using 7/8th for bad font impls of fullblock
-        this.put(7.0 / 8.0, "\u2589"); // 7/8ths left block
-        this.put(3.0 / 4.0, "\u258A"); // 3/4th block
-        this.put(5.0 / 8.0, "\u258B"); // 5/8th
-        this.put(3.0 / 8.0, "\u258D"); // three eighths, skips 1/2 due to font inconsistencies
-        this.put(1.0 / 4.0, "\u258E"); // 1/4th
-        this.put(1.0 / 8.0, "\u258F"); // 1/8th
-    }};
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Util.class);
 
-    private static final TreeMap<Double, String> BARS_ASCII = new TreeMap<Double, String>()
-    {{
-        this.put(1.00, "O");
-        this.put(0.75, "o");
-        this.put(0.30, ".");
-    }};
+    // Necessary for testing
+    public static final transient String ALLOW_TOOL_REINIT_FOR_TEST = Util.class.getName() + "ALLOW_TOOL_REINIT_FOR_TEST";
 
-    private static TreeMap<Double, String> barmap(boolean unicode)
-    {
+    static final transient String RESET = "\u001B[0m";
+
+    static final transient String BLUE = "\u001B[34m";
+
+    static final transient String CYAN = "\u001B[36m";
+
+    static final transient String WHITE = "\u001B[37m";
+
+    private static final transient List<String> ANSI_COLORS = Lists.newArrayList(RESET, BLUE, CYAN, WHITE);
+
+    private static final transient String FULL_BAR_UNICODE = Strings.repeat("\u2593", 30);
+
+    private static final transient String EMPTY_BAR_UNICODE = Strings.repeat("\u2591", 30);
+
+    private static final transient String FULL_BAR_ASCII = Strings.repeat("#", 30);
+
+    private static final transient String EMPTY_BAR_ASCII = Strings.repeat("-", 30);
+
+    private static final transient TreeMap<Double, String> BARS_UNICODE = new TreeMap<Double, String>() {
+
+        {
+            // full, actually using 7/8th for bad font impls of fullblock
+            this.put(1.0, "\u2589");
+            // 7/8ths left block
+            this.put(7.0 / 8.0, "\u2589");
+            // 3/4th block
+            this.put(3.0 / 4.0, "\u258A");
+            // 5/8th
+            this.put(5.0 / 8.0, "\u258B");
+            // three eighths, skips 1/2 due to font inconsistencies
+            this.put(3.0 / 8.0, "\u258D");
+            // 1/4th
+            this.put(1.0 / 4.0, "\u258E");
+            // 1/8th
+            this.put(1.0 / 8.0, "\u258F");
+        }
+    };
+
+    private static final transient TreeMap<Double, String> BARS_ASCII = new TreeMap<Double, String>() {
+
+        {
+            this.put(1.00, "O");
+            this.put(0.75, "o");
+            this.put(0.30, ".");
+        }
+    };
+
+    private static TreeMap<Double, String> barmap(boolean unicode) {
         return unicode ? BARS_UNICODE : BARS_ASCII;
     }
 
-    public static String progress(double percentComplete, int width, boolean unicode)
-    {
+    public static String progress(double percentComplete, int width, boolean unicode) {
         assert percentComplete >= 0 && percentComplete <= 1;
         int cols = (int) (percentComplete * width);
-        return (unicode ? FULL_BAR_UNICODE : FULL_BAR_ASCII).substring(width - cols) +
-               (unicode ? EMPTY_BAR_UNICODE : EMPTY_BAR_ASCII ).substring(cols);
+        return (unicode ? FULL_BAR_UNICODE : FULL_BAR_ASCII).substring(width - cols) + (unicode ? EMPTY_BAR_UNICODE : EMPTY_BAR_ASCII).substring(cols);
     }
 
-    public static String stripANSI(String string)
-    {
+    public static String stripANSI(String string) {
         return ANSI_COLORS.stream().reduce(string, (a, b) -> a.replace(b, ""));
     }
 
-    public static int countANSI(String string)
-    {
+    public static int countANSI(String string) {
         return string.length() - stripANSI(string).length();
     }
 
-    public static String wrapQuiet(String toWrap, boolean color)
-    {
-        if (Strings.isNullOrEmpty(toWrap))
-        {
+    public static String wrapQuiet(String toWrap, boolean color) {
+        if (Strings.isNullOrEmpty(toWrap)) {
             return "";
         }
         StringBuilder sb = new StringBuilder();
-        if (color) sb.append(WHITE);
+        if (color)
+            sb.append(WHITE);
         sb.append("(");
         sb.append(toWrap);
         sb.append(")");
-        if (color) sb.append(RESET);
+        if (color)
+            sb.append(RESET);
         return sb.toString();
     }
 
-    public static class TermHistogram
-    {
-        public long max;
-        public long min;
-        public double sum;
-        int maxCountLength = 5;
-        int maxOffsetLength = 5;
-        Map<? extends Number, Long> histogram;
-        LongFunction<String> offsetName;
-        LongFunction<String> countName;
-        String title;
+    public static class TermHistogram {
 
-        public TermHistogram(Map<? extends Number, Long> histogram,
-                String title,
-                LongFunction<String> offsetName,
-                LongFunction<String> countName)
-        {
+        public transient long max;
+
+        public transient long min;
+
+        public transient double sum;
+
+        transient int maxCountLength = 5;
+
+        transient int maxOffsetLength = 5;
+
+        transient Map<? extends Number, Long> histogram;
+
+        transient LongFunction<String> offsetName;
+
+        transient LongFunction<String> countName;
+
+        transient String title;
+
+        public TermHistogram(Map<? extends Number, Long> histogram, String title, LongFunction<String> offsetName, LongFunction<String> countName) {
             this.offsetName = offsetName;
             this.countName = countName;
             this.histogram = histogram;
             this.title = title;
             maxOffsetLength = title.length();
-            histogram.entrySet().stream().forEach(e ->
-            {
+            histogram.entrySet().stream().forEach(e -> {
                 max = Math.max(max, e.getValue());
                 min = Math.min(min, e.getValue());
                 sum += e.getValue();
@@ -155,13 +173,9 @@ public final class Util
             });
         }
 
-        public TermHistogram(TombstoneHistogram histogram,
-                String title,
-                LongFunction<String> offsetName,
-                LongFunction<String> countName)
-        {
-            this(new TreeMap<Number, Long>()
-            {
+        public TermHistogram(TombstoneHistogram histogram, String title, LongFunction<String> offsetName, LongFunction<String> countName) {
+            this(new TreeMap<Number, Long>() {
+
                 {
                     histogram.forEach((point, value) -> {
                         this.put(point, (long) value);
@@ -170,21 +184,15 @@ public final class Util
             }, title, offsetName, countName);
         }
 
-        public TermHistogram(EstimatedHistogram histogram,
-                String title,
-                LongFunction<String> offsetName,
-                LongFunction<String> countName)
-        {
-            this(new TreeMap<Number, Long>()
-            {
+        public TermHistogram(EstimatedHistogram histogram, String title, LongFunction<String> offsetName, LongFunction<String> countName) {
+            this(new TreeMap<Number, Long>() {
+
                 {
                     long[] counts = histogram.getBuckets(false);
                     long[] offsets = histogram.getBucketOffsets();
-                    for (int i = 0; i < counts.length; i++)
-                    {
+                    for (int i = 0; i < counts.length; i++) {
                         long e = counts[i];
-                        if (e > 0)
-                        {
+                        if (e > 0) {
                             put(offsets[i], e);
                         }
                     }
@@ -192,111 +200,70 @@ public final class Util
             }, title, offsetName, countName);
         }
 
-        public String bar(long count, int length, String color, boolean unicode)
-        {
-            if (color == null) color = "";
+        public String bar(long count, int length, String color, boolean unicode) {
+            if (color == null)
+                color = "";
             StringBuilder sb = new StringBuilder(color);
             long barVal = count;
             int intWidth = (int) (barVal * 1.0 / max * length);
             double remainderWidth = (barVal * 1.0 / max * length) - intWidth;
             sb.append(Strings.repeat(barmap(unicode).get(1.0), intWidth));
-
             if (barmap(unicode).floorKey(remainderWidth) != null)
                 sb.append(barmap(unicode).get(barmap(unicode).floorKey(remainderWidth)));
-
-            if(!Strings.isNullOrEmpty(color))
+            if (!Strings.isNullOrEmpty(color))
                 sb.append(RESET);
-
             return sb.toString();
         }
 
-        public void printHistogram(PrintStream out, boolean color, boolean unicode)
-        {
+        public void printHistogram(PrintStream out, boolean color, boolean unicode) {
             // String.format includes ansi sequences in the count, so need to modify the lengths
             int offsetTitleLength = color ? maxOffsetLength + BLUE.length() : maxOffsetLength;
-            out.printf("   %-" + offsetTitleLength + "s %s %-" + maxCountLength + "s  %s  %sHistogram%s %n",
-                       color ? BLUE + title : title,
-                       color ? CYAN + "|" + BLUE : "|",
-                       "Count",
-                       wrapQuiet("%", color),
-                       color ? BLUE : "",
-                       color ? RESET : "");
-            histogram.entrySet().stream().forEach(e ->
-            {
+            out.printf("   %-" + offsetTitleLength + "s %s %-" + maxCountLength + "s  %s  %sHistogram%s %n", color ? BLUE + title : title, color ? CYAN + "|" + BLUE : "|", "Count", wrapQuiet("%", color), color ? BLUE : "", color ? RESET : "");
+            histogram.entrySet().stream().forEach(e -> {
                 String offset = offsetName.apply(e.getKey().longValue());
                 long count = e.getValue();
-                String histo = bar(count, 30, color? WHITE : null, unicode);
+                String histo = bar(count, 30, color ? WHITE : null, unicode);
                 int mol = color ? maxOffsetLength + countANSI(offset) : maxOffsetLength;
                 int mcl = color ? maxCountLength + countANSI(countName.apply(count)) : maxCountLength;
-                out.printf("   %-" + mol + "s %s %" + mcl + "s %s %s%n",
-                           offset,
-                           color ? CYAN + "|" + RESET : "|",
-                           countName.apply(count),
-                           wrapQuiet(String.format("%3s", (int) (100 * ((double) count / sum))), color),
-                           histo);
+                out.printf("   %-" + mol + "s %s %" + mcl + "s %s %s%n", offset, color ? CYAN + "|" + RESET : "|", countName.apply(count), wrapQuiet(String.format("%3s", (int) (100 * ((double) count / sum))), color), histo);
             });
             EstimatedHistogram eh = new EstimatedHistogram(165);
-            for (Entry<? extends Number, Long> e : histogram.entrySet())
-            {
+            for (Entry<? extends Number, Long> e : histogram.entrySet()) {
                 eh.add(e.getKey().longValue(), e.getValue());
             }
-            String[] percentiles = new String[]{"50th", "75th", "95th", "98th", "99th", "Min", "Max"};
-            long[] data = new long[]
-            {
-                eh.percentile(.5),
-                eh.percentile(.75),
-                eh.percentile(.95),
-                eh.percentile(.98),
-                eh.percentile(.99),
-                eh.min(),
-                eh.max(),
-            };
+            String[] percentiles = new String[] { "50th", "75th", "95th", "98th", "99th", "Min", "Max" };
+            long[] data = new long[] { eh.percentile(.5), eh.percentile(.75), eh.percentile(.95), eh.percentile(.98), eh.percentile(.99), eh.min(), eh.max() };
             out.println((color ? BLUE : "") + "   Percentiles" + (color ? RESET : ""));
-
-            for (int i = 0; i < percentiles.length; i++)
-            {
-                out.println(format("   %s%-10s%s%s",
-                                   (color ? BLUE : ""),
-                                   percentiles[i],
-                                   (color ? RESET : ""),
-                                   offsetName.apply(data[i])));
+            for (int i = 0; i < percentiles.length; i++) {
+                out.println(format("   %s%-10s%s%s", (color ? BLUE : ""), percentiles[i], (color ? RESET : ""), offsetName.apply(data[i])));
             }
         }
     }
-    private Util()
-    {
+
+    private Util() {
     }
 
     /**
      * This is used by standalone tools to force static initialization of DatabaseDescriptor, and fail if configuration
      * is bad.
      */
-    public static void initDatabaseDescriptor()
-    {
-        try
-        {
+    public static void initDatabaseDescriptor() {
+        try {
             DatabaseDescriptor.toolInitialization();
-        }
-        catch (Throwable e)
-        {
+        } catch (Throwable e) {
             boolean logStackTrace = !(e instanceof ConfigurationException) || ((ConfigurationException) e).logStackTrace;
             System.out.println("Exception (" + e.getClass().getName() + ") encountered during startup: " + e.getMessage());
-
-            if (logStackTrace)
-            {
+            if (logStackTrace) {
                 e.printStackTrace();
                 System.exit(3);
-            }
-            else
-            {
+            } else {
                 System.err.println(e.getMessage());
                 System.exit(3);
             }
         }
     }
 
-    public static <T> Stream<T> iterToStream(Iterator<T> iter)
-    {
+    public static <T> Stream<T> iterToStream(Iterator<T> iter) {
         Spliterator<T> splititer = Spliterators.spliteratorUnknownSize(iter, Spliterator.IMMUTABLE);
         return StreamSupport.stream(splititer, false);
     }
@@ -308,31 +275,24 @@ public final class Util
      * @return Restored CFMetaData
      * @throws IOException when Stats.db cannot be read
      */
-    public static TableMetadata metadataFromSSTable(Descriptor desc) throws IOException
-    {
+    public static TableMetadata metadataFromSSTable(Descriptor desc) throws IOException {
         if (desc.version.getVersion().compareTo("ma") < 0)
             throw new IOException("pre-3.0 SSTable is not supported.");
-
         EnumSet<MetadataType> types = EnumSet.of(MetadataType.STATS, MetadataType.HEADER);
         Map<MetadataType, MetadataComponent> sstableMetadata = desc.getMetadataSerializer().deserialize(desc, types);
         SerializationHeader.Component header = (SerializationHeader.Component) sstableMetadata.get(MetadataType.HEADER);
-
         IPartitioner partitioner = FBUtilities.newPartitioner(desc);
-
         TableMetadata.Builder builder = TableMetadata.builder("keyspace", "table").partitioner(partitioner);
-        header.getStaticColumns().entrySet().stream()
-                .forEach(entry -> {
-                    ColumnIdentifier ident = ColumnIdentifier.getInterned(UTF8Type.instance.getString(entry.getKey()), true);
-                    builder.addStaticColumn(ident, entry.getValue());
-                });
-        header.getRegularColumns().entrySet().stream()
-                .forEach(entry -> {
-                    ColumnIdentifier ident = ColumnIdentifier.getInterned(UTF8Type.instance.getString(entry.getKey()), true);
-                    builder.addRegularColumn(ident, entry.getValue());
-                });
+        header.getStaticColumns().entrySet().stream().forEach(entry -> {
+            ColumnIdentifier ident = ColumnIdentifier.getInterned(UTF8Type.instance.getString(entry.getKey()), true);
+            builder.addStaticColumn(ident, entry.getValue());
+        });
+        header.getRegularColumns().entrySet().stream().forEach(entry -> {
+            ColumnIdentifier ident = ColumnIdentifier.getInterned(UTF8Type.instance.getString(entry.getKey()), true);
+            builder.addRegularColumn(ident, entry.getValue());
+        });
         builder.addPartitionKeyColumn("PartitionKey", header.getKeyType());
-        for (int i = 0; i < header.getClusteringTypes().size(); i++)
-        {
+        for (int i = 0; i < header.getClusteringTypes().size(); i++) {
             builder.addClusteringColumn("clustering" + (i > 0 ? i : ""), header.getClusteringTypes().get(i));
         }
         return builder.build();

@@ -18,7 +18,6 @@
 package org.apache.cassandra.utils.streamhist;
 
 import java.io.IOException;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.ISerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -28,23 +27,25 @@ import org.apache.cassandra.utils.streamhist.StreamingTombstoneHistogramBuilder.
 /**
  * A snapshot or finished histrogram of tombstones for a sstable, as generated from {@link StreamingTombstoneHistogramBuilder}.
  */
-public class TombstoneHistogram
-{
-    public static final HistogramSerializer serializer = new HistogramSerializer();
+public class TombstoneHistogram {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TombstoneHistogram.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TombstoneHistogram.class);
+
+    public static final transient HistogramSerializer serializer = new HistogramSerializer();
 
     // Buffer with point-value pair
-    private final DataHolder bin;
+    private final transient DataHolder bin;
 
     /**
      * Creates a new histogram with max bin size of maxBinSize
      */
-    TombstoneHistogram(DataHolder holder)
-    {
+    TombstoneHistogram(DataHolder holder) {
         bin = new DataHolder(holder);
     }
 
-    public static TombstoneHistogram createDefault()
-    {
+    public static TombstoneHistogram createDefault() {
         return new TombstoneHistogram(new DataHolder(0, 1));
     }
 
@@ -54,56 +55,48 @@ public class TombstoneHistogram
      * @param b upper bound of a interval to calculate sum
      * @return estimated number of points in a interval [-inf,b].
      */
-    public double sum(double b)
-    {
+    public double sum(double b) {
         return bin.sum((int) b);
     }
 
-    public int size()
-    {
+    public int size() {
         return this.bin.size();
     }
 
-    public <E extends Exception> void forEach(HistogramDataConsumer<E> histogramDataConsumer) throws E
-    {
+    public <E extends Exception> void forEach(HistogramDataConsumer<E> histogramDataConsumer) throws E {
         this.bin.forEach(histogramDataConsumer);
     }
 
-    public static class HistogramSerializer implements ISerializer<TombstoneHistogram>
-    {
-        public void serialize(TombstoneHistogram histogram, DataOutputPlus out) throws IOException
-        {
+    public static class HistogramSerializer implements ISerializer<TombstoneHistogram> {
+
+        public void serialize(TombstoneHistogram histogram, DataOutputPlus out) throws IOException {
             final int size = histogram.size();
-            final int maxBinSize = size; // we write this for legacy reasons
+            // we write this for legacy reasons
+            final int maxBinSize = size;
             out.writeInt(maxBinSize);
             out.writeInt(size);
-            histogram.forEach((point, value) ->
-                              {
-                                  out.writeDouble((double) point);
-                                  out.writeLong((long) value);
-                              });
+            histogram.forEach((point, value) -> {
+                out.writeDouble((double) point);
+                out.writeLong((long) value);
+            });
         }
 
-        public TombstoneHistogram deserialize(DataInputPlus in) throws IOException
-        {
-            in.readInt(); // max bin size
+        public TombstoneHistogram deserialize(DataInputPlus in) throws IOException {
+            // max bin size
+            in.readInt();
             int size = in.readInt();
             DataHolder dataHolder = new DataHolder(size, 1);
-            for (int i = 0; i < size; i++)
-            {
+            for (int i = 0; i < size; i++) {
                 // Already serialized sstable metadata may contain negative deletion-time values (see CASSANDRA-14092).
                 // Just do a "safe cast" and it should be good. For safety, also do that for the 'value' (tombstone count).
                 int localDeletionTime = StreamingTombstoneHistogramBuilder.saturatingCastToMaxDeletionTime((long) in.readDouble());
                 int count = StreamingTombstoneHistogramBuilder.saturatingCastToInt(in.readLong());
-
                 dataHolder.addValue(localDeletionTime, count);
             }
-
             return new TombstoneHistogram(dataHolder);
         }
 
-        public long serializedSize(TombstoneHistogram histogram)
-        {
+        public long serializedSize(TombstoneHistogram histogram) {
             int maxBinSize = 0;
             long size = TypeSizes.sizeof(maxBinSize);
             final int histSize = histogram.size();
@@ -115,21 +108,17 @@ public class TombstoneHistogram
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof TombstoneHistogram))
             return false;
-
         TombstoneHistogram that = (TombstoneHistogram) o;
         return bin.equals(that.bin);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return bin.hashCode();
     }
 }

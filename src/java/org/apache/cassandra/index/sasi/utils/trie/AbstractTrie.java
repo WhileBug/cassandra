@@ -13,7 +13,6 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-
 package org.apache.cassandra.index.sasi.utils.trie;
 
 import java.io.Serializable;
@@ -27,50 +26,48 @@ import java.util.Map;
  * on rkapsi/patricia-trie project) only supports String keys)
  * but unfortunately is not deployed to the maven central as a downloadable artifact.
  */
-
 /**
  * This class provides some basic {@link Trie} functionality and
  * utility methods for actual {@link Trie} implementations.
  */
-abstract class AbstractTrie<K, V> extends AbstractMap<K, V> implements Serializable, Trie<K, V>
-{
-    private static final long serialVersionUID = -6358111100045408883L;
+abstract class AbstractTrie<K, V> extends AbstractMap<K, V> implements Serializable, Trie<K, V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractTrie.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractTrie.class);
+
+    private static final transient long serialVersionUID = -6358111100045408883L;
 
     /**
      * The {@link KeyAnalyzer} that's being used to build the
      * PATRICIA {@link Trie}
      */
-    protected final KeyAnalyzer<? super K> keyAnalyzer;
+    protected final transient KeyAnalyzer<? super K> keyAnalyzer;
 
     /**
      * Constructs a new {@link Trie} using the given {@link KeyAnalyzer}
      */
-    public AbstractTrie(KeyAnalyzer<? super K> keyAnalyzer)
-    {
+    public AbstractTrie(KeyAnalyzer<? super K> keyAnalyzer) {
         this.keyAnalyzer = Tries.notNull(keyAnalyzer, "keyAnalyzer");
     }
 
     @Override
-    public K selectKey(K key)
-    {
+    public K selectKey(K key) {
         Map.Entry<K, V> entry = select(key);
         return entry != null ? entry.getKey() : null;
     }
 
     @Override
-    public V selectValue(K key)
-    {
+    public V selectValue(K key) {
         Map.Entry<K, V> entry = select(key);
         return entry != null ? entry.getValue() : null;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         StringBuilder buffer = new StringBuilder();
         buffer.append("Trie[").append(size()).append("]={\n");
-        for (Map.Entry<K, V> entry : entrySet())
-        {
+        for (Map.Entry<K, V> entry : entrySet()) {
             buffer.append("  ").append(entry).append("\n");
         }
         buffer.append("}\n");
@@ -82,8 +79,7 @@ abstract class AbstractTrie<K, V> extends AbstractMap<K, V> implements Serializa
      *
      * @see KeyAnalyzer#lengthInBits(Object)
      */
-    final int lengthInBits(K key)
-    {
+    final int lengthInBits(K key) {
         return key == null ? 0 : keyAnalyzer.lengthInBits(key);
     }
 
@@ -93,76 +89,59 @@ abstract class AbstractTrie<K, V> extends AbstractMap<K, V> implements Serializa
      *
      * @see KeyAnalyzer#isBitSet(Object, int)
      */
-    final boolean isBitSet(K key, int bitIndex)
-    {
+    final boolean isBitSet(K key, int bitIndex) {
         return key != null && keyAnalyzer.isBitSet(key, bitIndex);
     }
 
     /**
      * Utility method for calling {@link KeyAnalyzer#bitIndex(Object, Object)}
      */
-    final int bitIndex(K key, K otherKey)
-    {
-        if (key != null && otherKey != null)
-        {
+    final int bitIndex(K key, K otherKey) {
+        if (key != null && otherKey != null) {
             return keyAnalyzer.bitIndex(key, otherKey);
-        }
-        else if (key != null)
-        {
+        } else if (key != null) {
             return bitIndex(key);
-        }
-        else if (otherKey != null)
-        {
+        } else if (otherKey != null) {
             return bitIndex(otherKey);
         }
-
         return KeyAnalyzer.NULL_BIT_KEY;
     }
 
-    private int bitIndex(K key)
-    {
+    private int bitIndex(K key) {
         int lengthInBits = lengthInBits(key);
-        for (int i = 0; i < lengthInBits; i++)
-        {
+        for (int i = 0; i < lengthInBits; i++) {
             if (isBitSet(key, i))
                 return i;
         }
-
         return KeyAnalyzer.NULL_BIT_KEY;
     }
 
     /**
      * An utility method for calling {@link KeyAnalyzer#compare(Object, Object)}
      */
-    final boolean compareKeys(K key, K other)
-    {
-        if (key == null)
-        {
+    final boolean compareKeys(K key, K other) {
+        if (key == null) {
             return (other == null);
-        }
-        else if (other == null)
-        {
+        } else if (other == null) {
             return false;
         }
-
         return keyAnalyzer.compare(key, other) == 0;
     }
 
     /**
      * A basic implementation of {@link Entry}
      */
-    abstract static class BasicEntry<K, V> implements Map.Entry<K, V>, Serializable
-    {
-        private static final long serialVersionUID = -944364551314110330L;
+    abstract static class BasicEntry<K, V> implements Map.Entry<K, V>, Serializable {
 
-        protected K key;
+        private static final transient long serialVersionUID = -944364551314110330L;
 
-        protected V value;
+        protected transient K key;
+
+        protected transient V value;
 
         private transient int hashCode = 0;
 
-        public BasicEntry(K key, V value)
-        {
+        public BasicEntry(K key, V value) {
             this.key = key;
             this.value = value;
         }
@@ -171,60 +150,49 @@ abstract class AbstractTrie<K, V> extends AbstractMap<K, V> implements Serializa
          * Replaces the current key and value with the provided
          * key &amp; value
          */
-        public V setKeyValue(K key, V value)
-        {
+        public V setKeyValue(K key, V value) {
             this.key = key;
             this.hashCode = 0;
             return setValue(value);
         }
 
         @Override
-        public K getKey()
-        {
+        public K getKey() {
             return key;
         }
 
         @Override
-        public V getValue()
-        {
+        public V getValue() {
             return value;
         }
 
         @Override
-        public V setValue(V value)
-        {
+        public V setValue(V value) {
             V previous = this.value;
             this.value = value;
             return previous;
         }
 
         @Override
-        public int hashCode()
-        {
+        public int hashCode() {
             if (hashCode == 0)
                 hashCode = (key != null ? key.hashCode() : 0);
             return hashCode;
         }
 
         @Override
-        public boolean equals(Object o)
-        {
-            if (o == this)
-            {
+        public boolean equals(Object o) {
+            if (o == this) {
                 return true;
-            }
-            else if (!(o instanceof Map.Entry<?, ?>))
-            {
+            } else if (!(o instanceof Map.Entry<?, ?>)) {
                 return false;
             }
-
-            Map.Entry<?, ?> other = (Map.Entry<?, ?>)o;
+            Map.Entry<?, ?> other = (Map.Entry<?, ?>) o;
             return Tries.areEqual(key, other.getKey()) && Tries.areEqual(value, other.getValue());
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return key + "=" + value;
         }
     }

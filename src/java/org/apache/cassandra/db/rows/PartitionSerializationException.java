@@ -15,23 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.rows;
 
 import org.apache.cassandra.schema.TableMetadata;
 
-public class PartitionSerializationException extends RuntimeException
-{
-    public PartitionSerializationException(BaseRowIterator<Unfiltered> partition, Throwable cause)
-    {
+public class PartitionSerializationException extends RuntimeException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionSerializationException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionSerializationException.class);
+
+    public PartitionSerializationException(BaseRowIterator<Unfiltered> partition, Throwable cause) {
         super(buildMessage(partition), cause);
     }
 
-    private static String buildMessage(BaseRowIterator<Unfiltered> partition)
-    {
+    private static String buildMessage(BaseRowIterator<Unfiltered> partition) {
         TableMetadata table = partition.metadata();
         Object readablePartitionkey = table.partitionKeyType.getString(partition.partitionKey().getKey());
-        return String.format("Failed to serialize partition key '%s' on table '%s' in keyspace '%s'.",
-                             readablePartitionkey, table.name, table.keyspace);
+        return String.format("Failed to serialize partition key '%s' on table '%s' in keyspace '%s'.", readablePartitionkey, table.name, table.keyspace);
     }
 }

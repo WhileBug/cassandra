@@ -19,30 +19,26 @@ package org.apache.cassandra.tools.nodetool;
 
 import java.io.PrintStream;
 import java.util.List;
-
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "reloadseeds", description = "Reload the seed node list from the seed node provider")
-public class ReloadSeeds extends NodeToolCmd
-{
+public class ReloadSeeds extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReloadSeeds.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReloadSeeds.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         PrintStream out = probe.output().out;
         List<String> seedList = probe.reloadSeeds();
-        if (seedList == null)
-        {
+        if (seedList == null) {
             out.println("Failed to reload the seed node list.");
-        }
-        else if (seedList.isEmpty())
-        {
+        } else if (seedList.isEmpty()) {
             out.println("Seed node list does not contain any remote node IPs");
-        }
-        else
-        {
+        } else {
             out.println("Updated seed node IP list, excluding the current node's IP: " + String.join(" ", seedList));
         }
     }

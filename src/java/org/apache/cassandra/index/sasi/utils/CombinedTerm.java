@@ -19,66 +19,59 @@ package org.apache.cassandra.index.sasi.utils;
 
 import java.nio.ByteBuffer;
 import java.util.*;
-
 import org.apache.cassandra.index.sasi.disk.*;
 import org.apache.cassandra.index.sasi.disk.OnDiskIndex.DataTerm;
 import org.apache.cassandra.db.marshal.AbstractType;
 
-public class CombinedTerm implements CombinedValue<DataTerm>
-{
-    private final AbstractType<?> comparator;
-    private final DataTerm term;
-    private final List<DataTerm> mergedTerms = new ArrayList<>();
+public class CombinedTerm implements CombinedValue<DataTerm> {
 
-    public CombinedTerm(AbstractType<?> comparator, DataTerm term)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CombinedTerm.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CombinedTerm.class);
+
+    private final transient AbstractType<?> comparator;
+
+    private final transient DataTerm term;
+
+    private final transient List<DataTerm> mergedTerms = new ArrayList<>();
+
+    public CombinedTerm(AbstractType<?> comparator, DataTerm term) {
         this.comparator = comparator;
         this.term = term;
     }
 
-    public ByteBuffer getTerm()
-    {
+    public ByteBuffer getTerm() {
         return term.getTerm();
     }
 
-    public boolean isPartial()
-    {
+    public boolean isPartial() {
         return term.isPartial();
     }
 
-    public RangeIterator<Long, Token> getTokenIterator()
-    {
+    public RangeIterator<Long, Token> getTokenIterator() {
         RangeIterator.Builder<Long, Token> union = RangeUnionIterator.builder();
         union.add(term.getTokens());
         mergedTerms.stream().map(OnDiskIndex.DataTerm::getTokens).forEach(union::add);
-
         return union.build();
     }
 
-    public TokenTreeBuilder getTokenTreeBuilder()
-    {
+    public TokenTreeBuilder getTokenTreeBuilder() {
         return new StaticTokenTreeBuilder(this).finish();
     }
 
-    public void merge(CombinedValue<DataTerm> other)
-    {
+    public void merge(CombinedValue<DataTerm> other) {
         if (!(other instanceof CombinedTerm))
             return;
-
         CombinedTerm o = (CombinedTerm) other;
-
         assert comparator == o.comparator;
-
         mergedTerms.add(o.term);
     }
 
-    public DataTerm get()
-    {
+    public DataTerm get() {
         return term;
     }
 
-    public int compareTo(CombinedValue<DataTerm> o)
-    {
+    public int compareTo(CombinedValue<DataTerm> o) {
         return term.compareTo(comparator, o.get().getTerm());
     }
 }

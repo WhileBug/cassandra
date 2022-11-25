@@ -15,32 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair;
 
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BooleanSupplier;
-
 import com.google.common.util.concurrent.ListenableFuture;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.locator.RangesAtEndpoint;
 
 /**
  * Keyspace level hook for repair.
  */
-public interface KeyspaceRepairManager
-{
+public interface KeyspaceRepairManager {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyspaceRepairManager.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(KeyspaceRepairManager.class);
+
     /**
      * Isolate the unrepaired ranges of the given tables, and make referenceable by session id. Until each table has
      * been notified that the repair session has been completed, the data associated with the given session id must
      * not be combined with repaired or unrepaired data, or data from other repair sessions.
      */
-    ListenableFuture prepareIncrementalRepair(UUID sessionID,
-                                              Collection<ColumnFamilyStore> tables,
-                                              RangesAtEndpoint tokenRanges,
-                                              ExecutorService executor,
-                                              BooleanSupplier isCancelled);
+    ListenableFuture prepareIncrementalRepair(UUID sessionID, Collection<ColumnFamilyStore> tables, RangesAtEndpoint tokenRanges, ExecutorService executor, BooleanSupplier isCancelled);
 }

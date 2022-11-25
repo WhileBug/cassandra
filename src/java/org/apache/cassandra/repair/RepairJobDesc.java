@@ -21,9 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
-
 import com.google.common.base.Objects;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.dht.AbstractBounds;
 import org.apache.cassandra.dht.IPartitioner;
@@ -41,20 +39,31 @@ import org.apache.cassandra.utils.UUIDSerializer;
  *
  * @since 2.0
  */
-public class RepairJobDesc
-{
-    public static final IVersionedSerializer<RepairJobDesc> serializer = new RepairJobDescSerializer();
+public class RepairJobDesc {
 
-    public final UUID parentSessionId;
-    /** RepairSession id */
-    public final UUID sessionId;
-    public final String keyspace;
-    public final String columnFamily;
-    /** repairing range  */
-    public final Collection<Range<Token>> ranges;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairJobDesc.class);
 
-    public RepairJobDesc(UUID parentSessionId, UUID sessionId, String keyspace, String columnFamily, Collection<Range<Token>> ranges)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairJobDesc.class);
+
+    public static final transient IVersionedSerializer<RepairJobDesc> serializer = new RepairJobDescSerializer();
+
+    public final transient UUID parentSessionId;
+
+    /**
+     * RepairSession id
+     */
+    public final transient UUID sessionId;
+
+    public final transient String keyspace;
+
+    public final transient String columnFamily;
+
+    /**
+     * repairing range
+     */
+    public final transient Collection<Range<Token>> ranges;
+
+    public RepairJobDesc(UUID parentSessionId, UUID sessionId, String keyspace, String columnFamily, Collection<Range<Token>> ranges) {
         this.parentSessionId = parentSessionId;
         this.sessionId = sessionId;
         this.keyspace = keyspace;
@@ -63,81 +72,71 @@ public class RepairJobDesc
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "[repair #" + sessionId + " on " + keyspace + "/" + columnFamily + ", " + ranges + "]";
     }
 
-    public String toString(PreviewKind previewKind)
-    {
+    public String toString(PreviewKind previewKind) {
         return '[' + previewKind.logPrefix() + " #" + sessionId + " on " + keyspace + "/" + columnFamily + ", " + ranges + "]";
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         RepairJobDesc that = (RepairJobDesc) o;
-
-        if (!columnFamily.equals(that.columnFamily)) return false;
-        if (!keyspace.equals(that.keyspace)) return false;
-        if (ranges != null ? that.ranges == null || (ranges.size() != that.ranges.size()) || (ranges.size() == that.ranges.size() && !ranges.containsAll(that.ranges)) : that.ranges != null) return false;
-        if (!sessionId.equals(that.sessionId)) return false;
-        if (parentSessionId != null ? !parentSessionId.equals(that.parentSessionId) : that.parentSessionId != null) return false;
-
+        if (!columnFamily.equals(that.columnFamily))
+            return false;
+        if (!keyspace.equals(that.keyspace))
+            return false;
+        if (ranges != null ? that.ranges == null || (ranges.size() != that.ranges.size()) || (ranges.size() == that.ranges.size() && !ranges.containsAll(that.ranges)) : that.ranges != null)
+            return false;
+        if (!sessionId.equals(that.sessionId))
+            return false;
+        if (parentSessionId != null ? !parentSessionId.equals(that.parentSessionId) : that.parentSessionId != null)
+            return false;
         return true;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(sessionId, keyspace, columnFamily, ranges);
     }
 
-    private static class RepairJobDescSerializer implements IVersionedSerializer<RepairJobDesc>
-    {
-        public void serialize(RepairJobDesc desc, DataOutputPlus out, int version) throws IOException
-        {
+    private static class RepairJobDescSerializer implements IVersionedSerializer<RepairJobDesc> {
+
+        public void serialize(RepairJobDesc desc, DataOutputPlus out, int version) throws IOException {
             out.writeBoolean(desc.parentSessionId != null);
             if (desc.parentSessionId != null)
                 UUIDSerializer.serializer.serialize(desc.parentSessionId, out, version);
-
             UUIDSerializer.serializer.serialize(desc.sessionId, out, version);
             out.writeUTF(desc.keyspace);
             out.writeUTF(desc.columnFamily);
             IPartitioner.validate(desc.ranges);
             out.writeInt(desc.ranges.size());
-            for (Range<Token> rt : desc.ranges)
-                AbstractBounds.tokenSerializer.serialize(rt, out, version);
+            for (Range<Token> rt : desc.ranges) AbstractBounds.tokenSerializer.serialize(rt, out, version);
         }
 
-        public RepairJobDesc deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public RepairJobDesc deserialize(DataInputPlus in, int version) throws IOException {
             UUID parentSessionId = null;
             if (in.readBoolean())
                 parentSessionId = UUIDSerializer.serializer.deserialize(in, version);
             UUID sessionId = UUIDSerializer.serializer.deserialize(in, version);
             String keyspace = in.readUTF();
             String columnFamily = in.readUTF();
-
             int nRanges = in.readInt();
             Collection<Range<Token>> ranges = new ArrayList<>(nRanges);
             Range<Token> range;
-
-            for (int i = 0; i < nRanges; i++)
-            {
-                range = (Range<Token>) AbstractBounds.tokenSerializer.deserialize(in,
-                        IPartitioner.global(), version);
+            for (int i = 0; i < nRanges; i++) {
+                range = (Range<Token>) AbstractBounds.tokenSerializer.deserialize(in, IPartitioner.global(), version);
                 ranges.add(range);
             }
-
             return new RepairJobDesc(parentSessionId, sessionId, keyspace, columnFamily, ranges);
         }
 
-        public long serializedSize(RepairJobDesc desc, int version)
-        {
+        public long serializedSize(RepairJobDesc desc, int version) {
             int size = TypeSizes.sizeof(desc.parentSessionId != null);
             if (desc.parentSessionId != null)
                 size += UUIDSerializer.serializer.serializedSize(desc.parentSessionId, version);
@@ -145,8 +144,7 @@ public class RepairJobDesc
             size += TypeSizes.sizeof(desc.keyspace);
             size += TypeSizes.sizeof(desc.columnFamily);
             size += TypeSizes.sizeof(desc.ranges.size());
-            for (Range<Token> rt : desc.ranges)
-            {
+            for (Range<Token> rt : desc.ranges) {
                 size += AbstractBounds.tokenSerializer.serializedSize(rt, version);
             }
             return size;

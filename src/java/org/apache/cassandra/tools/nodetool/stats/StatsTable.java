@@ -15,60 +15,111 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool.stats;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class StatsTable
-{
-    public String fullName;
-    public String keyspaceName;
-    public String tableName;
-    public boolean isIndex;
-    public boolean isLeveledSstable = false;
-    public Object sstableCount;
-    public Object oldSSTableCount;
-    public String spaceUsedLive;
-    public String spaceUsedTotal;
-    public String spaceUsedBySnapshotsTotal;
-    public boolean offHeapUsed = false;
-    public String offHeapMemoryUsedTotal;
-    public Object sstableCompressionRatio;
-    public Object numberOfPartitionsEstimate;
-    public Object memtableCellCount;
-    public String memtableDataSize;
-    public boolean memtableOffHeapUsed = false;
-    public String memtableOffHeapMemoryUsed;
-    public Object memtableSwitchCount;
-    public long localReadCount;
-    public double localReadLatencyMs;
-    public long localWriteCount;
-    public double localWriteLatencyMs;
-    public Object pendingFlushes;
-    public Object bloomFilterFalsePositives;
-    public Object bloomFilterFalseRatio;
-    public String bloomFilterSpaceUsed;
-    public boolean bloomFilterOffHeapUsed = false;
-    public String bloomFilterOffHeapMemoryUsed;
-    public boolean indexSummaryOffHeapUsed = false;
-    public String indexSummaryOffHeapMemoryUsed;
-    public boolean compressionMetadataOffHeapUsed = false;
-    public String compressionMetadataOffHeapMemoryUsed;
-    public long compactedPartitionMinimumBytes;
-    public long compactedPartitionMaximumBytes;
-    public long compactedPartitionMeanBytes;
-    public double percentRepaired;
-    public long bytesRepaired;
-    public long bytesUnrepaired;
-    public long bytesPendingRepair;
-    public double averageLiveCellsPerSliceLastFiveMinutes;
-    public long maximumLiveCellsPerSliceLastFiveMinutes;
-    public double averageTombstonesPerSliceLastFiveMinutes;
-    public long maximumTombstonesPerSliceLastFiveMinutes;
-    public String droppedMutations;
-    public List<String> sstablesInEachLevel = new ArrayList<>();
-    public Boolean isInCorrectLocation = null; // null: option not active
-    public double droppableTombstoneRatio;
+public class StatsTable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StatsTable.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StatsTable.class);
+
+    public transient String fullName;
+
+    public transient String keyspaceName;
+
+    public transient String tableName;
+
+    public transient boolean isIndex;
+
+    public transient boolean isLeveledSstable = false;
+
+    public transient Object sstableCount;
+
+    public transient Object oldSSTableCount;
+
+    public transient String spaceUsedLive;
+
+    public transient String spaceUsedTotal;
+
+    public transient String spaceUsedBySnapshotsTotal;
+
+    public transient boolean offHeapUsed = false;
+
+    public transient String offHeapMemoryUsedTotal;
+
+    public transient Object sstableCompressionRatio;
+
+    public transient Object numberOfPartitionsEstimate;
+
+    public transient Object memtableCellCount;
+
+    public transient String memtableDataSize;
+
+    public transient boolean memtableOffHeapUsed = false;
+
+    public transient String memtableOffHeapMemoryUsed;
+
+    public transient Object memtableSwitchCount;
+
+    public transient long localReadCount;
+
+    public transient double localReadLatencyMs;
+
+    public transient long localWriteCount;
+
+    public transient double localWriteLatencyMs;
+
+    public transient Object pendingFlushes;
+
+    public transient Object bloomFilterFalsePositives;
+
+    public transient Object bloomFilterFalseRatio;
+
+    public transient String bloomFilterSpaceUsed;
+
+    public transient boolean bloomFilterOffHeapUsed = false;
+
+    public transient String bloomFilterOffHeapMemoryUsed;
+
+    public transient boolean indexSummaryOffHeapUsed = false;
+
+    public transient String indexSummaryOffHeapMemoryUsed;
+
+    public transient boolean compressionMetadataOffHeapUsed = false;
+
+    public transient String compressionMetadataOffHeapMemoryUsed;
+
+    public transient long compactedPartitionMinimumBytes;
+
+    public transient long compactedPartitionMaximumBytes;
+
+    public transient long compactedPartitionMeanBytes;
+
+    public transient double percentRepaired;
+
+    public transient long bytesRepaired;
+
+    public transient long bytesUnrepaired;
+
+    public transient long bytesPendingRepair;
+
+    public transient double averageLiveCellsPerSliceLastFiveMinutes;
+
+    public transient long maximumLiveCellsPerSliceLastFiveMinutes;
+
+    public transient double averageTombstonesPerSliceLastFiveMinutes;
+
+    public transient long maximumTombstonesPerSliceLastFiveMinutes;
+
+    public transient String droppedMutations;
+
+    public transient List<String> sstablesInEachLevel = new ArrayList<>();
+
+    // null: option not active
+    public transient Boolean isInCorrectLocation = null;
+
+    public transient double droppableTombstoneRatio;
 }

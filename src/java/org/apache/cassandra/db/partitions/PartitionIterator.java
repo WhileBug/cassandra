@@ -31,6 +31,9 @@ import org.apache.cassandra.db.rows.*;
  * reference on the returned objects for longer than the iteration, it must
  * make a copy of it explicitely.
  */
-public interface PartitionIterator extends BasePartitionIterator<RowIterator>
-{
+public interface PartitionIterator extends BasePartitionIterator<RowIterator> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionIterator.class);
 }

@@ -19,20 +19,22 @@ package org.apache.cassandra.cql3;
 
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.cassandra.audit.AuditLogContext;
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.QueryState;
 import org.apache.cassandra.transport.messages.ResultMessage;
 
-public interface CQLStatement
-{
+public interface CQLStatement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CQLStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CQLStatement.class);
+
     /**
      * Returns all bind variables for the statement
      */
-    default List<ColumnSpecification> getBindVariables()
-    {
+    default List<ColumnSpecification> getBindVariables() {
         return Collections.emptyList();
     }
 
@@ -41,8 +43,7 @@ public interface CQLStatement
      * to table.  Each short in the array represents the bind index of the marker that holds the value for that
      * partition key column. If there are no bind markers for any of the partition key columns, null is returned.
      */
-    default short[] getPartitionKeyBindVariableIndexes()
-    {
+    default short[] getPartitionKeyBindVariableIndexes() {
         return null;
     }
 
@@ -51,8 +52,7 @@ public interface CQLStatement
      *
      * @return functions all functions found (may contain duplicates)
      */
-    default Iterable<Function> getFunctions()
-    {
+    default Iterable<Function> getFunctions() {
         return Collections.emptyList();
     }
 
@@ -94,25 +94,23 @@ public interface CQLStatement
     /**
      * Whether or not this CQL Statement has LWT conditions
      */
-    default public boolean hasConditions()
-    {
+    default public boolean hasConditions() {
         return false;
     }
 
-    public static abstract class Raw
-    {
-        protected VariableSpecifications bindVariables;
+    public static abstract class Raw {
 
-        public void setBindVariables(List<ColumnIdentifier> variables)
-        {
+        protected transient VariableSpecifications bindVariables;
+
+        public void setBindVariables(List<ColumnIdentifier> variables) {
             bindVariables = new VariableSpecifications(variables);
         }
 
         public abstract CQLStatement prepare(ClientState state);
     }
 
-    public static interface SingleKeyspaceCqlStatement extends CQLStatement
-    {
+    public static interface SingleKeyspaceCqlStatement extends CQLStatement {
+
         public String keyspace();
     }
 }

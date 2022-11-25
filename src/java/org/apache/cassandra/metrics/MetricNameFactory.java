@@ -17,9 +17,12 @@
  */
 package org.apache.cassandra.metrics;
 
+public interface MetricNameFactory {
 
-public interface MetricNameFactory
-{
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MetricNameFactory.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MetricNameFactory.class);
+
     /**
      * Create a qualified name from given metric name.
      *

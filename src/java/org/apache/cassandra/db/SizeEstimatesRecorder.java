@@ -19,10 +19,8 @@ package org.apache.cassandra.db;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.lifecycle.SSTableIntervalTree;
 import org.apache.cassandra.db.lifecycle.SSTableSet;
 import org.apache.cassandra.db.lifecycle.View;
@@ -46,30 +44,28 @@ import org.apache.cassandra.utils.concurrent.Refs;
  *
  * See CASSANDRA-7688.
  */
-public class SizeEstimatesRecorder extends SchemaChangeListener implements Runnable
-{
-    private static final Logger logger = LoggerFactory.getLogger(SizeEstimatesRecorder.class);
+public class SizeEstimatesRecorder extends SchemaChangeListener implements Runnable {
 
-    public static final SizeEstimatesRecorder instance = new SizeEstimatesRecorder();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SizeEstimatesRecorder.class);
 
-    private SizeEstimatesRecorder()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SizeEstimatesRecorder.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(SizeEstimatesRecorder.class);
+
+    public static final transient SizeEstimatesRecorder instance = new SizeEstimatesRecorder();
+
+    private SizeEstimatesRecorder() {
         Schema.instance.registerListener(this);
     }
 
-    public void run()
-    {
+    public void run() {
         TokenMetadata metadata = StorageService.instance.getTokenMetadata().cloneOnlyTokenMap();
-        if (!metadata.isMember(FBUtilities.getBroadcastAddressAndPort()))
-        {
+        if (!metadata.isMember(FBUtilities.getBroadcastAddressAndPort())) {
             logger.debug("Node is not part of the ring; not recording size estimates");
             return;
         }
-
         logger.trace("Recording size estimates");
-
-        for (Keyspace keyspace : Keyspace.nonLocalStrategy())
-        {
+        for (Keyspace keyspace : Keyspace.nonLocalStrategy()) {
             // In tools the call to describe_splits_ex() used to be coupled with the call to describe_local_ring() so
             // most access was for the local primary range; after creating the size_estimates table this was changed
             // to be the primary range.
@@ -87,86 +83,63 @@ public class SizeEstimatesRecorder extends SchemaChangeListener implements Runna
             Collection<Range<Token>> primaryRanges = StorageService.instance.getPrimaryRanges(keyspace.getName());
             Collection<Range<Token>> localPrimaryRanges = StorageService.instance.getLocalPrimaryRange();
             boolean rangesAreEqual = primaryRanges.equals(localPrimaryRanges);
-            for (ColumnFamilyStore table : keyspace.getColumnFamilyStores())
-            {
+            for (ColumnFamilyStore table : keyspace.getColumnFamilyStores()) {
                 long start = System.nanoTime();
-
                 // compute estimates for primary ranges for backwards compatability
                 Map<Range<Token>, Pair<Long, Long>> estimates = computeSizeEstimates(table, primaryRanges);
                 SystemKeyspace.updateSizeEstimates(table.metadata.keyspace, table.metadata.name, estimates);
                 SystemKeyspace.updateTableEstimates(table.metadata.keyspace, table.metadata.name, SystemKeyspace.TABLE_ESTIMATES_TYPE_PRIMARY, estimates);
-
-                if (!rangesAreEqual)
-                {
+                if (!rangesAreEqual) {
                     // compute estimate for local primary range
                     estimates = computeSizeEstimates(table, localPrimaryRanges);
                 }
                 SystemKeyspace.updateTableEstimates(table.metadata.keyspace, table.metadata.name, SystemKeyspace.TABLE_ESTIMATES_TYPE_LOCAL_PRIMARY, estimates);
-
                 long passed = System.nanoTime() - start;
                 if (logger.isTraceEnabled())
-                    logger.trace("Spent {} milliseconds on estimating {}.{} size",
-                                 TimeUnit.NANOSECONDS.toMillis(passed),
-                                 table.metadata.keyspace,
-                                 table.metadata.name);
+                    logger.trace("Spent {} milliseconds on estimating {}.{} size", TimeUnit.NANOSECONDS.toMillis(passed), table.metadata.keyspace, table.metadata.name);
             }
         }
     }
 
     @SuppressWarnings("resource")
-    private static Map<Range<Token>, Pair<Long, Long>> computeSizeEstimates(ColumnFamilyStore table, Collection<Range<Token>> ranges)
-    {
+    private static Map<Range<Token>, Pair<Long, Long>> computeSizeEstimates(ColumnFamilyStore table, Collection<Range<Token>> ranges) {
         // for each local primary range, estimate (crudely) mean partition size and partitions count.
         Map<Range<Token>, Pair<Long, Long>> estimates = new HashMap<>(ranges.size());
-        for (Range<Token> localRange : ranges)
-        {
-            for (Range<Token> unwrappedRange : localRange.unwrap())
-            {
+        for (Range<Token> localRange : ranges) {
+            for (Range<Token> unwrappedRange : localRange.unwrap()) {
                 // filter sstables that have partitions in this range.
                 Refs<SSTableReader> refs = null;
                 long partitionsCount, meanPartitionSize;
-
-                try
-                {
-                    while (refs == null)
-                    {
+                try {
+                    while (refs == null) {
                         Iterable<SSTableReader> sstables = table.getTracker().getView().select(SSTableSet.CANONICAL);
                         SSTableIntervalTree tree = SSTableIntervalTree.build(sstables);
                         Range<PartitionPosition> r = Range.makeRowRange(unwrappedRange);
                         Iterable<SSTableReader> canonicalSSTables = View.sstablesInBounds(r.left, r.right, tree);
                         refs = Refs.tryRef(canonicalSSTables);
                     }
-
                     // calculate the estimates.
                     partitionsCount = estimatePartitionsCount(refs, unwrappedRange);
                     meanPartitionSize = estimateMeanPartitionSize(refs);
-                }
-                finally
-                {
+                } finally {
                     if (refs != null)
                         refs.release();
                 }
-
                 estimates.put(unwrappedRange, Pair.create(partitionsCount, meanPartitionSize));
             }
         }
-
         return estimates;
     }
 
-    private static long estimatePartitionsCount(Collection<SSTableReader> sstables, Range<Token> range)
-    {
+    private static long estimatePartitionsCount(Collection<SSTableReader> sstables, Range<Token> range) {
         long count = 0;
-        for (SSTableReader sstable : sstables)
-            count += sstable.estimatedKeysForRanges(Collections.singleton(range));
+        for (SSTableReader sstable : sstables) count += sstable.estimatedKeysForRanges(Collections.singleton(range));
         return count;
     }
 
-    private static long estimateMeanPartitionSize(Collection<SSTableReader> sstables)
-    {
+    private static long estimateMeanPartitionSize(Collection<SSTableReader> sstables) {
         long sum = 0, count = 0;
-        for (SSTableReader sstable : sstables)
-        {
+        for (SSTableReader sstable : sstables) {
             long n = sstable.getEstimatedPartitionSize().count();
             sum += sstable.getEstimatedPartitionSize().mean() * n;
             count += n;
@@ -175,8 +148,7 @@ public class SizeEstimatesRecorder extends SchemaChangeListener implements Runna
     }
 
     @Override
-    public void onDropTable(String keyspace, String table)
-    {
+    public void onDropTable(String keyspace, String table) {
         SystemKeyspace.clearEstimates(keyspace, table);
     }
 }

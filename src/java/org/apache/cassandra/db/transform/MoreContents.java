@@ -21,8 +21,11 @@
 package org.apache.cassandra.db.transform;
 
 // a shared internal interface, that is hidden to provide type-safety to the user
-interface MoreContents<I>
-{
+interface MoreContents<I> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MoreContents.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MoreContents.class);
+
     public abstract I moreContents();
 }
-

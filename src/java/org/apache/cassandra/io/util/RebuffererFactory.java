@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 /**
@@ -26,7 +25,11 @@ package org.apache.cassandra.io.util;
  *    themselves.
  *  - thread-safe shared rebufferers (e.g. MmapRebufferer) which directly return themselves.
  */
-public interface RebuffererFactory extends ReaderFileProxy
-{
+public interface RebuffererFactory extends ReaderFileProxy {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RebuffererFactory.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RebuffererFactory.class);
+
     Rebufferer instantiateRebufferer();
 }

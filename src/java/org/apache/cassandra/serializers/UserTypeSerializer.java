@@ -19,56 +19,47 @@ package org.apache.cassandra.serializers;
 
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.db.marshal.ValueAccessor;
 
-public class UserTypeSerializer extends BytesSerializer
-{
-    public final LinkedHashMap<String, TypeSerializer<?>> fields;
+public class UserTypeSerializer extends BytesSerializer {
 
-    public UserTypeSerializer(LinkedHashMap<String, TypeSerializer<?>> fields)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UserTypeSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UserTypeSerializer.class);
+
+    public final transient LinkedHashMap<String, TypeSerializer<?>> fields;
+
+    public UserTypeSerializer(LinkedHashMap<String, TypeSerializer<?>> fields) {
         this.fields = fields;
     }
 
     @Override
-    public <V> void validate(V input, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V input, ValueAccessor<V> accessor) throws MarshalException {
         int i = -1;
         int offset = 0;
-        for (Entry<String, TypeSerializer<?>> entry : fields.entrySet())
-        {
+        for (Entry<String, TypeSerializer<?>> entry : fields.entrySet()) {
             i++;
             // we allow the input to have less fields than declared so as to support field addition.
             if (accessor.isEmptyFromOffset(input, offset))
                 return;
-
             if (accessor.sizeFromOffset(input, offset) < 4)
                 throw new MarshalException(String.format("Not enough bytes to read size of %dth field %s", i, entry.getKey()));
-
             int size = accessor.getInt(input, offset);
             offset += TypeSizes.INT_SIZE;
-
             // size < 0 means null value
             if (size < 0)
                 continue;
-
             if (accessor.sizeFromOffset(input, offset) < size)
                 throw new MarshalException(String.format("Not enough bytes to read %dth field %s", i, entry.getKey()));
-
             V field = accessor.slice(input, offset, size);
-            try
-            {
+            try {
                 offset += size;
                 entry.getValue().validate(field, accessor);
-            }
-            catch (MarshalException e)
-            {
+            } catch (MarshalException e) {
                 throw new MarshalException(String.format("Failure validating the %dth field %s; %s", i, entry.getKey(), e.getMessage()), e);
             }
         }
-
         // We're allowed to get less fields than declared, but not more
         if (!accessor.isEmptyFromOffset(input, offset))
             throw new MarshalException("Invalid remaining data after end of UDT value");

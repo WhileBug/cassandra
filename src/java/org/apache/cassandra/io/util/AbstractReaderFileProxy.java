@@ -15,47 +15,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
-public abstract class AbstractReaderFileProxy implements ReaderFileProxy
-{
-    protected final ChannelProxy channel;
-    protected final long fileLength;
+public abstract class AbstractReaderFileProxy implements ReaderFileProxy {
 
-    protected AbstractReaderFileProxy(ChannelProxy channel, long fileLength)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractReaderFileProxy.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractReaderFileProxy.class);
+
+    protected final transient ChannelProxy channel;
+
+    protected final transient long fileLength;
+
+    protected AbstractReaderFileProxy(ChannelProxy channel, long fileLength) {
         this.channel = channel;
         this.fileLength = fileLength >= 0 ? fileLength : channel.size();
     }
 
     @Override
-    public ChannelProxy channel()
-    {
+    public ChannelProxy channel() {
         return channel;
     }
 
     @Override
-    public long fileLength()
-    {
+    public long fileLength() {
         return fileLength;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return getClass().getSimpleName() + "(filePath='" + channel + "')";
     }
 
     @Override
-    public void close()
-    {
+    public void close() {
         // nothing in base class
     }
 
     @Override
-    public double getCrcCheckChance()
-    {
-        return 0; // Only valid for compressed files.
+    public double getCrcCheckChance() {
+        // Only valid for compressed files.
+        return 0;
     }
 }

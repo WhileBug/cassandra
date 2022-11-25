@@ -22,16 +22,18 @@ import io.airlift.airline.Command;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
-@Command(name = "setbatchlogreplaythrottle", description = "Set batchlog replay throttle in KB per second, or 0 to disable throttling. " +
-                                                           "This will be reduced proportionally to the number of nodes in the cluster.")
-public class SetBatchlogReplayThrottle extends NodeToolCmd
-{
+@Command(name = "setbatchlogreplaythrottle", description = "Set batchlog replay throttle in KB per second, or 0 to disable throttling. " + "This will be reduced proportionally to the number of nodes in the cluster.")
+public class SetBatchlogReplayThrottle extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetBatchlogReplayThrottle.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetBatchlogReplayThrottle.class);
+
     @Arguments(title = "batchlog_replay_throttle", usage = "<value_in_kb_per_sec>", description = "Value in KB per second, 0 to disable throttling", required = true)
-    private Integer batchlogReplayThrottle = null;
+    private transient Integer batchlogReplayThrottle = null;
 
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.setBatchlogReplayThrottle(batchlogReplayThrottle);
     }
 }

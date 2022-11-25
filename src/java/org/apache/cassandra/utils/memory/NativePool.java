@@ -18,16 +18,18 @@
  */
 package org.apache.cassandra.utils.memory;
 
-public class NativePool extends MemtablePool
-{
-    public NativePool(long maxOnHeapMemory, long maxOffHeapMemory, float cleanThreshold, MemtableCleaner cleaner)
-    {
+public class NativePool extends MemtablePool {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativePool.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NativePool.class);
+
+    public NativePool(long maxOnHeapMemory, long maxOffHeapMemory, float cleanThreshold, MemtableCleaner cleaner) {
         super(maxOnHeapMemory, maxOffHeapMemory, cleanThreshold, cleaner);
     }
 
     @Override
-    public NativeAllocator newAllocator()
-    {
+    public NativeAllocator newAllocator() {
         return new NativeAllocator(this);
     }
 }

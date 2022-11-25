@@ -17,15 +17,17 @@
  */
 package org.apache.cassandra.exceptions;
 
-public class AuthenticationException extends RequestValidationException
-{
-    public AuthenticationException(String msg)
-    {
+public class AuthenticationException extends RequestValidationException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthenticationException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthenticationException.class);
+
+    public AuthenticationException(String msg) {
         super(ExceptionCode.BAD_CREDENTIALS, msg);
     }
 
-    public AuthenticationException(String msg, Throwable e)
-    {
+    public AuthenticationException(String msg, Throwable e) {
         super(ExceptionCode.BAD_CREDENTIALS, msg, e);
     }
 }

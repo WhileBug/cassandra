@@ -20,12 +20,9 @@ package org.apache.cassandra.metrics;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.clearspring.analytics.stream.StreamSummary;
-
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -33,15 +30,20 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * <p>add("x", 10); and add("x", 20); will result in "x" = 30</p> This uses StreamSummary to only store the
  * approximate cardinality (capacity) of keys. If the number of distinct keys exceed the capacity, the error of the
  * sample may increase depending on distribution of keys among the total set.
- * 
+ *
  * @param <T>
  */
-public abstract class FrequencySampler<T> extends Sampler<T>
-{
-    private static final Logger logger = LoggerFactory.getLogger(FrequencySampler.class);
-    private long endTimeNanos = -1;
+public abstract class FrequencySampler<T> extends Sampler<T> {
 
-    private StreamSummary<T> summary;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrequencySampler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrequencySampler.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(FrequencySampler.class);
+
+    private transient long endTimeNanos = -1;
+
+    private transient StreamSummary<T> summary;
 
     /**
      * Start to record samples
@@ -51,14 +53,11 @@ public abstract class FrequencySampler<T> extends Sampler<T>
      *            the less accurate results are. For best results use value
      *            close to cardinality, but understand the memory trade offs.
      */
-    public synchronized void beginSampling(int capacity, int durationMillis)
-    {
-        if (endTimeNanos == -1 || clock.now() > endTimeNanos)
-        {
+    public synchronized void beginSampling(int capacity, int durationMillis) {
+        if (endTimeNanos == -1 || clock.now() > endTimeNanos) {
             summary = new StreamSummary<>(capacity);
             endTimeNanos = clock.now() + MILLISECONDS.toNanos(durationMillis);
-        }
-        else
+        } else
             throw new RuntimeException("Sampling already in progress");
     }
 
@@ -66,40 +65,28 @@ public abstract class FrequencySampler<T> extends Sampler<T>
      * Call to stop collecting samples, and gather the results
      * @param count Number of most frequent items to return
      */
-    public synchronized List<Sample<T>> finishSampling(int count)
-    {
+    public synchronized List<Sample<T>> finishSampling(int count) {
         List<Sample<T>> results = Collections.emptyList();
-        if (endTimeNanos != -1)
-        {
+        if (endTimeNanos != -1) {
             endTimeNanos = -1;
-            results = summary.topK(count)
-                             .stream()
-                             .map(c -> new Sample<T>(c.getItem(), c.getCount(), c.getError()))
-                             .collect(Collectors.toList());
+            results = summary.topK(count).stream().map(c -> new Sample<T>(c.getItem(), c.getCount(), c.getError())).collect(Collectors.toList());
         }
         return results;
     }
 
-    protected synchronized void insert(final T item, final long value)
-    {
+    protected synchronized void insert(final T item, final long value) {
         // samplerExecutor is single threaded but still need
         // synchronization against jmx calls to finishSampling
-        if (value > 0 && clock.now() <= endTimeNanos)
-        {
-            try
-            {
+        if (value > 0 && clock.now() <= endTimeNanos) {
+            try {
                 summary.offer(item, (int) Math.min(value, Integer.MAX_VALUE));
-            } catch (Exception e)
-            {
+            } catch (Exception e) {
                 logger.trace("Failure to offer sample", e);
             }
         }
     }
 
-    public boolean isEnabled()
-    {
+    public boolean isEnabled() {
         return endTimeNanos != -1 && clock.now() <= endTimeNanos;
     }
-
 }
-

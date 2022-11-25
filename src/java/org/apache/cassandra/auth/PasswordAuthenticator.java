@@ -22,12 +22,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.exceptions.RequestExecutionException;
 import org.apache.cassandra.schema.SchemaConstants;
@@ -42,7 +40,6 @@ import org.apache.cassandra.service.QueryState;
 import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.mindrot.jbcrypt.BCrypt;
-
 import static org.apache.cassandra.auth.CassandraRoleManager.consistencyForRole;
 
 /**
@@ -54,143 +51,118 @@ import static org.apache.cassandra.auth.CassandraRoleManager.consistencyForRole;
  * PasswordAuthenticator requires the use of CassandraRoleManager
  * for storage and retrieval of encrypted passwords.
  */
-public class PasswordAuthenticator implements IAuthenticator
-{
-    private static final Logger logger = LoggerFactory.getLogger(PasswordAuthenticator.class);
+public class PasswordAuthenticator implements IAuthenticator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PasswordAuthenticator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PasswordAuthenticator.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(PasswordAuthenticator.class);
 
     // name of the hash column.
-    private static final String SALTED_HASH = "salted_hash";
+    private static final transient String SALTED_HASH = "salted_hash";
 
     // really this is a rolename now, but as it only matters for Thrift, we leave it for backwards compatibility
-    public static final String USERNAME_KEY = "username";
-    public static final String PASSWORD_KEY = "password";
+    public static final transient String USERNAME_KEY = "username";
 
-    static final byte NUL = 0;
-    private SelectStatement authenticateStatement;
+    public static final transient String PASSWORD_KEY = "password";
 
-    private CredentialsCache cache;
+    static final transient byte NUL = 0;
+
+    private transient SelectStatement authenticateStatement;
+
+    private transient CredentialsCache cache;
 
     // No anonymous access.
-    public boolean requireAuthentication()
-    {
+    public boolean requireAuthentication() {
         return true;
     }
 
-    protected static boolean checkpw(String password, String hash)
-    {
-        try
-        {
+    protected static boolean checkpw(String password, String hash) {
+        try {
             return BCrypt.checkpw(password, hash);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             // Improperly formatted hashes may cause BCrypt.checkpw to throw, so trap any other exception as a failure
             logger.warn("Error: invalid password hash encountered, rejecting user", e);
             return false;
         }
     }
 
-    private AuthenticatedUser authenticate(String username, String password) throws AuthenticationException
-    {
+    private AuthenticatedUser authenticate(String username, String password) throws AuthenticationException {
         String hash = cache.get(username);
         if (!checkpw(password, hash))
             throw new AuthenticationException(String.format("Provided username %s and/or password are incorrect", username));
-
         return new AuthenticatedUser(username);
     }
 
-    private String queryHashedPassword(String username)
-    {
-        try
-        {
-            ResultMessage.Rows rows =
-            authenticateStatement.execute(QueryState.forInternalCalls(),
-                                            QueryOptions.forInternalCalls(consistencyForRole(username),
-                                                                          Lists.newArrayList(ByteBufferUtil.bytes(username))),
-                                            System.nanoTime());
-
+    private String queryHashedPassword(String username) {
+        try {
+            ResultMessage.Rows rows = authenticateStatement.execute(QueryState.forInternalCalls(), QueryOptions.forInternalCalls(consistencyForRole(username), Lists.newArrayList(ByteBufferUtil.bytes(username))), System.nanoTime());
             // If either a non-existent role name was supplied, or no credentials
             // were found for that role we don't want to cache the result so we throw
             // an exception.
             if (rows.result.isEmpty())
                 throw new AuthenticationException(String.format("Provided username %s and/or password are incorrect", username));
-
             UntypedResultSet result = UntypedResultSet.create(rows.result);
             if (!result.one().has(SALTED_HASH))
                 throw new AuthenticationException(String.format("Provided username %s and/or password are incorrect", username));
-
             return result.one().getString(SALTED_HASH);
-        }
-        catch (RequestExecutionException e)
-        {
+        } catch (RequestExecutionException e) {
             throw new AuthenticationException("Unable to perform authentication: " + e.getMessage(), e);
         }
     }
 
-    public Set<DataResource> protectedResources()
-    {
+    public Set<DataResource> protectedResources() {
         // Also protected by CassandraRoleManager, but the duplication doesn't hurt and is more explicit
         return ImmutableSet.of(DataResource.table(SchemaConstants.AUTH_KEYSPACE_NAME, AuthKeyspace.ROLES));
     }
 
-    public void validateConfiguration() throws ConfigurationException
-    {
+    public void validateConfiguration() throws ConfigurationException {
     }
 
-    public void setup()
-    {
-        String query = String.format("SELECT %s FROM %s.%s WHERE role = ?",
-                                     SALTED_HASH,
-                                     SchemaConstants.AUTH_KEYSPACE_NAME,
-                                     AuthKeyspace.ROLES);
+    public void setup() {
+        String query = String.format("SELECT %s FROM %s.%s WHERE role = ?", SALTED_HASH, SchemaConstants.AUTH_KEYSPACE_NAME, AuthKeyspace.ROLES);
         authenticateStatement = prepare(query);
-
         cache = new CredentialsCache(this);
     }
 
-    public AuthenticatedUser legacyAuthenticate(Map<String, String> credentials) throws AuthenticationException
-    {
+    public AuthenticatedUser legacyAuthenticate(Map<String, String> credentials) throws AuthenticationException {
         String username = credentials.get(USERNAME_KEY);
         if (username == null)
             throw new AuthenticationException(String.format("Required key '%s' is missing", USERNAME_KEY));
-
         String password = credentials.get(PASSWORD_KEY);
         if (password == null)
             throw new AuthenticationException(String.format("Required key '%s' is missing for provided username %s", PASSWORD_KEY, username));
-
         return authenticate(username, password);
     }
 
-    public SaslNegotiator newSaslNegotiator(InetAddress clientAddress)
-    {
+    public SaslNegotiator newSaslNegotiator(InetAddress clientAddress) {
         return new PlainTextSaslAuthenticator();
     }
 
-    private static SelectStatement prepare(String query)
-    {
+    private static SelectStatement prepare(String query) {
         return (SelectStatement) QueryProcessor.getStatement(query, ClientState.forInternalCalls());
     }
 
-    private class PlainTextSaslAuthenticator implements SaslNegotiator
-    {
-        private boolean complete = false;
-        private String username;
-        private String password;
+    private class PlainTextSaslAuthenticator implements SaslNegotiator {
 
-        public byte[] evaluateResponse(byte[] clientResponse) throws AuthenticationException
-        {
+        private transient boolean complete = false;
+
+        private transient String username;
+
+        private transient String password;
+
+        public byte[] evaluateResponse(byte[] clientResponse) throws AuthenticationException {
             decodeCredentials(clientResponse);
             complete = true;
             return null;
         }
 
-        public boolean isComplete()
-        {
+        public boolean isComplete() {
             return complete;
         }
 
-        public AuthenticatedUser getAuthenticatedUser() throws AuthenticationException
-        {
+        public AuthenticatedUser getAuthenticatedUser() throws AuthenticationException {
             if (!complete)
                 throw new AuthenticationException("SASL negotiation not complete");
             return authenticate(username, password);
@@ -208,60 +180,44 @@ public class PasswordAuthenticator implements IAuthenticator
          * @throws org.apache.cassandra.exceptions.AuthenticationException if either the
          *         authnId or password is null
          */
-        private void decodeCredentials(byte[] bytes) throws AuthenticationException
-        {
+        private void decodeCredentials(byte[] bytes) throws AuthenticationException {
             logger.trace("Decoding credentials from client token");
             byte[] user = null;
             byte[] pass = null;
             int end = bytes.length;
-            for (int i = bytes.length - 1; i >= 0; i--)
-            {
-                if (bytes[i] == NUL)
-                {
+            for (int i = bytes.length - 1; i >= 0; i--) {
+                if (bytes[i] == NUL) {
                     if (pass == null)
                         pass = Arrays.copyOfRange(bytes, i + 1, end);
                     else if (user == null)
                         user = Arrays.copyOfRange(bytes, i + 1, end);
                     else
                         throw new AuthenticationException("Credential format error: username or password is empty or contains NUL(\\0) character");
-
                     end = i;
                 }
             }
-
             if (pass == null || pass.length == 0)
                 throw new AuthenticationException("Password must not be null");
             if (user == null || user.length == 0)
                 throw new AuthenticationException("Authentication ID must not be null");
-
             username = new String(user, StandardCharsets.UTF_8);
             password = new String(pass, StandardCharsets.UTF_8);
         }
     }
 
-    private static class CredentialsCache extends AuthCache<String, String> implements CredentialsCacheMBean
-    {
-        private CredentialsCache(PasswordAuthenticator authenticator)
-        {
-            super("CredentialsCache",
-                  DatabaseDescriptor::setCredentialsValidity,
-                  DatabaseDescriptor::getCredentialsValidity,
-                  DatabaseDescriptor::setCredentialsUpdateInterval,
-                  DatabaseDescriptor::getCredentialsUpdateInterval,
-                  DatabaseDescriptor::setCredentialsCacheMaxEntries,
-                  DatabaseDescriptor::getCredentialsCacheMaxEntries,
-                  authenticator::queryHashedPassword,
-                  () -> true);
+    private static class CredentialsCache extends AuthCache<String, String> implements CredentialsCacheMBean {
+
+        private CredentialsCache(PasswordAuthenticator authenticator) {
+            super("CredentialsCache", DatabaseDescriptor::setCredentialsValidity, DatabaseDescriptor::getCredentialsValidity, DatabaseDescriptor::setCredentialsUpdateInterval, DatabaseDescriptor::getCredentialsUpdateInterval, DatabaseDescriptor::setCredentialsCacheMaxEntries, DatabaseDescriptor::getCredentialsCacheMaxEntries, authenticator::queryHashedPassword, () -> true);
         }
 
-        public void invalidateCredentials(String roleName)
-        {
+        public void invalidateCredentials(String roleName) {
             invalidate(roleName);
         }
     }
 
-    public static interface CredentialsCacheMBean extends AuthCacheMBean
-    {
+    public static interface CredentialsCacheMBean extends AuthCacheMBean {
+
         public void invalidateCredentials(String roleName);
     }
 }

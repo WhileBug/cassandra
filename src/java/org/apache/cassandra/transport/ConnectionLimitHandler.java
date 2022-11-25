@@ -17,7 +17,6 @@
  */
 package org.apache.cassandra.transport;
 
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -26,10 +25,8 @@ import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.utils.NoSpamLogger;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -38,88 +35,76 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-
 /**
  * {@link ChannelInboundHandlerAdapter} implementation which allows to limit the number of concurrent
  * connections to the Server. Be aware this <strong>MUST</strong> be shared between all child channels.
  */
 @ChannelHandler.Sharable
-final class ConnectionLimitHandler extends ChannelInboundHandlerAdapter
-{
-    private static final Logger logger = LoggerFactory.getLogger(ConnectionLimitHandler.class);
-    private static final NoSpamLogger noSpamLogger = NoSpamLogger.getLogger(logger, 1L, TimeUnit.MINUTES);
-    private static final AttributeKey<InetAddress> addressAttributeKey = AttributeKey.valueOf(ConnectionLimitHandler.class, "address");
+final class ConnectionLimitHandler extends ChannelInboundHandlerAdapter {
 
-    private final ConcurrentMap<InetAddress, AtomicLong> connectionsPerClient = new ConcurrentHashMap<>();
-    private final AtomicLong counter = new AtomicLong(0);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ConnectionLimitHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ConnectionLimitHandler.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(ConnectionLimitHandler.class);
+
+    private static final transient NoSpamLogger noSpamLogger = NoSpamLogger.getLogger(logger, 1L, TimeUnit.MINUTES);
+
+    private static final transient AttributeKey<InetAddress> addressAttributeKey = AttributeKey.valueOf(ConnectionLimitHandler.class, "address");
+
+    private final transient ConcurrentMap<InetAddress, AtomicLong> connectionsPerClient = new ConcurrentHashMap<>();
+
+    private final transient AtomicLong counter = new AtomicLong(0);
 
     // Keep the remote address as a channel attribute.  The channel inactive callback needs
     // to know the entry into the connetionsPerClient map and depending on the state of the remote
     // an exception may be thrown trying to retrieve the address. Make sure the same address used
     // to increment is used for decrement.
-    private static InetAddress setRemoteAddressAttribute(Channel channel)
-    {
+    private static InetAddress setRemoteAddressAttribute(Channel channel) {
         Attribute<InetAddress> addressAttribute = channel.attr(addressAttributeKey);
         SocketAddress remoteAddress = channel.remoteAddress();
-        if (remoteAddress instanceof InetSocketAddress)
-        {
+        if (remoteAddress instanceof InetSocketAddress) {
             addressAttribute.setIfAbsent(((InetSocketAddress) remoteAddress).getAddress());
-        }
-        else
-        {
-            noSpamLogger.warn("Remote address of unknown type: {}, skipping per-IP connection limits",
-                              remoteAddress.getClass());
+        } else {
+            noSpamLogger.warn("Remote address of unknown type: {}, skipping per-IP connection limits", remoteAddress.getClass());
         }
         return addressAttribute.get();
     }
 
-    private static InetAddress getRemoteAddressAttribute(Channel channel)
-    {
+    private static InetAddress getRemoteAddressAttribute(Channel channel) {
         Attribute<InetAddress> addressAttribute = channel.attr(addressAttributeKey);
         return addressAttribute.get();
     }
 
-
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception
-    {
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
         final long count = counter.incrementAndGet();
         long limit = DatabaseDescriptor.getNativeTransportMaxConcurrentConnections();
         // Setting the limit to -1 disables it.
-        if(limit < 0)
-        {
+        if (limit < 0) {
             limit = Long.MAX_VALUE;
         }
-        if (count > limit)
-        {
+        if (count > limit) {
             // The decrement will be done in channelClosed(...)
             noSpamLogger.error("Exceeded maximum native connection limit of {} by using {} connections (see native_transport_max_concurrent_connections in cassandra.yaml)", limit, count);
             ctx.close();
-        }
-        else
-        {
+        } else {
             long perIpLimit = DatabaseDescriptor.getNativeTransportMaxConcurrentConnectionsPerIp();
-            if (perIpLimit > 0)
-            {
+            if (perIpLimit > 0) {
                 InetAddress address = setRemoteAddressAttribute(ctx.channel());
-                if (address == null)
-                {
+                if (address == null) {
                     ctx.close();
                     return;
                 }
                 AtomicLong perIpCount = connectionsPerClient.get(address);
-                if (perIpCount == null)
-                {
+                if (perIpCount == null) {
                     perIpCount = new AtomicLong(0);
-
                     AtomicLong old = connectionsPerClient.putIfAbsent(address, perIpCount);
-                    if (old != null)
-                    {
+                    if (old != null) {
                         perIpCount = old;
                     }
                 }
-                if (perIpCount.incrementAndGet() > perIpLimit)
-                {
+                if (perIpCount.incrementAndGet() > perIpLimit) {
                     // The decrement will be done in channelClosed(...)
                     noSpamLogger.error("Exceeded maximum native connection limit per ip of {} by using {} connections (see native_transport_max_concurrent_connections_per_ip)", perIpLimit, perIpCount);
                     ctx.close();
@@ -131,16 +116,12 @@ final class ConnectionLimitHandler extends ChannelInboundHandlerAdapter
     }
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception
-    {
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         counter.decrementAndGet();
         InetAddress address = getRemoteAddressAttribute(ctx.channel());
-
         AtomicLong count = address == null ? null : connectionsPerClient.get(address);
-        if (count != null)
-        {
-            if (count.decrementAndGet() <= 0)
-            {
+        if (count != null) {
+            if (count.decrementAndGet() <= 0) {
                 connectionsPerClient.remove(address);
             }
         }

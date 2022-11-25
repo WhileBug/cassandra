@@ -23,43 +23,42 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.zip.CRC32;
 import javax.crypto.Cipher;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.cassandra.security.EncryptionUtils;
 import org.apache.cassandra.io.compress.ICompressor;
-
 import static org.apache.cassandra.utils.FBUtilities.updateChecksum;
 
-public class EncryptedHintsWriter extends HintsWriter
-{
-    private final Cipher cipher;
-    private final ICompressor compressor;
-    private volatile ByteBuffer byteBuffer;
+public class EncryptedHintsWriter extends HintsWriter {
 
-    protected EncryptedHintsWriter(File directory, HintsDescriptor descriptor, File file, FileChannel channel, int fd, CRC32 globalCRC)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EncryptedHintsWriter.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EncryptedHintsWriter.class);
+
+    private final transient Cipher cipher;
+
+    private final transient ICompressor compressor;
+
+    private volatile transient ByteBuffer byteBuffer;
+
+    protected EncryptedHintsWriter(File directory, HintsDescriptor descriptor, File file, FileChannel channel, int fd, CRC32 globalCRC) {
         super(directory, descriptor, file, channel, fd, globalCRC);
         cipher = descriptor.getCipher();
         compressor = descriptor.createCompressor();
     }
 
-    protected void writeBuffer(ByteBuffer input) throws IOException
-    {
+    protected void writeBuffer(ByteBuffer input) throws IOException {
         byteBuffer = EncryptionUtils.compress(input, byteBuffer, true, compressor);
         ByteBuffer output = EncryptionUtils.encryptAndWrite(byteBuffer, channel, true, cipher);
         updateChecksum(globalCRC, output);
     }
 
     @VisibleForTesting
-    Cipher getCipher()
-    {
+    Cipher getCipher() {
         return cipher;
     }
 
     @VisibleForTesting
-    ICompressor getCompressor()
-    {
+    ICompressor getCompressor() {
         return compressor;
     }
 }

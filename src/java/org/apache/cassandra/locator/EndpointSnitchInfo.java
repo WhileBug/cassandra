@@ -18,39 +18,36 @@
 package org.apache.cassandra.locator;
 
 import java.net.UnknownHostException;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.utils.MBeanWrapper;
 
-public class EndpointSnitchInfo implements EndpointSnitchInfoMBean
-{
-    public static void create()
-    {
+public class EndpointSnitchInfo implements EndpointSnitchInfoMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EndpointSnitchInfo.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EndpointSnitchInfo.class);
+
+    public static void create() {
         MBeanWrapper.instance.registerMBean(new EndpointSnitchInfo(), "org.apache.cassandra.db:type=EndpointSnitchInfo");
     }
 
-    public String getDatacenter(String host) throws UnknownHostException
-    {
+    public String getDatacenter(String host) throws UnknownHostException {
         return DatabaseDescriptor.getEndpointSnitch().getDatacenter(InetAddressAndPort.getByName(host));
     }
 
-    public String getRack(String host) throws UnknownHostException
-    {
+    public String getRack(String host) throws UnknownHostException {
         return DatabaseDescriptor.getEndpointSnitch().getRack(InetAddressAndPort.getByName(host));
     }
 
-    public String getDatacenter()
-    {
+    public String getDatacenter() {
         return DatabaseDescriptor.getEndpointSnitch().getLocalDatacenter();
     }
 
-    public String getRack()
-    {
+    public String getRack() {
         return DatabaseDescriptor.getEndpointSnitch().getLocalRack();
     }
 
-    public String getSnitchName()
-    {
+    public String getSnitchName() {
         return DatabaseDescriptor.getEndpointSnitch().getClass().getName();
     }
 }

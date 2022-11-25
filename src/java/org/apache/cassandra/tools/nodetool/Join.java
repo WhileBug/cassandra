@@ -19,26 +19,24 @@ package org.apache.cassandra.tools.nodetool;
 
 import static com.google.common.base.Preconditions.checkState;
 import io.airlift.airline.Command;
-
 import java.io.IOException;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "join", description = "Join the ring")
-public class Join extends NodeToolCmd
-{
+public class Join extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Join.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Join.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         checkState(!probe.isJoined(), "This node has already joined the ring.");
         checkState(!probe.isBootstrapMode(), "Cannot join the ring until bootstrap completes");
-
-        try
-        {
+        try {
             probe.joinRing();
-        } catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException("Error during joining the ring", e);
         }
     }

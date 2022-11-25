@@ -18,24 +18,24 @@
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 import org.apache.cassandra.utils.JVMStabilityInspector;
 
 @Command(name = "stopdaemon", description = "Stop cassandra daemon")
-public class StopDaemon extends NodeToolCmd
-{
+public class StopDaemon extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StopDaemon.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StopDaemon.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
-        try
-        {
+    public void execute(NodeProbe probe) {
+        try {
             DatabaseDescriptor.toolInitialization();
             probe.stopCassandraDaemon();
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             JVMStabilityInspector.inspectThrowable(e);
             // ignored
         }

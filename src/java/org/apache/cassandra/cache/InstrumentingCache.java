@@ -18,43 +18,42 @@
 package org.apache.cassandra.cache;
 
 import java.util.Iterator;
-
 import org.apache.cassandra.metrics.CacheMetrics;
 
 /**
  * Wraps an ICache in requests + hits tracking.
  */
-public class InstrumentingCache<K, V>
-{
-    private final ICache<K, V> map;
-    private final String type;
+public class InstrumentingCache<K, V> {
 
-    private CacheMetrics metrics;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InstrumentingCache.class);
 
-    public InstrumentingCache(String type, ICache<K, V> map)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InstrumentingCache.class);
+
+    private final transient ICache<K, V> map;
+
+    private final transient String type;
+
+    private transient CacheMetrics metrics;
+
+    public InstrumentingCache(String type, ICache<K, V> map) {
         this.map = map;
         this.type = type;
         this.metrics = new CacheMetrics(type, map);
     }
 
-    public void put(K key, V value)
-    {
+    public void put(K key, V value) {
         map.put(key, value);
     }
 
-    public boolean putIfAbsent(K key, V value)
-    {
+    public boolean putIfAbsent(K key, V value) {
         return map.putIfAbsent(key, value);
     }
 
-    public boolean replace(K key, V old, V value)
-    {
+    public boolean replace(K key, V old, V value) {
         return map.replace(key, old, value);
     }
 
-    public V get(K key)
-    {
+    public V get(K key) {
         metrics.requests.mark();
         V v = map.get(key);
         if (v != null)
@@ -64,62 +63,50 @@ public class InstrumentingCache<K, V>
         return v;
     }
 
-    public V getInternal(K key)
-    {
+    public V getInternal(K key) {
         return map.get(key);
     }
 
-    public void remove(K key)
-    {
+    public void remove(K key) {
         map.remove(key);
     }
 
-    public long getCapacity()
-    {
+    public long getCapacity() {
         return map.capacity();
     }
 
-    public void setCapacity(long capacity)
-    {
+    public void setCapacity(long capacity) {
         map.setCapacity(capacity);
     }
 
-    public int size()
-    {
+    public int size() {
         return map.size();
     }
 
-    public long weightedSize()
-    {
+    public long weightedSize() {
         return map.weightedSize();
     }
 
-    public void clear()
-    {
+    public void clear() {
         map.clear();
-
         // this does not clear metered metrics which are defined statically. for testing purposes, these can be
         // cleared by CacheMetrics.reset()
         metrics = new CacheMetrics(type, map);
     }
 
-    public Iterator<K> keyIterator()
-    {
+    public Iterator<K> keyIterator() {
         return map.keyIterator();
     }
 
-    public Iterator<K> hotKeyIterator(int n)
-    {
+    public Iterator<K> hotKeyIterator(int n) {
         return map.hotKeyIterator(n);
     }
 
-    public boolean containsKey(K key)
-    {
+    public boolean containsKey(K key) {
         return map.containsKey(key);
     }
 
-    public CacheMetrics getMetrics()
-    {
+    public CacheMetrics getMetrics() {
         return metrics;
     }
 }

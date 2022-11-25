@@ -19,17 +19,18 @@ package org.apache.cassandra.db.transform;
 
 import org.apache.cassandra.db.rows.BaseRowIterator;
 
-public final class EmptyPartitionsDiscarder extends Transformation<BaseRowIterator<?>>
-{
+public final class EmptyPartitionsDiscarder extends Transformation<BaseRowIterator<?>> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EmptyPartitionsDiscarder.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EmptyPartitionsDiscarder.class);
+
     @Override
-    protected BaseRowIterator applyToPartition(BaseRowIterator iterator)
-    {
-        if (iterator.isEmpty())
-        {
+    protected BaseRowIterator applyToPartition(BaseRowIterator iterator) {
+        if (iterator.isEmpty()) {
             iterator.close();
             return null;
         }
-
         return iterator;
     }
 }

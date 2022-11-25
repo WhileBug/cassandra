@@ -18,15 +18,17 @@
 package org.apache.cassandra.io;
 
 import java.io.IOException;
-
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 
-public interface ISerializer<T>
-{
+public interface ISerializer<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ISerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ISerializer.class);
+
     /**
      * Serialize the specified type into the specified DataOutput instance.
-     *
      *
      * @param t type that needs to be serialized
      * @param out DataOutput into which serialization needs to happen.
@@ -44,8 +46,7 @@ public interface ISerializer<T>
 
     public long serializedSize(T t);
 
-    public default void skip(DataInputPlus in) throws IOException
-    {
+    public default void skip(DataInputPlus in) throws IOException {
         deserialize(in);
     }
 }

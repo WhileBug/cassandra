@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.commitlog;
 
 import org.apache.cassandra.config.DatabaseDescriptor;
@@ -24,15 +23,17 @@ import org.apache.cassandra.config.DatabaseDescriptor;
  * A commitlog service that will block returning an ACK back to the a coordinator/client
  * for a minimum amount of time as we wait until the the commit log segment is flushed.
  */
-public class GroupCommitLogService extends AbstractCommitLogService
-{
-    public GroupCommitLogService(CommitLog commitLog)
-    {
+public class GroupCommitLogService extends AbstractCommitLogService {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GroupCommitLogService.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GroupCommitLogService.class);
+
+    public GroupCommitLogService(CommitLog commitLog) {
         super(commitLog, "GROUP-COMMIT-LOG-WRITER", (int) DatabaseDescriptor.getCommitLogSyncGroupWindow());
     }
 
-    protected void maybeWaitForSync(CommitLogSegment.Allocation alloc)
-    {
+    protected void maybeWaitForSync(CommitLogSegment.Allocation alloc) {
         // wait until record has been safely persisted to disk
         pending.incrementAndGet();
         // wait for commitlog_sync_group_window_in_ms
@@ -40,4 +41,3 @@ public class GroupCommitLogService extends AbstractCommitLogService
         pending.decrementAndGet();
     }
 }
-

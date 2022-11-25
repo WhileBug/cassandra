@@ -15,22 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.monitoring;
 
 import static org.apache.cassandra.utils.MonotonicClock.approxTime;
 
-public abstract class MonitorableImpl implements Monitorable
-{
-    private MonitoringState state;
-    private boolean isSlow;
-    private long approxCreationTimeNanos = -1;
-    private long timeoutNanos;
-    private long slowTimeoutNanos;
-    private boolean isCrossNode;
+public abstract class MonitorableImpl implements Monitorable {
 
-    protected MonitorableImpl()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MonitorableImpl.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MonitorableImpl.class);
+
+    private transient MonitoringState state;
+
+    private transient boolean isSlow;
+
+    private transient long approxCreationTimeNanos = -1;
+
+    private transient long timeoutNanos;
+
+    private transient long slowTimeoutNanos;
+
+    private transient boolean isCrossNode;
+
+    protected MonitorableImpl() {
         this.state = MonitoringState.IN_PROGRESS;
         this.isSlow = false;
     }
@@ -40,8 +47,7 @@ public abstract class MonitorableImpl implements Monitorable
      * is too complex, it would require passing new parameters to all serializers
      * or specializing the serializers to accept these message properties.
      */
-    public void setMonitoringTime(long approxCreationTimeNanos, boolean isCrossNode, long timeoutNanos, long slowTimeoutNanos)
-    {
+    public void setMonitoringTime(long approxCreationTimeNanos, boolean isCrossNode, long timeoutNanos, long slowTimeoutNanos) {
         assert approxCreationTimeNanos >= 0;
         this.approxCreationTimeNanos = approxCreationTimeNanos;
         this.isCrossNode = isCrossNode;
@@ -49,88 +55,68 @@ public abstract class MonitorableImpl implements Monitorable
         this.slowTimeoutNanos = slowTimeoutNanos;
     }
 
-    public long creationTimeNanos()
-    {
+    public long creationTimeNanos() {
         return approxCreationTimeNanos;
     }
 
-    public long timeoutNanos()
-    {
+    public long timeoutNanos() {
         return timeoutNanos;
     }
 
-    public boolean isCrossNode()
-    {
+    public boolean isCrossNode() {
         return isCrossNode;
     }
 
-    public long slowTimeoutNanos()
-    {
+    public long slowTimeoutNanos() {
         return slowTimeoutNanos;
     }
 
-    public boolean isInProgress()
-    {
+    public boolean isInProgress() {
         check();
         return state == MonitoringState.IN_PROGRESS;
     }
 
-    public boolean isAborted()
-    {
+    public boolean isAborted() {
         check();
         return state == MonitoringState.ABORTED;
     }
 
-    public boolean isCompleted()
-    {
+    public boolean isCompleted() {
         check();
         return state == MonitoringState.COMPLETED;
     }
 
-    public boolean isSlow()
-    {
+    public boolean isSlow() {
         check();
         return isSlow;
     }
 
-    public boolean abort()
-    {
-        if (state == MonitoringState.IN_PROGRESS)
-        {
+    public boolean abort() {
+        if (state == MonitoringState.IN_PROGRESS) {
             if (approxCreationTimeNanos >= 0)
                 MonitoringTask.addFailedOperation(this, approxTime.now());
-
             state = MonitoringState.ABORTED;
             return true;
         }
-
         return state == MonitoringState.ABORTED;
     }
 
-    public boolean complete()
-    {
-        if (state == MonitoringState.IN_PROGRESS)
-        {
+    public boolean complete() {
+        if (state == MonitoringState.IN_PROGRESS) {
             if (isSlow && slowTimeoutNanos > 0 && approxCreationTimeNanos >= 0)
                 MonitoringTask.addSlowOperation(this, approxTime.now());
-
             state = MonitoringState.COMPLETED;
             return true;
         }
-
         return state == MonitoringState.COMPLETED;
     }
 
-    private void check()
-    {
+    private void check() {
         if (approxCreationTimeNanos < 0 || state != MonitoringState.IN_PROGRESS)
             return;
-
         long minElapsedNanos = (approxTime.now() - approxCreationTimeNanos) - approxTime.error();
-
         if (minElapsedNanos >= slowTimeoutNanos && !isSlow)
             isSlow = true;
-
         if (minElapsedNanos >= timeoutNanos)
             abort();
     }

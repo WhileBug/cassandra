@@ -30,41 +30,38 @@ import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public abstract class AuthorizationStatement extends CQLStatement.Raw implements CQLStatement
-{
-    public AuthorizationStatement prepare(ClientState state)
-    {
+public abstract class AuthorizationStatement extends CQLStatement.Raw implements CQLStatement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthorizationStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthorizationStatement.class);
+
+    public AuthorizationStatement prepare(ClientState state) {
         return this;
     }
 
-    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime)
-    throws RequestValidationException, RequestExecutionException
-    {
+    public ResultMessage execute(QueryState state, QueryOptions options, long queryStartNanoTime) throws RequestValidationException, RequestExecutionException {
         return execute(state.getClientState());
     }
 
     public abstract ResultMessage execute(ClientState state) throws RequestValidationException, RequestExecutionException;
 
-    public ResultMessage executeLocally(QueryState state, QueryOptions options)
-    {
+    public ResultMessage executeLocally(QueryState state, QueryOptions options) {
         // executeLocally is for local query only, thus altering permission doesn't make sense and is not supported
         throw new UnsupportedOperationException();
     }
 
-    public static IResource maybeCorrectResource(IResource resource, ClientState state) throws InvalidRequestException
-    {
-        if (DataResource.class.isInstance(resource))
-        {
+    public static IResource maybeCorrectResource(IResource resource, ClientState state) throws InvalidRequestException {
+        if (DataResource.class.isInstance(resource)) {
             DataResource dataResource = (DataResource) resource;
             if (dataResource.isTableLevel() && dataResource.getKeyspace() == null)
                 return DataResource.table(state.getKeyspace(), dataResource.getTable());
         }
         return resource;
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 }

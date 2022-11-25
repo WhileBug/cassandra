@@ -18,10 +18,13 @@
 package org.apache.cassandra.dht.tokenallocator;
 
 import java.util.Collection;
-
 import org.apache.cassandra.dht.Token;
 
-public interface TokenAllocator<Unit>
-{
+public interface TokenAllocator<Unit> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenAllocator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenAllocator.class);
+
     Collection<Token> addUnit(Unit newUnit, int numTokens);
 }

@@ -19,36 +19,40 @@ package org.apache.cassandra.metrics;
 
 import java.util.EnumMap;
 import java.util.Map;
-
 import org.apache.cassandra.db.ConsistencyLevel;
 
-public final class ClientRequestsMetricsHolder
-{
-    public static final ClientRequestMetrics readMetrics = new ClientRequestMetrics("Read");
-    public static final ClientWriteRequestMetrics writeMetrics = new ClientWriteRequestMetrics("Write");
-    public static final CASClientWriteRequestMetrics casWriteMetrics = new CASClientWriteRequestMetrics("CASWrite");
-    public static final CASClientRequestMetrics casReadMetrics = new CASClientRequestMetrics("CASRead");
-    public static final ViewWriteMetrics viewWriteMetrics = new ViewWriteMetrics("ViewWrite");
+public final class ClientRequestsMetricsHolder {
 
-    private static final Map<ConsistencyLevel, ClientRequestMetrics> readMetricsMap = new EnumMap<>(ConsistencyLevel.class);
-    private static final Map<ConsistencyLevel, ClientWriteRequestMetrics> writeMetricsMap = new EnumMap<>(ConsistencyLevel.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientRequestsMetricsHolder.class);
 
-    static
-    {
-        for (ConsistencyLevel level : ConsistencyLevel.values())
-        {
-             readMetricsMap.put(level, new ClientRequestMetrics("Read-" + level.name()));
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ClientRequestsMetricsHolder.class);
+
+    public static final transient ClientRequestMetrics readMetrics = new ClientRequestMetrics("Read");
+
+    public static final transient ClientWriteRequestMetrics writeMetrics = new ClientWriteRequestMetrics("Write");
+
+    public static final transient CASClientWriteRequestMetrics casWriteMetrics = new CASClientWriteRequestMetrics("CASWrite");
+
+    public static final transient CASClientRequestMetrics casReadMetrics = new CASClientRequestMetrics("CASRead");
+
+    public static final transient ViewWriteMetrics viewWriteMetrics = new ViewWriteMetrics("ViewWrite");
+
+    private static final transient Map<ConsistencyLevel, ClientRequestMetrics> readMetricsMap = new EnumMap<>(ConsistencyLevel.class);
+
+    private static final transient Map<ConsistencyLevel, ClientWriteRequestMetrics> writeMetricsMap = new EnumMap<>(ConsistencyLevel.class);
+
+    static {
+        for (ConsistencyLevel level : ConsistencyLevel.values()) {
+            readMetricsMap.put(level, new ClientRequestMetrics("Read-" + level.name()));
             writeMetricsMap.put(level, new ClientWriteRequestMetrics("Write-" + level.name()));
         }
     }
 
-    public static ClientRequestMetrics readMetricsForLevel(ConsistencyLevel level)
-    {
+    public static ClientRequestMetrics readMetricsForLevel(ConsistencyLevel level) {
         return readMetricsMap.get(level);
     }
 
-    public static ClientWriteRequestMetrics writeMetricsForLevel(ConsistencyLevel level)
-    {
+    public static ClientWriteRequestMetrics writeMetricsForLevel(ConsistencyLevel level) {
         return writeMetricsMap.get(level);
     }
 }

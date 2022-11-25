@@ -15,25 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.lifecycle;
 
 import java.util.Collection;
 import java.util.Set;
-
 import org.apache.cassandra.io.sstable.SSTable;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.utils.concurrent.Transactional;
 
-public interface ILifecycleTransaction extends Transactional, LifecycleNewTracker
-{
+public interface ILifecycleTransaction extends Transactional, LifecycleNewTracker {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ILifecycleTransaction.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ILifecycleTransaction.class);
+
     void checkpoint();
+
     void update(SSTableReader reader, boolean original);
+
     void update(Collection<SSTableReader> readers, boolean original);
+
     public SSTableReader current(SSTableReader reader);
+
     void obsolete(SSTableReader reader);
+
     void obsoleteOriginals();
+
     Set<SSTableReader> originals();
+
     boolean isObsolete(SSTableReader reader);
+
     boolean isOffline();
 }

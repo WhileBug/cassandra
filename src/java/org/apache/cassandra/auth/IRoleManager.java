@@ -20,7 +20,6 @@ package org.apache.cassandra.auth;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.exceptions.RequestExecutionException;
 import org.apache.cassandra.exceptions.RequestValidationException;
@@ -31,16 +30,19 @@ import org.apache.cassandra.exceptions.RequestValidationException;
  * alteration and the granting and revoking of roles to other
  * roles.
  */
-public interface IRoleManager
-{
+public interface IRoleManager {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IRoleManager.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IRoleManager.class);
 
     /**
      * Supported options for CREATE ROLE/ALTER ROLE (and
      * CREATE USER/ALTER USER, which are aliases provided
      * for backwards compatibility).
      */
-    public enum Option
-    {
+    public enum Option {
+
         SUPERUSER, PASSWORD, LOGIN, OPTIONS
     }
 
@@ -66,8 +68,7 @@ public interface IRoleManager
      * @throws RequestValidationException
      * @throws RequestExecutionException
      */
-    void createRole(AuthenticatedUser performer, RoleResource role, RoleOptions options)
-    throws RequestValidationException, RequestExecutionException;
+    void createRole(AuthenticatedUser performer, RoleResource role, RoleOptions options) throws RequestValidationException, RequestExecutionException;
 
     /**
      * Called during execution of DROP ROLE statement, as well we removing any main record of the role from the system
@@ -92,8 +93,7 @@ public interface IRoleManager
      * @throws RequestValidationException
      * @throws RequestExecutionException
      */
-    void alterRole(AuthenticatedUser performer, RoleResource role, RoleOptions options)
-    throws RequestValidationException, RequestExecutionException;
+    void alterRole(AuthenticatedUser performer, RoleResource role, RoleOptions options) throws RequestValidationException, RequestExecutionException;
 
     /**
      * Called during execution of GRANT ROLE query.
@@ -106,8 +106,7 @@ public interface IRoleManager
      * @throws RequestValidationException
      * @throws RequestExecutionException
      */
-    void grantRole(AuthenticatedUser performer, RoleResource role, RoleResource grantee)
-    throws RequestValidationException, RequestExecutionException;
+    void grantRole(AuthenticatedUser performer, RoleResource role, RoleResource grantee) throws RequestValidationException, RequestExecutionException;
 
     /**
      * Called during the execution of a REVOKE ROLE query.
@@ -120,8 +119,7 @@ public interface IRoleManager
      * @throws RequestValidationException
      * @throws RequestExecutionException
      */
-    void revokeRole(AuthenticatedUser performer, RoleResource role, RoleResource revokee)
-    throws RequestValidationException, RequestExecutionException;
+    void revokeRole(AuthenticatedUser performer, RoleResource role, RoleResource revokee) throws RequestValidationException, RequestExecutionException;
 
     /**
      * Called during execution of a LIST ROLES query.
@@ -145,12 +143,9 @@ public interface IRoleManager
      * @param grantee identifies the role whose granted roles are retrieved
      * @return A set of Role objects detailing the roles granted to the grantee, either directly or through inheritance.
      */
-     default Set<Role> getRoleDetails(RoleResource grantee)
-     {
-         return getRoles(grantee, true).stream()
-                                       .map(roleResource -> Roles.fromRoleResource(roleResource, this))
-                                       .collect(Collectors.toSet());
-     }
+    default Set<Role> getRoleDetails(RoleResource grantee) {
+        return getRoles(grantee, true).stream().map(roleResource -> Roles.fromRoleResource(roleResource, this)).collect(Collectors.toSet());
+    }
 
     /**
      * Called during the execution of an unqualified LIST ROLES query.

@@ -15,42 +15,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class EmptySerializer extends TypeSerializer<Void>
-{
-    public static final EmptySerializer instance = new EmptySerializer();
+public class EmptySerializer extends TypeSerializer<Void> {
 
-    public <V> Void deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EmptySerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EmptySerializer.class);
+
+    public static final transient EmptySerializer instance = new EmptySerializer();
+
+    public <V> Void deserialize(V value, ValueAccessor<V> accessor) {
         validate(value, accessor);
         return null;
     }
 
-    public ByteBuffer serialize(Void value)
-    {
+    public ByteBuffer serialize(Void value) {
         return ByteBufferUtil.EMPTY_BYTE_BUFFER;
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (!accessor.isEmpty(value))
             throw new MarshalException("EmptyType only accept empty values");
     }
 
-    public String toString(Void value)
-    {
+    public String toString(Void value) {
         return "";
     }
 
-    public Class<Void> getType()
-    {
+    public Class<Void> getType() {
         return Void.class;
     }
 }

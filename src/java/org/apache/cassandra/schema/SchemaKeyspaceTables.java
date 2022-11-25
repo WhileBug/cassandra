@@ -19,18 +19,31 @@ package org.apache.cassandra.schema;
 
 import com.google.common.collect.ImmutableList;
 
-public final class SchemaKeyspaceTables
-{
-    public static final String INDEXES = "indexes";
-    public static final String AGGREGATES = "aggregates";
-    public static final String FUNCTIONS = "functions";
-    public static final String TYPES = "types";
-    public static final String VIEWS = "views";
-    public static final String TRIGGERS = "triggers";
-    public static final String DROPPED_COLUMNS = "dropped_columns";
-    public static final String COLUMNS = "columns";
-    public static final String TABLES = "tables";
-    public static final String KEYSPACES = "keyspaces";
+public final class SchemaKeyspaceTables {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaKeyspaceTables.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaKeyspaceTables.class);
+
+    public static final transient String INDEXES = "indexes";
+
+    public static final transient String AGGREGATES = "aggregates";
+
+    public static final transient String FUNCTIONS = "functions";
+
+    public static final transient String TYPES = "types";
+
+    public static final transient String VIEWS = "views";
+
+    public static final transient String TRIGGERS = "triggers";
+
+    public static final transient String DROPPED_COLUMNS = "dropped_columns";
+
+    public static final transient String COLUMNS = "columns";
+
+    public static final transient String TABLES = "tables";
+
+    public static final transient String KEYSPACES = "keyspaces";
 
     /**
      * The order in this list matters.
@@ -45,18 +58,8 @@ public final class SchemaKeyspaceTables
      *
      * See CASSANDRA-12213 for more details.
      */
-    public static final ImmutableList<String> ALL = ImmutableList.of(COLUMNS,
-                                                                     DROPPED_COLUMNS,
-                                                                     TRIGGERS,
-                                                                     TYPES,
-                                                                     FUNCTIONS,
-                                                                     AGGREGATES,
-                                                                     INDEXES,
-                                                                     TABLES,
-                                                                     VIEWS,
-                                                                     KEYSPACES);
+    public static final transient ImmutableList<String> ALL = ImmutableList.of(COLUMNS, DROPPED_COLUMNS, TRIGGERS, TYPES, FUNCTIONS, AGGREGATES, INDEXES, TABLES, VIEWS, KEYSPACES);
 
-    private SchemaKeyspaceTables()
-    {
+    private SchemaKeyspaceTables() {
     }
 }

@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.cql3.statements.CQL3CasRequest;
@@ -34,52 +33,48 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 /**
  * A set of <code>ColumnCondition</code>s.
- *
  */
-public final class ColumnConditions extends AbstractConditions
-{
+public final class ColumnConditions extends AbstractConditions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnConditions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnConditions.class);
+
     /**
      * The conditions on regular columns.
      */
-    private final List<ColumnCondition> columnConditions;
+    private final transient List<ColumnCondition> columnConditions;
 
     /**
      * The conditions on static columns
      */
-    private final List<ColumnCondition> staticConditions;
+    private final transient List<ColumnCondition> staticConditions;
 
     /**
      * Creates a new <code>ColumnConditions</code> instance for the specified builder.
      */
-    private ColumnConditions(Builder builder)
-    {
+    private ColumnConditions(Builder builder) {
         this.columnConditions = builder.columnConditions;
         this.staticConditions = builder.staticConditions;
     }
 
     @Override
-    public boolean appliesToStaticColumns()
-    {
+    public boolean appliesToStaticColumns() {
         return !staticConditions.isEmpty();
     }
 
     @Override
-    public boolean appliesToRegularColumns()
-    {
+    public boolean appliesToRegularColumns() {
         return !columnConditions.isEmpty();
     }
 
     @Override
-    public Collection<ColumnMetadata> getColumns()
-    {
-        return Stream.concat(columnConditions.stream(), staticConditions.stream())
-                     .map(e -> e.column)
-                     .collect(Collectors.toList());
+    public Collection<ColumnMetadata> getColumns() {
+        return Stream.concat(columnConditions.stream(), staticConditions.stream()).map(e -> e.column).collect(Collectors.toList());
     }
 
     @Override
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return columnConditions.isEmpty() && staticConditions.isEmpty();
     }
 
@@ -90,10 +85,7 @@ public final class ColumnConditions extends AbstractConditions
      * @param clustering the clustering prefix
      * @param options the query options
      */
-    public void addConditionsTo(CQL3CasRequest request,
-                                Clustering<?> clustering,
-                                QueryOptions options)
-    {
+    public void addConditionsTo(CQL3CasRequest request, Clustering<?> clustering, QueryOptions options) {
         if (!columnConditions.isEmpty())
             request.addConditions(clustering, columnConditions, options);
         if (!staticConditions.isEmpty())
@@ -101,8 +93,7 @@ public final class ColumnConditions extends AbstractConditions
     }
 
     @Override
-    public void addFunctionsTo(List<Function> functions)
-    {
+    public void addFunctionsTo(List<Function> functions) {
         columnConditions.forEach(p -> p.addFunctionsTo(functions));
         staticConditions.forEach(p -> p.addFunctionsTo(functions));
     }
@@ -111,42 +102,36 @@ public final class ColumnConditions extends AbstractConditions
      * Creates a new <code>Builder</code> for <code>ColumnConditions</code>.
      * @return a new <code>Builder</code> for <code>ColumnConditions</code>
      */
-    public static Builder newBuilder()
-    {
+    public static Builder newBuilder() {
         return new Builder();
     }
 
     /**
      * A <code>Builder</code> for <code>ColumnConditions</code>.
-     *
      */
-    public static final class Builder
-    {
+    public static final class Builder {
+
         /**
          * The conditions on regular columns.
          */
-        private List<ColumnCondition> columnConditions = Collections.emptyList();
+        private transient List<ColumnCondition> columnConditions = Collections.emptyList();
 
         /**
          * The conditions on static columns
          */
-        private List<ColumnCondition> staticConditions = Collections.emptyList();
+        private transient List<ColumnCondition> staticConditions = Collections.emptyList();
 
         /**
          * Adds the specified <code>ColumnCondition</code> to this set of conditions.
          * @param condition the condition to add
          */
-        public Builder add(ColumnCondition condition)
-        {
+        public Builder add(ColumnCondition condition) {
             List<ColumnCondition> conds;
-            if (condition.column.isStatic())
-            {
+            if (condition.column.isStatic()) {
                 if (staticConditions.isEmpty())
                     staticConditions = new ArrayList<>();
                 conds = staticConditions;
-            }
-            else
-            {
+            } else {
                 if (columnConditions.isEmpty())
                     columnConditions = new ArrayList<>();
                 conds = columnConditions;
@@ -155,19 +140,16 @@ public final class ColumnConditions extends AbstractConditions
             return this;
         }
 
-        public ColumnConditions build()
-        {
+        public ColumnConditions build() {
             return new ColumnConditions(this);
         }
 
-        private Builder()
-        {
+        private Builder() {
         }
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 }

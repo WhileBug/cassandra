@@ -29,59 +29,54 @@ import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class CreateRoleStatement extends AuthenticationStatement
-{
-    private final RoleResource role;
-    private final RoleOptions opts;
-    final DCPermissions dcPermissions;
-    private final boolean ifNotExists;
+public class CreateRoleStatement extends AuthenticationStatement {
 
-    public CreateRoleStatement(RoleName name, RoleOptions options, DCPermissions dcPermissions, boolean ifNotExists)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CreateRoleStatement.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CreateRoleStatement.class);
+
+    private final transient RoleResource role;
+
+    private final transient RoleOptions opts;
+
+    final transient DCPermissions dcPermissions;
+
+    private final transient boolean ifNotExists;
+
+    public CreateRoleStatement(RoleName name, RoleOptions options, DCPermissions dcPermissions, boolean ifNotExists) {
         this.role = RoleResource.role(name.getName());
         this.opts = options;
         this.dcPermissions = dcPermissions;
         this.ifNotExists = ifNotExists;
     }
 
-    public void authorize(ClientState state) throws UnauthorizedException
-    {
+    public void authorize(ClientState state) throws UnauthorizedException {
         super.checkPermission(state, Permission.CREATE, RoleResource.root());
-        if (opts.getSuperuser().isPresent())
-        {
+        if (opts.getSuperuser().isPresent()) {
             if (opts.getSuperuser().get() && !state.getUser().isSuper())
                 throw new UnauthorizedException("Only superusers can create a role with superuser status");
         }
     }
 
-    public void validate(ClientState state) throws RequestValidationException
-    {
+    public void validate(ClientState state) throws RequestValidationException {
         opts.validate();
-
-        if (dcPermissions != null)
-        {
+        if (dcPermissions != null) {
             dcPermissions.validate();
         }
-
         if (role.getRoleName().isEmpty())
             throw new InvalidRequestException("Role name can't be an empty string");
-
         // validate login here before authorize to avoid leaking role existence to anonymous users.
         state.ensureNotAnonymous();
-
         if (!ifNotExists && DatabaseDescriptor.getRoleManager().isExistingRole(role))
             throw new InvalidRequestException(String.format("%s already exists", role.getRoleName()));
     }
 
-    public ResultMessage execute(ClientState state) throws RequestExecutionException, RequestValidationException
-    {
+    public ResultMessage execute(ClientState state) throws RequestExecutionException, RequestValidationException {
         // not rejected in validate()
         if (ifNotExists && DatabaseDescriptor.getRoleManager().isExistingRole(role))
             return null;
-
         DatabaseDescriptor.getRoleManager().createRole(state.getUser(), role, opts);
-        if (DatabaseDescriptor.getNetworkAuthorizer().requireAuthorization())
-        {
+        if (DatabaseDescriptor.getNetworkAuthorizer().requireAuthorization()) {
             DatabaseDescriptor.getNetworkAuthorizer().setRoleDatacenters(role, dcPermissions);
         }
         grantPermissionsToCreator(state);
@@ -94,42 +89,32 @@ public class CreateRoleStatement extends AuthenticationStatement
      * of it in subclasses CreateKeyspaceStatement & CreateTableStatement.
      * @param state
      */
-    private void grantPermissionsToCreator(ClientState state)
-    {
+    private void grantPermissionsToCreator(ClientState state) {
         // The creator of a Role automatically gets ALTER/DROP/AUTHORIZE/DESCRIBE permissions on it if:
         // * the user is not anonymous
         // * the configured IAuthorizer supports granting of permissions (not all do, AllowAllAuthorizer doesn't and
-        //   custom external implementations may not)
-        if (!state.getUser().isAnonymous())
-        {
-            try
-            {
-                DatabaseDescriptor.getAuthorizer().grant(AuthenticatedUser.SYSTEM_USER,
-                                                         role.applicablePermissions(),
-                                                         role,
-                                                         RoleResource.role(state.getUser().getName()));
-            }
-            catch (UnsupportedOperationException e)
-            {
+        // custom external implementations may not)
+        if (!state.getUser().isAnonymous()) {
+            try {
+                DatabaseDescriptor.getAuthorizer().grant(AuthenticatedUser.SYSTEM_USER, role.applicablePermissions(), role, RoleResource.role(state.getUser().getName()));
+            } catch (UnsupportedOperationException e) {
                 // not a problem, grant is an optional method on IAuthorizer
             }
         }
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
+
     @Override
-    public AuditLogContext getAuditLogContext()
-    {
+    public AuditLogContext getAuditLogContext() {
         return new AuditLogContext(AuditLogEntryType.CREATE_ROLE);
     }
 
     @Override
-    public String obfuscatePassword(String query)
-    {
+    public String obfuscatePassword(String query) {
         return PasswordObfuscator.obfuscate(query, opts);
     }
 }

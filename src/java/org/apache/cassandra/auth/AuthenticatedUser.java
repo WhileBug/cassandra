@@ -18,9 +18,7 @@
 package org.apache.cassandra.auth;
 
 import java.util.Set;
-
 import com.google.common.base.Objects;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.dht.Datacenters;
 
@@ -30,35 +28,40 @@ import org.apache.cassandra.dht.Datacenters;
  * Holds the name of the user and the roles that have been granted to the user. The roles will be cached
  * for roles_validity_in_ms.
  */
-public class AuthenticatedUser
-{
-    public static final String SYSTEM_USERNAME = "system";
-    public static final AuthenticatedUser SYSTEM_USER = new AuthenticatedUser(SYSTEM_USERNAME);
+public class AuthenticatedUser {
 
-    public static final String ANONYMOUS_USERNAME = "anonymous";
-    public static final AuthenticatedUser ANONYMOUS_USER = new AuthenticatedUser(ANONYMOUS_USERNAME);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthenticatedUser.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AuthenticatedUser.class);
+
+    public static final transient String SYSTEM_USERNAME = "system";
+
+    public static final transient AuthenticatedUser SYSTEM_USER = new AuthenticatedUser(SYSTEM_USERNAME);
+
+    public static final transient String ANONYMOUS_USERNAME = "anonymous";
+
+    public static final transient AuthenticatedUser ANONYMOUS_USER = new AuthenticatedUser(ANONYMOUS_USERNAME);
 
     // User-level permissions cache.
-    private static final PermissionsCache permissionsCache = new PermissionsCache(DatabaseDescriptor.getAuthorizer());
-    private static final NetworkAuthCache networkAuthCache = new NetworkAuthCache(DatabaseDescriptor.getNetworkAuthorizer());
+    private static final transient PermissionsCache permissionsCache = new PermissionsCache(DatabaseDescriptor.getAuthorizer());
 
-    private final String name;
+    private static final transient NetworkAuthCache networkAuthCache = new NetworkAuthCache(DatabaseDescriptor.getNetworkAuthorizer());
+
+    private final transient String name;
+
     // primary Role of the logged in user
-    private final RoleResource role;
+    private final transient RoleResource role;
 
-    public AuthenticatedUser(String name)
-    {
+    public AuthenticatedUser(String name) {
         this.name = name;
         this.role = RoleResource.role(name);
     }
 
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
-    public RoleResource getPrimaryRole()
-    {
+    public RoleResource getPrimaryRole() {
         return role;
     }
 
@@ -68,16 +71,18 @@ public class AuthenticatedUser
      * Im most cased, though not necessarily, a superuser will have Permission.ALL on every resource
      * (depends on IAuthorizer implementation).
      */
-    public boolean isSuper()
-    {
+    public boolean isSuper() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.auth.AuthenticatedUser.role]=" + org.json.simple.JSONValue.toJSONString(role).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.auth.AuthenticatedUser.role]=" + org.json.simple.JSONValue.toJSONString(role).replace("\n", "").replace("\r", ""));
         return !isAnonymous() && Roles.hasSuperuserStatus(role);
     }
 
     /**
      * If IAuthenticator doesn't require authentication, this method may return true.
      */
-    public boolean isAnonymous()
-    {
+    public boolean isAnonymous() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.auth.AuthenticatedUser.ANONYMOUS_USER]=" + org.json.simple.JSONValue.toJSONString(ANONYMOUS_USER).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.auth.AuthenticatedUser.ANONYMOUS_USER]=" + org.json.simple.JSONValue.toJSONString(ANONYMOUS_USER).replace("\n", "").replace("\r", ""));
         return this == ANONYMOUS_USER;
     }
 
@@ -86,8 +91,9 @@ public class AuthenticatedUser
      * the system user should be used where an identity is required
      * see CreateRoleStatement#execute() and overrides of AlterSchemaStatement#createdResources()
      */
-    public boolean isSystem()
-    {
+    public boolean isSystem() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.auth.AuthenticatedUser.SYSTEM_USER]=" + org.json.simple.JSONValue.toJSONString(SYSTEM_USER).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.auth.AuthenticatedUser.SYSTEM_USER]=" + org.json.simple.JSONValue.toJSONString(SYSTEM_USER).replace("\n", "").replace("\r", ""));
         return this == SYSTEM_USER;
     }
 
@@ -96,8 +102,7 @@ public class AuthenticatedUser
      *
      * @return a set of identifiers for the roles that have been granted to the user
      */
-    public Set<RoleResource> getRoles()
-    {
+    public Set<RoleResource> getRoles() {
         return Roles.getRoles(role);
     }
 
@@ -106,13 +111,11 @@ public class AuthenticatedUser
      *
      * @return a set of Role objects detailing the roles granted to the user
      */
-    public Set<Role> getRoleDetails()
-    {
-       return Roles.getRoleDetails(role);
+    public Set<Role> getRoleDetails() {
+        return Roles.getRoleDetails(role);
     }
 
-    public Set<Permission> getPermissions(IResource resource)
-    {
+    public Set<Permission> getPermissions(IResource resource) {
         return permissionsCache.getPermissions(this, resource);
     }
 
@@ -122,8 +125,7 @@ public class AuthenticatedUser
      *
      * @return true if the user is permitted to login, false otherwise.
      */
-    public boolean canLogin()
-    {
+    public boolean canLogin() {
         return Roles.canLogin(getPrimaryRole());
     }
 
@@ -134,35 +136,27 @@ public class AuthenticatedUser
      * granted roles.
      * @return true if the user is permitted to access nodes in this node's datacenter, false otherwise
      */
-    public boolean hasLocalAccess()
-    {
+    public boolean hasLocalAccess() {
         return networkAuthCache.get(this.getPrimaryRole()).canAccess(Datacenters.thisDatacenter());
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("#<User %s>", name);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof AuthenticatedUser))
             return false;
-
         AuthenticatedUser u = (AuthenticatedUser) o;
-
         return Objects.equal(name, u.name);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(name);
     }
-
 }

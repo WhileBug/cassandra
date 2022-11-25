@@ -18,36 +18,35 @@
 package org.apache.cassandra.utils;
 
 import java.util.concurrent.TimeUnit;
-
 import com.google.common.util.concurrent.Uninterruptibles;
 
 /**
  * Time source backed by JVM clock.
  */
-public class SystemTimeSource implements TimeSource
-{
+public class SystemTimeSource implements TimeSource {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SystemTimeSource.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SystemTimeSource.class);
+
     @Override
-    public long currentTimeMillis()
-    {
+    public long currentTimeMillis() {
         return System.currentTimeMillis();
     }
 
     @Override
-    public long nanoTime()
-    {
+    public long nanoTime() {
         return System.nanoTime();
     }
 
     @Override
-    public TimeSource sleepUninterruptibly(long sleepFor, TimeUnit unit)
-    {
+    public TimeSource sleepUninterruptibly(long sleepFor, TimeUnit unit) {
         Uninterruptibles.sleepUninterruptibly(sleepFor, unit);
         return this;
     }
 
     @Override
-    public TimeSource sleep(long sleepFor, TimeUnit unit) throws InterruptedException
-    {
+    public TimeSource sleep(long sleepFor, TimeUnit unit) throws InterruptedException {
         TimeUnit.NANOSECONDS.sleep(TimeUnit.NANOSECONDS.convert(sleepFor, unit));
         return this;
     }

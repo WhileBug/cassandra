@@ -24,23 +24,25 @@ import io.netty.util.concurrent.Future;
  * for whom we may wish to offer cancellation,
  * but no other access to the underlying task
  */
-class FutureResult<V> extends FutureDelegate<V>
-{
-    private final Future<?> tryCancel;
+class FutureResult<V> extends FutureDelegate<V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FutureResult.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FutureResult.class);
+
+    private final transient Future<?> tryCancel;
 
     /**
      * @param result the Future that will be completed by {@link #cancel}
      * @param cancel the Future that is performing the work, and to whom any cancellation attempts will be proxied
      */
-    FutureResult(Future<V> result, Future<?> cancel)
-    {
+    FutureResult(Future<V> result, Future<?> cancel) {
         super(result);
         this.tryCancel = cancel;
     }
 
     @Override
-    public boolean cancel(boolean b)
-    {
+    public boolean cancel(boolean b) {
         tryCancel.cancel(true);
         return delegate.cancel(b);
     }

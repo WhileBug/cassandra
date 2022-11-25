@@ -18,7 +18,6 @@
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.ObjectSizes;
 
@@ -33,27 +32,27 @@ import org.apache.cassandra.utils.ObjectSizes;
  * {@code null} values (this is currently only allowed in COMPACT table for historical reasons, but we
  * could imagine lifting that limitation if we decide it make sense from a CQL point of view).
  */
-public class BufferClustering extends AbstractBufferClusteringPrefix implements Clustering<ByteBuffer>
-{
-    private static final long EMPTY_SIZE = ObjectSizes.measure(new BufferClustering(EMPTY_VALUES_ARRAY));
+public class BufferClustering extends AbstractBufferClusteringPrefix implements Clustering<ByteBuffer> {
 
-    public BufferClustering(ByteBuffer... values)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BufferClustering.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BufferClustering.class);
+
+    private static final transient long EMPTY_SIZE = ObjectSizes.measure(new BufferClustering(EMPTY_VALUES_ARRAY));
+
+    public BufferClustering(ByteBuffer... values) {
         super(Kind.CLUSTERING, values);
     }
 
-    public long unsharedHeapSize()
-    {
+    public long unsharedHeapSize() {
         return EMPTY_SIZE + ObjectSizes.sizeOnHeapOf(values);
     }
 
-    public long unsharedHeapSizeExcludingData()
-    {
+    public long unsharedHeapSizeExcludingData() {
         return EMPTY_SIZE + ObjectSizes.sizeOnHeapExcludingData(values);
     }
 
-    public static BufferClustering make(ByteBuffer... values)
-    {
+    public static BufferClustering make(ByteBuffer... values) {
         return new BufferClustering(values);
     }
 }

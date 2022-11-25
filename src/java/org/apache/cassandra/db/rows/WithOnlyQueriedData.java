@@ -26,30 +26,30 @@ import org.apache.cassandra.db.transform.Transformation;
  * according to the provided {@code ColumnFilter}. See {@link UnfilteredRowIterators#withOnlyQueriedData}
  * for more details.
  */
-public class WithOnlyQueriedData<I extends BaseRowIterator<?>> extends Transformation<I>
-{
-    private final ColumnFilter filter;
+public class WithOnlyQueriedData<I extends BaseRowIterator<?>> extends Transformation<I> {
 
-    public WithOnlyQueriedData(ColumnFilter filter)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WithOnlyQueriedData.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WithOnlyQueriedData.class);
+
+    private final transient ColumnFilter filter;
+
+    public WithOnlyQueriedData(ColumnFilter filter) {
         this.filter = filter;
     }
 
     @Override
-    protected RegularAndStaticColumns applyToPartitionColumns(RegularAndStaticColumns columns)
-    {
+    protected RegularAndStaticColumns applyToPartitionColumns(RegularAndStaticColumns columns) {
         return filter.queriedColumns();
     }
 
     @Override
-    protected Row applyToStatic(Row row)
-    {
+    protected Row applyToStatic(Row row) {
         return row.withOnlyQueriedData(filter);
     }
 
     @Override
-    protected Row applyToRow(Row row)
-    {
+    protected Row applyToRow(Row row) {
         return row.withOnlyQueriedData(filter);
     }
-};
+}

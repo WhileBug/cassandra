@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.marshal;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.cql3.CQL3Type;
 import org.apache.cassandra.cql3.Constants;
 import org.apache.cassandra.cql3.Term;
@@ -26,77 +25,69 @@ import org.apache.cassandra.serializers.TypeSerializer;
 import org.apache.cassandra.serializers.BooleanSerializer;
 import org.apache.cassandra.serializers.MarshalException;
 import org.apache.cassandra.transport.ProtocolVersion;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class BooleanType extends AbstractType<Boolean>
-{
-    private static final Logger logger = LoggerFactory.getLogger(BooleanType.class);
+public class BooleanType extends AbstractType<Boolean> {
 
-    public static final BooleanType instance = new BooleanType();
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BooleanType.class);
 
-    BooleanType() {super(ComparisonType.CUSTOM);} // singleton
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BooleanType.class);
 
-    public boolean isEmptyValueMeaningless()
-    {
+    private static final transient Logger logger = LoggerFactory.getLogger(BooleanType.class);
+
+    public static final transient BooleanType instance = new BooleanType();
+
+    // singleton
+    BooleanType() {
+        super(ComparisonType.CUSTOM);
+    }
+
+    public boolean isEmptyValueMeaningless() {
         return true;
     }
 
-    public <VL, VR> int compareCustom(VL left, ValueAccessor<VL> accessorL, VR right, ValueAccessor<VR> accessorR)
-    {
+    public <VL, VR> int compareCustom(VL left, ValueAccessor<VL> accessorL, VR right, ValueAccessor<VR> accessorR) {
         if (accessorL.isEmpty(left) || accessorR.isEmpty(right))
             return Boolean.compare(accessorR.isEmpty(right), accessorL.isEmpty(left));
-
         // False is 0, True is anything else, makes False sort before True.
         int v1 = accessorL.getByte(left, 0) == 0 ? 0 : 1;
         int v2 = accessorR.getByte(right, 0) == 0 ? 0 : 1;
         return v1 - v2;
     }
 
-    public ByteBuffer fromString(String source) throws MarshalException
-    {
-
-        if (source.isEmpty()|| source.equalsIgnoreCase(Boolean.FALSE.toString()))
+    public ByteBuffer fromString(String source) throws MarshalException {
+        if (source.isEmpty() || source.equalsIgnoreCase(Boolean.FALSE.toString()))
             return decompose(false);
-
         if (source.equalsIgnoreCase(Boolean.TRUE.toString()))
             return decompose(true);
-
         throw new MarshalException(String.format("Unable to make boolean from '%s'", source));
     }
 
     @Override
-    public Term fromJSONObject(Object parsed) throws MarshalException
-    {
+    public Term fromJSONObject(Object parsed) throws MarshalException {
         if (parsed instanceof String)
             return new Constants.Value(fromString((String) parsed));
         else if (!(parsed instanceof Boolean))
-            throw new MarshalException(String.format(
-                    "Expected a boolean value, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
-
+            throw new MarshalException(String.format("Expected a boolean value, but got a %s: %s", parsed.getClass().getSimpleName(), parsed));
         return new Constants.Value(getSerializer().serialize((Boolean) parsed));
     }
 
     @Override
-    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion)
-    {
+    public String toJSONString(ByteBuffer buffer, ProtocolVersion protocolVersion) {
         return getSerializer().deserialize(buffer).toString();
     }
 
-    public CQL3Type asCQL3Type()
-    {
+    public CQL3Type asCQL3Type() {
         return CQL3Type.Native.BOOLEAN;
     }
 
-    public TypeSerializer<Boolean> getSerializer()
-    {
+    public TypeSerializer<Boolean> getSerializer() {
         return BooleanSerializer.instance;
     }
 
     @Override
-    public int valueLengthIfFixed()
-    {
+    public int valueLengthIfFixed() {
         return 1;
     }
 }

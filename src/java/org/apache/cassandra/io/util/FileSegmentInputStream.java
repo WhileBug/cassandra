@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 import java.nio.ByteBuffer;
@@ -24,73 +23,62 @@ import java.nio.ByteBuffer;
  * This is the same as DataInputBuffer, i.e. a stream for a fixed byte buffer,
  * except that we also implement FileDataInput by using an offset and a file path.
  */
-public class FileSegmentInputStream extends DataInputBuffer implements FileDataInput
-{
-    private final String filePath;
-    private final long offset;
+public class FileSegmentInputStream extends DataInputBuffer implements FileDataInput {
 
-    public FileSegmentInputStream(ByteBuffer buffer, String filePath, long offset)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FileSegmentInputStream.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FileSegmentInputStream.class);
+
+    private final transient String filePath;
+
+    private final transient long offset;
+
+    public FileSegmentInputStream(ByteBuffer buffer, String filePath, long offset) {
         super(buffer, false);
         this.filePath = filePath;
         this.offset = offset;
     }
 
-    public String getPath()
-    {
+    public String getPath() {
         return filePath;
     }
 
-    private long size()
-    {
+    private long size() {
         return offset + buffer.capacity();
     }
 
-    public boolean isEOF()
-    {
+    public boolean isEOF() {
         return !buffer.hasRemaining();
     }
 
-    public long bytesRemaining()
-    {
+    public long bytesRemaining() {
         return buffer.remaining();
     }
 
-    public void seek(long pos)
-    {
+    public void seek(long pos) {
         if (pos < 0 || pos > size())
-            throw new IllegalArgumentException(String.format("Unable to seek to position %d in %s (%d bytes) in partial mode",
-                                                             pos,
-                                                             getPath(),
-                                                             size()));
-
-
+            throw new IllegalArgumentException(String.format("Unable to seek to position %d in %s (%d bytes) in partial mode", pos, getPath(), size()));
         buffer.position((int) (pos - offset));
     }
 
     @Override
-    public boolean markSupported()
-    {
+    public boolean markSupported() {
         return false;
     }
 
-    public DataPosition mark()
-    {
+    public DataPosition mark() {
         throw new UnsupportedOperationException();
     }
 
-    public void reset(DataPosition mark)
-    {
+    public void reset(DataPosition mark) {
         throw new UnsupportedOperationException();
     }
 
-    public long bytesPastMark(DataPosition mark)
-    {
+    public long bytesPastMark(DataPosition mark) {
         return 0;
     }
 
-    public long getFilePointer()
-    {
+    public long getFilePointer() {
         return offset + buffer.position();
     }
 }

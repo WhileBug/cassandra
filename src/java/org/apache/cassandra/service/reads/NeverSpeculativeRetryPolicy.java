@@ -18,49 +18,45 @@
 package org.apache.cassandra.service.reads;
 
 import com.google.common.base.Objects;
-
 import com.codahale.metrics.Snapshot;
 
-public class NeverSpeculativeRetryPolicy implements SpeculativeRetryPolicy
-{
-    public static final NeverSpeculativeRetryPolicy INSTANCE = new NeverSpeculativeRetryPolicy();
+public class NeverSpeculativeRetryPolicy implements SpeculativeRetryPolicy {
 
-    private NeverSpeculativeRetryPolicy()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NeverSpeculativeRetryPolicy.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NeverSpeculativeRetryPolicy.class);
+
+    public static final transient NeverSpeculativeRetryPolicy INSTANCE = new NeverSpeculativeRetryPolicy();
+
+    private NeverSpeculativeRetryPolicy() {
     }
 
     @Override
-    public long calculateThreshold(Snapshot latency, long existingValue)
-    {
+    public long calculateThreshold(Snapshot latency, long existingValue) {
         return Long.MAX_VALUE;
     }
 
     @Override
-    public Kind kind()
-    {
+    public Kind kind() {
         return Kind.NEVER;
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         return obj instanceof NeverSpeculativeRetryPolicy;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(kind());
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return Kind.NEVER.toString();
     }
 
-    static boolean stringMatches(String str)
-    {
+    static boolean stringMatches(String str) {
         return str.equalsIgnoreCase("NEVER") || str.equalsIgnoreCase("NONE");
     }
 }

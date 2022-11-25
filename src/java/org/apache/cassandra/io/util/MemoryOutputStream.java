@@ -23,25 +23,26 @@ import java.io.OutputStream;
 /**
  * This class provides a way to stream the writes into the {@link Memory}
  */
-public class MemoryOutputStream extends OutputStream
-{
+public class MemoryOutputStream extends OutputStream {
 
-    private final Memory mem;
-    private long position = 0;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemoryOutputStream.class);
 
-    public MemoryOutputStream(Memory mem)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemoryOutputStream.class);
+
+    private final transient Memory mem;
+
+    private transient long position = 0;
+
+    public MemoryOutputStream(Memory mem) {
         this.mem = mem;
     }
 
-    public void write(int b)
-    {
+    public void write(int b) {
         mem.setByte(position++, (byte) b);
     }
 
     @Override
-    public void write(byte[] b, int off, int len) throws IOException
-    {
+    public void write(byte[] b, int off, int len) throws IOException {
         mem.setBytes(position, b, off, len);
         position += len;
     }

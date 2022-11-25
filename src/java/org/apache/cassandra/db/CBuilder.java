@@ -20,7 +20,6 @@ package org.apache.cassandra.db;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.ByteBufferAccessor;
 import org.apache.cassandra.db.marshal.ValueAccessor;
@@ -28,166 +27,152 @@ import org.apache.cassandra.db.marshal.ValueAccessor;
 /**
  * Allows to build ClusteringPrefixes, either Clustering or ClusteringBound.
  */
-public abstract class CBuilder
-{
-    public static CBuilder STATIC_BUILDER = new CBuilder()
-    {
-        public int count()
-        {
+public abstract class CBuilder {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CBuilder.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CBuilder.class);
+
+    public static transient CBuilder STATIC_BUILDER = new CBuilder() {
+
+        public int count() {
             return 0;
         }
 
-        public int remainingCount()
-        {
+        public int remainingCount() {
             return 0;
         }
 
-        public ClusteringComparator comparator()
-        {
+        public ClusteringComparator comparator() {
             throw new UnsupportedOperationException();
         }
 
-        public <T> CBuilder add(T value, ValueAccessor<T> accessor)
-        {
+        public <T> CBuilder add(T value, ValueAccessor<T> accessor) {
             throw new UnsupportedOperationException();
         }
 
-        public CBuilder add(Object value)
-        {
+        public CBuilder add(Object value) {
             throw new UnsupportedOperationException();
         }
 
-        public Clustering<?> build()
-        {
+        public Clustering<?> build() {
             return Clustering.STATIC_CLUSTERING;
         }
 
-        public ClusteringBound<?> buildBound(boolean isStart, boolean isInclusive)
-        {
+        public ClusteringBound<?> buildBound(boolean isStart, boolean isInclusive) {
             throw new UnsupportedOperationException();
         }
 
-        public Clustering<?> buildWith(List<ByteBuffer> newValues)
-        {
+        public Clustering<?> buildWith(List<ByteBuffer> newValues) {
             throw new UnsupportedOperationException();
         }
 
-        public ClusteringBound<?> buildBoundWith(List<ByteBuffer> newValues, boolean isStart, boolean isInclusive)
-        {
+        public ClusteringBound<?> buildBoundWith(List<ByteBuffer> newValues, boolean isStart, boolean isInclusive) {
             throw new UnsupportedOperationException();
         }
     };
 
-    public static CBuilder create(ClusteringComparator comparator)
-    {
+    public static CBuilder create(ClusteringComparator comparator) {
         return new ArrayBackedBuilder(comparator);
     }
 
     public abstract int count();
+
     public abstract int remainingCount();
+
     public abstract ClusteringComparator comparator();
-    public final CBuilder add(ByteBuffer value)
-    {
+
+    public final CBuilder add(ByteBuffer value) {
         return add(value, ByteBufferAccessor.instance);
     }
-    public final <V> CBuilder add(ClusteringPrefix<V> prefix, int i)
-    {
+
+    public final <V> CBuilder add(ClusteringPrefix<V> prefix, int i) {
         return add(prefix.get(i), prefix.accessor());
     }
+
     public abstract <V> CBuilder add(V value, ValueAccessor<V> accessor);
+
     public abstract CBuilder add(Object value);
+
     public abstract Clustering<?> build();
+
     public abstract ClusteringBound<?> buildBound(boolean isStart, boolean isInclusive);
+
     public abstract Clustering<?> buildWith(List<ByteBuffer> newValues);
+
     public abstract ClusteringBound<?> buildBoundWith(List<ByteBuffer> newValues, boolean isStart, boolean isInclusive);
 
-    private static class ArrayBackedBuilder extends CBuilder
-    {
-        private final ClusteringComparator type;
-        private final ByteBuffer[] values;
-        private int size;
-        private boolean built;
+    private static class ArrayBackedBuilder extends CBuilder {
 
-        public ArrayBackedBuilder(ClusteringComparator type)
-        {
+        private final transient ClusteringComparator type;
+
+        private final transient ByteBuffer[] values;
+
+        private transient int size;
+
+        private transient boolean built;
+
+        public ArrayBackedBuilder(ClusteringComparator type) {
             this.type = type;
             this.values = new ByteBuffer[type.size()];
         }
 
-        public int count()
-        {
+        public int count() {
             return size;
         }
 
-        public int remainingCount()
-        {
+        public int remainingCount() {
             return values.length - size;
         }
 
-        public ClusteringComparator comparator()
-        {
+        public ClusteringComparator comparator() {
             return type;
         }
 
-        public <V> CBuilder add(V value, ValueAccessor<V> accessor)
-        {
+        public <V> CBuilder add(V value, ValueAccessor<V> accessor) {
             if (isDone())
                 throw new IllegalStateException();
             values[size++] = accessor.toBuffer(value);
             return this;
         }
 
-        public CBuilder add(Object value)
-        {
-            return add(((AbstractType)type.subtype(size)).decompose(value));
+        public CBuilder add(Object value) {
+            return add(((AbstractType) type.subtype(size)).decompose(value));
         }
 
-        private boolean isDone()
-        {
+        private boolean isDone() {
             return remainingCount() == 0 || built;
         }
 
-        public Clustering<?> build()
-        {
+        public Clustering<?> build() {
             // We don't allow to add more element to a builder that has been built so
             // that we don't have to copy values.
             built = true;
-
             // Currently, only dense table can leave some clustering column out (see #7990)
             return size == 0 ? Clustering.EMPTY : Clustering.make(values);
         }
 
-        public ClusteringBound<?> buildBound(boolean isStart, boolean isInclusive)
-        {
+        public ClusteringBound<?> buildBound(boolean isStart, boolean isInclusive) {
             // We don't allow to add more element to a builder that has been built so
             // that we don't have to copy values (even though we have to do it in most cases).
             built = true;
-
             if (size == 0)
                 return isStart ? BufferClusteringBound.BOTTOM : BufferClusteringBound.TOP;
-
-            return BufferClusteringBound.create(ClusteringBound.boundKind(isStart, isInclusive),
-                                size == values.length ? values : Arrays.copyOfRange(values, 0, size));
+            return BufferClusteringBound.create(ClusteringBound.boundKind(isStart, isInclusive), size == values.length ? values : Arrays.copyOfRange(values, 0, size));
         }
 
-        public Clustering<?> buildWith(List<ByteBuffer> newValues)
-        {
+        public Clustering<?> buildWith(List<ByteBuffer> newValues) {
             assert size + newValues.size() <= type.size();
             ByteBuffer[] buffers = Arrays.copyOf(values, type.size());
             int newSize = size;
-            for (ByteBuffer value : newValues)
-                buffers[newSize++] = value;
-
+            for (ByteBuffer value : newValues) buffers[newSize++] = value;
             return Clustering.make(buffers);
         }
 
-        public ClusteringBound<?> buildBoundWith(List<ByteBuffer> newValues, boolean isStart, boolean isInclusive)
-        {
+        public ClusteringBound<?> buildBoundWith(List<ByteBuffer> newValues, boolean isStart, boolean isInclusive) {
             ByteBuffer[] buffers = Arrays.copyOf(values, size + newValues.size());
             int newSize = size;
-            for (ByteBuffer value : newValues)
-                buffers[newSize++] = value;
-
+            for (ByteBuffer value : newValues) buffers[newSize++] = value;
             return BufferClusteringBound.create(ClusteringBound.boundKind(isStart, isInclusive), buffers);
         }
     }

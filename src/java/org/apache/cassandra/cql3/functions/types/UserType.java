@@ -18,10 +18,8 @@
 package org.apache.cassandra.cql3.functions.types;
 
 import java.util.*;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
-
 import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
@@ -29,37 +27,35 @@ import org.apache.cassandra.transport.ProtocolVersion;
  *
  * <p>A UDT is a essentially a named collection of fields (with a name and a type).
  */
-public class UserType extends DataType implements Iterable<UserType.Field>
-{
+public class UserType extends DataType implements Iterable<UserType.Field> {
 
-    private final String keyspace;
-    private final String typeName;
-    private final boolean frozen;
-    private final ProtocolVersion protocolVersion;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UserType.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UserType.class);
+
+    private final transient String keyspace;
+
+    private final transient String typeName;
+
+    private final transient boolean frozen;
+
+    private final transient ProtocolVersion protocolVersion;
 
     // can be null, if this object is being constructed from a response message
     // see Responses.Result.Rows.Metadata.decode()
-    private final CodecRegistry codecRegistry;
+    private final transient CodecRegistry codecRegistry;
 
     // Note that we don't expose the order of fields, from an API perspective this is a map
     // of String->Field, but internally we care about the order because the serialization format
     // of UDT expects a particular order.
-    final Field[] byIdx;
+    final transient Field[] byIdx;
+
     // For a given name, we can only have one field with that name, so we don't need a int[] in
     // practice. However, storing one element arrays save allocations in UDTValue.getAllIndexesOf
     // implementation.
-    final Map<String, int[]> byName;
+    final transient Map<String, int[]> byName;
 
-    private UserType(
-    Name name,
-    String keyspace,
-    String typeName,
-    boolean frozen,
-    ProtocolVersion protocolVersion,
-    CodecRegistry codecRegistry,
-    Field[] byIdx,
-    Map<String, int[]> byName)
-    {
+    private UserType(Name name, String keyspace, String typeName, boolean frozen, ProtocolVersion protocolVersion, CodecRegistry codecRegistry, Field[] byIdx, Map<String, int[]> byName) {
         super(name);
         this.keyspace = keyspace;
         this.typeName = typeName;
@@ -70,32 +66,15 @@ public class UserType extends DataType implements Iterable<UserType.Field>
         this.byName = byName;
     }
 
-    UserType(
-    String keyspace,
-    String typeName,
-    boolean frozen,
-    Collection<Field> fields,
-    ProtocolVersion protocolVersion,
-    CodecRegistry codecRegistry)
-    {
-        this(
-        DataType.Name.UDT,
-        keyspace,
-        typeName,
-        frozen,
-        protocolVersion,
-        codecRegistry,
-        fields.toArray(new Field[fields.size()]),
-        mapByName(fields));
+    UserType(String keyspace, String typeName, boolean frozen, Collection<Field> fields, ProtocolVersion protocolVersion, CodecRegistry codecRegistry) {
+        this(DataType.Name.UDT, keyspace, typeName, frozen, protocolVersion, codecRegistry, fields.toArray(new Field[fields.size()]), mapByName(fields));
     }
 
-    private static ImmutableMap<String, int[]> mapByName(Collection<Field> fields)
-    {
+    private static ImmutableMap<String, int[]> mapByName(Collection<Field> fields) {
         ImmutableMap.Builder<String, int[]> builder = new ImmutableMap.Builder<>();
         int i = 0;
-        for (Field field : fields)
-        {
-            builder.put(field.getName(), new int[]{ i });
+        for (Field field : fields) {
+            builder.put(field.getName(), new int[] { i });
             i += 1;
         }
         return builder.build();
@@ -106,8 +85,7 @@ public class UserType extends DataType implements Iterable<UserType.Field>
      *
      * @return an empty value for this user type definition.
      */
-    public UDTValue newValue()
-    {
+    public UDTValue newValue() {
         return new UDTValue(this);
     }
 
@@ -116,8 +94,7 @@ public class UserType extends DataType implements Iterable<UserType.Field>
      *
      * @return the name of the keyspace this UDT is part of.
      */
-    public String getKeyspace()
-    {
+    public String getKeyspace() {
         return keyspace;
     }
 
@@ -126,8 +103,7 @@ public class UserType extends DataType implements Iterable<UserType.Field>
      *
      * @return the name of this user type.
      */
-    public String getTypeName()
-    {
+    public String getTypeName() {
         return typeName;
     }
 
@@ -136,8 +112,7 @@ public class UserType extends DataType implements Iterable<UserType.Field>
      *
      * @return the number of fields in this UDT.
      */
-    public int size()
-    {
+    public int size() {
         return byIdx.length;
     }
 
@@ -149,8 +124,7 @@ public class UserType extends DataType implements Iterable<UserType.Field>
      *             Metadata#quote} for the quoting).
      * @return {@code true} if this UDT contains a field named {@code name}, {@code false} otherwise.
      */
-    public boolean contains(String name)
-    {
+    public boolean contains(String name) {
         return byName.containsKey(Metadata.handleId(name));
     }
 
@@ -160,8 +134,7 @@ public class UserType extends DataType implements Iterable<UserType.Field>
      * @return an iterator over the fields of this UDT.
      */
     @Override
-    public Iterator<Field> iterator()
-    {
+    public Iterator<Field> iterator() {
         return Iterators.forArray(byIdx);
     }
 
@@ -175,37 +148,28 @@ public class UserType extends DataType implements Iterable<UserType.Field>
      * otherwise.
      * @throws IllegalArgumentException if {@code name} is not a field of this UDT definition.
      */
-    DataType getFieldType(String name)
-    {
+    DataType getFieldType(String name) {
         int[] idx = byName.get(Metadata.handleId(name));
         if (idx == null)
             throw new IllegalArgumentException(name + " is not a field defined in this definition");
-
         return byIdx[idx[0]].getType();
     }
 
     @Override
-    public boolean isFrozen()
-    {
+    public boolean isFrozen() {
         return frozen;
     }
 
-    public UserType copy(boolean newFrozen)
-    {
-        if (newFrozen == frozen)
-        {
+    public UserType copy(boolean newFrozen) {
+        if (newFrozen == frozen) {
             return this;
-        }
-        else
-        {
-            return new UserType(
-            name, keyspace, typeName, newFrozen, protocolVersion, codecRegistry, byIdx, byName);
+        } else {
+            return new UserType(name, keyspace, typeName, newFrozen, protocolVersion, codecRegistry, byIdx, byName);
         }
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         int result = name.hashCode();
         result = 31 * result + keyspace.hashCode();
         result = 31 * result + typeName.hashCode();
@@ -214,18 +178,13 @@ public class UserType extends DataType implements Iterable<UserType.Field>
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (!(o instanceof UserType)) return false;
-
+    public boolean equals(Object o) {
+        if (!(o instanceof UserType))
+            return false;
         UserType other = (UserType) o;
-
         // Note: we don't test byName because it's redundant with byIdx in practice,
         // but also because the map holds 'int[]' which don't have proper equal.
-        return name.equals(other.name)
-               && keyspace.equals(other.keyspace)
-               && typeName.equals(other.typeName)
-               && Arrays.equals(byIdx, other.byIdx);
+        return name.equals(other.name) && keyspace.equals(other.keyspace) && typeName.equals(other.typeName) && Arrays.equals(byIdx, other.byIdx);
     }
 
     /**
@@ -236,40 +195,35 @@ public class UserType extends DataType implements Iterable<UserType.Field>
      * @return the protocol version that has been used to deserialize this UDT, or that will be used
      * to serialize it.
      */
-    ProtocolVersion getProtocolVersion()
-    {
+    ProtocolVersion getProtocolVersion() {
         return protocolVersion;
     }
 
-    CodecRegistry getCodecRegistry()
-    {
+    CodecRegistry getCodecRegistry() {
         return codecRegistry;
     }
 
     @Override
-    public String toString()
-    {
-        String str =
-        Metadata.quoteIfNecessary(getKeyspace()) + '.' + Metadata.quoteIfNecessary(getTypeName());
+    public String toString() {
+        String str = Metadata.quoteIfNecessary(getKeyspace()) + '.' + Metadata.quoteIfNecessary(getTypeName());
         return isFrozen() ? "frozen<" + str + '>' : str;
     }
 
     @Override
-    public String asFunctionParameterString()
-    {
+    public String asFunctionParameterString() {
         return Metadata.quoteIfNecessary(getTypeName());
     }
 
     /**
      * A UDT field.
      */
-    public static class Field
-    {
-        private final String name;
-        private final DataType type;
+    public static class Field {
 
-        Field(String name, DataType type)
-        {
+        private final transient String name;
+
+        private final transient DataType type;
+
+        Field(String name, DataType type) {
             this.name = name;
             this.type = type;
         }
@@ -279,8 +233,7 @@ public class UserType extends DataType implements Iterable<UserType.Field>
          *
          * @return the name of the field.
          */
-        public String getName()
-        {
+        public String getName() {
             return name;
         }
 
@@ -289,29 +242,25 @@ public class UserType extends DataType implements Iterable<UserType.Field>
          *
          * @return the type of the field.
          */
-        public DataType getType()
-        {
+        public DataType getType() {
             return type;
         }
 
         @Override
-        public final int hashCode()
-        {
-            return Arrays.hashCode(new Object[]{ name, type });
+        public final int hashCode() {
+            return Arrays.hashCode(new Object[] { name, type });
         }
 
         @Override
-        public final boolean equals(Object o)
-        {
-            if (!(o instanceof Field)) return false;
-
+        public final boolean equals(Object o) {
+            if (!(o instanceof Field))
+                return false;
             Field other = (Field) o;
             return name.equals(other.name) && type.equals(other.type);
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return Metadata.quoteIfNecessary(name) + ' ' + type;
         }
     }

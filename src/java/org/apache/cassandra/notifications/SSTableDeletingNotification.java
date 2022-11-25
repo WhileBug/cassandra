@@ -22,12 +22,15 @@ import org.apache.cassandra.io.sstable.format.SSTableReader;
 /**
  * Fired right before removing an SSTable.
  */
-public class SSTableDeletingNotification implements INotification
-{
-    public final SSTableReader deleting;
+public class SSTableDeletingNotification implements INotification {
 
-    public SSTableDeletingNotification(SSTableReader deleting)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableDeletingNotification.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableDeletingNotification.class);
+
+    public final transient SSTableReader deleting;
+
+    public SSTableDeletingNotification(SSTableReader deleting) {
         this.deleting = deleting;
     }
 }

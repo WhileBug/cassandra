@@ -17,15 +17,17 @@
  */
 package org.apache.cassandra.exceptions;
 
-public class TruncateException extends RequestExecutionException
-{
-    public TruncateException(Throwable e)
-    {
+public class TruncateException extends RequestExecutionException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncateException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TruncateException.class);
+
+    public TruncateException(Throwable e) {
         super(ExceptionCode.TRUNCATE_ERROR, "Error during truncate: " + e.getMessage(), e);
     }
 
-    public TruncateException(String msg)
-    {
+    public TruncateException(String msg) {
         super(ExceptionCode.TRUNCATE_ERROR, msg);
     }
 }

@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming.compress;
 
 import java.io.IOException;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -31,40 +29,40 @@ import org.apache.cassandra.io.util.RebufferingInputStream;
 import org.apache.cassandra.net.AsyncStreamingInputPlus;
 import org.apache.cassandra.streaming.async.StreamCompressionSerializer;
 
-public class StreamCompressionInputStream extends RebufferingInputStream implements AutoCloseable
-{
+public class StreamCompressionInputStream extends RebufferingInputStream implements AutoCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamCompressionInputStream.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamCompressionInputStream.class);
+
     /**
      * The stream which contains buffers of compressed data that came from the peer.
      */
-    private final DataInputPlus dataInputPlus;
+    private final transient DataInputPlus dataInputPlus;
 
-    private final LZ4SafeDecompressor decompressor;
-    private final int protocolVersion;
-    private final StreamCompressionSerializer deserializer;
+    private final transient LZ4SafeDecompressor decompressor;
+
+    private final transient int protocolVersion;
+
+    private final transient StreamCompressionSerializer deserializer;
 
     /**
      * The parent, or owning, buffer of the current buffer being read from ({@link super#buffer}).
      */
-    private ByteBuf currentBuf;
+    private transient ByteBuf currentBuf;
 
-    public StreamCompressionInputStream(DataInputPlus dataInputPlus, int protocolVersion)
-    {
+    public StreamCompressionInputStream(DataInputPlus dataInputPlus, int protocolVersion) {
         super(Unpooled.EMPTY_BUFFER.nioBuffer());
         currentBuf = Unpooled.EMPTY_BUFFER;
-
         this.dataInputPlus = dataInputPlus;
         this.protocolVersion = protocolVersion;
         this.decompressor = LZ4Factory.fastestInstance().safeDecompressor();
-
-        ByteBufAllocator allocator = dataInputPlus instanceof AsyncStreamingInputPlus
-                                     ? ((AsyncStreamingInputPlus)dataInputPlus).getAllocator()
-                                     : PooledByteBufAllocator.DEFAULT;
+        ByteBufAllocator allocator = dataInputPlus instanceof AsyncStreamingInputPlus ? ((AsyncStreamingInputPlus) dataInputPlus).getAllocator() : PooledByteBufAllocator.DEFAULT;
         deserializer = new StreamCompressionSerializer(allocator);
     }
 
     @Override
-    public void reBuffer() throws IOException
-    {
+    public void reBuffer() throws IOException {
         currentBuf.release();
         currentBuf = deserializer.deserialize(decompressor, dataInputPlus, protocolVersion);
         buffer = currentBuf.nioBuffer(0, currentBuf.readableBytes());
@@ -76,8 +74,7 @@ public class StreamCompressionInputStream extends RebufferingInputStream impleme
      * Close resources except {@link #dataInputPlus} as that needs to remain open for other streaming activity.
      */
     @Override
-    public void close()
-    {
+    public void close() {
         currentBuf.release();
     }
 }

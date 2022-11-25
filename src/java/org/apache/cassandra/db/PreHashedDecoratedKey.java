@@ -18,24 +18,26 @@
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.dht.Token;
 
-public class PreHashedDecoratedKey extends BufferDecoratedKey
-{
-    final long hash0;
-    final long hash1;
+public class PreHashedDecoratedKey extends BufferDecoratedKey {
 
-    public PreHashedDecoratedKey(Token token, ByteBuffer key, long hash0, long hash1)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PreHashedDecoratedKey.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PreHashedDecoratedKey.class);
+
+    final transient long hash0;
+
+    final transient long hash1;
+
+    public PreHashedDecoratedKey(Token token, ByteBuffer key, long hash0, long hash1) {
         super(token, key);
         this.hash0 = hash0;
         this.hash1 = hash1;
     }
 
     @Override
-    public void filterHash(long[] dest)
-    {
+    public void filterHash(long[] dest) {
         dest[0] = hash0;
         dest[1] = hash1;
     }

@@ -17,14 +17,16 @@
  */
 package org.apache.cassandra.db.partitions;
 
-public abstract class AbstractUnfilteredPartitionIterator implements UnfilteredPartitionIterator
-{
-    public void remove()
-    {
+public abstract class AbstractUnfilteredPartitionIterator implements UnfilteredPartitionIterator {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractUnfilteredPartitionIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractUnfilteredPartitionIterator.class);
+
+    public void remove() {
         throw new UnsupportedOperationException();
     }
 
-    public void close()
-    {
+    public void close() {
     }
 }

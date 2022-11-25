@@ -18,25 +18,17 @@
 package org.apache.cassandra.db.virtual;
 
 import com.google.common.collect.ImmutableList;
-
 import static org.apache.cassandra.schema.SchemaConstants.VIRTUAL_VIEWS;
 
-public final class SystemViewsKeyspace extends VirtualKeyspace
-{
-    public static SystemViewsKeyspace instance = new SystemViewsKeyspace();
+public final class SystemViewsKeyspace extends VirtualKeyspace {
 
-    private SystemViewsKeyspace()
-    {
-        super(VIRTUAL_VIEWS, new ImmutableList.Builder<VirtualTable>()
-                    .add(new CachesTable(VIRTUAL_VIEWS))
-                    .add(new ClientsTable(VIRTUAL_VIEWS))
-                    .add(new SettingsTable(VIRTUAL_VIEWS))
-                    .add(new SystemPropertiesTable(VIRTUAL_VIEWS))
-                    .add(new SSTableTasksTable(VIRTUAL_VIEWS))
-                    .add(new ThreadPoolsTable(VIRTUAL_VIEWS))
-                    .add(new InternodeOutboundTable(VIRTUAL_VIEWS))
-                    .add(new InternodeInboundTable(VIRTUAL_VIEWS))
-                    .addAll(TableMetricTables.getAll(VIRTUAL_VIEWS))
-                    .build());
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SystemViewsKeyspace.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SystemViewsKeyspace.class);
+
+    public static transient SystemViewsKeyspace instance = new SystemViewsKeyspace();
+
+    private SystemViewsKeyspace() {
+        super(VIRTUAL_VIEWS, new ImmutableList.Builder<VirtualTable>().add(new CachesTable(VIRTUAL_VIEWS)).add(new ClientsTable(VIRTUAL_VIEWS)).add(new SettingsTable(VIRTUAL_VIEWS)).add(new SystemPropertiesTable(VIRTUAL_VIEWS)).add(new SSTableTasksTable(VIRTUAL_VIEWS)).add(new ThreadPoolsTable(VIRTUAL_VIEWS)).add(new InternodeOutboundTable(VIRTUAL_VIEWS)).add(new InternodeInboundTable(VIRTUAL_VIEWS)).addAll(TableMetricTables.getAll(VIRTUAL_VIEWS)).build());
     }
 }

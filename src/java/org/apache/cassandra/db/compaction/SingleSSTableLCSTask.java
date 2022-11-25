@@ -15,14 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.compaction;
 
 import java.util.Set;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.Directories;
 import org.apache.cassandra.db.compaction.writers.CompactionAwareWriter;
@@ -37,50 +34,44 @@ import org.apache.cassandra.io.sstable.metadata.StatsMetadata;
  * just mutates the level metadata on the sstable and notifies the compaction
  * strategy.
  */
-public class SingleSSTableLCSTask extends AbstractCompactionTask
-{
-    private static final Logger logger = LoggerFactory.getLogger(SingleSSTableLCSTask.class);
+public class SingleSSTableLCSTask extends AbstractCompactionTask {
 
-    private final int level;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SingleSSTableLCSTask.class);
 
-    public SingleSSTableLCSTask(ColumnFamilyStore cfs, LifecycleTransaction txn, int level)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SingleSSTableLCSTask.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(SingleSSTableLCSTask.class);
+
+    private final transient int level;
+
+    public SingleSSTableLCSTask(ColumnFamilyStore cfs, LifecycleTransaction txn, int level) {
         super(cfs, txn);
         assert txn.originals().size() == 1;
         this.level = level;
     }
 
     @Override
-    public CompactionAwareWriter getCompactionAwareWriter(ColumnFamilyStore cfs, Directories directories, LifecycleTransaction txn, Set<SSTableReader> nonExpiredSSTables)
-    {
+    public CompactionAwareWriter getCompactionAwareWriter(ColumnFamilyStore cfs, Directories directories, LifecycleTransaction txn, Set<SSTableReader> nonExpiredSSTables) {
         throw new UnsupportedOperationException("This method should never be called on SingleSSTableLCSTask");
     }
 
     @Override
-    protected int executeInternal(ActiveCompactionsTracker activeCompactions)
-    {
+    protected int executeInternal(ActiveCompactionsTracker activeCompactions) {
         run();
         return 1;
     }
 
     @Override
-    protected void runMayThrow()
-    {
+    protected void runMayThrow() {
         SSTableReader sstable = transaction.onlyOne();
         StatsMetadata metadataBefore = sstable.getSSTableMetadata();
-        if (level == metadataBefore.sstableLevel)
-        {
+        if (level == metadataBefore.sstableLevel) {
             logger.info("Not compacting {}, level is already {}", sstable, level);
-        }
-        else
-        {
-            try
-            {
+        } else {
+            try {
                 logger.info("Changing level on {} from {} to {}", sstable, metadataBefore.sstableLevel, level);
                 sstable.mutateLevelAndReload(level);
-            }
-            catch (Throwable t)
-            {
+            } catch (Throwable t) {
                 transaction.abort();
                 throw new CorruptSSTableException(t, sstable.descriptor.filenameFor(Component.DATA));
             }
@@ -89,8 +80,7 @@ public class SingleSSTableLCSTask extends AbstractCompactionTask
         finishTransaction(sstable);
     }
 
-    private void finishTransaction(SSTableReader sstable)
-    {
+    private void finishTransaction(SSTableReader sstable) {
         // we simply cancel the transaction since no sstables are added or removed - we just
         // write a new sstable metadata above and then atomically move the new file on top of the old
         transaction.cancel(sstable);

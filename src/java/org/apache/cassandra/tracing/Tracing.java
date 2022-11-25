@@ -27,10 +27,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import io.netty.util.concurrent.FastThreadLocal;
 import org.apache.cassandra.concurrent.ExecutorLocal;
 import org.apache.cassandra.config.DatabaseDescriptor;
@@ -45,85 +43,73 @@ import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.JVMStabilityInspector;
 import org.apache.cassandra.utils.UUIDGen;
 
-
 /**
  * A trace session context. Able to track and store trace sessions. A session is usually a user initiated query, and may
  * have multiple local and remote events before it is completed.
  */
-public abstract class Tracing implements ExecutorLocal<TraceState>
-{
-    public static final IVersionedSerializer<TraceType> traceTypeSerializer = new IVersionedSerializer<TraceType>()
-    {
-        public void serialize(TraceType traceType, DataOutputPlus out, int version) throws IOException
-        {
-            out.write((byte)traceType.ordinal());
+public abstract class Tracing implements ExecutorLocal<TraceState> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Tracing.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Tracing.class);
+
+    public static final transient IVersionedSerializer<TraceType> traceTypeSerializer = new IVersionedSerializer<TraceType>() {
+
+        public void serialize(TraceType traceType, DataOutputPlus out, int version) throws IOException {
+            out.write((byte) traceType.ordinal());
         }
 
-        public TraceType deserialize(DataInputPlus in, int version) throws IOException
-        {
+        public TraceType deserialize(DataInputPlus in, int version) throws IOException {
             return TraceType.deserialize(in.readByte());
         }
 
-        public long serializedSize(TraceType traceType, int version)
-        {
+        public long serializedSize(TraceType traceType, int version) {
             return 1;
         }
     };
 
     /* this enum is used in serialization; preserve order for compatibility */
-    public enum TraceType
-    {
-        NONE,
-        QUERY,
-        REPAIR;
+    public enum TraceType {
+
+        NONE, QUERY, REPAIR;
 
         private static final TraceType[] ALL_VALUES = values();
 
-        public static TraceType deserialize(byte b)
-        {
+        public static TraceType deserialize(byte b) {
             if (b < 0 || ALL_VALUES.length <= b)
                 return NONE;
             return ALL_VALUES[b];
         }
 
-        public static byte serialize(TraceType value)
-        {
+        public static byte serialize(TraceType value) {
             return (byte) value.ordinal();
         }
 
-        private static final int[] TTLS = { DatabaseDescriptor.getTracetypeQueryTTL(),
-                                            DatabaseDescriptor.getTracetypeQueryTTL(),
-                                            DatabaseDescriptor.getTracetypeRepairTTL() };
+        private static final int[] TTLS = { DatabaseDescriptor.getTracetypeQueryTTL(), DatabaseDescriptor.getTracetypeQueryTTL(), DatabaseDescriptor.getTracetypeRepairTTL() };
 
-        public int getTTL()
-        {
+        public int getTTL() {
             return TTLS[ordinal()];
         }
     }
 
-    protected static final Logger logger = LoggerFactory.getLogger(Tracing.class);
+    protected static final transient Logger logger = LoggerFactory.getLogger(Tracing.class);
 
-    private final InetAddressAndPort localAddress = FBUtilities.getLocalAddressAndPort();
+    private final transient InetAddressAndPort localAddress = FBUtilities.getLocalAddressAndPort();
 
-    private final FastThreadLocal<TraceState> state = new FastThreadLocal<>();
+    private final transient FastThreadLocal<TraceState> state = new FastThreadLocal<>();
 
-    protected final ConcurrentMap<UUID, TraceState> sessions = new ConcurrentHashMap<>();
+    protected final transient ConcurrentMap<UUID, TraceState> sessions = new ConcurrentHashMap<>();
 
-    public static final Tracing instance;
+    public static final transient Tracing instance;
 
-    static
-    {
+    static {
         Tracing tracing = null;
         String customTracingClass = System.getProperty("cassandra.custom_tracing_class");
-        if (null != customTracingClass)
-        {
-            try
-            {
+        if (null != customTracingClass) {
+            try {
                 tracing = FBUtilities.construct(customTracingClass, "Tracing");
                 logger.info("Using {} as tracing queries (as requested with -Dcassandra.custom_tracing_class)", customTracingClass);
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 JVMStabilityInspector.inspectThrowable(e);
                 logger.error(String.format("Cannot use class %s for tracing, ignoring by defaulting to normal tracing", customTracingClass), e);
             }
@@ -131,20 +117,17 @@ public abstract class Tracing implements ExecutorLocal<TraceState>
         instance = null != tracing ? tracing : new TracingImpl();
     }
 
-    public UUID getSessionId()
-    {
+    public UUID getSessionId() {
         assert isTracing();
         return state.get().sessionId;
     }
 
-    public TraceType getTraceType()
-    {
+    public TraceType getTraceType() {
         assert isTracing();
         return state.get().traceType;
     }
 
-    public int getTTL()
-    {
+    public int getTTL() {
         assert isTracing();
         return state.get().ttl;
     }
@@ -152,90 +135,87 @@ public abstract class Tracing implements ExecutorLocal<TraceState>
     /**
      * Indicates if the current thread's execution is being traced.
      */
-    public static boolean isTracing()
-    {
+    public static boolean isTracing() {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
         return instance.get() != null;
     }
 
-    public UUID newSession(Map<String,ByteBuffer> customPayload)
-    {
-        return newSession(
-                TimeUUIDType.instance.compose(ByteBuffer.wrap(UUIDGen.getTimeUUIDBytes())),
-                TraceType.QUERY,
-                customPayload);
+    public UUID newSession(Map<String, ByteBuffer> customPayload) {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+        return newSession(TimeUUIDType.instance.compose(ByteBuffer.wrap(UUIDGen.getTimeUUIDBytes())), TraceType.QUERY, customPayload);
     }
 
-    public UUID newSession(TraceType traceType)
-    {
-        return newSession(
-                TimeUUIDType.instance.compose(ByteBuffer.wrap(UUIDGen.getTimeUUIDBytes())),
-                traceType,
-                Collections.EMPTY_MAP);
+    public UUID newSession(TraceType traceType) {
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+        return newSession(TimeUUIDType.instance.compose(ByteBuffer.wrap(UUIDGen.getTimeUUIDBytes())), traceType, Collections.EMPTY_MAP);
     }
 
-    public UUID newSession(UUID sessionId, Map<String,ByteBuffer> customPayload)
-    {
+    public UUID newSession(UUID sessionId, Map<String, ByteBuffer> customPayload) {
         return newSession(sessionId, TraceType.QUERY, customPayload);
     }
 
-    /** This method is intended to be overridden in tracing implementations that need access to the customPayload */
-    protected UUID newSession(UUID sessionId, TraceType traceType, Map<String,ByteBuffer> customPayload)
-    {
+    /**
+     * This method is intended to be overridden in tracing implementations that need access to the customPayload
+     */
+    protected UUID newSession(UUID sessionId, TraceType traceType, Map<String, ByteBuffer> customPayload) {
         assert get() == null;
-
         TraceState ts = newTraceState(localAddress, sessionId, traceType);
         set(ts);
         sessions.put(sessionId, ts);
-
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
         return sessionId;
     }
 
-    public void doneWithNonLocalSession(TraceState state)
-    {
+    public void doneWithNonLocalSession(TraceState state) {
         if (state.releaseReference() == 0)
             sessions.remove(state.sessionId);
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
     }
-
 
     /**
      * Stop the session and record its complete.  Called by coodinator when request is complete.
      */
-    public void stopSession()
-    {
+    public void stopSession() {
         TraceState state = get();
-        if (state == null) // inline isTracing to avoid implicit two calls to state.get()
-        {
+        if (// inline isTracing to avoid implicit two calls to state.get()
+        state == null) {
             logger.trace("request complete");
-        }
-        else
-        {
+        } else {
             stopSessionImpl();
-
             state.stop();
             sessions.remove(state.sessionId);
             set(null);
         }
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
     }
 
     protected abstract void stopSessionImpl();
 
-    public TraceState get()
-    {
+    public TraceState get() {
         return state.get();
     }
 
-    public TraceState get(UUID sessionId)
-    {
+    public TraceState get(UUID sessionId) {
         return sessions.get(sessionId);
     }
 
-    public void set(final TraceState tls)
-    {
+    public void set(final TraceState tls) {
         state.set(tls);
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
     }
 
-    public TraceState begin(final String request, final Map<String, String> parameters)
-    {
+    public TraceState begin(final String request, final Map<String, String> parameters) {
         return begin(request, null, parameters);
     }
 
@@ -246,27 +226,30 @@ public abstract class Tracing implements ExecutorLocal<TraceState>
      *
      * @param header The internode message header
      */
-    public TraceState initializeFromMessage(final Message.Header header)
-    {
+    public TraceState initializeFromMessage(final Message.Header header) {
         final UUID sessionId = header.traceSession();
-        if (sessionId == null)
+        if (sessionId == null) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
             return null;
-
+        }
         TraceState ts = get(sessionId);
-        if (ts != null && ts.acquireReference())
+        if (ts != null && ts.acquireReference()) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
             return ts;
-
+        }
         TraceType traceType = header.traceType();
-
-        if (header.verb.isResponse())
-        {
+        if (header.verb.isResponse()) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
             // received a message for a session we've already closed out.  see CASSANDRA-5668
             return new ExpiredTraceState(newTraceState(header.from, sessionId, traceType));
-        }
-        else
-        {
+        } else {
             ts = newTraceState(header.from, sessionId, traceType);
             sessions.put(sessionId, ts);
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.sessions]=" + org.json.simple.JSONValue.toJSONString(sessions).replace("\n", "").replace("\r", ""));
             return ts;
         }
     }
@@ -274,91 +257,100 @@ public abstract class Tracing implements ExecutorLocal<TraceState>
     /**
      * Record any tracing data, if enabled on this message.
      */
-    public void traceOutgoingMessage(Message<?> message, int serializedSize, InetAddressAndPort sendTo)
-    {
-        try
-        {
+    public void traceOutgoingMessage(Message<?> message, int serializedSize, InetAddressAndPort sendTo) {
+        try {
             final UUID sessionId = message.traceSession();
-            if (sessionId == null)
+            if (sessionId == null) {
+                logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
+                logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
                 return;
-
-            String logMessage = String.format("Sending %s message to %s message size %d bytes", message.verb(), sendTo,
-                                              serializedSize);
-
+            }
+            String logMessage = String.format("Sending %s message to %s message size %d bytes", message.verb(), sendTo, serializedSize);
             TraceState state = get(sessionId);
-            if (state == null) // session may have already finished; see CASSANDRA-5668
-            {
+            if (// session may have already finished; see CASSANDRA-5668
+            state == null) {
                 TraceType traceType = message.traceType();
                 trace(ByteBuffer.wrap(UUIDGen.decompose(sessionId)), logMessage, traceType.getTTL());
-            }
-            else
-            {
+            } else {
                 state.trace(logMessage);
                 if (message.verb().isResponse())
                     doneWithNonLocalSession(state);
             }
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             logger.warn("failed to capture the tracing info for an outbound message to {}, ignoring", sendTo, e);
         }
     }
 
-    public Map<ParamType, Object> addTraceHeaders(Map<ParamType, Object> addToMutable)
-    {
+    public Map<ParamType, Object> addTraceHeaders(Map<ParamType, Object> addToMutable) {
         assert isTracing();
-
         addToMutable.put(ParamType.TRACE_SESSION, Tracing.instance.getSessionId());
         addToMutable.put(ParamType.TRACE_TYPE, Tracing.instance.getTraceType());
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
         return addToMutable;
     }
 
     protected abstract TraceState newTraceState(InetAddressAndPort coordinator, UUID sessionId, Tracing.TraceType traceType);
 
     // repair just gets a varargs method since it's so heavyweight anyway
-    public static void traceRepair(String format, Object... args)
-    {
+    public static void traceRepair(String format, Object... args) {
         final TraceState state = instance.get();
-        if (state == null) // inline isTracing to avoid implicit two calls to state.get()
+        if (// inline isTracing to avoid implicit two calls to state.get()
+        state == null) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
             return;
-
+        }
         state.trace(format, args);
     }
 
     // normal traces get zero-, one-, and two-argument overloads so common case doesn't need to create varargs array
-    public static void trace(String message)
-    {
+    public static void trace(String message) {
         final TraceState state = instance.get();
-        if (state == null) // inline isTracing to avoid implicit two calls to state.get()
+        if (// inline isTracing to avoid implicit two calls to state.get()
+        state == null) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
             return;
-
+        }
         state.trace(message);
     }
 
-    public static void trace(String format, Object arg)
-    {
+    public static void trace(String format, Object arg) {
         final TraceState state = instance.get();
-        if (state == null) // inline isTracing to avoid implicit two calls to state.get()
+        if (// inline isTracing to avoid implicit two calls to state.get()
+        state == null) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
             return;
-
+        }
         state.trace(format, arg);
     }
 
-    public static void trace(String format, Object arg1, Object arg2)
-    {
+    public static void trace(String format, Object arg1, Object arg2) {
         final TraceState state = instance.get();
-        if (state == null) // inline isTracing to avoid implicit two calls to state.get()
+        if (// inline isTracing to avoid implicit two calls to state.get()
+        state == null) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
             return;
-
+        }
         state.trace(format, arg1, arg2);
     }
 
-    public static void trace(String format, Object... args)
-    {
+    public static void trace(String format, Object... args) {
         final TraceState state = instance.get();
-        if (state == null) // inline isTracing to avoid implicit two calls to state.get()
+        if (// inline isTracing to avoid implicit two calls to state.get()
+        state == null) {
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.state]=" + org.json.simple.JSONValue.toJSONString(state).replace("\n", "").replace("\r", ""));
+            logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.Tracing.instance]=" + org.json.simple.JSONValue.toJSONString(instance).replace("\n", "").replace("\r", ""));
             return;
-
+        }
         state.trace(format, args);
     }
 

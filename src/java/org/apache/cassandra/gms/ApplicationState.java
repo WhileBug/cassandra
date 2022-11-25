@@ -25,28 +25,38 @@ package org.apache.cassandra.gms;
  * if newer versions add new states, old nodes that don't know about those new states don't "break" deserializing those
  * states.
  */
-public enum ApplicationState
-{
+public enum ApplicationState {
+
     // never remove a state here, ordering matters.
-    @Deprecated STATUS, //Deprecated and unsued in 4.0, stop publishing in 5.0, reclaim in 6.0
+    // Deprecated and unsued in 4.0, stop publishing in 5.0, reclaim in 6.0
+    @Deprecated
+    STATUS,
     LOAD,
     SCHEMA,
     DC,
     RACK,
     RELEASE_VERSION,
     REMOVAL_COORDINATOR,
-    @Deprecated INTERNAL_IP, //Deprecated and unused in 4.0, stop publishing in 5.0, reclaim in 6.0
-    @Deprecated RPC_ADDRESS, // ^ Same
-    X_11_PADDING, // padding specifically for 1.1
+    // Deprecated and unused in 4.0, stop publishing in 5.0, reclaim in 6.0
+    @Deprecated
+    INTERNAL_IP,
+    // ^ Same
+    @Deprecated
+    RPC_ADDRESS,
+    // padding specifically for 1.1
+    X_11_PADDING,
     SEVERITY,
     NET_VERSION,
     HOST_ID,
     TOKENS,
     RPC_READY,
     // pad to allow adding new states to existing cluster
-    INTERNAL_ADDRESS_AND_PORT, //Replacement for INTERNAL_IP with up to two ports
-    NATIVE_ADDRESS_AND_PORT, //Replacement for RPC_ADDRESS
-    STATUS_WITH_PORT, //Replacement for STATUS
+    // Replacement for INTERNAL_IP with up to two ports
+    INTERNAL_ADDRESS_AND_PORT,
+    // Replacement for RPC_ADDRESS
+    NATIVE_ADDRESS_AND_PORT,
+    // Replacement for STATUS
+    STATUS_WITH_PORT,
     /**
      * The set of sstable versions on this node. This will usually be only the "current" sstable format (the one with
      * which new sstables are written), but may contain more on newly upgraded nodes before `upgradesstable` has been
@@ -54,7 +64,7 @@ public enum ApplicationState
      *
      * <p>The value (a set of sstable {@link org.apache.cassandra.io.sstable.format.VersionAndType}) is serialized as
      * a comma-separated list.
-     **/
+     */
     SSTABLE_VERSIONS,
     // DO NOT EDIT OR REMOVE PADDING STATES BELOW - only add new states above.  See CASSANDRA-16484
     X1,
@@ -66,5 +76,5 @@ public enum ApplicationState
     X7,
     X8,
     X9,
-    X10,
+    X10
 }

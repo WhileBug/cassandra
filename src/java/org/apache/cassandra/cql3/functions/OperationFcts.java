@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
 import org.apache.cassandra.schema.SchemaConstants;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.OperationExecutionException;
@@ -29,83 +28,56 @@ import org.apache.cassandra.transport.ProtocolVersion;
 
 /**
  * Operation functions (Mathematics).
- *
  */
-public final class OperationFcts
-{
-    private static enum OPERATION
-    {
-        ADDITION('+', "_add")
-        {
-            protected ByteBuffer executeOnNumerics(NumberType<?> resultType,
-                                                   NumberType<?> leftType,
-                                                   ByteBuffer left,
-                                                   NumberType<?> rightType,
-                                                   ByteBuffer right)
-            {
+public final class OperationFcts {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OperationFcts.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OperationFcts.class);
+
+    private static enum OPERATION {
+
+        ADDITION('+', "_add") {
+
+            protected ByteBuffer executeOnNumerics(NumberType<?> resultType, NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
                 return resultType.add(leftType, left, rightType, right);
             }
 
             @Override
-            protected ByteBuffer executeOnTemporals(TemporalType<?> type,
-                                                    ByteBuffer temporal,
-                                                    ByteBuffer duration)
-            {
+            protected ByteBuffer executeOnTemporals(TemporalType<?> type, ByteBuffer temporal, ByteBuffer duration) {
                 return type.addDuration(temporal, duration);
             }
-        },
-        SUBSTRACTION('-', "_substract")
-        {
-            protected ByteBuffer executeOnNumerics(NumberType<?> resultType,
-                                         NumberType<?> leftType,
-                                         ByteBuffer left,
-                                         NumberType<?> rightType,
-                                         ByteBuffer right)
-            {
+        }
+        , SUBSTRACTION('-', "_substract") {
+
+            protected ByteBuffer executeOnNumerics(NumberType<?> resultType, NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
                 return resultType.substract(leftType, left, rightType, right);
             }
 
             @Override
-            protected ByteBuffer executeOnTemporals(TemporalType<?> type,
-                                                    ByteBuffer temporal,
-                                                    ByteBuffer duration)
-            {
+            protected ByteBuffer executeOnTemporals(TemporalType<?> type, ByteBuffer temporal, ByteBuffer duration) {
                 return type.substractDuration(temporal, duration);
             }
-        },
-        MULTIPLICATION('*', "_multiply")
-        {
-            protected ByteBuffer executeOnNumerics(NumberType<?> resultType,
-                                         NumberType<?> leftType,
-                                         ByteBuffer left,
-                                         NumberType<?> rightType,
-                                         ByteBuffer right)
-            {
+        }
+        , MULTIPLICATION('*', "_multiply") {
+
+            protected ByteBuffer executeOnNumerics(NumberType<?> resultType, NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
                 return resultType.multiply(leftType, left, rightType, right);
             }
-        },
-        DIVISION('/', "_divide")
-        {
-            protected ByteBuffer executeOnNumerics(NumberType<?> resultType,
-                                         NumberType<?> leftType,
-                                         ByteBuffer left,
-                                         NumberType<?> rightType,
-                                         ByteBuffer right)
-            {
+        }
+        , DIVISION('/', "_divide") {
+
+            protected ByteBuffer executeOnNumerics(NumberType<?> resultType, NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
                 return resultType.divide(leftType, left, rightType, right);
             }
-        },
-        MODULO('%', "_modulo")
-        {
-            protected ByteBuffer executeOnNumerics(NumberType<?> resultType,
-                                         NumberType<?> leftType,
-                                         ByteBuffer left,
-                                         NumberType<?> rightType,
-                                         ByteBuffer right)
-            {
+        }
+        , MODULO('%', "_modulo") {
+
+            protected ByteBuffer executeOnNumerics(NumberType<?> resultType, NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right) {
                 return resultType.mod(leftType, left, rightType, right);
             }
-        };
+        }
+        ;
 
         /**
          * The operator symbol.
@@ -117,8 +89,7 @@ public final class OperationFcts
          */
         private final String functionName;
 
-        private OPERATION(char symbol, String functionName)
-        {
+        private OPERATION(char symbol, String functionName) {
             this.symbol = symbol;
             this.functionName = functionName;
         }
@@ -133,11 +104,7 @@ public final class OperationFcts
          * @param right the right operand
          * @return the operation result
          */
-        protected abstract ByteBuffer executeOnNumerics(NumberType<?> resultType,
-                                                        NumberType<?> leftType,
-                                                        ByteBuffer left,
-                                                        NumberType<?> rightType,
-                                                        ByteBuffer right);
+        protected abstract ByteBuffer executeOnNumerics(NumberType<?> resultType, NumberType<?> leftType, ByteBuffer left, NumberType<?> rightType, ByteBuffer right);
 
         /**
          * Executes the operation on the specified temporal operand.
@@ -147,10 +114,7 @@ public final class OperationFcts
          * @param duration the duration
          * @return the operation result
          */
-        protected ByteBuffer executeOnTemporals(TemporalType<?> type,
-                                                ByteBuffer temporal,
-                                                ByteBuffer duration)
-        {
+        protected ByteBuffer executeOnTemporals(TemporalType<?> type, ByteBuffer temporal, ByteBuffer duration) {
             throw new UnsupportedOperationException();
         }
 
@@ -159,10 +123,8 @@ public final class OperationFcts
          * @param functionName the function name
          * @return the {@code OPERATOR} associated to the specified function
          */
-        public static OPERATION fromFunctionName(String functionName)
-        {
-            for (OPERATION operator : values())
-            {
+        public static OPERATION fromFunctionName(String functionName) {
+            for (OPERATION operator : values()) {
                 if (operator.functionName.equals(functionName))
                     return operator;
             }
@@ -174,10 +136,8 @@ public final class OperationFcts
          * @param functionName the function name
          * @return the {@code OPERATOR} with the specified symbol
          */
-        public static OPERATION fromSymbol(char symbol)
-        {
-            for (OPERATION operator : values())
-            {
+        public static OPERATION fromSymbol(char symbol) {
+            for (OPERATION operator : values()) {
                 if (operator.symbol == symbol)
                     return operator;
             }
@@ -188,39 +148,22 @@ public final class OperationFcts
     /**
      * The name of the function used to perform negations
      */
-    public static final String NEGATION_FUNCTION_NAME = "_negate";
+    public static final transient String NEGATION_FUNCTION_NAME = "_negate";
 
-    public static Collection<Function> all()
-    {
+    public static Collection<Function> all() {
         List<Function> functions = new ArrayList<>();
-
-        final NumberType<?>[] numericTypes = new NumberType[] { ByteType.instance,
-                                                                ShortType.instance,
-                                                                Int32Type.instance,
-                                                                LongType.instance,
-                                                                FloatType.instance,
-                                                                DoubleType.instance,
-                                                                DecimalType.instance,
-                                                                IntegerType.instance,
-                                                                CounterColumnType.instance};
-
-        for (NumberType<?> left : numericTypes)
-        {
-            for (NumberType<?> right : numericTypes)
-            {
+        final NumberType<?>[] numericTypes = new NumberType[] { ByteType.instance, ShortType.instance, Int32Type.instance, LongType.instance, FloatType.instance, DoubleType.instance, DecimalType.instance, IntegerType.instance, CounterColumnType.instance };
+        for (NumberType<?> left : numericTypes) {
+            for (NumberType<?> right : numericTypes) {
                 NumberType<?> returnType = returnType(left, right);
-                for (OPERATION operation : OPERATION.values())
-                    functions.add(new NumericOperationFunction(returnType, left, operation, right));
+                for (OPERATION operation : OPERATION.values()) functions.add(new NumericOperationFunction(returnType, left, operation, right));
             }
             functions.add(new NumericNegationFunction(left));
         }
-
-        for (OPERATION operation : new OPERATION[] {OPERATION.ADDITION, OPERATION.SUBSTRACTION})
-        {
+        for (OPERATION operation : new OPERATION[] { OPERATION.ADDITION, OPERATION.SUBSTRACTION }) {
             functions.add(new TemporalOperationFunction(TimestampType.instance, operation));
             functions.add(new TemporalOperationFunction(SimpleDateType.instance, operation));
         }
-
         return functions;
     }
 
@@ -230,10 +173,8 @@ public final class OperationFcts
      * @param function the function name
      * @return {@code true} if the function is an operation, {@code false} otherwise.
      */
-    public static boolean isOperation(FunctionName function)
-    {
-        return SchemaConstants.SYSTEM_KEYSPACE_NAME.equals(function.keyspace)
-                && OPERATION.fromFunctionName(function.name) != null;
+    public static boolean isOperation(FunctionName function) {
+        return SchemaConstants.SYSTEM_KEYSPACE_NAME.equals(function.keyspace) && OPERATION.fromFunctionName(function.name) != null;
     }
 
     /**
@@ -242,9 +183,8 @@ public final class OperationFcts
      * @param function the function name
      * @return {@code true} if the function is an negation, {@code false} otherwise.
      */
-    public static boolean isNegation(FunctionName function)
-    {
-        return SchemaConstants.SYSTEM_KEYSPACE_NAME.equals(function.keyspace)&& NEGATION_FUNCTION_NAME.equals(function.name);
+    public static boolean isNegation(FunctionName function) {
+        return SchemaConstants.SYSTEM_KEYSPACE_NAME.equals(function.keyspace) && NEGATION_FUNCTION_NAME.equals(function.name);
     }
 
     /**
@@ -252,8 +192,7 @@ public final class OperationFcts
      *
      * @return the operator associated to the specified function.
      */
-    public static char getOperator(FunctionName function)
-    {
+    public static char getOperator(FunctionName function) {
         assert SchemaConstants.SYSTEM_KEYSPACE_NAME.equals(function.keyspace);
         return OPERATION.fromFunctionName(function.name).symbol;
     }
@@ -264,8 +203,7 @@ public final class OperationFcts
      * @param operator the operator
      * @return the name of the function associated to the specified operator
      */
-    public static FunctionName getFunctionNameFromOperator(char operator)
-    {
+    public static FunctionName getFunctionNameFromOperator(char operator) {
         return FunctionName.nativeFunction(OPERATION.fromSymbol(operator).functionName);
     }
 
@@ -276,13 +214,10 @@ public final class OperationFcts
      * @param right the type of the right operand
      * @return the return type for an operation between the specified types
      */
-    private static NumberType<?> returnType(NumberType<?> left, NumberType<?> right)
-    {
+    private static NumberType<?> returnType(NumberType<?> left, NumberType<?> right) {
         boolean isFloatingPoint = left.isFloatingPoint() || right.isFloatingPoint();
         int size = Math.max(size(left), size(right));
-        return isFloatingPoint
-             ? floatPointType(size)
-             : integerType(size);
+        return isFloatingPoint ? floatPointType(size) : integerType(size);
     }
 
     /**
@@ -290,91 +225,78 @@ public final class OperationFcts
      * @return the number of bytes used to represent a value of this type or {@code Integer.MAX} if the number of bytes
      * is not limited.
      */
-    private static int size(NumberType<?> type)
-    {
+    private static int size(NumberType<?> type) {
         int size = type.valueLengthIfFixed();
-
         if (size > 0)
             return size;
-
         // tinyint and smallint type are not fixed length types even if they should be.
         // So we need to handle them in a special way.
         if (type == ByteType.instance)
             return 1;
-
         if (type == ShortType.instance)
             return 2;
-
         if (type.isCounter())
             return LongType.instance.valueLengthIfFixed();
-
         return Integer.MAX_VALUE;
     }
 
-    private static NumberType<?> floatPointType(int size)
-    {
-        switch (size)
-        {
-            case 4: return FloatType.instance;
-            case 8: return DoubleType.instance;
-            default: return DecimalType.instance;
+    private static NumberType<?> floatPointType(int size) {
+        switch(size) {
+            case 4:
+                return FloatType.instance;
+            case 8:
+                return DoubleType.instance;
+            default:
+                return DecimalType.instance;
         }
     }
 
-    private static NumberType<?> integerType(int size)
-    {
-        switch (size)
-        {
-            case 1: return ByteType.instance;
-            case 2: return ShortType.instance;
-            case 4: return Int32Type.instance;
-            case 8: return LongType.instance;
-            default: return IntegerType.instance;
+    private static NumberType<?> integerType(int size) {
+        switch(size) {
+            case 1:
+                return ByteType.instance;
+            case 2:
+                return ShortType.instance;
+            case 4:
+                return Int32Type.instance;
+            case 8:
+                return LongType.instance;
+            default:
+                return IntegerType.instance;
         }
     }
 
     /**
      * The class must not be instantiated.
      */
-    private OperationFcts()
-    {
+    private OperationFcts() {
     }
 
     /**
      * Base class for functions that execute operations.
      */
-    private static abstract class OperationFunction extends NativeScalarFunction
-    {
-        private final OPERATION operation;
+    private static abstract class OperationFunction extends NativeScalarFunction {
 
-        public OperationFunction(AbstractType<?> returnType,
-                                 AbstractType<?> left,
-                                 OPERATION operation,
-                                 AbstractType<?> right)
-        {
+        private final transient OPERATION operation;
+
+        public OperationFunction(AbstractType<?> returnType, AbstractType<?> left, OPERATION operation, AbstractType<?> right) {
             super(operation.functionName, returnType, left, right);
             this.operation = operation;
         }
 
         @Override
-        public final String columnName(List<String> columnNames)
-        {
+        public final String columnName(List<String> columnNames) {
             return String.format("%s %s %s", columnNames.get(0), getOperator(), columnNames.get(1));
         }
 
-        public final ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters)
-        {
+        public final ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters) {
             ByteBuffer left = parameters.get(0);
             ByteBuffer right = parameters.get(1);
             if (left == null || !left.hasRemaining() || right == null || !right.hasRemaining())
                 return null;
-
-            try
-            {
+            try {
                 return doExecute(left, operation, right);
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 throw OperationExecutionException.create(getOperator(), argTypes, e);
             }
         }
@@ -385,8 +307,7 @@ public final class OperationFcts
          * Returns the operator symbol.
          * @return the operator symbol
          */
-        private final char getOperator()
-        {
+        private final char getOperator() {
             return operation.symbol;
         }
     }
@@ -394,23 +315,17 @@ public final class OperationFcts
     /**
      * Function that execute operations on numbers.
      */
-    private static class NumericOperationFunction extends OperationFunction
-    {
-        public NumericOperationFunction(NumberType<?> returnType,
-                                        NumberType<?> left,
-                                        OPERATION operation,
-                                        NumberType<?> right)
-        {
+    private static class NumericOperationFunction extends OperationFunction {
+
+        public NumericOperationFunction(NumberType<?> returnType, NumberType<?> left, OPERATION operation, NumberType<?> right) {
             super(returnType, left, operation, right);
         }
 
         @Override
-        protected ByteBuffer doExecute(ByteBuffer left, OPERATION operation, ByteBuffer right)
-        {
+        protected ByteBuffer doExecute(ByteBuffer left, OPERATION operation, ByteBuffer right) {
             NumberType<?> leftType = (NumberType<?>) argTypes().get(0);
             NumberType<?> rightType = (NumberType<?>) argTypes().get(1);
             NumberType<?> resultType = (NumberType<?>) returnType();
-
             return operation.executeOnNumerics(resultType, leftType, left, rightType, right);
         }
     }
@@ -418,17 +333,14 @@ public final class OperationFcts
     /**
      * Function that execute operations on temporals (timestamp, date, ...).
      */
-    private static class TemporalOperationFunction extends OperationFunction
-    {
-        public TemporalOperationFunction(TemporalType<?> type,
-                                         OPERATION operation)
-        {
+    private static class TemporalOperationFunction extends OperationFunction {
+
+        public TemporalOperationFunction(TemporalType<?> type, OPERATION operation) {
             super(type, type, operation, DurationType.instance);
         }
 
         @Override
-        protected ByteBuffer doExecute(ByteBuffer left, OPERATION operation, ByteBuffer right)
-        {
+        protected ByteBuffer doExecute(ByteBuffer left, OPERATION operation, ByteBuffer right) {
             TemporalType<?> resultType = (TemporalType<?>) returnType();
             return operation.executeOnTemporals(resultType, left, right);
         }
@@ -437,27 +349,22 @@ public final class OperationFcts
     /**
      * Function that negate a number.
      */
-    private static class NumericNegationFunction extends NativeScalarFunction
-    {
-        public NumericNegationFunction(NumberType<?> inputType)
-        {
+    private static class NumericNegationFunction extends NativeScalarFunction {
+
+        public NumericNegationFunction(NumberType<?> inputType) {
             super(NEGATION_FUNCTION_NAME, inputType, inputType);
         }
 
         @Override
-        public final String columnName(List<String> columnNames)
-        {
+        public final String columnName(List<String> columnNames) {
             return String.format("-%s", columnNames.get(0));
         }
 
-        public final ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters)
-        {
+        public final ByteBuffer execute(ProtocolVersion protocolVersion, List<ByteBuffer> parameters) {
             ByteBuffer input = parameters.get(0);
             if (input == null)
                 return null;
-
             NumberType<?> inputType = (NumberType<?>) argTypes().get(0);
-
             return inputType.negate(input);
         }
     }

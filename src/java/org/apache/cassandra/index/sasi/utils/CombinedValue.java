@@ -17,8 +17,12 @@
  */
 package org.apache.cassandra.index.sasi.utils;
 
-public interface CombinedValue<V> extends Comparable<CombinedValue<V>>
-{
+public interface CombinedValue<V> extends Comparable<CombinedValue<V>> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CombinedValue.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CombinedValue.class);
+
     void merge(CombinedValue<V> other);
 
     V get();

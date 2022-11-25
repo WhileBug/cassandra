@@ -15,15 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.util;
 
 /**
  * Base class for the RandomAccessReader components that implement reading.
  */
-public interface ReaderFileProxy extends AutoCloseable
-{
-    void close();               // no checked exceptions
+public interface ReaderFileProxy extends AutoCloseable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReaderFileProxy.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReaderFileProxy.class);
+
+    // no checked exceptions
+    void close();
 
     ChannelProxy channel();
 

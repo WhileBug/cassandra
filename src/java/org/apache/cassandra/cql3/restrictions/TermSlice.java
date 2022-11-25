@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.restrictions;
 
 import java.util.List;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.Operator;
 import org.apache.cassandra.cql3.Term;
@@ -26,17 +25,21 @@ import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.cql3.statements.Bound;
 import org.apache.cassandra.index.Index;
 
-final class TermSlice
-{
+final class TermSlice {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TermSlice.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TermSlice.class);
+
     /**
      * The slice boundaries.
      */
-    private final Term[] bounds;
+    private final transient Term[] bounds;
 
     /**
      * Specifies if a slice boundary is inclusive or not.
      */
-    private final boolean[] boundInclusive;
+    private final transient boolean[] boundInclusive;
 
     /**
      * Creates a new <code>TermSlice</code> with the specified boundaries.
@@ -46,10 +49,9 @@ final class TermSlice
      * @param end the upper boundary
      * @param includeEnd <code>true</code> if the upper boundary is inclusive
      */
-    private TermSlice(Term start, boolean includeStart, Term end, boolean includeEnd)
-    {
-        bounds = new Term[]{start, end};
-        boundInclusive = new boolean[]{includeStart, includeEnd};
+    private TermSlice(Term start, boolean includeStart, Term end, boolean includeEnd) {
+        bounds = new Term[] { start, end };
+        boundInclusive = new boolean[] { includeStart, includeEnd };
     }
 
     /**
@@ -60,10 +62,8 @@ final class TermSlice
      * @param term the value
      * @return a new <code>TermSlice</code> instance
      */
-    public static TermSlice newInstance(Bound bound, boolean include, Term term)
-    {
-        return  bound.isStart() ? new TermSlice(term, include, null, false)
-                                : new TermSlice(null, false, term, include);
+    public static TermSlice newInstance(Bound bound, boolean include, Term term) {
+        return bound.isStart() ? new TermSlice(term, include, null, false) : new TermSlice(null, false, term, include);
     }
 
     /**
@@ -72,8 +72,7 @@ final class TermSlice
      * @param bound the boundary type
      * @return the boundary value
      */
-    public Term bound(Bound bound)
-    {
+    public Term bound(Bound bound) {
         return bounds[bound.idx];
     }
 
@@ -83,8 +82,7 @@ final class TermSlice
      * @param b the boundary type
      * @return <code>true</code> if this slice has a boundary for the specified type, <code>false</code> otherwise.
      */
-    public boolean hasBound(Bound b)
-    {
+    public boolean hasBound(Bound b) {
         return bounds[b.idx] != null;
     }
 
@@ -95,8 +93,7 @@ final class TermSlice
      * @return <code>true</code> if this slice boundary is inclusive for the specified type,
      * <code>false</code> otherwise.
      */
-    public boolean isInclusive(Bound b)
-    {
+    public boolean isInclusive(Bound b) {
         return bounds[b.idx] == null || boundInclusive[b.idx];
     }
 
@@ -106,32 +103,18 @@ final class TermSlice
      * @param otherSlice the slice to merge to
      * @return the new slice resulting from the merge
      */
-    public TermSlice merge(TermSlice otherSlice)
-    {
-        if (hasBound(Bound.START))
-        {
+    public TermSlice merge(TermSlice otherSlice) {
+        if (hasBound(Bound.START)) {
             assert !otherSlice.hasBound(Bound.START);
-
-            return new TermSlice(bound(Bound.START),
-                                  isInclusive(Bound.START),
-                                  otherSlice.bound(Bound.END),
-                                  otherSlice.isInclusive(Bound.END));
+            return new TermSlice(bound(Bound.START), isInclusive(Bound.START), otherSlice.bound(Bound.END), otherSlice.isInclusive(Bound.END));
         }
         assert !otherSlice.hasBound(Bound.END);
-
-        return new TermSlice(otherSlice.bound(Bound.START),
-                              otherSlice.isInclusive(Bound.START),
-                              bound(Bound.END),
-                              isInclusive(Bound.END));
+        return new TermSlice(otherSlice.bound(Bound.START), otherSlice.isInclusive(Bound.START), bound(Bound.END), isInclusive(Bound.END));
     }
 
     @Override
-    public String toString()
-    {
-        return String.format("(%s %s, %s %s)", boundInclusive[0] ? ">=" : ">",
-                             bounds[0],
-                             boundInclusive[1] ? "<=" : "<",
-                             bounds[1]);
+    public String toString() {
+        return String.format("(%s %s, %s %s)", boundInclusive[0] ? ">=" : ">", bounds[0], boundInclusive[1] ? "<=" : "<", bounds[1]);
     }
 
     /**
@@ -140,11 +123,9 @@ final class TermSlice
      * @param b the boundary type
      * @return the index operator corresponding to the specified boundary
      */
-    public Operator getIndexOperator(Bound b)
-    {
+    public Operator getIndexOperator(Bound b) {
         if (b.isStart())
             return boundInclusive[b.idx] ? Operator.GTE : Operator.GT;
-
         return boundInclusive[b.idx] ? Operator.LTE : Operator.LT;
     }
 
@@ -155,25 +136,18 @@ final class TermSlice
      * @return <code>true</code> this type of <code>TermSlice</code> is supported by the specified index,
      * <code>false</code> otherwise.
      */
-    public boolean isSupportedBy(ColumnMetadata column, Index index)
-    {
+    public boolean isSupportedBy(ColumnMetadata column, Index index) {
         boolean supported = false;
-
         if (hasBound(Bound.START))
-            supported |= isInclusive(Bound.START) ? index.supportsExpression(column, Operator.GTE)
-                    : index.supportsExpression(column, Operator.GT);
+            supported |= isInclusive(Bound.START) ? index.supportsExpression(column, Operator.GTE) : index.supportsExpression(column, Operator.GT);
         if (hasBound(Bound.END))
-            supported |= isInclusive(Bound.END) ? index.supportsExpression(column, Operator.LTE)
-                    : index.supportsExpression(column, Operator.LT);
-
+            supported |= isInclusive(Bound.END) ? index.supportsExpression(column, Operator.LTE) : index.supportsExpression(column, Operator.LT);
         return supported;
     }
 
-    public void addFunctionsTo(List<Function> functions)
-    {
+    public void addFunctionsTo(List<Function> functions) {
         if (hasBound(Bound.START))
             bound(Bound.START).addFunctionsTo(functions);
-
         if (hasBound(Bound.END))
             bound(Bound.END).addFunctionsTo(functions);
     }

@@ -20,14 +20,15 @@
  */
 package org.apache.cassandra.tools;
 
-public class BulkLoadException extends Exception
-{
+public class BulkLoadException extends Exception {
 
-    private static final long serialVersionUID = 1L;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BulkLoadException.class);
 
-    public BulkLoadException(Throwable cause)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BulkLoadException.class);
+
+    private static final transient long serialVersionUID = 1L;
+
+    public BulkLoadException(Throwable cause) {
         super(cause);
     }
-
 }

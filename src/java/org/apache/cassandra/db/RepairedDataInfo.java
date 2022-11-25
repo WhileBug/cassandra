@@ -15,15 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import java.nio.ByteBuffer;
 import java.util.function.LongPredicate;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.concurrent.NotThreadSafe;
-
 import org.apache.cassandra.db.filter.DataLimits;
 import org.apache.cassandra.db.partitions.PurgeFunction;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
@@ -37,26 +34,27 @@ import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
 @NotThreadSafe
-class RepairedDataInfo
-{
-    public static final RepairedDataInfo NO_OP_REPAIRED_DATA_INFO = new RepairedDataInfo(null)
-    {
+class RepairedDataInfo {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairedDataInfo.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RepairedDataInfo.class);
+
+    public static final transient RepairedDataInfo NO_OP_REPAIRED_DATA_INFO = new RepairedDataInfo(null) {
+
         @Override
-        public UnfilteredPartitionIterator withRepairedDataInfo(UnfilteredPartitionIterator iterator)
-        {
+        public UnfilteredPartitionIterator withRepairedDataInfo(UnfilteredPartitionIterator iterator) {
             return iterator;
         }
 
         @Override
-        public UnfilteredRowIterator withRepairedDataInfo(UnfilteredRowIterator iterator)
-        {
+        public UnfilteredRowIterator withRepairedDataInfo(UnfilteredRowIterator iterator) {
             return iterator;
         }
-            
+
         @Override
-        public UnfilteredPartitionIterator extend(UnfilteredPartitionIterator partitions, DataLimits.Counter limit)
-        {
-           return partitions;
+        public UnfilteredPartitionIterator extend(UnfilteredPartitionIterator partitions, DataLimits.Counter limit) {
+            return partitions;
         }
     };
 
@@ -64,29 +62,35 @@ class RepairedDataInfo
     // whether a partition will be fully purged from a read result until it's been
     // consumed, we buffer this per-partition digest and add it to the final digest
     // when the partition is closed (if it wasn't fully purged).
-    private Digest perPartitionDigest;
-    private Digest perCommandDigest;
-    private boolean isConclusive = true;
-    private ByteBuffer calculatedDigest = null;
+    private transient Digest perPartitionDigest;
+
+    private transient Digest perCommandDigest;
+
+    private transient boolean isConclusive = true;
+
+    private transient ByteBuffer calculatedDigest = null;
 
     // Doesn't actually purge from the underlying iterators, but excludes from the digest
     // the purger can't be initialized until we've iterated all the sstables for the query
     // as it requires the oldest repaired tombstone
-    private RepairedDataPurger purger;
-    private boolean isFullyPurged = true;
+    private transient RepairedDataPurger purger;
+
+    private transient boolean isFullyPurged = true;
 
     // Supplies additional partitions from the repaired data set to be consumed when the limit of
     // executing ReadCommand has been reached. This is to ensure that each replica attempts to
     // read the same amount of repaired data, otherwise comparisons of the repaired data digests
     // may be invalidated by varying amounts of repaired data being present on each replica.
     // This can't be initialized until after the underlying repaired iterators have been merged.
-    private UnfilteredPartitionIterator postLimitPartitions = null;
-    private final DataLimits.Counter repairedCounter;
-    private UnfilteredRowIterator currentPartition;
-    private TableMetrics metrics;
+    private transient UnfilteredPartitionIterator postLimitPartitions = null;
 
-    public RepairedDataInfo(DataLimits.Counter repairedCounter)
-    {
+    private final transient DataLimits.Counter repairedCounter;
+
+    private transient UnfilteredRowIterator currentPartition;
+
+    private transient TableMetrics metrics;
+
+    public RepairedDataInfo(DataLimits.Counter repairedCounter) {
         this.repairedCounter = repairedCounter;
     }
 
@@ -98,26 +102,19 @@ class RepairedDataInfo
      *
      * @return a digest of the repaired data read during local execution of a command
      */
-    ByteBuffer getDigest()
-    {
+    ByteBuffer getDigest() {
         if (calculatedDigest != null)
             return calculatedDigest;
-
-        calculatedDigest = perCommandDigest == null
-                           ? ByteBufferUtil.EMPTY_BYTE_BUFFER
-                           : ByteBuffer.wrap(perCommandDigest.digest());
-
+        calculatedDigest = perCommandDigest == null ? ByteBufferUtil.EMPTY_BYTE_BUFFER : ByteBuffer.wrap(perCommandDigest.digest());
         return calculatedDigest;
     }
 
-    void prepare(ColumnFamilyStore cfs, int nowInSec, int oldestUnrepairedTombstone)
-    {
+    void prepare(ColumnFamilyStore cfs, int nowInSec, int oldestUnrepairedTombstone) {
         this.purger = new RepairedDataPurger(cfs, nowInSec, oldestUnrepairedTombstone);
         this.metrics = cfs.metric;
     }
 
-    void finalize(UnfilteredPartitionIterator postLimitPartitions)
-    {
+    void finalize(UnfilteredPartitionIterator postLimitPartitions) {
         this.postLimitPartitions = postLimitPartitions;
     }
 
@@ -136,59 +133,48 @@ class RepairedDataInfo
      * @return boolean to indicate confidence in the whether or not the digest of the repaired data can be
      *         reliably be used to infer inconsistency issues between the repaired sets across replicas
      */
-    boolean isConclusive()
-    {
+    boolean isConclusive() {
         return isConclusive;
     }
 
-    void markInconclusive()
-    {
+    void markInconclusive() {
         isConclusive = false;
     }
 
-    private void onNewPartition(UnfilteredRowIterator partition)
-    {
+    private void onNewPartition(UnfilteredRowIterator partition) {
         assert purger != null;
         purger.setCurrentKey(partition.partitionKey());
         purger.setIsReverseOrder(partition.isReverseOrder());
         this.currentPartition = partition;
     }
 
-    private Digest getPerPartitionDigest()
-    {
+    private Digest getPerPartitionDigest() {
         if (perPartitionDigest == null)
             perPartitionDigest = Digest.forRepairedDataTracking();
-
         return perPartitionDigest;
     }
 
-    public UnfilteredPartitionIterator withRepairedDataInfo(final UnfilteredPartitionIterator iterator)
-    {
-        class WithTracking extends Transformation<UnfilteredRowIterator>
-        {
-            protected UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition)
-            {
+    public UnfilteredPartitionIterator withRepairedDataInfo(final UnfilteredPartitionIterator iterator) {
+        class WithTracking extends Transformation<UnfilteredRowIterator> {
+
+            protected UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition) {
                 return withRepairedDataInfo(partition);
             }
         }
         return Transformation.apply(iterator, new WithTracking());
     }
 
-    public UnfilteredRowIterator withRepairedDataInfo(final UnfilteredRowIterator iterator)
-    {
-        class WithTracking extends Transformation<UnfilteredRowIterator>
-        {
-            protected DecoratedKey applyToPartitionKey(DecoratedKey key)
-            {
+    public UnfilteredRowIterator withRepairedDataInfo(final UnfilteredRowIterator iterator) {
+        class WithTracking extends Transformation<UnfilteredRowIterator> {
+
+            protected DecoratedKey applyToPartitionKey(DecoratedKey key) {
                 getPerPartitionDigest().update(key.getKey());
                 return key;
             }
 
-            protected DeletionTime applyToDeletion(DeletionTime deletionTime)
-            {
+            protected DeletionTime applyToDeletion(DeletionTime deletionTime) {
                 if (repairedCounter.isDone())
                     return deletionTime;
-
                 assert purger != null;
                 DeletionTime purged = purger.applyToDeletion(deletionTime);
                 if (!purged.isLive())
@@ -197,98 +183,75 @@ class RepairedDataInfo
                 return deletionTime;
             }
 
-            protected RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker)
-            {
+            protected RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker) {
                 if (repairedCounter.isDone())
                     return marker;
-
                 assert purger != null;
                 RangeTombstoneMarker purged = purger.applyToMarker(marker);
-                if (purged != null)
-                {
+                if (purged != null) {
                     isFullyPurged = false;
                     purged.digest(getPerPartitionDigest());
                 }
                 return marker;
             }
 
-            protected Row applyToStatic(Row row)
-            {
+            protected Row applyToStatic(Row row) {
                 return applyToRow(row);
             }
 
-            protected Row applyToRow(Row row)
-            {
+            protected Row applyToRow(Row row) {
                 if (repairedCounter.isDone())
                     return row;
-
                 assert purger != null;
                 Row purged = purger.applyToRow(row);
-                if (purged != null && !purged.isEmpty())
-                {
+                if (purged != null && !purged.isEmpty()) {
                     isFullyPurged = false;
                     purged.digest(getPerPartitionDigest());
                 }
                 return row;
             }
 
-            protected void onPartitionClose()
-            {
-                if (perPartitionDigest != null)
-                {
+            protected void onPartitionClose() {
+                if (perPartitionDigest != null) {
                     // If the partition wasn't completely emptied by the purger,
                     // calculate the digest for the partition and use it to
                     // update the overall digest
-                    if (!isFullyPurged)
-                    {
+                    if (!isFullyPurged) {
                         if (perCommandDigest == null)
                             perCommandDigest = Digest.forRepairedDataTracking();
-
                         byte[] partitionDigest = perPartitionDigest.digest();
                         perCommandDigest.update(partitionDigest, 0, partitionDigest.length);
                     }
-
                     perPartitionDigest = null;
                 }
                 isFullyPurged = true;
             }
         }
-
         if (repairedCounter.isDone())
             return iterator;
-
         UnfilteredRowIterator tracked = repairedCounter.applyTo(Transformation.apply(iterator, new WithTracking()));
         onNewPartition(tracked);
         return tracked;
     }
 
-    public UnfilteredPartitionIterator extend(final UnfilteredPartitionIterator partitions,
-                                              final DataLimits.Counter limit)
-    {
-        class OverreadRepairedData extends Transformation<UnfilteredRowIterator> implements MoreRows<UnfilteredRowIterator>
-        {
+    public UnfilteredPartitionIterator extend(final UnfilteredPartitionIterator partitions, final DataLimits.Counter limit) {
+        class OverreadRepairedData extends Transformation<UnfilteredRowIterator> implements MoreRows<UnfilteredRowIterator> {
 
-            protected UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition)
-            {
+            protected UnfilteredRowIterator applyToPartition(UnfilteredRowIterator partition) {
                 return MoreRows.extend(partition, this, partition.columns());
             }
 
-            public UnfilteredRowIterator moreContents()
-            {
+            public UnfilteredRowIterator moreContents() {
                 // We don't need to do anything until the DataLimits of the
                 // of the read have been reached
                 if (!limit.isDone() || repairedCounter.isDone())
                     return null;
-
                 long countBeforeOverreads = repairedCounter.counted();
                 long overreadStartTime = System.nanoTime();
                 if (currentPartition != null)
                     consumePartition(currentPartition, repairedCounter);
-
                 if (postLimitPartitions != null)
-                    while (postLimitPartitions.hasNext() && !repairedCounter.isDone())
-                        consumePartition(postLimitPartitions.next(), repairedCounter);
-
+                    while (postLimitPartitions.hasNext() && !repairedCounter.isDone()) consumePartition(postLimitPartitions.next(), repairedCounter);
                 // we're not actually providing any more rows, just consuming the repaired data
                 long rows = repairedCounter.counted() - countBeforeOverreads;
                 long nanos = System.nanoTime() - overreadStartTime;
@@ -298,14 +261,10 @@ class RepairedDataInfo
                 return null;
             }
 
-            private void consumePartition(UnfilteredRowIterator partition, DataLimits.Counter counter)
-            {
+            private void consumePartition(UnfilteredRowIterator partition, DataLimits.Counter counter) {
                 if (partition == null)
                     return;
-
-                while (!counter.isDone() && partition.hasNext())
-                    partition.next();
-
+                while (!counter.isDone() && partition.hasNext()) partition.next();
                 partition.close();
             }
         }
@@ -321,46 +280,33 @@ class RepairedDataInfo
      * Instead, it is used by RepairedDataInfo during the generation of a repaired data
      * digest to exclude data which will actually be purged later on in the read pipeline.
      */
-    private static class RepairedDataPurger extends PurgeFunction
-    {
-        RepairedDataPurger(ColumnFamilyStore cfs,
-                           int nowInSec,
-                           int oldestUnrepairedTombstone)
-        {
-            super(nowInSec,
-                  cfs.gcBefore(nowInSec),
-                  oldestUnrepairedTombstone,
-                  cfs.getCompactionStrategyManager().onlyPurgeRepairedTombstones(),
-                  cfs.metadata.get().enforceStrictLiveness());
+    private static class RepairedDataPurger extends PurgeFunction {
+
+        RepairedDataPurger(ColumnFamilyStore cfs, int nowInSec, int oldestUnrepairedTombstone) {
+            super(nowInSec, cfs.gcBefore(nowInSec), oldestUnrepairedTombstone, cfs.getCompactionStrategyManager().onlyPurgeRepairedTombstones(), cfs.metadata.get().enforceStrictLiveness());
         }
 
-        protected LongPredicate getPurgeEvaluator()
-        {
+        protected LongPredicate getPurgeEvaluator() {
             return (time) -> true;
         }
 
-        void setCurrentKey(DecoratedKey key)
-        {
+        void setCurrentKey(DecoratedKey key) {
             super.onNewPartition(key);
         }
 
-        void setIsReverseOrder(boolean isReverseOrder)
-        {
+        void setIsReverseOrder(boolean isReverseOrder) {
             super.setReverseOrder(isReverseOrder);
         }
 
-        public DeletionTime applyToDeletion(DeletionTime deletionTime)
-        {
+        public DeletionTime applyToDeletion(DeletionTime deletionTime) {
             return super.applyToDeletion(deletionTime);
         }
 
-        public Row applyToRow(Row row)
-        {
+        public Row applyToRow(Row row) {
             return super.applyToRow(row);
         }
 
-        public RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker)
-        {
+        public RangeTombstoneMarker applyToMarker(RangeTombstoneMarker marker) {
             return super.applyToMarker(marker);
         }
     }

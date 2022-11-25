@@ -20,8 +20,12 @@ package org.apache.cassandra.io.util;
 import java.io.Closeable;
 import java.io.IOException;
 
-public interface FileDataInput extends RewindableDataInput, Closeable
-{
+public interface FileDataInput extends RewindableDataInput, Closeable {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FileDataInput.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FileDataInput.class);
+
     String getPath();
 
     boolean isEOF() throws IOException;

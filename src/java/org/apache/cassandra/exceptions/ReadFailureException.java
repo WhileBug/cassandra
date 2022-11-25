@@ -18,18 +18,19 @@
 package org.apache.cassandra.exceptions;
 
 import java.util.Map;
-
 import com.google.common.collect.ImmutableMap;
-
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.locator.InetAddressAndPort;
 
-public class ReadFailureException extends RequestFailureException
-{
-    public final boolean dataPresent;
+public class ReadFailureException extends RequestFailureException {
 
-    public ReadFailureException(ConsistencyLevel consistency, int received, int blockFor, boolean dataPresent, Map<InetAddressAndPort, RequestFailureReason> failureReasonByEndpoint)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadFailureException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReadFailureException.class);
+
+    public final transient boolean dataPresent;
+
+    public ReadFailureException(ConsistencyLevel consistency, int received, int blockFor, boolean dataPresent, Map<InetAddressAndPort, RequestFailureReason> failureReasonByEndpoint) {
         super(ExceptionCode.READ_FAILURE, consistency, received, blockFor, ImmutableMap.copyOf(failureReasonByEndpoint));
         this.dataPresent = dataPresent;
     }

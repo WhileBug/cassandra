@@ -18,25 +18,28 @@
 package org.apache.cassandra.net;
 
 import java.io.IOException;
-
 import static java.lang.String.format;
 
-class InvalidSerializedSizeException extends IOException
-{
-    final Verb verb;
-    final long expectedSize;
-    final long actualSizeAtLeast;
+class InvalidSerializedSizeException extends IOException {
 
-    InvalidSerializedSizeException(Verb verb, long expectedSize, long actualSizeAtLeast)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InvalidSerializedSizeException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InvalidSerializedSizeException.class);
+
+    final transient Verb verb;
+
+    final transient long expectedSize;
+
+    final transient long actualSizeAtLeast;
+
+    InvalidSerializedSizeException(Verb verb, long expectedSize, long actualSizeAtLeast) {
         super(format("Invalid serialized size; expected %d, actual size at least %d, for verb %s", expectedSize, actualSizeAtLeast, verb));
         this.verb = verb;
         this.expectedSize = expectedSize;
         this.actualSizeAtLeast = actualSizeAtLeast;
     }
 
-    InvalidSerializedSizeException(long expectedSize, long actualSizeAtLeast)
-    {
+    InvalidSerializedSizeException(long expectedSize, long actualSizeAtLeast) {
         super(format("Invalid serialized size; expected %d, actual size at least %d", expectedSize, actualSizeAtLeast));
         this.verb = null;
         this.expectedSize = expectedSize;

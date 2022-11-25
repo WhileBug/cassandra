@@ -24,6 +24,9 @@ import io.airlift.airline.Command;
  */
 @Command(name = "cfstats", hidden = true, description = "Print statistics on tables")
 @Deprecated
-public class CfStats extends TableStats
-{
+public class CfStats extends TableStats {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CfStats.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CfStats.class);
 }

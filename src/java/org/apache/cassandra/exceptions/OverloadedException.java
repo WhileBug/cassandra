@@ -17,10 +17,13 @@
  */
 package org.apache.cassandra.exceptions;
 
-public class OverloadedException extends RequestExecutionException
-{
-    public OverloadedException(String reason)
-    {
+public class OverloadedException extends RequestExecutionException {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OverloadedException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OverloadedException.class);
+
+    public OverloadedException(String reason) {
         super(ExceptionCode.OVERLOADED, reason);
     }
 }

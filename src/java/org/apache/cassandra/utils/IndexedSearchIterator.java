@@ -17,8 +17,12 @@
  */
 package org.apache.cassandra.utils;
 
-public interface IndexedSearchIterator<K, V> extends SearchIterator<K, V>
-{
+public interface IndexedSearchIterator<K, V> extends SearchIterator<K, V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexedSearchIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexedSearchIterator.class);
+
     /**
      * @return true if iterator has any elements left, false otherwise
      */

@@ -23,9 +23,7 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.WritableByteChannel;
-
 import com.google.common.base.Preconditions;
-
 import net.nicoulaj.compilecommand.annotations.DontInline;
 import org.apache.cassandra.config.Config;
 import org.apache.cassandra.utils.FastByteOperations;
@@ -37,87 +35,73 @@ import org.apache.cassandra.utils.memory.MemoryUtil;
  *
  * This class is completely thread unsafe.
  */
-public class BufferedDataOutputStreamPlus extends DataOutputStreamPlus
-{
-    private static final int DEFAULT_BUFFER_SIZE = Integer.getInteger(Config.PROPERTY_PREFIX + "nio_data_output_stream_plus_buffer_size", 1024 * 32);
+public class BufferedDataOutputStreamPlus extends DataOutputStreamPlus {
 
-    protected ByteBuffer buffer;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BufferedDataOutputStreamPlus.class);
 
-    public BufferedDataOutputStreamPlus(RandomAccessFile ras)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BufferedDataOutputStreamPlus.class);
+
+    private static final transient int DEFAULT_BUFFER_SIZE = Integer.getInteger(Config.PROPERTY_PREFIX + "nio_data_output_stream_plus_buffer_size", 1024 * 32);
+
+    protected transient ByteBuffer buffer;
+
+    public BufferedDataOutputStreamPlus(RandomAccessFile ras) {
         this(ras.getChannel());
     }
 
-    public BufferedDataOutputStreamPlus(RandomAccessFile ras, int bufferSize)
-    {
+    public BufferedDataOutputStreamPlus(RandomAccessFile ras, int bufferSize) {
         this(ras.getChannel(), bufferSize);
     }
 
-    public BufferedDataOutputStreamPlus(FileOutputStream fos)
-    {
+    public BufferedDataOutputStreamPlus(FileOutputStream fos) {
         this(fos.getChannel());
     }
 
-    public BufferedDataOutputStreamPlus(FileOutputStream fos, int bufferSize)
-    {
+    public BufferedDataOutputStreamPlus(FileOutputStream fos, int bufferSize) {
         this(fos.getChannel(), bufferSize);
     }
 
-    public BufferedDataOutputStreamPlus(WritableByteChannel wbc)
-    {
+    public BufferedDataOutputStreamPlus(WritableByteChannel wbc) {
         this(wbc, DEFAULT_BUFFER_SIZE);
     }
 
-    public BufferedDataOutputStreamPlus(WritableByteChannel wbc, int bufferSize)
-    {
+    public BufferedDataOutputStreamPlus(WritableByteChannel wbc, int bufferSize) {
         this(wbc, ByteBuffer.allocateDirect(bufferSize));
         Preconditions.checkNotNull(wbc);
         Preconditions.checkArgument(bufferSize >= 8, "Buffer size must be large enough to accommodate a long/double");
     }
 
-    protected BufferedDataOutputStreamPlus(WritableByteChannel channel, ByteBuffer buffer)
-    {
+    protected BufferedDataOutputStreamPlus(WritableByteChannel channel, ByteBuffer buffer) {
         super(channel);
         this.buffer = buffer;
     }
 
-    protected BufferedDataOutputStreamPlus(ByteBuffer buffer)
-    {
+    protected BufferedDataOutputStreamPlus(ByteBuffer buffer) {
         super();
         this.buffer = buffer;
     }
 
     @Override
-    public void write(byte[] b) throws IOException
-    {
+    public void write(byte[] b) throws IOException {
         write(b, 0, b.length);
     }
 
     @Override
-    public void write(byte[] b, int off, int len) throws IOException
-    {
+    public void write(byte[] b, int off, int len) throws IOException {
         if (b == null)
             throw new NullPointerException();
-
         // avoid int overflow
-        if (off < 0 || off > b.length || len < 0
-            || len > b.length - off)
+        if (off < 0 || off > b.length || len < 0 || len > b.length - off)
             throw new IndexOutOfBoundsException();
-
         if (len == 0)
             return;
-
         int copied = 0;
-        while (copied < len)
-        {
-            if (buffer.hasRemaining())
-            {
+        while (copied < len) {
+            if (buffer.hasRemaining()) {
                 int toCopy = Math.min(len - copied, buffer.remaining());
                 buffer.put(b, off + copied, toCopy);
                 copied += toCopy;
-            }
-            else
-            {
+            } else {
                 doFlush(len - copied);
             }
         }
@@ -130,13 +114,11 @@ public class BufferedDataOutputStreamPlus extends DataOutputStreamPlus
      * @see org.apache.cassandra.io.util.DataOutputPlus#write(java.nio.ByteBuffer)
      */
     @Override
-    public void write(ByteBuffer src) throws IOException
-    {
+    public void write(ByteBuffer src) throws IOException {
         int srcPos = src.position();
         int srcCount;
         int trgAvailable;
-        while ((srcCount = src.limit() - srcPos) > (trgAvailable = buffer.remaining()))
-        {
+        while ((srcCount = src.limit() - srcPos) > (trgAvailable = buffer.remaining())) {
             FastByteOperations.copy(src, srcPos, buffer, buffer.position(), trgAvailable);
             buffer.position(buffer.position() + trgAvailable);
             srcPos += trgAvailable;
@@ -147,36 +129,31 @@ public class BufferedDataOutputStreamPlus extends DataOutputStreamPlus
     }
 
     @Override
-    public void write(int b) throws IOException
-    {
+    public void write(int b) throws IOException {
         if (!buffer.hasRemaining())
             doFlush(1);
         buffer.put((byte) (b & 0xFF));
     }
 
     @Override
-    public void writeBoolean(boolean v) throws IOException
-    {
+    public void writeBoolean(boolean v) throws IOException {
         if (!buffer.hasRemaining())
             doFlush(1);
-        buffer.put(v ? (byte)1 : (byte)0);
+        buffer.put(v ? (byte) 1 : (byte) 0);
     }
 
     @Override
-    public void writeByte(int v) throws IOException
-    {
+    public void writeByte(int v) throws IOException {
         write(v);
     }
 
     @Override
-    public void writeShort(int v) throws IOException
-    {
+    public void writeShort(int v) throws IOException {
         writeChar(v);
     }
 
     @Override
-    public void writeChar(int v) throws IOException
-    {
+    public void writeChar(int v) throws IOException {
         if (buffer.remaining() < 2)
             writeSlow(v, 2);
         else
@@ -184,8 +161,7 @@ public class BufferedDataOutputStreamPlus extends DataOutputStreamPlus
     }
 
     @Override
-    public void writeInt(int v) throws IOException
-    {
+    public void writeInt(int v) throws IOException {
         if (buffer.remaining() < 4)
             writeSlow(v, 4);
         else
@@ -193,8 +169,7 @@ public class BufferedDataOutputStreamPlus extends DataOutputStreamPlus
     }
 
     @Override
-    public void writeLong(long v) throws IOException
-    {
+    public void writeLong(long v) throws IOException {
         if (buffer.remaining() < 8)
             writeSlow(v, 8);
         else
@@ -202,20 +177,17 @@ public class BufferedDataOutputStreamPlus extends DataOutputStreamPlus
     }
 
     @Override
-    public void writeFloat(float v) throws IOException
-    {
+    public void writeFloat(float v) throws IOException {
         writeInt(Float.floatToRawIntBits(v));
     }
 
     @Override
-    public void writeDouble(double v) throws IOException
-    {
+    public void writeDouble(double v) throws IOException {
         writeLong(Double.doubleToRawLongBits(v));
     }
 
     @DontInline
-    private void writeSlow(long bytes, int count) throws IOException
-    {
+    private void writeSlow(long bytes, int count) throws IOException {
         int origCount = count;
         if (ByteOrder.BIG_ENDIAN == buffer.order())
             while (count > 0) writeByte((int) (bytes >>> (8 * --count)));
@@ -224,22 +196,17 @@ public class BufferedDataOutputStreamPlus extends DataOutputStreamPlus
     }
 
     @Override
-    public void writeBytes(String s) throws IOException
-    {
-        for (int index = 0; index < s.length(); index++)
-            writeByte(s.charAt(index));
+    public void writeBytes(String s) throws IOException {
+        for (int index = 0; index < s.length(); index++) writeByte(s.charAt(index));
     }
 
     @Override
-    public void writeChars(String s) throws IOException
-    {
-        for (int index = 0; index < s.length(); index++)
-            writeChar(s.charAt(index));
+    public void writeChars(String s) throws IOException {
+        for (int index = 0; index < s.length(); index++) writeChar(s.charAt(index));
     }
 
     @Override
-    public void writeUTF(String s) throws IOException
-    {
+    public void writeUTF(String s) throws IOException {
         UnbufferedDataOutputStreamPlus.writeUTF(s, this);
     }
 
@@ -247,33 +214,26 @@ public class BufferedDataOutputStreamPlus extends DataOutputStreamPlus
      * Count is the number of bytes remaining to write ignoring already remaining capacity
      */
     @DontInline
-    protected void doFlush(int count) throws IOException
-    {
+    protected void doFlush(int count) throws IOException {
         buffer.flip();
-
-        while (buffer.hasRemaining())
-            channel.write(buffer);
-
+        while (buffer.hasRemaining()) channel.write(buffer);
         buffer.clear();
     }
 
     @Override
-    public void flush() throws IOException
-    {
+    public void flush() throws IOException {
         doFlush(0);
     }
 
     @Override
-    public void close() throws IOException
-    {
+    public void close() throws IOException {
         doFlush(0);
         channel.close();
         FileUtils.clean(buffer);
         buffer = null;
     }
 
-    public BufferedDataOutputStreamPlus order(ByteOrder order)
-    {
+    public BufferedDataOutputStreamPlus order(ByteOrder order) {
         this.buffer.order(order);
         return this;
     }

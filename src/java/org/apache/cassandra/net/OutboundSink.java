@@ -19,7 +19,6 @@ package org.apache.cassandra.net;
 
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.BiPredicate;
-
 import org.apache.cassandra.locator.InetAddressAndPort;
 
 /**
@@ -31,78 +30,68 @@ import org.apache.cassandra.locator.InetAddressAndPort;
  *
  * This facility is most useful for test code.
  */
-public class OutboundSink
-{
-    public interface Sink
-    {
+public class OutboundSink {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutboundSink.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutboundSink.class);
+
+    public interface Sink {
+
         void accept(Message<?> message, InetAddressAndPort to, ConnectionType connectionType);
     }
 
-    private static class Filtered implements Sink
-    {
-        final BiPredicate<Message<?>, InetAddressAndPort> condition;
-        final Sink next;
+    private static class Filtered implements Sink {
 
-        private Filtered(BiPredicate<Message<?>, InetAddressAndPort> condition, Sink next)
-        {
+        final transient BiPredicate<Message<?>, InetAddressAndPort> condition;
+
+        final transient Sink next;
+
+        private Filtered(BiPredicate<Message<?>, InetAddressAndPort> condition, Sink next) {
             this.condition = condition;
             this.next = next;
         }
 
-        public void accept(Message<?> message, InetAddressAndPort to, ConnectionType connectionType)
-        {
+        public void accept(Message<?> message, InetAddressAndPort to, ConnectionType connectionType) {
             if (condition.test(message, to))
                 next.accept(message, to, connectionType);
         }
     }
 
-    private volatile Sink sink;
-    private static final AtomicReferenceFieldUpdater<OutboundSink, Sink> sinkUpdater
-        = AtomicReferenceFieldUpdater.newUpdater(OutboundSink.class, Sink.class, "sink");
+    private volatile transient Sink sink;
 
-    OutboundSink(Sink sink)
-    {
+    private static final transient AtomicReferenceFieldUpdater<OutboundSink, Sink> sinkUpdater = AtomicReferenceFieldUpdater.newUpdater(OutboundSink.class, Sink.class, "sink");
+
+    OutboundSink(Sink sink) {
         this.sink = sink;
     }
 
-    public void accept(Message<?> message, InetAddressAndPort to, ConnectionType connectionType)
-    {
+    public void accept(Message<?> message, InetAddressAndPort to, ConnectionType connectionType) {
         sink.accept(message, to, connectionType);
     }
 
-    public void add(BiPredicate<Message<?>, InetAddressAndPort> allow)
-    {
+    public void add(BiPredicate<Message<?>, InetAddressAndPort> allow) {
         sinkUpdater.updateAndGet(this, sink -> new Filtered(allow, sink));
     }
 
-    public void remove(BiPredicate<Message<?>, InetAddressAndPort> allow)
-    {
+    public void remove(BiPredicate<Message<?>, InetAddressAndPort> allow) {
         sinkUpdater.updateAndGet(this, sink -> without(sink, allow));
     }
 
-    public void clear()
-    {
+    public void clear() {
         sinkUpdater.updateAndGet(this, OutboundSink::clear);
     }
 
-    private static Sink clear(Sink sink)
-    {
-        while (sink instanceof OutboundSink.Filtered)
-            sink = ((OutboundSink.Filtered) sink).next;
+    private static Sink clear(Sink sink) {
+        while (sink instanceof OutboundSink.Filtered) sink = ((OutboundSink.Filtered) sink).next;
         return sink;
     }
 
-    private static Sink without(Sink sink, BiPredicate<Message<?>, InetAddressAndPort> condition)
-    {
+    private static Sink without(Sink sink, BiPredicate<Message<?>, InetAddressAndPort> condition) {
         if (!(sink instanceof Filtered))
             return sink;
-
         Filtered filtered = (Filtered) sink;
         Sink next = without(filtered.next, condition);
-        return condition.equals(filtered.condition) ? next
-                                                    : next == filtered.next
-                                                      ? sink
-                                                      : new Filtered(filtered.condition, next);
+        return condition.equals(filtered.condition) ? next : next == filtered.next ? sink : new Filtered(filtered.condition, next);
     }
-
 }

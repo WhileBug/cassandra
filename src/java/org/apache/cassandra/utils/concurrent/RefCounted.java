@@ -30,8 +30,12 @@ package org.apache.cassandra.utils.concurrent;
  *   - users must ensure no references to the selfRef leak, or are retained outside of a method scope.
  *     (to ensure the selfRef is collected with the object, so that leaks may be detected and corrected)
  */
-public interface RefCounted<T>
-{
+public interface RefCounted<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RefCounted.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RefCounted.class);
+
     /**
      * @return the a new Ref() to the managed object, incrementing its refcount, or null if it is already released
      */
@@ -39,9 +43,10 @@ public interface RefCounted<T>
 
     public Ref<T> ref();
 
-    public static interface Tidy
-    {
+    public static interface Tidy {
+
         void tidy() throws Exception;
+
         String name();
     }
 }

@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.*;
@@ -31,60 +30,54 @@ import org.apache.cassandra.exceptions.InvalidRequestException;
 /**
  * Groups the parameters of an update query, and make building updates easier.
  */
-public class UpdateParameters
-{
-    public final TableMetadata metadata;
-    public final RegularAndStaticColumns updatedColumns;
-    public final QueryOptions options;
+public class UpdateParameters {
 
-    private final int nowInSec;
-    private final long timestamp;
-    private final int ttl;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UpdateParameters.class);
 
-    private final DeletionTime deletionTime;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UpdateParameters.class);
+
+    public final transient TableMetadata metadata;
+
+    public final transient RegularAndStaticColumns updatedColumns;
+
+    public final transient QueryOptions options;
+
+    private final transient int nowInSec;
+
+    private final transient long timestamp;
+
+    private final transient int ttl;
+
+    private final transient DeletionTime deletionTime;
 
     // For lists operation that require a read-before-write. Will be null otherwise.
-    private final Map<DecoratedKey, Partition> prefetchedRows;
+    private final transient Map<DecoratedKey, Partition> prefetchedRows;
 
-    private Row.Builder staticBuilder;
-    private Row.Builder regularBuilder;
+    private transient Row.Builder staticBuilder;
+
+    private transient Row.Builder regularBuilder;
 
     // The builder currently in use. Will alias either staticBuilder or regularBuilder, which are themselves built lazily.
-    private Row.Builder builder;
+    private transient Row.Builder builder;
 
-    public UpdateParameters(TableMetadata metadata,
-                            RegularAndStaticColumns updatedColumns,
-                            QueryOptions options,
-                            long timestamp,
-                            int nowInSec,
-                            int ttl,
-                            Map<DecoratedKey, Partition> prefetchedRows)
-    throws InvalidRequestException
-    {
+    public UpdateParameters(TableMetadata metadata, RegularAndStaticColumns updatedColumns, QueryOptions options, long timestamp, int nowInSec, int ttl, Map<DecoratedKey, Partition> prefetchedRows) throws InvalidRequestException {
         this.metadata = metadata;
         this.updatedColumns = updatedColumns;
         this.options = options;
-
         this.nowInSec = nowInSec;
         this.timestamp = timestamp;
         this.ttl = ttl;
-
         this.deletionTime = new DeletionTime(timestamp, nowInSec);
-
         this.prefetchedRows = prefetchedRows;
-
         // We use MIN_VALUE internally to mean the absence of of timestamp (in Selection, in sstable stats, ...), so exclude
         // it to avoid potential confusion.
         if (timestamp == Long.MIN_VALUE)
             throw new InvalidRequestException(String.format("Out of bound timestamp, must be in [%d, %d]", Long.MIN_VALUE + 1, Long.MAX_VALUE));
     }
 
-    public <V> void newRow(Clustering<V> clustering) throws InvalidRequestException
-    {
-        if (metadata.isCompactTable())
-        {
-            if (TableMetadata.Flag.isDense(metadata.flags) && !TableMetadata.Flag.isCompound(metadata.flags))
-            {
+    public <V> void newRow(Clustering<V> clustering) throws InvalidRequestException {
+        if (metadata.isCompactTable()) {
+            if (TableMetadata.Flag.isDense(metadata.flags) && !TableMetadata.Flag.isCompound(metadata.flags)) {
                 // If it's a COMPACT STORAGE table with a single clustering column and for backward compatibility we
                 // don't want to allow that to be empty (even though this would be fine for the storage engine).
                 assert clustering.size() == 1 : clustering.toString(metadata);
@@ -93,35 +86,27 @@ public class UpdateParameters
                     throw new InvalidRequestException("Invalid empty or null value for column " + metadata.clusteringColumns().get(0).name);
             }
         }
-
-        if (clustering == Clustering.STATIC_CLUSTERING)
-        {
+        if (clustering == Clustering.STATIC_CLUSTERING) {
             if (staticBuilder == null)
                 staticBuilder = BTreeRow.unsortedBuilder();
             builder = staticBuilder;
-        }
-        else
-        {
+        } else {
             if (regularBuilder == null)
                 regularBuilder = BTreeRow.unsortedBuilder();
             builder = regularBuilder;
         }
-
         builder.newRow(clustering);
     }
 
-    public Clustering<?> currentClustering()
-    {
+    public Clustering<?> currentClustering() {
         return builder.clustering();
     }
 
-    public void addPrimaryKeyLivenessInfo()
-    {
+    public void addPrimaryKeyLivenessInfo() {
         builder.addPrimaryKeyLivenessInfo(LivenessInfo.create(timestamp, ttl, nowInSec));
     }
 
-    public void addRowDeletion()
-    {
+    public void addRowDeletion() {
         // For compact tables, at the exclusion of the static row (of static compact tables), each row ever has a single column,
         // the "compact" one. As such, deleting the row or deleting that single cell is equivalent. We favor the later
         // for backward compatibility (thought it doesn't truly matter anymore).
@@ -131,77 +116,64 @@ public class UpdateParameters
             builder.addRowDeletion(Row.Deletion.regular(deletionTime));
     }
 
-    public void addTombstone(ColumnMetadata column) throws InvalidRequestException
-    {
+    public void addTombstone(ColumnMetadata column) throws InvalidRequestException {
         addTombstone(column, null);
     }
 
-    public void addTombstone(ColumnMetadata column, CellPath path) throws InvalidRequestException
-    {
+    public void addTombstone(ColumnMetadata column, CellPath path) throws InvalidRequestException {
         builder.addCell(BufferCell.tombstone(column, timestamp, nowInSec, path));
     }
 
-    public void addCell(ColumnMetadata column, ByteBuffer value) throws InvalidRequestException
-    {
+    public void addCell(ColumnMetadata column, ByteBuffer value) throws InvalidRequestException {
         addCell(column, null, value);
     }
 
-    public void addCell(ColumnMetadata column, CellPath path, ByteBuffer value) throws InvalidRequestException
-    {
-        Cell<?> cell = ttl == LivenessInfo.NO_TTL
-                       ? BufferCell.live(column, timestamp, value, path)
-                       : BufferCell.expiring(column, timestamp, ttl, nowInSec, value, path);
+    public void addCell(ColumnMetadata column, CellPath path, ByteBuffer value) throws InvalidRequestException {
+        Cell<?> cell = ttl == LivenessInfo.NO_TTL ? BufferCell.live(column, timestamp, value, path) : BufferCell.expiring(column, timestamp, ttl, nowInSec, value, path);
         builder.addCell(cell);
     }
 
-    public void addCounter(ColumnMetadata column, long increment) throws InvalidRequestException
-    {
+    public void addCounter(ColumnMetadata column, long increment) throws InvalidRequestException {
         assert ttl == LivenessInfo.NO_TTL;
-
         // Because column is a counter, we need the value to be a CounterContext. However, we're only creating a
         // "counter update", which is a temporary state until we run into 'CounterMutation.updateWithCurrentValue()'
         // which does the read-before-write and sets the proper CounterId, clock and updated value.
-        //
+        // 
         // We thus create a "fake" local shard here. The clock used doesn't matter as this is just a temporary
         // state that will be replaced when processing the mutation in CounterMutation, but the reason we use a 'local'
         // shard is due to the merging rules: if a user includes multiple updates to the same counter in a batch, those
         // multiple updates will be merged in the PartitionUpdate *before* they even reach CounterMutation. So we need
         // such update to be added together, and that's what a local shard gives us.
-        //
+        // 
         // We set counterid to a special value to differentiate between regular pre-2.0 local shards from pre-2.1 era
         // and "counter update" temporary state cells. Please see CounterContext.createUpdate() for further details.
         builder.addCell(BufferCell.live(column, timestamp, CounterContext.instance().createUpdate(increment)));
     }
 
-    public void setComplexDeletionTime(ColumnMetadata column)
-    {
+    public void setComplexDeletionTime(ColumnMetadata column) {
         builder.addComplexDeletion(column, deletionTime);
     }
 
-    public void setComplexDeletionTimeForOverwrite(ColumnMetadata column)
-    {
+    public void setComplexDeletionTimeForOverwrite(ColumnMetadata column) {
         builder.addComplexDeletion(column, new DeletionTime(deletionTime.markedForDeleteAt() - 1, deletionTime.localDeletionTime()));
     }
 
-    public Row buildRow()
-    {
+    public Row buildRow() {
         Row built = builder.build();
-        builder = null; // Resetting to null just so we quickly bad usage where we forget to call newRow() after that.
+        // Resetting to null just so we quickly bad usage where we forget to call newRow() after that.
+        builder = null;
         return built;
     }
 
-    public DeletionTime deletionTime()
-    {
+    public DeletionTime deletionTime() {
         return deletionTime;
     }
 
-    public RangeTombstone makeRangeTombstone(ClusteringComparator comparator, Clustering<?> clustering)
-    {
+    public RangeTombstone makeRangeTombstone(ClusteringComparator comparator, Clustering<?> clustering) {
         return makeRangeTombstone(Slice.make(comparator, clustering));
     }
 
-    public RangeTombstone makeRangeTombstone(Slice slice)
-    {
+    public RangeTombstone makeRangeTombstone(Slice slice) {
         return new RangeTombstone(slice, deletionTime);
     }
 
@@ -215,24 +187,17 @@ public class UpdateParameters
      * @param clustering the row clustering
      * @return the prefetched row with the already performed modifications
      */
-    public Row getPrefetchedRow(DecoratedKey key, Clustering<?> clustering)
-    {
+    public Row getPrefetchedRow(DecoratedKey key, Clustering<?> clustering) {
         if (prefetchedRows == null)
             return null;
-
         Partition partition = prefetchedRows.get(key);
         Row prefetchedRow = partition == null ? null : partition.getRow(clustering);
-
         // We need to apply the pending mutations to return the row in its current state
         Row pendingMutations = builder.copy().build();
-
         if (pendingMutations.isEmpty())
             return prefetchedRow;
-
         if (prefetchedRow == null)
             return pendingMutations;
-
-        return Rows.merge(prefetchedRow, pendingMutations)
-                   .purge(DeletionPurger.PURGE_ALL, nowInSec, metadata.enforceStrictLiveness());
+        return Rows.merge(prefetchedRow, pendingMutations).purge(DeletionPurger.PURGE_ALL, nowInSec, metadata.enforceStrictLiveness());
     }
 }

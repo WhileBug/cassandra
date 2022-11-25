@@ -18,59 +18,53 @@
 package org.apache.cassandra.db.rows;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.ClusteringBoundOrBoundary;
 
-public abstract class AbstractRangeTombstoneMarker<B extends ClusteringBoundOrBoundary<?>> implements RangeTombstoneMarker
-{
-    protected final B bound;
+public abstract class AbstractRangeTombstoneMarker<B extends ClusteringBoundOrBoundary<?>> implements RangeTombstoneMarker {
 
-    protected AbstractRangeTombstoneMarker(B bound)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractRangeTombstoneMarker.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractRangeTombstoneMarker.class);
+
+    protected final transient B bound;
+
+    protected AbstractRangeTombstoneMarker(B bound) {
         this.bound = bound;
     }
 
-    public B clustering()
-    {
+    public B clustering() {
         return bound;
     }
 
-    public Unfiltered.Kind kind()
-    {
+    public Unfiltered.Kind kind() {
         return Unfiltered.Kind.RANGE_TOMBSTONE_MARKER;
     }
 
-    public boolean isBoundary()
-    {
+    public boolean isBoundary() {
         return bound.isBoundary();
     }
 
-    public boolean isOpen(boolean reversed)
-    {
+    public boolean isOpen(boolean reversed) {
         return bound.isOpen(reversed);
     }
 
-    public boolean isClose(boolean reversed)
-    {
+    public boolean isClose(boolean reversed) {
         return bound.isClose(reversed);
     }
 
-    public void validateData(TableMetadata metadata)
-    {
+    public void validateData(TableMetadata metadata) {
         ClusteringBoundOrBoundary<?> bound = clustering();
-        for (int i = 0; i < bound.size(); i++)
-        {
+        for (int i = 0; i < bound.size(); i++) {
             bound.validate(i, metadata.comparator);
         }
     }
 
-    public String toString(TableMetadata metadata, boolean fullDetails)
-    {
+    public String toString(TableMetadata metadata, boolean fullDetails) {
         return toString(metadata);
     }
-    public String toString(TableMetadata metadata, boolean includeClusteringKeys, boolean fullDetails)
-    {
+
+    public String toString(TableMetadata metadata, boolean includeClusteringKeys, boolean fullDetails) {
         return toString(metadata);
     }
 }

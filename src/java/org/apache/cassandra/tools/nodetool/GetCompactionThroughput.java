@@ -18,16 +18,18 @@
 package org.apache.cassandra.tools.nodetool;
 
 import io.airlift.airline.Command;
-
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
 @Command(name = "getcompactionthroughput", description = "Print the MB/s throughput cap for compaction in the system")
-public class GetCompactionThroughput extends NodeToolCmd
-{
+public class GetCompactionThroughput extends NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetCompactionThroughput.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(GetCompactionThroughput.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
+    public void execute(NodeProbe probe) {
         probe.output().out.println("Current compaction throughput: " + probe.getCompactionThroughput() + " MB/s");
     }
 }

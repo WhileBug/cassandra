@@ -15,33 +15,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.tools.nodetool.stats;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.cassandra.tools.NodeProbe;
 
-public class TpStatsHolder implements StatsHolder
-{
-    public final NodeProbe probe;
+public class TpStatsHolder implements StatsHolder {
 
-    public TpStatsHolder(NodeProbe probe)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TpStatsHolder.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TpStatsHolder.class);
+
+    public final transient NodeProbe probe;
+
+    public TpStatsHolder(NodeProbe probe) {
         this.probe = probe;
     }
 
     @Override
-    public Map<String, Object> convert2Map()
-    {
+    public Map<String, Object> convert2Map() {
         HashMap<String, Object> result = new HashMap<>();
         HashMap<String, Map<String, Object>> threadPools = new HashMap<>();
         HashMap<String, Object> droppedMessage = new HashMap<>();
         HashMap<String, Double[]> waitLatencies = new HashMap<>();
-
-        for (Map.Entry<String, String> tp : probe.getThreadPools().entries())
-        {
+        for (Map.Entry<String, String> tp : probe.getThreadPools().entries()) {
             HashMap<String, Object> threadPool = new HashMap<>();
             threadPool.put("ActiveTasks", probe.getThreadPoolMetric(tp.getKey(), tp.getValue(), "ActiveTasks"));
             threadPool.put("PendingTasks", probe.getThreadPoolMetric(tp.getKey(), tp.getValue(), "PendingTasks"));
@@ -51,24 +49,17 @@ public class TpStatsHolder implements StatsHolder
             threadPools.put(tp.getValue(), threadPool);
         }
         result.put("ThreadPools", threadPools);
-
-        for (Map.Entry<String, Integer> entry : probe.getDroppedMessages().entrySet())
-        {
+        for (Map.Entry<String, Integer> entry : probe.getDroppedMessages().entrySet()) {
             String key = entry.getKey();
             droppedMessage.put(key, entry.getValue());
-            try
-            {
+            try {
                 waitLatencies.put(key, probe.metricPercentilesAsArray(probe.getMessagingQueueWaitMetrics(key)));
-            }
-            catch (RuntimeException e)
-            {
+            } catch (RuntimeException e) {
                 // ignore the exceptions when fetching metrics
             }
         }
-
         result.put("DroppedMessage", droppedMessage);
         result.put("WaitLatencies", waitLatencies);
-
         return result;
     }
 }

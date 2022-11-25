@@ -22,42 +22,37 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.cassandra.concurrent.JMXEnabledThreadPoolExecutor;
 import org.apache.cassandra.concurrent.NamedThreadFactory;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.net.Verb;
 import org.apache.cassandra.utils.MonotonicClock;
-
 import com.google.common.annotations.VisibleForTesting;
 
-public abstract class Sampler<T>
-{
-    public enum SamplerType
-    {
+public abstract class Sampler<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Sampler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Sampler.class);
+
+    public enum SamplerType {
+
         READS, WRITES, LOCAL_READ_TIME, WRITE_SIZE, CAS_CONTENTIONS
     }
 
     @VisibleForTesting
-    MonotonicClock clock = MonotonicClock.approxTime;
+    transient MonotonicClock clock = MonotonicClock.approxTime;
 
     @VisibleForTesting
-    static final ThreadPoolExecutor samplerExecutor = new JMXEnabledThreadPoolExecutor(1, 1,
-            TimeUnit.SECONDS,
-            new ArrayBlockingQueue<Runnable>(1000),
-            new NamedThreadFactory("Sampler"),
-            "internal");
+    static final transient ThreadPoolExecutor samplerExecutor = new JMXEnabledThreadPoolExecutor(1, 1, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(1000), new NamedThreadFactory("Sampler"), "internal");
 
-    static
-    {
-        samplerExecutor.setRejectedExecutionHandler((runnable, executor) ->
-        {
+    static {
+        samplerExecutor.setRejectedExecutionHandler((runnable, executor) -> {
             MessagingService.instance().metrics.recordSelfDroppedMessage(Verb._SAMPLE);
         });
     }
 
-    public void addSample(final T item, final int value)
-    {
+    public void addSample(final T item, final int value) {
         if (isEnabled())
             samplerExecutor.submit(() -> insert(item, value));
     }
@@ -75,22 +70,22 @@ public abstract class Sampler<T>
     /**
      * Represents the ranked items collected during a sample period
      */
-    public static class Sample<S> implements Serializable
-    {
-        public final S value;
-        public final long count;
-        public final long error;
+    public static class Sample<S> implements Serializable {
 
-        public Sample(S value, long count, long error)
-        {
+        public final transient S value;
+
+        public final transient long count;
+
+        public final transient long error;
+
+        public Sample(S value, long count, long error) {
             this.value = value;
             this.count = count;
             this.error = error;
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return "Sample [value=" + value + ", count=" + count + ", error=" + error + "]";
         }
     }

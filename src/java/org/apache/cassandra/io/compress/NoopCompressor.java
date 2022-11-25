@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.io.compress;
 
 import java.io.IOException;
@@ -35,46 +34,42 @@ import java.util.Set;
  *     </ul>
  * </p>
  */
-public class NoopCompressor implements ICompressor
-{
-    public static NoopCompressor create(Map<String, String> ignored)
-    {
+public class NoopCompressor implements ICompressor {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NoopCompressor.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NoopCompressor.class);
+
+    public static NoopCompressor create(Map<String, String> ignored) {
         return new NoopCompressor();
     }
 
-    public int initialCompressedBufferLength(int chunkLength)
-    {
+    public int initialCompressedBufferLength(int chunkLength) {
         return chunkLength;
     }
 
-    public int uncompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset) throws IOException
-    {
+    public int uncompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset) throws IOException {
         System.arraycopy(input, inputOffset, output, outputOffset, inputLength);
         return inputLength;
     }
 
-    public void compress(ByteBuffer input, ByteBuffer output) throws IOException
-    {
+    public void compress(ByteBuffer input, ByteBuffer output) throws IOException {
         output.put(input);
     }
 
-    public void uncompress(ByteBuffer input, ByteBuffer output) throws IOException
-    {
+    public void uncompress(ByteBuffer input, ByteBuffer output) throws IOException {
         output.put(input);
     }
 
-    public BufferType preferredBufferType()
-    {
+    public BufferType preferredBufferType() {
         return BufferType.ON_HEAP;
     }
 
-    public boolean supports(BufferType bufferType)
-    {
+    public boolean supports(BufferType bufferType) {
         return true;
     }
 
-    public Set<String> supportedOptions()
-    {
+    public Set<String> supportedOptions() {
         return Collections.emptySet();
     }
 }

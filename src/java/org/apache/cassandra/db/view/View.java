@@ -19,11 +19,8 @@ package org.apache.cassandra.db.view;
 
 import java.util.*;
 import java.util.stream.Collectors;
-
 import javax.annotation.Nullable;
-
 import com.google.common.collect.Iterables;
-
 import org.apache.cassandra.cql3.*;
 import org.apache.cassandra.cql3.selection.RawSelector;
 import org.apache.cassandra.cql3.selection.Selectable;
@@ -44,45 +41,47 @@ import org.slf4j.LoggerFactory;
  * base. Every update which targets the base table must be fed through the {@link ViewManager} to ensure
  * that if a view needs to be updated, the updates are properly created and fed into the view.
  */
-public class View
-{
-    public final static String USAGE_WARNING = "Materialized views are experimental and are not recommended for production use.";
+public class View {
 
-    private static final Logger logger = LoggerFactory.getLogger(View.class);
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(View.class);
 
-    public final String name;
-    private volatile ViewMetadata definition;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(View.class);
 
-    private final ColumnFamilyStore baseCfs;
+    public final static transient String USAGE_WARNING = "Materialized views are experimental and are not recommended for production use.";
 
-    public volatile List<ColumnMetadata> baseNonPKColumnsInViewPK;
-    private ViewBuilder builder;
+    private static final transient Logger logger = LoggerFactory.getLogger(View.class);
 
-    private SelectStatement select;
-    private ReadQuery query;
+    public final transient String name;
 
-    public View(ViewMetadata definition, ColumnFamilyStore baseCfs)
-    {
+    private volatile transient ViewMetadata definition;
+
+    private final transient ColumnFamilyStore baseCfs;
+
+    public volatile transient List<ColumnMetadata> baseNonPKColumnsInViewPK;
+
+    private transient ViewBuilder builder;
+
+    private transient SelectStatement select;
+
+    private transient ReadQuery query;
+
+    public View(ViewMetadata definition, ColumnFamilyStore baseCfs) {
         this.baseCfs = baseCfs;
         this.name = definition.name();
-
         updateDefinition(definition);
     }
 
-    public ViewMetadata getDefinition()
-    {
+    public ViewMetadata getDefinition() {
         return definition;
     }
 
     /**
      * This updates the columns stored which are dependent on the base TableMetadata.
      */
-    public void updateDefinition(ViewMetadata definition)
-    {
+    public void updateDefinition(ViewMetadata definition) {
         this.definition = definition;
         List<ColumnMetadata> nonPKDefPartOfViewPK = new ArrayList<>();
-        for (ColumnMetadata baseColumn : baseCfs.metadata.get().columns())
-        {
+        for (ColumnMetadata baseColumn : baseCfs.metadata.get().columns()) {
             ColumnMetadata viewColumn = getViewColumn(baseColumn);
             if (viewColumn != null && !baseColumn.isPrimaryKeyColumn() && viewColumn.isPrimaryKeyColumn())
                 nonPKDefPartOfViewPK.add(baseColumn);
@@ -94,8 +93,7 @@ public class View
      * The view column corresponding to the provided base column. This <b>can</b>
      * return {@code null} if the column is denormalized in the view.
      */
-    public ColumnMetadata getViewColumn(ColumnMetadata baseColumn)
-    {
+    public ColumnMetadata getViewColumn(ColumnMetadata baseColumn) {
         return definition.metadata.getColumn(baseColumn.name);
     }
 
@@ -103,8 +101,7 @@ public class View
      * The base column corresponding to the provided view column. This should
      * never return {@code null} since a view can't have its "own" columns.
      */
-    public ColumnMetadata getBaseColumn(ColumnMetadata viewColumn)
-    {
+    public ColumnMetadata getBaseColumn(ColumnMetadata viewColumn) {
         ColumnMetadata baseColumn = baseCfs.metadata().getColumn(viewColumn.name);
         assert baseColumn != null;
         return baseColumn;
@@ -121,14 +118,13 @@ public class View
      * @return {@code false} if we can guarantee that inserting {@code update} for key {@code partitionKey}
      * won't affect the view in any way, {@code true} otherwise.
      */
-    public boolean mayBeAffectedBy(DecoratedKey partitionKey, Row update)
-    {
+    public boolean mayBeAffectedBy(DecoratedKey partitionKey, Row update) {
         // We can guarantee that the view won't be affected if:
-        //  - the clustering is excluded by the view filter (note that this isn't true of the filter on regular columns:
-        //    even if an update don't match a view condition on a regular column, that update can still invalidate an pre-existing
-        //    entry).
-        //  - or the update don't modify any of the columns impacting the view (where "impacting" the view means that column is
-        //    neither included in the view, nor used by the view filter).
+        // - the clustering is excluded by the view filter (note that this isn't true of the filter on regular columns:
+        // even if an update don't match a view condition on a regular column, that update can still invalidate an pre-existing
+        // entry).
+        // - or the update don't modify any of the columns impacting the view (where "impacting" the view means that column is
+        // neither included in the view, nor used by the view filter).
         if (!getReadQuery().selectsClustering(partitionKey, update.clustering()))
             return false;
         return true;
@@ -146,68 +142,39 @@ public class View
      * @param nowInSec the current time in seconds (to decide what is live and what isn't).
      * @return {@code true} if {@code baseRow} matches the view filters, {@code false} otherwise.
      */
-    public boolean matchesViewFilter(DecoratedKey partitionKey, Row baseRow, int nowInSec)
-    {
-        return getReadQuery().selectsClustering(partitionKey, baseRow.clustering())
-            && getSelectStatement().rowFilterForInternalCalls().isSatisfiedBy(baseCfs.metadata(), partitionKey, baseRow, nowInSec);
+    public boolean matchesViewFilter(DecoratedKey partitionKey, Row baseRow, int nowInSec) {
+        return getReadQuery().selectsClustering(partitionKey, baseRow.clustering()) && getSelectStatement().rowFilterForInternalCalls().isSatisfiedBy(baseCfs.metadata(), partitionKey, baseRow, nowInSec);
     }
 
     /**
      * Returns the SelectStatement used to populate and filter this view.  Internal users should access the select
      * statement this way to ensure it has been prepared.
      */
-    SelectStatement getSelectStatement()
-    {
-        if (null == select)
-        {
-            SelectStatement.Parameters parameters =
-                new SelectStatement.Parameters(Collections.emptyMap(),
-                                               Collections.emptyList(),
-                                               false,
-                                               true,
-                                               false);
-
-            SelectStatement.RawStatement rawSelect =
-                new SelectStatement.RawStatement(new QualifiedName(baseCfs.keyspace.getName(), baseCfs.name),
-                                                 parameters,
-                                                 selectClause(),
-                                                 definition.whereClause,
-                                                 null,
-                                                 null);
-
+    SelectStatement getSelectStatement() {
+        if (null == select) {
+            SelectStatement.Parameters parameters = new SelectStatement.Parameters(Collections.emptyMap(), Collections.emptyList(), false, true, false);
+            SelectStatement.RawStatement rawSelect = new SelectStatement.RawStatement(new QualifiedName(baseCfs.keyspace.getName(), baseCfs.name), parameters, selectClause(), definition.whereClause, null, null);
             rawSelect.setBindVariables(Collections.emptyList());
-
             select = rawSelect.prepare(true);
         }
-
         return select;
     }
 
-    private List<RawSelector> selectClause()
-    {
-        return definition.metadata
-                         .columns()
-                         .stream()
-                         .map(c -> c.name.toString())
-                         .map(Selectable.RawIdentifier::forQuoted)
-                         .map(c -> new RawSelector(c, null))
-                         .collect(Collectors.toList());
+    private List<RawSelector> selectClause() {
+        return definition.metadata.columns().stream().map(c -> c.name.toString()).map(Selectable.RawIdentifier::forQuoted).map(c -> new RawSelector(c, null)).collect(Collectors.toList());
     }
 
     /**
      * Returns the ReadQuery used to filter this view.  Internal users should access the query this way to ensure it
      * has been prepared.
      */
-    ReadQuery getReadQuery()
-    {
+    ReadQuery getReadQuery() {
         if (query == null)
             query = getSelectStatement().getQuery(QueryOptions.forInternalCalls(Collections.emptyList()), FBUtilities.nowInSeconds());
-
         return query;
     }
 
-    public synchronized void build()
-    {
+    public synchronized void build() {
         stopBuild();
         builder = new ViewBuilder(baseCfs, this);
         builder.start();
@@ -216,10 +183,8 @@ public class View
     /**
      * Stops the building of this view, no-op if it isn't building.
      */
-    synchronized void stopBuild()
-    {
-        if (builder != null)
-        {
+    synchronized void stopBuild() {
+        if (builder != null) {
             logger.debug("Stopping current view builder due to schema change or truncate");
             builder.stop();
             builder = null;
@@ -227,21 +192,18 @@ public class View
     }
 
     @Nullable
-    public static TableMetadataRef findBaseTable(String keyspace, String viewName)
-    {
+    public static TableMetadataRef findBaseTable(String keyspace, String viewName) {
         ViewMetadata view = Schema.instance.getView(keyspace, viewName);
         return (view == null) ? null : Schema.instance.getTableMetadataRef(view.baseTableId);
     }
 
     // TODO: REMOVE
-    public static Iterable<ViewMetadata> findAll(String keyspace, String baseTable)
-    {
+    public static Iterable<ViewMetadata> findAll(String keyspace, String baseTable) {
         KeyspaceMetadata ksm = Schema.instance.getKeyspaceMetadata(keyspace);
         return Iterables.filter(ksm.views, view -> view.baseTableName.equals(baseTable));
     }
 
-    public boolean hasSamePrimaryKeyColumnsAsBaseTable()
-    {
+    public boolean hasSamePrimaryKeyColumnsAsBaseTable() {
         return baseNonPKColumnsInViewPK.isEmpty();
     }
 
@@ -258,8 +220,7 @@ public class View
      *
      * See CASSANDRA-11500 for context.
      */
-    public boolean enforceStrictLiveness()
-    {
+    public boolean enforceStrictLiveness() {
         return !baseNonPKColumnsInViewPK.isEmpty();
     }
 }

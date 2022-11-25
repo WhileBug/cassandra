@@ -18,38 +18,40 @@
  * under the License.
  *
  */
-
 package org.apache.cassandra.tracing;
 
 import org.apache.cassandra.utils.FBUtilities;
 
-class ExpiredTraceState extends TraceState
-{
-    private final TraceState delegate;
+class ExpiredTraceState extends TraceState {
 
-    ExpiredTraceState(TraceState delegate)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExpiredTraceState.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ExpiredTraceState.class);
+
+    private final transient TraceState delegate;
+
+    ExpiredTraceState(TraceState delegate) {
         super(FBUtilities.getBroadcastAddressAndPort(), delegate.sessionId, delegate.traceType);
         this.delegate = delegate;
     }
 
-    public int elapsed()
-    {
+    public int elapsed() {
         return -1;
     }
 
-    protected void traceImpl(String message)
-    {
+    protected void traceImpl(String message) {
         delegate.traceImpl(message);
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.ExpiredTraceState.delegate]=" + org.json.simple.JSONValue.toJSONString(delegate).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.ExpiredTraceState.delegate]=" + org.json.simple.JSONValue.toJSONString(delegate).replace("\n", "").replace("\r", ""));
     }
 
-    protected void waitForPendingEvents()
-    {
+    protected void waitForPendingEvents() {
         delegate.waitForPendingEvents();
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.ExpiredTraceState.delegate]=" + org.json.simple.JSONValue.toJSONString(delegate).replace("\n", "").replace("\r", ""));
+        logger_IC.info("[InconsistencyDetector][org.apache.cassandra.tracing.ExpiredTraceState.delegate]=" + org.json.simple.JSONValue.toJSONString(delegate).replace("\n", "").replace("\r", ""));
     }
 
-    TraceState getDelegate()
-    {
+    TraceState getDelegate() {
         return delegate;
     }
 }

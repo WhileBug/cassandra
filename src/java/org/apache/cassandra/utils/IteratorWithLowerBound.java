@@ -15,10 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils;
 
-public interface IteratorWithLowerBound<In>
-{
+public interface IteratorWithLowerBound<In> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IteratorWithLowerBound.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IteratorWithLowerBound.class);
+
     In lowerBound();
 }

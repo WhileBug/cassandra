@@ -15,12 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads;
 
 import java.net.InetAddress;
-
-
 import org.apache.cassandra.db.ReadCommand;
 import org.apache.cassandra.db.filter.DataLimits;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
@@ -39,29 +36,16 @@ import org.apache.cassandra.locator.Replica;
  * which we also need to fetch as they may shadow rows or partitions from other replicas' results, which we would
  * otherwise return incorrectly.
  */
-public class ShortReadProtection
-{
+public class ShortReadProtection {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ShortReadProtection.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ShortReadProtection.class);
+
     @SuppressWarnings("resource")
-    public static UnfilteredPartitionIterator extend(Replica source,
-                                                     Runnable preFetchCallback,
-                                                     UnfilteredPartitionIterator partitions,
-                                                     ReadCommand command,
-                                                     DataLimits.Counter mergedResultCounter,
-                                                     long queryStartNanoTime,
-                                                     boolean enforceStrictLiveness)
-    {
-        DataLimits.Counter singleResultCounter = command.limits().newCounter(command.nowInSec(),
-                                                                             false,
-                                                                             command.selectsFullPartition(),
-                                                                             enforceStrictLiveness).onlyCount();
-
-        ShortReadPartitionsProtection protection = new ShortReadPartitionsProtection(command,
-                                                                                     source,
-                                                                                     preFetchCallback,
-                                                                                     singleResultCounter,
-                                                                                     mergedResultCounter,
-                                                                                     queryStartNanoTime);
-
+    public static UnfilteredPartitionIterator extend(Replica source, Runnable preFetchCallback, UnfilteredPartitionIterator partitions, ReadCommand command, DataLimits.Counter mergedResultCounter, long queryStartNanoTime, boolean enforceStrictLiveness) {
+        DataLimits.Counter singleResultCounter = command.limits().newCounter(command.nowInSec(), false, command.selectsFullPartition(), enforceStrictLiveness).onlyCount();
+        ShortReadPartitionsProtection protection = new ShortReadPartitionsProtection(command, source, preFetchCallback, singleResultCounter, mergedResultCounter, queryStartNanoTime);
         /*
          * The order of extention and transformations is important here. Extending with more partitions has to happen
          * first due to the way BaseIterator.hasMoreContents() works: only transformations applied after extension will
@@ -73,14 +57,14 @@ public class ShortReadProtection
          *
          * See ShortReadPartitionsProtection.applyToPartition() for more details.
          */
-
         // extend with moreContents() only if it's a range read command with no partition key specified
         if (!command.isLimitedToOnePartition())
-            partitions = MorePartitions.extend(partitions, protection);     // register SRPP.moreContents()
-
-        partitions = Transformation.apply(partitions, protection);          // register SRPP.applyToPartition()
-        partitions = Transformation.apply(partitions, singleResultCounter); // register the per-source counter
-
+            // register SRPP.moreContents()
+            partitions = MorePartitions.extend(partitions, protection);
+        // register SRPP.applyToPartition()
+        partitions = Transformation.apply(partitions, protection);
+        // register the per-source counter
+        partitions = Transformation.apply(partitions, singleResultCounter);
         return partitions;
     }
 }

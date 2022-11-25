@@ -18,7 +18,6 @@
 package org.apache.cassandra.index.internal.composites;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.ByteBufferAccessor;
@@ -46,30 +45,24 @@ import org.apache.cassandra.schema.IndexMetadata;
  *     where rk is the row key of the initial cell. I.e. the index entry store
  *     all the information require to locate back the indexed cell.
  */
-public class RegularColumnIndex extends CassandraIndex
-{
-    public RegularColumnIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef)
-    {
+public class RegularColumnIndex extends CassandraIndex {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RegularColumnIndex.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RegularColumnIndex.class);
+
+    public RegularColumnIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef) {
         super(baseCfs, indexDef);
     }
 
-    public ByteBuffer getIndexedValue(ByteBuffer partitionKey,
-                                      Clustering<?> clustering,
-                                      CellPath path,
-                                      ByteBuffer cellValue)
-    {
+    public ByteBuffer getIndexedValue(ByteBuffer partitionKey, Clustering<?> clustering, CellPath path, ByteBuffer cellValue) {
         return cellValue;
     }
 
-    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey,
-                                               ClusteringPrefix<T> prefix,
-                                               CellPath path)
-    {
+    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey, ClusteringPrefix<T> prefix, CellPath path) {
         CBuilder builder = CBuilder.create(getIndexComparator());
         builder.add(partitionKey);
-        for (int i = 0; i < prefix.size(); i++)
-            builder.add(prefix.get(i), prefix.accessor());
-
+        for (int i = 0; i < prefix.size(); i++) builder.add(prefix.get(i), prefix.accessor());
         // Note: if indexing a static column, prefix will be Clustering.STATIC_CLUSTERING
         // so the Clustering obtained from builder::build will contain a value for only
         // the partition key. At query time though, this is all that's needed as the entire
@@ -77,39 +70,26 @@ public class RegularColumnIndex extends CassandraIndex
         return builder;
     }
 
-    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry)
-    {
+    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry) {
         Clustering<?> clustering = indexEntry.clustering();
-
         Clustering<?> indexedEntryClustering = null;
         if (getIndexedColumn().isStatic())
             indexedEntryClustering = Clustering.STATIC_CLUSTERING;
-        else
-        {
+        else {
             ClusteringComparator baseComparator = baseCfs.getComparator();
             CBuilder builder = CBuilder.create(baseComparator);
-            for (int i = 0; i < baseComparator.size(); i++)
-                builder.add(clustering, i + 1);
+            for (int i = 0; i < baseComparator.size(); i++) builder.add(clustering, i + 1);
             indexedEntryClustering = builder.build();
         }
-
-        return new IndexEntry(indexedValue,
-                              clustering,
-                              indexEntry.primaryKeyLivenessInfo().timestamp(),
-                              clustering.bufferAt(0),
-                              indexedEntryClustering);
+        return new IndexEntry(indexedValue, clustering, indexEntry.primaryKeyLivenessInfo().timestamp(), clustering.bufferAt(0), indexedEntryClustering);
     }
 
-    private static <V> boolean valueIsEqual(AbstractType<?> type, Cell<V> cell, ByteBuffer value)
-    {
+    private static <V> boolean valueIsEqual(AbstractType<?> type, Cell<V> cell, ByteBuffer value) {
         return type.compare(cell.value(), cell.accessor(), value, ByteBufferAccessor.instance) == 0;
     }
 
-    public boolean isStale(Row data, ByteBuffer indexValue, int nowInSec)
-    {
+    public boolean isStale(Row data, ByteBuffer indexValue, int nowInSec) {
         Cell<?> cell = data.getCell(indexedColumn);
-        return cell == null
-            || !cell.isLive(nowInSec)
-            || !valueIsEqual(indexedColumn.type, cell, indexValue);
+        return cell == null || !cell.isLive(nowInSec) || !valueIsEqual(indexedColumn.type, cell, indexValue);
     }
 }

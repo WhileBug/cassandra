@@ -18,32 +18,35 @@
 package org.apache.cassandra.repair;
 
 import java.util.List;
-
 import org.apache.cassandra.streaming.SessionSummary;
 
 /**
  * Statistics about synchronizing two replica
  */
-public class SyncStat
-{
-    public final SyncNodePair nodes;
-    public final long numberOfDifferences; // TODO: revert to Range<Token>
-    public final List<SessionSummary> summaries;
+public class SyncStat {
 
-    public SyncStat(SyncNodePair nodes, long numberOfDifferences)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SyncStat.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SyncStat.class);
+
+    public final transient SyncNodePair nodes;
+
+    // TODO: revert to Range<Token>
+    public final transient long numberOfDifferences;
+
+    public final transient List<SessionSummary> summaries;
+
+    public SyncStat(SyncNodePair nodes, long numberOfDifferences) {
         this(nodes, numberOfDifferences, null);
     }
 
-    public SyncStat(SyncNodePair nodes, long numberOfDifferences, List<SessionSummary> summaries)
-    {
+    public SyncStat(SyncNodePair nodes, long numberOfDifferences, List<SessionSummary> summaries) {
         this.nodes = nodes;
         this.numberOfDifferences = numberOfDifferences;
         this.summaries = summaries;
     }
 
-    public SyncStat withSummaries(List<SessionSummary> summaries)
-    {
+    public SyncStat withSummaries(List<SessionSummary> summaries) {
         return new SyncStat(nodes, numberOfDifferences, summaries);
     }
 }

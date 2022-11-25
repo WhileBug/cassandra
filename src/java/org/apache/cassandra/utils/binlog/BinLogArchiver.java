@@ -15,15 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.utils.binlog;
 
 import java.io.File;
-
 import net.openhft.chronicle.queue.impl.StoreFileListener;
 
-public interface BinLogArchiver extends StoreFileListener
-{
+public interface BinLogArchiver extends StoreFileListener {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BinLogArchiver.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BinLogArchiver.class);
+
     public void onReleased(int cycle, File file);
+
     public void stop();
 }

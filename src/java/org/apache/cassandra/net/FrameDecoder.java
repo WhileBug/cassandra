@@ -22,13 +22,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
-
 import static org.apache.cassandra.utils.ByteBufferUtil.copyBytes;
 
 /**
@@ -46,26 +43,32 @@ import static org.apache.cassandra.utils.ByteBufferUtil.copyBytes;
  *
  * Five frame decoders currently exist, one used for each connection depending on flags and messaging version:
  * 1. {@link FrameDecoderCrc}:
-          no compression; payload is protected by CRC32
+ *          no compression; payload is protected by CRC32
  * 2. {@link FrameDecoderLZ4}:
-          LZ4 compression with custom frame format; payload is protected by CRC32
+ *          LZ4 compression with custom frame format; payload is protected by CRC32
  * 3. {@link FrameDecoderUnprotected}:
-          no compression; no integrity protection
+ *          no compression; no integrity protection
  * 4. {@link FrameDecoderLegacy}:
-          no compression; no integrity protection; turns unframed streams of legacy messages (< 4.0) into frames
+ *          no compression; no integrity protection; turns unframed streams of legacy messages (< 4.0) into frames
  * 5. {@link FrameDecoderLegacyLZ4}
  *        LZ4 compression using standard LZ4 frame format; groups legacy messages (< 4.0) into frames
  */
-public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
-{
-    private static final FrameProcessor NO_PROCESSOR =
-        frame -> { throw new IllegalStateException("Frame processor invoked on an unregistered FrameDecoder"); };
+public abstract class FrameDecoder extends ChannelInboundHandlerAdapter {
 
-    private static final FrameProcessor CLOSED_PROCESSOR =
-        frame -> { throw new IllegalStateException("Frame processor invoked on a closed FrameDecoder"); };
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameDecoder.class);
 
-    public interface FrameProcessor
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FrameDecoder.class);
+
+    private static final transient FrameProcessor NO_PROCESSOR = frame -> {
+        throw new IllegalStateException("Frame processor invoked on an unregistered FrameDecoder");
+    };
+
+    private static final transient FrameProcessor CLOSED_PROCESSOR = frame -> {
+        throw new IllegalStateException("Frame processor invoked on a closed FrameDecoder");
+    };
+
+    public interface FrameProcessor {
+
         /**
          * Frame processor that the frames should be handed off to.
          *
@@ -75,18 +78,19 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
         boolean process(Frame frame) throws IOException;
     }
 
-    public abstract static class Frame
-    {
-        public final boolean isSelfContained;
-        public final int frameSize;
+    public abstract static class Frame {
 
-        Frame(boolean isSelfContained, int frameSize)
-        {
+        public final transient boolean isSelfContained;
+
+        public final transient int frameSize;
+
+        Frame(boolean isSelfContained, int frameSize) {
             this.isSelfContained = isSelfContained;
             this.frameSize = frameSize;
         }
 
         abstract void release();
+
         abstract boolean isConsumed();
     }
 
@@ -99,28 +103,24 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      * {@link Message} is contained in the payload; it can be relied upon that this partial {@link Message}
      * will only be delivered in its own unique {@link Frame}.
      */
-    public final static class IntactFrame extends Frame
-    {
-        public final ShareableBytes contents;
+    public final static class IntactFrame extends Frame {
 
-        IntactFrame(boolean isSelfContained, ShareableBytes contents)
-        {
+        public final transient ShareableBytes contents;
+
+        IntactFrame(boolean isSelfContained, ShareableBytes contents) {
             super(isSelfContained, contents.remaining());
             this.contents = contents;
         }
 
-        void release()
-        {
+        void release() {
             contents.release();
         }
 
-        boolean isConsumed()
-        {
+        boolean isConsumed() {
             return !contents.hasRemaining();
         }
 
-        public void consume()
-        {
+        public void consume() {
             contents.consume();
         }
     }
@@ -136,70 +136,68 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      * A recoverable {@link CorruptFrame} can be considered unrecoverable by {@link InboundMessageHandler}
      * if it's the first frame of a large message (isn't self contained).
      */
-    public final static class CorruptFrame extends Frame
-    {
-        public final int readCRC;
-        public final int computedCRC;
+    public final static class CorruptFrame extends Frame {
 
-        CorruptFrame(boolean isSelfContained, int frameSize, int readCRC, int computedCRC)
-        {
+        public final transient int readCRC;
+
+        public final transient int computedCRC;
+
+        CorruptFrame(boolean isSelfContained, int frameSize, int readCRC, int computedCRC) {
             super(isSelfContained, frameSize);
             this.readCRC = readCRC;
             this.computedCRC = computedCRC;
         }
 
-        static CorruptFrame recoverable(boolean isSelfContained, int frameSize, int readCRC, int computedCRC)
-        {
+        static CorruptFrame recoverable(boolean isSelfContained, int frameSize, int readCRC, int computedCRC) {
             return new CorruptFrame(isSelfContained, frameSize, readCRC, computedCRC);
         }
 
-        static CorruptFrame unrecoverable(int readCRC, int computedCRC)
-        {
+        static CorruptFrame unrecoverable(int readCRC, int computedCRC) {
             return new CorruptFrame(false, Integer.MIN_VALUE, readCRC, computedCRC);
         }
 
-        public boolean isRecoverable()
-        {
+        public boolean isRecoverable() {
             return frameSize != Integer.MIN_VALUE;
         }
 
-        void release() { }
+        void release() {
+        }
 
-        boolean isConsumed()
-        {
+        boolean isConsumed() {
             return true;
         }
     }
 
-    protected final BufferPoolAllocator allocator;
+    protected final transient BufferPoolAllocator allocator;
 
     @VisibleForTesting
-    final Deque<Frame> frames = new ArrayDeque<>(4);
-    ByteBuffer stash;
+    final transient Deque<Frame> frames = new ArrayDeque<>(4);
 
-    private boolean isActive;
-    private boolean isClosed;
-    private ChannelHandlerContext ctx;
-    private FrameProcessor processor = NO_PROCESSOR;
+    transient ByteBuffer stash;
 
-    FrameDecoder(BufferPoolAllocator allocator)
-    {
+    private transient boolean isActive;
+
+    private transient boolean isClosed;
+
+    private transient ChannelHandlerContext ctx;
+
+    private transient FrameProcessor processor = NO_PROCESSOR;
+
+    FrameDecoder(BufferPoolAllocator allocator) {
         this.allocator = allocator;
     }
 
     abstract void decode(Collection<Frame> into, ShareableBytes bytes);
+
     abstract void addLastTo(ChannelPipeline pipeline);
 
     /**
      * For use by InboundMessageHandler (or other upstream handlers) that want to start receiving frames.
      */
-    public void activate(FrameProcessor processor)
-    {
+    public void activate(FrameProcessor processor) {
         if (this.processor != NO_PROCESSOR)
             throw new IllegalStateException("Attempted to activate an already active FrameDecoder");
-
         this.processor = processor;
-
         isActive = true;
         ctx.read();
     }
@@ -208,13 +206,10 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      * For use by InboundMessageHandler (or other upstream handlers) that want to resume
      * receiving frames after previously indicating that processing should be paused.
      */
-    void reactivate() throws IOException
-    {
+    void reactivate() throws IOException {
         if (isActive)
             throw new IllegalStateException("Tried to reactivate an already active FrameDecoder");
-
-        if (deliver(processor))
-        {
+        if (deliver(processor)) {
             isActive = true;
             onExhausted();
         }
@@ -227,8 +222,7 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      * Does not reactivate processing or reading from the wire, but permits processing as many frames (or parts thereof)
      * that are already waiting as the processor requires.
      */
-    void processBacklog(FrameProcessor processor) throws IOException
-    {
+    void processBacklog(FrameProcessor processor) throws IOException {
         deliver(processor);
     }
 
@@ -236,18 +230,15 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      * For use by InboundMessageHandler (or other upstream handlers) that want to permanently
      * stop receiving frames, e.g. because of an exception caught.
      */
-    public void discard()
-    {
+    public void discard() {
         isActive = false;
         processor = CLOSED_PROCESSOR;
-        if (stash != null)
-        {
+        if (stash != null) {
             ByteBuffer bytes = stash;
             stash = null;
             allocator.put(bytes);
         }
-        while (!frames.isEmpty())
-            frames.poll().release();
+        while (!frames.isEmpty()) frames.poll().release();
     }
 
     /**
@@ -259,35 +250,28 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      * which collects decoded frames into {@link #frames}, which we send upstream in {@link #deliver}
      */
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException
-    {
-        if (msg instanceof BufferPoolAllocator.Wrapped)
-        {
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
+        if (msg instanceof BufferPoolAllocator.Wrapped) {
             ByteBuffer buf = ((BufferPoolAllocator.Wrapped) msg).adopt();
             // netty will probably have mis-predicted the space needed
             allocator.putUnusedPortion(buf);
             channelRead(ShareableBytes.wrap(buf));
-        }
-        else if (msg instanceof ShareableBytes) // legacy LZ4 decoder
-        {
+        } else if (// legacy LZ4 decoder
+        msg instanceof ShareableBytes) {
             channelRead((ShareableBytes) msg);
-        }
-        else
-        {
+        } else {
             throw new IllegalArgumentException();
         }
     }
 
-    void channelRead(ShareableBytes bytes) throws IOException
-    {
+    void channelRead(ShareableBytes bytes) throws IOException {
         decode(frames, bytes);
-
-        if (isActive) isActive = deliver(processor);
+        if (isActive)
+            isActive = deliver(processor);
     }
 
     @Override
-    public void channelReadComplete(ChannelHandlerContext ctx)
-    {
+    public void channelReadComplete(ChannelHandlerContext ctx) {
         if (isActive)
             onExhausted();
     }
@@ -298,8 +282,7 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      * If we have been closed, we will now propagate up the channelInactive notification,
      * and otherwise we will ask the channel for more data.
      */
-    private void onExhausted()
-    {
+    private void onExhausted() {
         if (isClosed)
             close();
         else
@@ -312,17 +295,13 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      *
      * Propagate the final return value of the processor.
      */
-    private boolean deliver(FrameProcessor processor) throws IOException
-    {
+    private boolean deliver(FrameProcessor processor) throws IOException {
         boolean deliver = true;
-        while (deliver && !frames.isEmpty())
-        {
+        while (deliver && !frames.isEmpty()) {
             Frame frame = frames.peek();
             deliver = processor.process(frame);
-
             assert !deliver || frame.isConsumed();
-            if (deliver || frame.isConsumed())
-            {
+            if (deliver || frame.isConsumed()) {
                 frames.poll();
                 frame.release();
             }
@@ -330,8 +309,7 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
         return deliver;
     }
 
-    void stash(ShareableBytes in, int stashLength, int begin, int length)
-    {
+    void stash(ShareableBytes in, int stashLength, int begin, int length) {
         ByteBuffer out = allocator.getAtLeast(stashLength);
         copyBytes(in.get(), begin, out, 0, length);
         out.position(length);
@@ -339,22 +317,19 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
     }
 
     @Override
-    public void handlerAdded(ChannelHandlerContext ctx)
-    {
+    public void handlerAdded(ChannelHandlerContext ctx) {
         this.ctx = ctx;
         ctx.channel().config().setAutoRead(false);
     }
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx)
-    {
+    public void channelInactive(ChannelHandlerContext ctx) {
         isClosed = true;
         if (frames.isEmpty())
             close();
     }
 
-    private void close()
-    {
+    private void close() {
         discard();
         ctx.fireChannelInactive();
         allocator.release();
@@ -365,18 +340,14 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      * updating the position of both buffers with the result
      * @return true if there were sufficient bytes to fill to {@code toOutPosition}
      */
-    static boolean copyToSize(ByteBuffer in, ByteBuffer out, int toOutPosition)
-    {
+    static boolean copyToSize(ByteBuffer in, ByteBuffer out, int toOutPosition) {
         int bytesToSize = toOutPosition - out.position();
         if (bytesToSize <= 0)
             return true;
-
-        if (bytesToSize > in.remaining())
-        {
+        if (bytesToSize > in.remaining()) {
             out.put(in);
             return false;
         }
-
         copyBytes(in, in.position(), out, out.position(), bytesToSize);
         in.position(in.position() + bytesToSize);
         out.position(toOutPosition);
@@ -387,11 +358,9 @@ public abstract class FrameDecoder extends ChannelInboundHandlerAdapter
      * @return {@code in} if has sufficient capacity, otherwise
      *         a replacement from {@code BufferPool} that {@code in} is copied into
      */
-    ByteBuffer ensureCapacity(ByteBuffer in, int capacity)
-    {
+    ByteBuffer ensureCapacity(ByteBuffer in, int capacity) {
         if (in.capacity() >= capacity)
             return in;
-
         ByteBuffer out = allocator.getAtLeast(capacity);
         in.flip();
         out.put(in);

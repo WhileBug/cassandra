@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.diag;
 
 import java.io.Serializable;
@@ -25,8 +24,12 @@ import java.util.SortedMap;
 /**
  * Provides JMX enabled attributes and operations implemented by {@link DiagnosticEventService}.
  */
-public interface DiagnosticEventServiceMBean
-{
+public interface DiagnosticEventServiceMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DiagnosticEventServiceMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DiagnosticEventServiceMBean.class);
+
     /*
      * Indicates if any events will be published.
      */

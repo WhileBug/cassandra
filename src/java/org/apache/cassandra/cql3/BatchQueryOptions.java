@@ -21,137 +21,118 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.cassandra.utils.MD5Digest;
-
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.service.QueryState;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public abstract class BatchQueryOptions
-{
-    public static BatchQueryOptions DEFAULT = withoutPerStatementVariables(QueryOptions.DEFAULT);
+public abstract class BatchQueryOptions {
 
-    protected final QueryOptions wrapped;
-    private final List<Object> queryOrIdList;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchQueryOptions.class);
 
-    protected BatchQueryOptions(QueryOptions wrapped, List<Object> queryOrIdList)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BatchQueryOptions.class);
+
+    public static transient BatchQueryOptions DEFAULT = withoutPerStatementVariables(QueryOptions.DEFAULT);
+
+    protected final transient QueryOptions wrapped;
+
+    private final transient List<Object> queryOrIdList;
+
+    protected BatchQueryOptions(QueryOptions wrapped, List<Object> queryOrIdList) {
         this.wrapped = wrapped;
         this.queryOrIdList = queryOrIdList;
     }
 
-    public static BatchQueryOptions withoutPerStatementVariables(QueryOptions options)
-    {
+    public static BatchQueryOptions withoutPerStatementVariables(QueryOptions options) {
         return new WithoutPerStatementVariables(options, Collections.<Object>emptyList());
     }
 
-    public static BatchQueryOptions withPerStatementVariables(QueryOptions options, List<List<ByteBuffer>> variables, List<Object> queryOrIdList)
-    {
+    public static BatchQueryOptions withPerStatementVariables(QueryOptions options, List<List<ByteBuffer>> variables, List<Object> queryOrIdList) {
         return new WithPerStatementVariables(options, variables, queryOrIdList);
     }
 
     public abstract QueryOptions forStatement(int i);
 
-    public void prepareStatement(int i, List<ColumnSpecification> boundNames)
-    {
+    public void prepareStatement(int i, List<ColumnSpecification> boundNames) {
         forStatement(i).prepare(boundNames);
     }
 
-    public ConsistencyLevel getConsistency()
-    {
+    public ConsistencyLevel getConsistency() {
         return wrapped.getConsistency();
     }
 
-    public String getKeyspace()
-    {
+    public String getKeyspace() {
         return wrapped.getKeyspace();
     }
 
-    public ConsistencyLevel getSerialConsistency()
-    {
+    public ConsistencyLevel getSerialConsistency() {
         return wrapped.getSerialConsistency();
     }
 
-    public List<Object> getQueryOrIdList()
-    {
+    public List<Object> getQueryOrIdList() {
         return queryOrIdList;
     }
 
-    public long getTimestamp(QueryState state)
-    {
+    public long getTimestamp(QueryState state) {
         return wrapped.getTimestamp(state);
     }
 
-    public int getNowInSeconds(QueryState state)
-    {
+    public int getNowInSeconds(QueryState state) {
         return wrapped.getNowInSeconds(state);
     }
 
-    private static class WithoutPerStatementVariables extends BatchQueryOptions
-    {
-        private WithoutPerStatementVariables(QueryOptions wrapped, List<Object> queryOrIdList)
-        {
+    private static class WithoutPerStatementVariables extends BatchQueryOptions {
+
+        private WithoutPerStatementVariables(QueryOptions wrapped, List<Object> queryOrIdList) {
             super(wrapped, queryOrIdList);
         }
 
-        public QueryOptions forStatement(int i)
-        {
+        public QueryOptions forStatement(int i) {
             return wrapped;
         }
     }
 
-    private static class WithPerStatementVariables extends BatchQueryOptions
-    {
-        private final List<QueryOptions> perStatementOptions;
+    private static class WithPerStatementVariables extends BatchQueryOptions {
 
-        private WithPerStatementVariables(QueryOptions wrapped, List<List<ByteBuffer>> variables, List<Object> queryOrIdList)
-        {
+        private final transient List<QueryOptions> perStatementOptions;
+
+        private WithPerStatementVariables(QueryOptions wrapped, List<List<ByteBuffer>> variables, List<Object> queryOrIdList) {
             super(wrapped, queryOrIdList);
             this.perStatementOptions = new ArrayList<>(variables.size());
-            for (final List<ByteBuffer> vars : variables)
-            {
-                perStatementOptions.add(new QueryOptions.QueryOptionsWrapper(wrapped)
-                {
-                    public List<ByteBuffer> getValues()
-                    {
+            for (final List<ByteBuffer> vars : variables) {
+                perStatementOptions.add(new QueryOptions.QueryOptionsWrapper(wrapped) {
+
+                    public List<ByteBuffer> getValues() {
                         return vars;
                     }
                 });
             }
         }
 
-        public QueryOptions forStatement(int i)
-        {
+        public QueryOptions forStatement(int i) {
             return perStatementOptions.get(i);
         }
 
         @Override
-        public void prepareStatement(int i, List<ColumnSpecification> boundNames)
-        {
-            if (isPreparedStatement(i))
-            {
+        public void prepareStatement(int i, List<ColumnSpecification> boundNames) {
+            if (isPreparedStatement(i)) {
                 QueryOptions options = perStatementOptions.get(i);
                 options.prepare(boundNames);
                 options = QueryOptions.addColumnSpecifications(options, boundNames);
                 perStatementOptions.set(i, options);
-            }
-            else
-            {
+            } else {
                 super.prepareStatement(i, boundNames);
             }
         }
 
-        private boolean isPreparedStatement(int i)
-        {
+        private boolean isPreparedStatement(int i) {
             return getQueryOrIdList().get(i) instanceof MD5Digest;
         }
     }
-    
+
     @Override
-    public String toString()
-    {
+    public String toString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
     }
 }

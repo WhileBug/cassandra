@@ -15,44 +15,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-public class FloatSerializer extends TypeSerializer<Float>
-{
-    public static final FloatSerializer instance = new FloatSerializer();
+public class FloatSerializer extends TypeSerializer<Float> {
 
-    public <V> Float deserialize(V value, ValueAccessor<V> accessor)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FloatSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FloatSerializer.class);
+
+    public static final transient FloatSerializer instance = new FloatSerializer();
+
+    public <V> Float deserialize(V value, ValueAccessor<V> accessor) {
         if (accessor.isEmpty(value))
             return null;
-
         return accessor.toFloat(value);
     }
 
-    public ByteBuffer serialize(Float value)
-    {
+    public ByteBuffer serialize(Float value) {
         return (value == null) ? ByteBufferUtil.EMPTY_BYTE_BUFFER : ByteBufferUtil.bytes(value);
     }
 
-    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException
-    {
+    public <V> void validate(V value, ValueAccessor<V> accessor) throws MarshalException {
         if (accessor.size(value) != 4 && !accessor.isEmpty(value))
             throw new MarshalException(String.format("Expected 4 or 0 byte value for a float (%d)", accessor.size(value)));
     }
 
-    public String toString(Float value)
-    {
+    public String toString(Float value) {
         return value == null ? "" : String.valueOf(value);
     }
 
-    public Class<Float> getType()
-    {
+    public Class<Float> getType() {
         return Float.class;
     }
 }

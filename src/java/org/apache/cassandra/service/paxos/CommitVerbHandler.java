@@ -25,14 +25,16 @@ import org.apache.cassandra.net.Message;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.tracing.Tracing;
 
-public class CommitVerbHandler implements IVerbHandler<Commit>
-{
-    public static final CommitVerbHandler instance = new CommitVerbHandler();
+public class CommitVerbHandler implements IVerbHandler<Commit> {
 
-    public void doVerb(Message<Commit> message)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CommitVerbHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CommitVerbHandler.class);
+
+    public static final transient CommitVerbHandler instance = new CommitVerbHandler();
+
+    public void doVerb(Message<Commit> message) {
         PaxosState.commit(message.payload);
-
         Tracing.trace("Enqueuing acknowledge to {}", message.from());
         MessagingService.instance().send(message.emptyResponse(), message.from());
     }

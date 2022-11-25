@@ -19,26 +19,26 @@ package org.apache.cassandra.cql3.selection;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.cql3.functions.AggregateFunction;
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.transport.ProtocolVersion;
 
-final class AggregateFunctionSelector extends AbstractFunctionSelector<AggregateFunction>
-{
-    private final AggregateFunction.Aggregate aggregate;
+final class AggregateFunctionSelector extends AbstractFunctionSelector<AggregateFunction> {
 
-    public boolean isAggregate()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AggregateFunctionSelector.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AggregateFunctionSelector.class);
+
+    private final transient AggregateFunction.Aggregate aggregate;
+
+    public boolean isAggregate() {
         return true;
     }
 
-    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException
-    {
+    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException {
         // Aggregation of aggregation is not supported
-        for (int i = 0, m = argSelectors.size(); i < m; i++)
-        {
+        for (int i = 0, m = argSelectors.size(); i < m; i++) {
             Selector s = argSelectors.get(i);
             s.addInput(protocolVersion, rs);
             setArg(i, s.getOutput(protocolVersion));
@@ -47,20 +47,16 @@ final class AggregateFunctionSelector extends AbstractFunctionSelector<Aggregate
         this.aggregate.addInput(protocolVersion, args());
     }
 
-    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException
-    {
+    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException {
         return aggregate.compute(protocolVersion);
     }
 
-    public void reset()
-    {
+    public void reset() {
         aggregate.reset();
     }
 
-    AggregateFunctionSelector(Function fun, List<Selector> argSelectors) throws InvalidRequestException
-    {
+    AggregateFunctionSelector(Function fun, List<Selector> argSelectors) throws InvalidRequestException {
         super((AggregateFunction) fun, argSelectors);
-
         this.aggregate = this.fun.newAggregate();
     }
 }

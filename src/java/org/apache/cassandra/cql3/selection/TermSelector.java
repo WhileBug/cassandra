@@ -18,7 +18,6 @@
 package org.apache.cassandra.cql3.selection;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.cql3.QueryOptions;
@@ -34,71 +33,63 @@ import org.apache.cassandra.transport.ProtocolVersion;
  * Note that we know the term does not include function calls for instance (this is actually enforced by the parser), those
  * being dealt with by their own Selector.
  */
-public class TermSelector extends Selector
-{
-    private final ByteBuffer value;
-    private final AbstractType<?> type;
+public class TermSelector extends Selector {
 
-    public static Factory newFactory(final String name, final Term term, final AbstractType<?> type)
-    {
-        return new Factory()
-        {
-            protected String getColumnName()
-            {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TermSelector.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TermSelector.class);
+
+    private final transient ByteBuffer value;
+
+    private final transient AbstractType<?> type;
+
+    public static Factory newFactory(final String name, final Term term, final AbstractType<?> type) {
+        return new Factory() {
+
+            protected String getColumnName() {
                 return name;
             }
 
-            protected AbstractType<?> getReturnType()
-            {
+            protected AbstractType<?> getReturnType() {
                 return type;
             }
 
-            protected void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultColumn)
-            {
-               mapping.addMapping(resultColumn, (ColumnMetadata)null);
+            protected void addColumnMapping(SelectionColumnMapping mapping, ColumnSpecification resultColumn) {
+                mapping.addMapping(resultColumn, (ColumnMetadata) null);
             }
 
-            public Selector newInstance(QueryOptions options)
-            {
+            public Selector newInstance(QueryOptions options) {
                 return new TermSelector(term.bindAndGet(options), type);
             }
 
-            public void addFetchedColumns(ColumnFilter.Builder builder)
-            {
+            public void addFetchedColumns(ColumnFilter.Builder builder) {
             }
 
-            public boolean areAllFetchedColumnsKnown()
-            {
+            public boolean areAllFetchedColumnsKnown() {
                 return true;
             }
         };
     }
 
-    private TermSelector(ByteBuffer value, AbstractType<?> type)
-    {
+    private TermSelector(ByteBuffer value, AbstractType<?> type) {
         this.value = value;
         this.type = type;
     }
 
-    public void addFetchedColumns(ColumnFilter.Builder builder)
-    {
+    public void addFetchedColumns(ColumnFilter.Builder builder) {
     }
 
-    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException
-    {
+    public void addInput(ProtocolVersion protocolVersion, ResultSetBuilder rs) throws InvalidRequestException {
     }
 
-    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException
-    {
+    public ByteBuffer getOutput(ProtocolVersion protocolVersion) throws InvalidRequestException {
         return value;
     }
 
-    public AbstractType<?> getType()
-    {
+    public AbstractType<?> getType() {
         return type;
     }
 
-    public void reset()
-    {
+    public void reset() {
     }
 }

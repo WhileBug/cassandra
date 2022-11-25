@@ -19,9 +19,7 @@ package org.apache.cassandra.cql3.functions.types;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import com.google.common.base.Objects;
-
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
@@ -29,66 +27,65 @@ import static com.google.common.base.Preconditions.checkArgument;
  * that the number of days in a month varies, and a day can have 23 or 25 hours if a daylight saving
  * is involved.
  */
-public final class Duration
-{
+public final class Duration {
 
-    private static final long NANOS_PER_MICRO = 1000L;
-    private static final long NANOS_PER_MILLI = 1000 * NANOS_PER_MICRO;
-    private static final long NANOS_PER_SECOND = 1000 * NANOS_PER_MILLI;
-    private static final long NANOS_PER_MINUTE = 60 * NANOS_PER_SECOND;
-    private static final long NANOS_PER_HOUR = 60 * NANOS_PER_MINUTE;
-    private static final int DAYS_PER_WEEK = 7;
-    private static final int MONTHS_PER_YEAR = 12;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Duration.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Duration.class);
+
+    private static final transient long NANOS_PER_MICRO = 1000L;
+
+    private static final transient long NANOS_PER_MILLI = 1000 * NANOS_PER_MICRO;
+
+    private static final transient long NANOS_PER_SECOND = 1000 * NANOS_PER_MILLI;
+
+    private static final transient long NANOS_PER_MINUTE = 60 * NANOS_PER_SECOND;
+
+    private static final transient long NANOS_PER_HOUR = 60 * NANOS_PER_MINUTE;
+
+    private static final transient int DAYS_PER_WEEK = 7;
+
+    private static final transient int MONTHS_PER_YEAR = 12;
 
     /**
      * The Regexp used to parse the duration provided as String.
      */
-    private static final Pattern STANDARD_PATTERN =
-    Pattern.compile(
-    "\\G(\\d+)(y|Y|mo|MO|mO|Mo|w|W|d|D|h|H|s|S|ms|MS|mS|Ms|us|US|uS|Us|µs|µS|ns|NS|nS|Ns|m|M)");
+    private static final transient Pattern STANDARD_PATTERN = Pattern.compile("\\G(\\d+)(y|Y|mo|MO|mO|Mo|w|W|d|D|h|H|s|S|ms|MS|mS|Ms|us|US|uS|Us|µs|µS|ns|NS|nS|Ns|m|M)");
 
     /**
      * The Regexp used to parse the duration when provided in the ISO 8601 format with designators.
      */
-    private static final Pattern ISO8601_PATTERN =
-    Pattern.compile("P((\\d+)Y)?((\\d+)M)?((\\d+)D)?(T((\\d+)H)?((\\d+)M)?((\\d+)S)?)?");
+    private static final transient Pattern ISO8601_PATTERN = Pattern.compile("P((\\d+)Y)?((\\d+)M)?((\\d+)D)?(T((\\d+)H)?((\\d+)M)?((\\d+)S)?)?");
 
     /**
      * The Regexp used to parse the duration when provided in the ISO 8601 format with designators.
      */
-    private static final Pattern ISO8601_WEEK_PATTERN = Pattern.compile("P(\\d+)W");
+    private static final transient Pattern ISO8601_WEEK_PATTERN = Pattern.compile("P(\\d+)W");
 
     /**
      * The Regexp used to parse the duration when provided in the ISO 8601 alternative format.
      */
-    private static final Pattern ISO8601_ALTERNATIVE_PATTERN =
-    Pattern.compile("P(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})");
+    private static final transient Pattern ISO8601_ALTERNATIVE_PATTERN = Pattern.compile("P(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})");
 
     /**
      * The number of months.
      */
-    private final int months;
+    private final transient int months;
 
     /**
      * The number of days.
      */
-    private final int days;
+    private final transient int days;
 
     /**
      * The number of nanoseconds.
      */
-    private final long nanoseconds;
+    private final transient long nanoseconds;
 
-    private Duration(int months, int days, long nanoseconds)
-    {
+    private Duration(int months, int days, long nanoseconds) {
         // Makes sure that all the values are negative if one of them is
-        if ((months < 0 || days < 0 || nanoseconds < 0)
-            && ((months > 0 || days > 0 || nanoseconds > 0)))
-        {
-            throw new IllegalArgumentException(
-            String.format(
-            "All values must be either negative or positive, got %d months, %d days, %d nanoseconds",
-            months, days, nanoseconds));
+        if ((months < 0 || days < 0 || nanoseconds < 0) && ((months > 0 || days > 0 || nanoseconds > 0))) {
+            throw new IllegalArgumentException(String.format("All values must be either negative or positive, got %d months, %d days, %d nanoseconds", months, days, nanoseconds));
         }
         this.months = months;
         this.days = days;
@@ -105,8 +102,7 @@ public final class Duration
      * @param nanoseconds the number of nanoseconds
      * @throws IllegalArgumentException if the values are not all negative or all positive
      */
-    public static Duration newInstance(int months, int days, long nanoseconds)
-    {
+    public static Duration newInstance(int months, int days, long nanoseconds) {
         return new Duration(months, days, nanoseconds);
     }
 
@@ -136,146 +132,98 @@ public final class Duration
      * @param input the <code>String</code> to convert
      * @return a {@link Duration}
      */
-    public static Duration from(String input)
-    {
+    public static Duration from(String input) {
         boolean isNegative = input.startsWith("-");
         String source = isNegative ? input.substring(1) : input;
-
-        if (source.startsWith("P"))
-        {
-            if (source.endsWith("W")) return parseIso8601WeekFormat(isNegative, source);
-
-            if (source.contains("-")) return parseIso8601AlternativeFormat(isNegative, source);
-
+        if (source.startsWith("P")) {
+            if (source.endsWith("W"))
+                return parseIso8601WeekFormat(isNegative, source);
+            if (source.contains("-"))
+                return parseIso8601AlternativeFormat(isNegative, source);
             return parseIso8601Format(isNegative, source);
         }
         return parseStandardFormat(isNegative, source);
     }
 
-    private static Duration parseIso8601Format(boolean isNegative, String source)
-    {
+    private static Duration parseIso8601Format(boolean isNegative, String source) {
         Matcher matcher = ISO8601_PATTERN.matcher(source);
         if (!matcher.matches())
-            throw new IllegalArgumentException(
-            String.format("Unable to convert '%s' to a duration", source));
-
+            throw new IllegalArgumentException(String.format("Unable to convert '%s' to a duration", source));
         Builder builder = new Builder(isNegative);
-        if (matcher.group(1) != null) builder.addYears(groupAsLong(matcher, 2));
-
-        if (matcher.group(3) != null) builder.addMonths(groupAsLong(matcher, 4));
-
-        if (matcher.group(5) != null) builder.addDays(groupAsLong(matcher, 6));
-
+        if (matcher.group(1) != null)
+            builder.addYears(groupAsLong(matcher, 2));
+        if (matcher.group(3) != null)
+            builder.addMonths(groupAsLong(matcher, 4));
+        if (matcher.group(5) != null)
+            builder.addDays(groupAsLong(matcher, 6));
         // Checks if the String contains time information
-        if (matcher.group(7) != null)
-        {
-            if (matcher.group(8) != null) builder.addHours(groupAsLong(matcher, 9));
-
-            if (matcher.group(10) != null) builder.addMinutes(groupAsLong(matcher, 11));
-
-            if (matcher.group(12) != null) builder.addSeconds(groupAsLong(matcher, 13));
+        if (matcher.group(7) != null) {
+            if (matcher.group(8) != null)
+                builder.addHours(groupAsLong(matcher, 9));
+            if (matcher.group(10) != null)
+                builder.addMinutes(groupAsLong(matcher, 11));
+            if (matcher.group(12) != null)
+                builder.addSeconds(groupAsLong(matcher, 13));
         }
         return builder.build();
     }
 
-    private static Duration parseIso8601AlternativeFormat(boolean isNegative, String source)
-    {
+    private static Duration parseIso8601AlternativeFormat(boolean isNegative, String source) {
         Matcher matcher = ISO8601_ALTERNATIVE_PATTERN.matcher(source);
         if (!matcher.matches())
-            throw new IllegalArgumentException(
-            String.format("Unable to convert '%s' to a duration", source));
-
-        return new Builder(isNegative)
-               .addYears(groupAsLong(matcher, 1))
-               .addMonths(groupAsLong(matcher, 2))
-               .addDays(groupAsLong(matcher, 3))
-               .addHours(groupAsLong(matcher, 4))
-               .addMinutes(groupAsLong(matcher, 5))
-               .addSeconds(groupAsLong(matcher, 6))
-               .build();
+            throw new IllegalArgumentException(String.format("Unable to convert '%s' to a duration", source));
+        return new Builder(isNegative).addYears(groupAsLong(matcher, 1)).addMonths(groupAsLong(matcher, 2)).addDays(groupAsLong(matcher, 3)).addHours(groupAsLong(matcher, 4)).addMinutes(groupAsLong(matcher, 5)).addSeconds(groupAsLong(matcher, 6)).build();
     }
 
-    private static Duration parseIso8601WeekFormat(boolean isNegative, String source)
-    {
+    private static Duration parseIso8601WeekFormat(boolean isNegative, String source) {
         Matcher matcher = ISO8601_WEEK_PATTERN.matcher(source);
         if (!matcher.matches())
-            throw new IllegalArgumentException(
-            String.format("Unable to convert '%s' to a duration", source));
-
+            throw new IllegalArgumentException(String.format("Unable to convert '%s' to a duration", source));
         return new Builder(isNegative).addWeeks(groupAsLong(matcher, 1)).build();
     }
 
-    private static Duration parseStandardFormat(boolean isNegative, String source)
-    {
+    private static Duration parseStandardFormat(boolean isNegative, String source) {
         Matcher matcher = STANDARD_PATTERN.matcher(source);
         if (!matcher.find())
-            throw new IllegalArgumentException(
-            String.format("Unable to convert '%s' to a duration", source));
-
+            throw new IllegalArgumentException(String.format("Unable to convert '%s' to a duration", source));
         Builder builder = new Builder(isNegative);
         boolean done;
-
-        do
-        {
+        do {
             long number = groupAsLong(matcher, 1);
             String symbol = matcher.group(2);
             add(builder, number, symbol);
             done = matcher.end() == source.length();
         } while (matcher.find());
-
         if (!done)
-            throw new IllegalArgumentException(
-            String.format("Unable to convert '%s' to a duration", source));
-
+            throw new IllegalArgumentException(String.format("Unable to convert '%s' to a duration", source));
         return builder.build();
     }
 
-    private static long groupAsLong(Matcher matcher, int group)
-    {
+    private static long groupAsLong(Matcher matcher, int group) {
         return Long.parseLong(matcher.group(group));
     }
 
-    private static Builder add(Builder builder, long number, String symbol)
-    {
+    private static Builder add(Builder builder, long number, String symbol) {
         String s = symbol.toLowerCase();
-        if (s.equals("y"))
-        {
+        if (s.equals("y")) {
             return builder.addYears(number);
-        }
-        else if (s.equals("mo"))
-        {
+        } else if (s.equals("mo")) {
             return builder.addMonths(number);
-        }
-        else if (s.equals("w"))
-        {
+        } else if (s.equals("w")) {
             return builder.addWeeks(number);
-        }
-        else if (s.equals("d"))
-        {
+        } else if (s.equals("d")) {
             return builder.addDays(number);
-        }
-        else if (s.equals("h"))
-        {
+        } else if (s.equals("h")) {
             return builder.addHours(number);
-        }
-        else if (s.equals("m"))
-        {
+        } else if (s.equals("m")) {
             return builder.addMinutes(number);
-        }
-        else if (s.equals("s"))
-        {
+        } else if (s.equals("s")) {
             return builder.addSeconds(number);
-        }
-        else if (s.equals("ms"))
-        {
+        } else if (s.equals("ms")) {
             return builder.addMillis(number);
-        }
-        else if (s.equals("us") || s.equals("µs"))
-        {
+        } else if (s.equals("us") || s.equals("µs")) {
             return builder.addMicros(number);
-        }
-        else if (s.equals("ns"))
-        {
+        } else if (s.equals("ns")) {
             return builder.addNanos(number);
         }
         throw new IllegalArgumentException(String.format("Unknown duration symbol '%s'", symbol));
@@ -290,10 +238,9 @@ public final class Duration
      * @param unit     the time unit to append after the result of the division
      * @return the remainder of the division
      */
-    private static long append(StringBuilder builder, long dividend, long divisor, String unit)
-    {
-        if (dividend == 0 || dividend < divisor) return dividend;
-
+    private static long append(StringBuilder builder, long dividend, long divisor, String unit) {
+        if (dividend == 0 || dividend < divisor)
+            return dividend;
         builder.append(dividend / divisor).append(unit);
         return dividend % divisor;
     }
@@ -303,8 +250,7 @@ public final class Duration
      *
      * @return the number of months in this duration.
      */
-    public int getMonths()
-    {
+    public int getMonths() {
         return months;
     }
 
@@ -313,8 +259,7 @@ public final class Duration
      *
      * @return the number of days in this duration.
      */
-    public int getDays()
-    {
+    public int getDays() {
         return days;
     }
 
@@ -323,40 +268,32 @@ public final class Duration
      *
      * @return the number of months in this duration.
      */
-    public long getNanoseconds()
-    {
+    public long getNanoseconds() {
         return nanoseconds;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(days, months, nanoseconds);
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
-        if (!(obj instanceof Duration)) return false;
-
+    public boolean equals(Object obj) {
+        if (!(obj instanceof Duration))
+            return false;
         Duration other = (Duration) obj;
         return days == other.days && months == other.months && nanoseconds == other.nanoseconds;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         StringBuilder builder = new StringBuilder();
-
-        if (months < 0 || days < 0 || nanoseconds < 0) builder.append('-');
-
+        if (months < 0 || days < 0 || nanoseconds < 0)
+            builder.append('-');
         long remainder = append(builder, Math.abs(months), MONTHS_PER_YEAR, "y");
         append(builder, remainder, 1, "mo");
-
         append(builder, Math.abs(days), 1, "d");
-
-        if (nanoseconds != 0)
-        {
+        if (nanoseconds != 0) {
             remainder = append(builder, Math.abs(nanoseconds), NANOS_PER_HOUR, "h");
             remainder = append(builder, remainder, NANOS_PER_MINUTE, "m");
             remainder = append(builder, remainder, NANOS_PER_SECOND, "s");
@@ -367,35 +304,34 @@ public final class Duration
         return builder.toString();
     }
 
-    private static class Builder
-    {
+    private static class Builder {
+
         /**
          * {@code true} if the duration is a negative one, {@code false} otherwise.
          */
-        private final boolean isNegative;
+        private final transient boolean isNegative;
 
         /**
          * The number of months.
          */
-        private int months;
+        private transient int months;
 
         /**
          * The number of days.
          */
-        private int days;
+        private transient int days;
 
         /**
          * The number of nanoseconds.
          */
-        private long nanoseconds;
+        private transient long nanoseconds;
 
         /**
          * We need to make sure that the values for each units are provided in order.
          */
-        private int currentUnitIndex;
+        private transient int currentUnitIndex;
 
-        public Builder(boolean isNegative)
-        {
+        public Builder(boolean isNegative) {
             this.isNegative = isNegative;
         }
 
@@ -405,8 +341,7 @@ public final class Duration
          * @param numberOfYears the number of years to add.
          * @return this {@code Builder}
          */
-        public Builder addYears(long numberOfYears)
-        {
+        public Builder addYears(long numberOfYears) {
             validateOrder(1);
             validateMonths(numberOfYears, MONTHS_PER_YEAR);
             months += numberOfYears * MONTHS_PER_YEAR;
@@ -419,8 +354,7 @@ public final class Duration
          * @param numberOfMonths the number of months to add.
          * @return this {@code Builder}
          */
-        public Builder addMonths(long numberOfMonths)
-        {
+        public Builder addMonths(long numberOfMonths) {
             validateOrder(2);
             validateMonths(numberOfMonths, 1);
             months += numberOfMonths;
@@ -433,8 +367,7 @@ public final class Duration
          * @param numberOfWeeks the number of weeks to add.
          * @return this {@code Builder}
          */
-        public Builder addWeeks(long numberOfWeeks)
-        {
+        public Builder addWeeks(long numberOfWeeks) {
             validateOrder(3);
             validateDays(numberOfWeeks, DAYS_PER_WEEK);
             days += numberOfWeeks * DAYS_PER_WEEK;
@@ -447,8 +380,7 @@ public final class Duration
          * @param numberOfDays the number of days to add.
          * @return this {@code Builder}
          */
-        public Builder addDays(long numberOfDays)
-        {
+        public Builder addDays(long numberOfDays) {
             validateOrder(4);
             validateDays(numberOfDays, 1);
             days += numberOfDays;
@@ -461,8 +393,7 @@ public final class Duration
          * @param numberOfHours the number of hours to add.
          * @return this {@code Builder}
          */
-        public Builder addHours(long numberOfHours)
-        {
+        public Builder addHours(long numberOfHours) {
             validateOrder(5);
             validateNanos(numberOfHours, NANOS_PER_HOUR);
             nanoseconds += numberOfHours * NANOS_PER_HOUR;
@@ -475,8 +406,7 @@ public final class Duration
          * @param numberOfMinutes the number of minutes to add.
          * @return this {@code Builder}
          */
-        public Builder addMinutes(long numberOfMinutes)
-        {
+        public Builder addMinutes(long numberOfMinutes) {
             validateOrder(6);
             validateNanos(numberOfMinutes, NANOS_PER_MINUTE);
             nanoseconds += numberOfMinutes * NANOS_PER_MINUTE;
@@ -489,8 +419,7 @@ public final class Duration
          * @param numberOfSeconds the number of seconds to add.
          * @return this {@code Builder}
          */
-        public Builder addSeconds(long numberOfSeconds)
-        {
+        public Builder addSeconds(long numberOfSeconds) {
             validateOrder(7);
             validateNanos(numberOfSeconds, NANOS_PER_SECOND);
             nanoseconds += numberOfSeconds * NANOS_PER_SECOND;
@@ -503,8 +432,7 @@ public final class Duration
          * @param numberOfMillis the number of milliseconds to add.
          * @return this {@code Builder}
          */
-        public Builder addMillis(long numberOfMillis)
-        {
+        public Builder addMillis(long numberOfMillis) {
             validateOrder(8);
             validateNanos(numberOfMillis, NANOS_PER_MILLI);
             nanoseconds += numberOfMillis * NANOS_PER_MILLI;
@@ -517,8 +445,7 @@ public final class Duration
          * @param numberOfMicros the number of microseconds to add.
          * @return this {@code Builder}
          */
-        public Builder addMicros(long numberOfMicros)
-        {
+        public Builder addMicros(long numberOfMicros) {
             validateOrder(9);
             validateNanos(numberOfMicros, NANOS_PER_MICRO);
             nanoseconds += numberOfMicros * NANOS_PER_MICRO;
@@ -531,8 +458,7 @@ public final class Duration
          * @param numberOfNanos the number of nanoseconds to add.
          * @return this {@code Builder}
          */
-        public Builder addNanos(long numberOfNanos)
-        {
+        public Builder addNanos(long numberOfNanos) {
             validateOrder(10);
             validateNanos(numberOfNanos, 1);
             nanoseconds += numberOfNanos;
@@ -545,8 +471,7 @@ public final class Duration
          * @param units         the number of units that need to be added
          * @param monthsPerUnit the number of days per unit
          */
-        private void validateMonths(long units, int monthsPerUnit)
-        {
+        private void validateMonths(long units, int monthsPerUnit) {
             validate(units, (Integer.MAX_VALUE - months) / monthsPerUnit, "months");
         }
 
@@ -556,8 +481,7 @@ public final class Duration
          * @param units       the number of units that need to be added
          * @param daysPerUnit the number of days per unit
          */
-        private void validateDays(long units, int daysPerUnit)
-        {
+        private void validateDays(long units, int daysPerUnit) {
             validate(units, (Integer.MAX_VALUE - days) / daysPerUnit, "days");
         }
 
@@ -567,8 +491,7 @@ public final class Duration
          * @param units        the number of units that need to be added
          * @param nanosPerUnit the number of nanoseconds per unit
          */
-        private void validateNanos(long units, long nanosPerUnit)
-        {
+        private void validateNanos(long units, long nanosPerUnit) {
             validate(units, (Long.MAX_VALUE - nanoseconds) / nanosPerUnit, "nanoseconds");
         }
 
@@ -579,13 +502,8 @@ public final class Duration
          * @param limit    the limit on the number of units
          * @param unitName the unit name
          */
-        private void validate(long units, long limit, String unitName)
-        {
-            checkArgument(
-            units <= limit,
-            "Invalid duration. The total number of %s must be less or equal to %s",
-            unitName,
-            Integer.MAX_VALUE);
+        private void validate(long units, long limit, String unitName) {
+            checkArgument(units <= limit, "Invalid duration. The total number of %s must be less or equal to %s", unitName, Integer.MAX_VALUE);
         }
 
         /**
@@ -593,19 +511,11 @@ public final class Duration
          *
          * @param unitIndex the unit index (e.g. years=1, months=2, ...)
          */
-        private void validateOrder(int unitIndex)
-        {
+        private void validateOrder(int unitIndex) {
             if (unitIndex == currentUnitIndex)
-                throw new IllegalArgumentException(
-                String.format(
-                "Invalid duration. The %s are specified multiple times", getUnitName(unitIndex)));
-
+                throw new IllegalArgumentException(String.format("Invalid duration. The %s are specified multiple times", getUnitName(unitIndex)));
             if (unitIndex <= currentUnitIndex)
-                throw new IllegalArgumentException(
-                String.format(
-                "Invalid duration. The %s should be after %s",
-                getUnitName(currentUnitIndex), getUnitName(unitIndex)));
-
+                throw new IllegalArgumentException(String.format("Invalid duration. The %s should be after %s", getUnitName(currentUnitIndex), getUnitName(unitIndex)));
             currentUnitIndex = unitIndex;
         }
 
@@ -615,10 +525,8 @@ public final class Duration
          * @param unitIndex the unit index
          * @return the name of the unit corresponding to the specified index.
          */
-        private String getUnitName(int unitIndex)
-        {
-            switch (unitIndex)
-            {
+        private String getUnitName(int unitIndex) {
+            switch(unitIndex) {
                 case 1:
                     return "years";
                 case 2:
@@ -644,11 +552,8 @@ public final class Duration
             }
         }
 
-        public Duration build()
-        {
-            return isNegative
-                   ? new Duration(-months, -days, -nanoseconds)
-                   : new Duration(months, days, nanoseconds);
+        public Duration build() {
+            return isNegative ? new Duration(-months, -days, -nanoseconds) : new Duration(months, days, nanoseconds);
         }
     }
 }

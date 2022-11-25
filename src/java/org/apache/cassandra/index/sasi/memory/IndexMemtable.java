@@ -18,7 +18,6 @@
 package org.apache.cassandra.index.sasi.memory;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.index.sasi.conf.ColumnIndex;
@@ -27,46 +26,38 @@ import org.apache.cassandra.index.sasi.plan.Expression;
 import org.apache.cassandra.index.sasi.utils.RangeIterator;
 import org.apache.cassandra.index.sasi.utils.TypeUtil;
 import org.apache.cassandra.utils.FBUtilities;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IndexMemtable
-{
-    private static final Logger logger = LoggerFactory.getLogger(IndexMemtable.class);
+public class IndexMemtable {
 
-    private final MemIndex index;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexMemtable.class);
 
-    public IndexMemtable(ColumnIndex columnIndex)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IndexMemtable.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(IndexMemtable.class);
+
+    private final transient MemIndex index;
+
+    public IndexMemtable(ColumnIndex columnIndex) {
         this.index = MemIndex.forColumn(columnIndex.keyValidator(), columnIndex);
     }
 
-    public long index(DecoratedKey key, ByteBuffer value)
-    {
+    public long index(DecoratedKey key, ByteBuffer value) {
         if (value == null || value.remaining() == 0)
             return 0;
-
         AbstractType<?> validator = index.columnIndex.getValidator();
-        if (!TypeUtil.isValid(value, validator))
-        {
+        if (!TypeUtil.isValid(value, validator)) {
             int size = value.remaining();
-            if ((value = TypeUtil.tryUpcast(value, validator)) == null)
-            {
-                logger.error("Can't add column {} to index for key: {}, value size {}, validator: {}.",
-                             index.columnIndex.getColumnName(),
-                             index.columnIndex.keyValidator().getString(key.getKey()),
-                             FBUtilities.prettyPrintMemory(size),
-                             validator);
+            if ((value = TypeUtil.tryUpcast(value, validator)) == null) {
+                logger.error("Can't add column {} to index for key: {}, value size {}, validator: {}.", index.columnIndex.getColumnName(), index.columnIndex.keyValidator().getString(key.getKey()), FBUtilities.prettyPrintMemory(size), validator);
                 return 0;
             }
         }
-
         return index.add(key, value);
     }
 
-    public RangeIterator<Long, Token> search(Expression expression)
-    {
+    public RangeIterator<Long, Token> search(Expression expression) {
         return index == null ? null : index.search(expression);
     }
 }

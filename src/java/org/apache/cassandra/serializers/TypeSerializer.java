@@ -15,16 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.serializers;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.marshal.ByteBufferAccessor;
 import org.apache.cassandra.db.marshal.ValueAccessor;
 
-public abstract class TypeSerializer<T>
-{
+public abstract class TypeSerializer<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TypeSerializer.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TypeSerializer.class);
+
     public abstract ByteBuffer serialize(T value);
 
     public abstract <V> T deserialize(V value, ValueAccessor<V> accessor);
@@ -32,8 +34,7 @@ public abstract class TypeSerializer<T>
     /*
      * Does not modify the position or limit of the buffer even temporarily.
      */
-    public final T deserialize(ByteBuffer bytes)
-    {
+    public final T deserialize(ByteBuffer bytes) {
         return deserialize(bytes, ByteBufferAccessor.instance);
     }
 
@@ -46,8 +47,7 @@ public abstract class TypeSerializer<T>
     /*
      * Does not modify the position or limit of the buffer even temporarily.
      */
-    public final void validate(ByteBuffer bytes) throws MarshalException
-    {
+    public final void validate(ByteBuffer bytes) throws MarshalException {
         validate(bytes, ByteBufferAccessor.instance);
     }
 
@@ -55,11 +55,7 @@ public abstract class TypeSerializer<T>
 
     public abstract Class<T> getType();
 
-    public String toCQLLiteral(ByteBuffer buffer)
-    {
-        return buffer == null || !buffer.hasRemaining()
-               ? "null"
-               : toString(deserialize(buffer));
+    public String toCQLLiteral(ByteBuffer buffer) {
+        return buffer == null || !buffer.hasRemaining() ? "null" : toString(deserialize(buffer));
     }
 }
-

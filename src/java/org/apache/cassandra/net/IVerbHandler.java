@@ -24,8 +24,12 @@ import java.io.IOException;
  * The concrete implementation of this interface would provide the functionality
  * for a given verb.
  */
-public interface IVerbHandler<T>
-{
+public interface IVerbHandler<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IVerbHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(IVerbHandler.class);
+
     /**
      * This method delivers a message to the implementing class (if the implementing
      * class was registered by a call to MessagingService.registerVerbHandlers).

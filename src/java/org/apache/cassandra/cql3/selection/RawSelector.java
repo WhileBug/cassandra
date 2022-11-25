@@ -19,20 +19,21 @@
 package org.apache.cassandra.cql3.selection;
 
 import java.util.List;
-
 import com.google.common.collect.Lists;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 
+public class RawSelector {
 
-public class RawSelector
-{
-    public final Selectable.Raw selectable;
-    public final ColumnIdentifier alias;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RawSelector.class);
 
-    public RawSelector(Selectable.Raw selectable, ColumnIdentifier alias)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(RawSelector.class);
+
+    public final transient Selectable.Raw selectable;
+
+    public final transient ColumnIdentifier alias;
+
+    public RawSelector(Selectable.Raw selectable, ColumnIdentifier alias) {
         this.selectable = selectable;
         this.alias = alias;
     }
@@ -43,13 +44,11 @@ public class RawSelector
      * @param raws the <code>RawSelector</code>s to converts.
      * @return a list of <code>Selectable</code>s
      */
-    public static List<Selectable> toSelectables(List<RawSelector> raws, final TableMetadata table)
-    {
+    public static List<Selectable> toSelectables(List<RawSelector> raws, final TableMetadata table) {
         return Lists.transform(raws, raw -> raw.prepare(table));
     }
 
-    private Selectable prepare(TableMetadata table)
-    {
+    private Selectable prepare(TableMetadata table) {
         Selectable s = selectable.prepare(table);
         return alias != null ? new AliasedSelectable(s, alias) : s;
     }

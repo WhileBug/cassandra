@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.dht.tokenallocator;
 
 import java.io.Serializable;
@@ -24,10 +23,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.dht.tokenallocator.TokenAllocatorBase.TokenInfo;
 import org.apache.cassandra.dht.tokenallocator.TokenAllocatorBase.UnitInfo;
@@ -37,32 +34,40 @@ import org.apache.cassandra.diag.DiagnosticEvent;
 /**
  * DiagnosticEvent implementation for {@link TokenAllocator} activities.
  */
-final class TokenAllocatorEvent<Unit> extends DiagnosticEvent
-{
+final class TokenAllocatorEvent<Unit> extends DiagnosticEvent {
 
-    private final TokenAllocatorEventType type;
-    private final TokenAllocatorBase<Unit> allocator;
-    private final int replicas;
-    @Nullable
-    private final Integer numTokens;
-    @Nullable
-    private final Collection<Weighted<UnitInfo>> sortedUnits;
-    @Nullable
-    private final Map<Unit, Collection<Token>> unitToTokens;
-    @Nullable
-    private final ImmutableMap<Token, Unit> sortedTokens;
-    @Nullable
-    private final List<Token> tokens;
-    @Nullable
-    private final Unit unit;
-    @Nullable
-    private final TokenInfo<Unit> tokenInfo;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenAllocatorEvent.class);
 
-    TokenAllocatorEvent(TokenAllocatorEventType type, TokenAllocatorBase<Unit> allocator, @Nullable Integer numTokens,
-                        @Nullable ImmutableList<Weighted<UnitInfo>> sortedUnits, @Nullable ImmutableMap<Unit, Collection<Token>> unitToTokens,
-                        @Nullable ImmutableMap<Token, Unit> sortedTokens, @Nullable ImmutableList<Token> tokens, Unit unit,
-                        @Nullable TokenInfo<Unit> tokenInfo)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TokenAllocatorEvent.class);
+
+    private final transient TokenAllocatorEventType type;
+
+    private final transient TokenAllocatorBase<Unit> allocator;
+
+    private final transient int replicas;
+
+    @Nullable
+    private final transient Integer numTokens;
+
+    @Nullable
+    private final transient Collection<Weighted<UnitInfo>> sortedUnits;
+
+    @Nullable
+    private final transient Map<Unit, Collection<Token>> unitToTokens;
+
+    @Nullable
+    private final transient ImmutableMap<Token, Unit> sortedTokens;
+
+    @Nullable
+    private final transient List<Token> tokens;
+
+    @Nullable
+    private final transient Unit unit;
+
+    @Nullable
+    private final transient TokenInfo<Unit> tokenInfo;
+
+    TokenAllocatorEvent(TokenAllocatorEventType type, TokenAllocatorBase<Unit> allocator, @Nullable Integer numTokens, @Nullable ImmutableList<Weighted<UnitInfo>> sortedUnits, @Nullable ImmutableMap<Unit, Collection<Token>> unitToTokens, @Nullable ImmutableMap<Token, Unit> sortedTokens, @Nullable ImmutableList<Token> tokens, Unit unit, @Nullable TokenInfo<Unit> tokenInfo) {
         this.type = type;
         this.allocator = allocator;
         this.replicas = allocator.getReplicas();
@@ -75,8 +80,8 @@ final class TokenAllocatorEvent<Unit> extends DiagnosticEvent
         this.tokenInfo = tokenInfo;
     }
 
-    enum TokenAllocatorEventType
-    {
+    enum TokenAllocatorEventType {
+
         REPLICATION_AWARE_TOKEN_ALLOCATOR_INSTANCIATED,
         NO_REPLICATION_AWARE_TOKEN_ALLOCATOR_INSTANCIATED,
         UNIT_ADDED,
@@ -86,19 +91,18 @@ final class TokenAllocatorEvent<Unit> extends DiagnosticEvent
         TOKENS_ALLOCATED
     }
 
-    public TokenAllocatorEventType getType()
-    {
+    public TokenAllocatorEventType getType() {
         return type;
     }
 
-    public HashMap<String, Serializable> toMap()
-    {
+    public HashMap<String, Serializable> toMap() {
         // be extra defensive against nulls and bugs
         HashMap<String, Serializable> ret = new HashMap<>();
-        if (allocator != null)
-        {
-            if (allocator.partitioner != null) ret.put("partitioner", allocator.partitioner.getClass().getSimpleName());
-            if (allocator.strategy != null) ret.put("strategy", allocator.strategy.getClass().getSimpleName());
+        if (allocator != null) {
+            if (allocator.partitioner != null)
+                ret.put("partitioner", allocator.partitioner.getClass().getSimpleName());
+            if (allocator.strategy != null)
+                ret.put("strategy", allocator.strategy.getClass().getSimpleName());
         }
         ret.put("replicas", replicas);
         ret.put("numTokens", this.numTokens);

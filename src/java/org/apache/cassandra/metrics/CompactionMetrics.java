@@ -19,11 +19,9 @@ package org.apache.cassandra.metrics;
 
 import java.util.*;
 import java.util.concurrent.ThreadPoolExecutor;
-
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Meter;
-
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.db.compaction.ActiveCompactions;
@@ -32,121 +30,118 @@ import org.apache.cassandra.db.compaction.CompactionManager;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.schema.Schema;
 import org.apache.cassandra.schema.TableMetadata;
-
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
 /**
  * Metrics for compaction.
  */
-public class CompactionMetrics
-{
-    public static final MetricNameFactory factory = new DefaultNameFactory("Compaction");
+public class CompactionMetrics {
 
-    /** Estimated number of compactions remaining to perform */
-    public final Gauge<Integer> pendingTasks;
-    /** Estimated number of compactions remaining to perform, group by keyspace and then table name */
-    public final Gauge<Map<String, Map<String, Integer>>> pendingTasksByTableName;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionMetrics.class);
 
-    /** Number of completed compactions since server [re]start */
-    public final Gauge<Long> completedTasks;
-    /** Total number of compactions since server [re]start */
-    public final Meter totalCompactionsCompleted;
-    /** Total number of bytes compacted since server [re]start */
-    public final Counter bytesCompacted;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CompactionMetrics.class);
 
+    public static final transient MetricNameFactory factory = new DefaultNameFactory("Compaction");
 
-    /** Total number of compactions that have had sstables drop out of them */
-    public final Counter compactionsReduced;
+    /**
+     * Estimated number of compactions remaining to perform
+     */
+    public final transient Gauge<Integer> pendingTasks;
 
-    /** Total number of sstables that have been dropped out */
-    public final Counter sstablesDropppedFromCompactions;
+    /**
+     * Estimated number of compactions remaining to perform, group by keyspace and then table name
+     */
+    public final transient Gauge<Map<String, Map<String, Integer>>> pendingTasksByTableName;
 
-    /** Total number of compactions which have outright failed due to lack of disk space */
-    public final Counter compactionsAborted;
+    /**
+     * Number of completed compactions since server [re]start
+     */
+    public final transient Gauge<Long> completedTasks;
 
-    public CompactionMetrics(final ThreadPoolExecutor... collectors)
-    {
-        pendingTasks = Metrics.register(factory.createMetricName("PendingTasks"), new Gauge<Integer>()
-        {
-            public Integer getValue()
-            {
+    /**
+     * Total number of compactions since server [re]start
+     */
+    public final transient Meter totalCompactionsCompleted;
+
+    /**
+     * Total number of bytes compacted since server [re]start
+     */
+    public final transient Counter bytesCompacted;
+
+    /**
+     * Total number of compactions that have had sstables drop out of them
+     */
+    public final transient Counter compactionsReduced;
+
+    /**
+     * Total number of sstables that have been dropped out
+     */
+    public final transient Counter sstablesDropppedFromCompactions;
+
+    /**
+     * Total number of compactions which have outright failed due to lack of disk space
+     */
+    public final transient Counter compactionsAborted;
+
+    public CompactionMetrics(final ThreadPoolExecutor... collectors) {
+        pendingTasks = Metrics.register(factory.createMetricName("PendingTasks"), new Gauge<Integer>() {
+
+            public Integer getValue() {
                 int n = 0;
                 // add estimate number of compactions need to be done
-                for (String keyspaceName : Schema.instance.getKeyspaces())
-                {
-                    for (ColumnFamilyStore cfs : Keyspace.open(keyspaceName).getColumnFamilyStores())
-                        n += cfs.getCompactionStrategyManager().getEstimatedRemainingTasks();
+                for (String keyspaceName : Schema.instance.getKeyspaces()) {
+                    for (ColumnFamilyStore cfs : Keyspace.open(keyspaceName).getColumnFamilyStores()) n += cfs.getCompactionStrategyManager().getEstimatedRemainingTasks();
                 }
                 // add number of currently running compactions
                 return n + CompactionManager.instance.active.getCompactions().size();
             }
         });
+        pendingTasksByTableName = Metrics.register(factory.createMetricName("PendingTasksByTableName"), new Gauge<Map<String, Map<String, Integer>>>() {
 
-        pendingTasksByTableName = Metrics.register(factory.createMetricName("PendingTasksByTableName"),
-            new Gauge<Map<String, Map<String, Integer>>>()
-        {
             @Override
-            public Map<String, Map<String, Integer>> getValue() 
-            {
+            public Map<String, Map<String, Integer>> getValue() {
                 Map<String, Map<String, Integer>> resultMap = new HashMap<>();
                 // estimation of compactions need to be done
-                for (String keyspaceName : Schema.instance.getKeyspaces())
-                {
-                    for (ColumnFamilyStore cfs : Keyspace.open(keyspaceName).getColumnFamilyStores())
-                    {
+                for (String keyspaceName : Schema.instance.getKeyspaces()) {
+                    for (ColumnFamilyStore cfs : Keyspace.open(keyspaceName).getColumnFamilyStores()) {
                         int taskNumber = cfs.getCompactionStrategyManager().getEstimatedRemainingTasks();
-                        if (taskNumber > 0)
-                        {
-                            if (!resultMap.containsKey(keyspaceName))
-                            {
+                        if (taskNumber > 0) {
+                            if (!resultMap.containsKey(keyspaceName)) {
                                 resultMap.put(keyspaceName, new HashMap<>());
                             }
                             resultMap.get(keyspaceName).put(cfs.getTableName(), taskNumber);
                         }
                     }
                 }
-
                 // currently running compactions
-                for (CompactionInfo.Holder compaction : CompactionManager.instance.active.getCompactions())
-                {
+                for (CompactionInfo.Holder compaction : CompactionManager.instance.active.getCompactions()) {
                     TableMetadata metaData = compaction.getCompactionInfo().getTableMetadata();
-                    if (metaData == null)
-                    {
+                    if (metaData == null) {
                         continue;
                     }
-                    if (!resultMap.containsKey(metaData.keyspace))
-                    {
+                    if (!resultMap.containsKey(metaData.keyspace)) {
                         resultMap.put(metaData.keyspace, new HashMap<>());
                     }
-
                     Map<String, Integer> tableNameToCountMap = resultMap.get(metaData.keyspace);
-                    if (tableNameToCountMap.containsKey(metaData.name))
-                    {
-                        tableNameToCountMap.put(metaData.name,
-                                                tableNameToCountMap.get(metaData.name) + 1);
-                    }
-                    else
-                    {
+                    if (tableNameToCountMap.containsKey(metaData.name)) {
+                        tableNameToCountMap.put(metaData.name, tableNameToCountMap.get(metaData.name) + 1);
+                    } else {
                         tableNameToCountMap.put(metaData.name, 1);
                     }
                 }
                 return resultMap;
             }
         });
+        completedTasks = Metrics.register(factory.createMetricName("CompletedTasks"), new Gauge<Long>() {
 
-        completedTasks = Metrics.register(factory.createMetricName("CompletedTasks"), new Gauge<Long>()
-        {
-            public Long getValue()
-            {
+            public Long getValue() {
                 long completedTasks = 0;
-                for (ThreadPoolExecutor collector : collectors)
-                    completedTasks += collector.getCompletedTaskCount();
+                for (ThreadPoolExecutor collector : collectors) completedTasks += collector.getCompletedTaskCount();
                 return completedTasks;
             }
         });
         totalCompactionsCompleted = Metrics.meter(factory.createMetricName("TotalCompactionsCompleted"));
         bytesCompacted = Metrics.counter(factory.createMetricName("BytesCompacted"));
-
         // compaction failure metrics
         compactionsReduced = Metrics.counter(factory.createMetricName("CompactionsReduced"));
         sstablesDropppedFromCompactions = Metrics.counter(factory.createMetricName("SSTablesDroppedFromCompaction"));

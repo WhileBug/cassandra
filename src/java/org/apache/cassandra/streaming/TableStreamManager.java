@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 import java.util.Collection;
 import java.util.UUID;
-
 import org.apache.cassandra.locator.RangesAtEndpoint;
 import org.apache.cassandra.streaming.messages.StreamMessageHeader;
 
@@ -31,8 +29,12 @@ import org.apache.cassandra.streaming.messages.StreamMessageHeader;
  * and {@link OutgoingStream}, which expose the interfaces into the the underlying storage implementation
  * needed to make streaming work.
  */
-public interface TableStreamManager
-{
+public interface TableStreamManager {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableStreamManager.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableStreamManager.class);
+
     /**
      * Creates a {@link StreamReceiver} for the given session, expecting the given number of streams
      */
@@ -49,8 +51,5 @@ public interface TableStreamManager
      *
      * There aren't any requirements on how data is divided between the outgoing streams
      */
-    Collection<OutgoingStream> createOutgoingStreams(StreamSession session,
-                                                     RangesAtEndpoint replicas,
-                                                     UUID pendingRepair,
-                                                     PreviewKind previewKind);
+    Collection<OutgoingStream> createOutgoingStreams(StreamSession session, RangesAtEndpoint replicas, UUID pendingRepair, PreviewKind previewKind);
 }

@@ -21,11 +21,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import com.google.common.collect.Iterables;
-
 import org.apache.commons.lang3.tuple.Pair;
-
 import org.apache.cassandra.db.filter.ClusteringIndexFilter;
 import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.filter.DataLimits;
@@ -43,21 +40,15 @@ import org.apache.cassandra.transport.ProtocolVersion;
 /**
  * A {@code ReadQuery} for a single partition.
  */
-public interface SinglePartitionReadQuery extends ReadQuery
-{
-    public static Group<? extends SinglePartitionReadQuery> createGroup(TableMetadata metadata,
-                                                                        int nowInSec,
-                                                                        ColumnFilter columnFilter,
-                                                                        RowFilter rowFilter,
-                                                                        DataLimits limits,
-                                                                        List<DecoratedKey> partitionKeys,
-                                                                        ClusteringIndexFilter clusteringIndexFilter)
-    {
-        return metadata.isVirtual()
-             ? VirtualTableSinglePartitionReadQuery.Group.create(metadata, nowInSec, columnFilter, rowFilter, limits, partitionKeys, clusteringIndexFilter)
-             : SinglePartitionReadCommand.Group.create(metadata, nowInSec, columnFilter, rowFilter, limits, partitionKeys, clusteringIndexFilter);
-    }
+public interface SinglePartitionReadQuery extends ReadQuery {
 
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SinglePartitionReadQuery.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SinglePartitionReadQuery.class);
+
+    public static Group<? extends SinglePartitionReadQuery> createGroup(TableMetadata metadata, int nowInSec, ColumnFilter columnFilter, RowFilter rowFilter, DataLimits limits, List<DecoratedKey> partitionKeys, ClusteringIndexFilter clusteringIndexFilter) {
+        return metadata.isVirtual() ? VirtualTableSinglePartitionReadQuery.Group.create(metadata, nowInSec, columnFilter, rowFilter, limits, partitionKeys, clusteringIndexFilter) : SinglePartitionReadCommand.Group.create(metadata, nowInSec, columnFilter, rowFilter, limits, partitionKeys, clusteringIndexFilter);
+    }
 
     /**
      * Creates a new read query on a single partition.
@@ -70,12 +61,7 @@ public interface SinglePartitionReadQuery extends ReadQuery
      *
      * @return a newly created read query. The returned query will use no row filter and have no limits.
      */
-    public static SinglePartitionReadQuery create(TableMetadata metadata,
-                                                  int nowInSec,
-                                                  DecoratedKey key,
-                                                  ColumnFilter columnFilter,
-                                                  ClusteringIndexFilter filter)
-    {
+    public static SinglePartitionReadQuery create(TableMetadata metadata, int nowInSec, DecoratedKey key, ColumnFilter columnFilter, ClusteringIndexFilter filter) {
         return create(metadata, nowInSec, columnFilter, RowFilter.NONE, DataLimits.NONE, key, filter);
     }
 
@@ -92,17 +78,8 @@ public interface SinglePartitionReadQuery extends ReadQuery
      *
      * @return a newly created read query.
      */
-    public static SinglePartitionReadQuery create(TableMetadata metadata,
-                                                  int nowInSec,
-                                                  ColumnFilter columnFilter,
-                                                  RowFilter rowFilter,
-                                                  DataLimits limits,
-                                                  DecoratedKey partitionKey,
-                                                  ClusteringIndexFilter clusteringIndexFilter)
-    {
-        return metadata.isVirtual()
-             ? VirtualTableSinglePartitionReadQuery.create(metadata, nowInSec, columnFilter, rowFilter, limits, partitionKey, clusteringIndexFilter)
-             : SinglePartitionReadCommand.create(metadata, nowInSec, columnFilter, rowFilter, limits, partitionKey, clusteringIndexFilter);
+    public static SinglePartitionReadQuery create(TableMetadata metadata, int nowInSec, ColumnFilter columnFilter, RowFilter rowFilter, DataLimits limits, DecoratedKey partitionKey, ClusteringIndexFilter clusteringIndexFilter) {
+        return metadata.isVirtual() ? VirtualTableSinglePartitionReadQuery.create(metadata, nowInSec, columnFilter, rowFilter, limits, partitionKey, clusteringIndexFilter) : SinglePartitionReadCommand.create(metadata, nowInSec, columnFilter, rowFilter, limits, partitionKey, clusteringIndexFilter);
     }
 
     /**
@@ -132,95 +109,80 @@ public interface SinglePartitionReadQuery extends ReadQuery
     SinglePartitionReadQuery forPaging(Clustering<?> lastReturned, DataLimits limits);
 
     @Override
-    default SinglePartitionPager getPager(PagingState pagingState, ProtocolVersion protocolVersion)
-    {
+    default SinglePartitionPager getPager(PagingState pagingState, ProtocolVersion protocolVersion) {
         return new SinglePartitionPager(this, pagingState, protocolVersion);
     }
 
     ClusteringIndexFilter clusteringIndexFilter();
 
-    default boolean selectsKey(DecoratedKey key)
-    {
+    default boolean selectsKey(DecoratedKey key) {
         if (!this.partitionKey().equals(key))
             return false;
-
         return rowFilter().partitionKeyRestrictionsAreSatisfiedBy(key, metadata().partitionKeyType);
     }
 
-    default boolean selectsClustering(DecoratedKey key, Clustering<?> clustering)
-    {
+    default boolean selectsClustering(DecoratedKey key, Clustering<?> clustering) {
         if (clustering == Clustering.STATIC_CLUSTERING)
             return !columnFilter().fetchedColumns().statics.isEmpty();
-
         if (!clusteringIndexFilter().selects(clustering))
             return false;
-
         return rowFilter().clusteringKeyRestrictionsAreSatisfiedBy(clustering);
     }
 
     /**
      * Groups multiple single partition read queries.
      */
-    abstract class Group<T extends SinglePartitionReadQuery> implements ReadQuery
-    {
-        public final List<T> queries;
-        private final DataLimits limits;
-        private final int nowInSec;
-        private final boolean selectsFullPartitions;
+    abstract class Group<T extends SinglePartitionReadQuery> implements ReadQuery {
 
-        public Group(List<T> queries, DataLimits limits)
-        {
+        public final transient List<T> queries;
+
+        private final transient DataLimits limits;
+
+        private final transient int nowInSec;
+
+        private final transient boolean selectsFullPartitions;
+
+        public Group(List<T> queries, DataLimits limits) {
             assert !queries.isEmpty();
             this.queries = queries;
             this.limits = limits;
             T firstQuery = queries.get(0);
             this.nowInSec = firstQuery.nowInSec();
             this.selectsFullPartitions = firstQuery.selectsFullPartition();
-            for (int i = 1; i < queries.size(); i++)
-                assert queries.get(i).nowInSec() == nowInSec;
+            for (int i = 1; i < queries.size(); i++) assert queries.get(i).nowInSec() == nowInSec;
         }
 
-        public int nowInSec()
-        {
+        public int nowInSec() {
             return nowInSec;
         }
 
-        public DataLimits limits()
-        {
+        public DataLimits limits() {
             return limits;
         }
 
-        public TableMetadata metadata()
-        {
+        public TableMetadata metadata() {
             return queries.get(0).metadata();
         }
 
         @Override
-        public boolean selectsFullPartition()
-        {
+        public boolean selectsFullPartition() {
             return selectsFullPartitions;
         }
 
-        public ReadExecutionController executionController()
-        {
+        public ReadExecutionController executionController() {
             // Note that the only difference between the queries in a group must be the partition key on which
             // they applied. So as far as ReadOrderGroup is concerned, we can use any of the queries to start one.
             return queries.get(0).executionController();
         }
 
-        public PartitionIterator executeInternal(ReadExecutionController controller)
-        {
+        public PartitionIterator executeInternal(ReadExecutionController controller) {
             // Note that the only difference between the queries in a group must be the partition key on which
             // they applied.
             boolean enforceStrictLiveness = queries.get(0).metadata().enforceStrictLiveness();
-            return limits.filter(UnfilteredPartitionIterators.filter(executeLocally(controller, false), nowInSec),
-                                 nowInSec,
-                                 selectsFullPartitions,
-                                 enforceStrictLiveness);
+            return limits.filter(UnfilteredPartitionIterators.filter(executeLocally(controller, false), nowInSec), nowInSec, selectsFullPartitions, enforceStrictLiveness);
         }
 
-        public UnfilteredPartitionIterator executeLocally(ReadExecutionController executionController)
-        {
+        public UnfilteredPartitionIterator executeLocally(ReadExecutionController executionController) {
             return executeLocally(executionController, true);
         }
 
@@ -235,55 +197,44 @@ public interface SinglePartitionReadQuery extends ReadQuery
          *
          * @return - the iterator that can be used to retrieve the query result.
          */
-        private UnfilteredPartitionIterator executeLocally(ReadExecutionController executionController, boolean sort)
-        {
+        private UnfilteredPartitionIterator executeLocally(ReadExecutionController executionController, boolean sort) {
             List<Pair<DecoratedKey, UnfilteredPartitionIterator>> partitions = new ArrayList<>(queries.size());
-            for (T query : queries)
-                partitions.add(Pair.of(query.partitionKey(), query.executeLocally(executionController)));
-
+            for (T query : queries) partitions.add(Pair.of(query.partitionKey(), query.executeLocally(executionController)));
             if (sort)
                 Collections.sort(partitions, (p1, p2) -> p1.getLeft().compareTo(p2.getLeft()));
-
             return UnfilteredPartitionIterators.concat(partitions.stream().map(p -> p.getRight()).collect(Collectors.toList()));
         }
 
-        public QueryPager getPager(PagingState pagingState, ProtocolVersion protocolVersion)
-        {
+        public QueryPager getPager(PagingState pagingState, ProtocolVersion protocolVersion) {
             if (queries.size() == 1)
                 return new SinglePartitionPager(queries.get(0), pagingState, protocolVersion);
-
             return new MultiPartitionPager<T>(this, pagingState, protocolVersion);
         }
 
-        public boolean selectsKey(DecoratedKey key)
-        {
+        public boolean selectsKey(DecoratedKey key) {
             return Iterables.any(queries, c -> c.selectsKey(key));
         }
 
-        public boolean selectsClustering(DecoratedKey key, Clustering<?> clustering)
-        {
+        public boolean selectsClustering(DecoratedKey key, Clustering<?> clustering) {
             return Iterables.any(queries, c -> c.selectsClustering(key, clustering));
         }
 
         @Override
-        public RowFilter rowFilter()
-        {
+        public RowFilter rowFilter() {
             // Note that the only difference between the query in a group must be the partition key on which
             // they applied.
             return queries.get(0).rowFilter();
         }
 
         @Override
-        public ColumnFilter columnFilter()
-        {
+        public ColumnFilter columnFilter() {
             // Note that the only difference between the query in a group must be the partition key on which
             // they applied.
             return queries.get(0).columnFilter();
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return queries.toString();
         }
     }

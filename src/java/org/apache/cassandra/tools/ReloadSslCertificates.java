@@ -18,21 +18,20 @@
 package org.apache.cassandra.tools;
 
 import java.io.IOException;
-
 import io.airlift.airline.Command;
 
 @Command(name = "reloadssl", description = "Signals Cassandra to reload SSL certificates")
-public class ReloadSslCertificates extends NodeTool.NodeToolCmd
-{
+public class ReloadSslCertificates extends NodeTool.NodeToolCmd {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReloadSslCertificates.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReloadSslCertificates.class);
+
     @Override
-    public void execute(NodeProbe probe)
-    {
-        try
-        {
+    public void execute(NodeProbe probe) {
+        try {
             probe.reloadSslCerts();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException("Failed to reload SSL certificates. Please check the SSL certificates", e);
         }
     }

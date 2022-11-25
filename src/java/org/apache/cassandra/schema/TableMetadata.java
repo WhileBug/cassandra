@@ -20,15 +20,11 @@ package org.apache.cassandra.schema;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.Map.Entry;
-
 import javax.annotation.Nullable;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.auth.DataResource;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -42,7 +38,6 @@ import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.service.reads.SpeculativeRetryPolicy;
 import org.apache.cassandra.utils.AbstractIterator;
 import org.github.jamm.Unmetered;
-
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -51,15 +46,19 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.cassandra.schema.IndexMetadata.isNameValid;
 
 @Unmetered
-public class TableMetadata implements SchemaElement
-{
-    private static final Logger logger = LoggerFactory.getLogger(TableMetadata.class);
+public class TableMetadata implements SchemaElement {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableMetadata.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableMetadata.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(TableMetadata.class);
 
     // Please note that currently the only one truly useful flag is COUNTER, as the rest of the flags were about
     // differencing between CQL tables and the various types of COMPACT STORAGE tables (pre-4.0). As those "compact"
     // tables are not supported anymore, no tables should be either SUPER or DENSE, and they should all be COMPOUND.
-    public enum Flag
-    {
+    public enum Flag {
+
         // As mentioned above, all tables on 4.0+ will have the COMPOUND flag, making the flag of little value. However,
         // on upgrade from pre-4.0, we want to detect if a tables does _not_ have this flag, in which case this would
         // be a compact table on which DROP COMPACT STORAGE has _not_ be used and fail startup. This is also why we
@@ -73,66 +72,65 @@ public class TableMetadata implements SchemaElement
         // guarantee some tables won't have those flags (users having forgotten to use DROP COMPACT STORAGE before
         // upgrading). So we still "deserialize" those flags correctly, but otherwise prevent startup if any table
         // have them. Once we drop support for upgrading from pre-4.0, we can remove those values.
-        @Deprecated SUPER;
+        @Deprecated
+        SUPER;
 
         /*
          *  We call dense a CF for which each component of the comparator is a clustering column, i.e. no
          * component is used to store a regular column names. In other words, non-composite static "thrift"
          * and CQL3 CF are *not* dense.
          */
-        public static boolean isDense(Set<TableMetadata.Flag> flags)
-        {
+        public static boolean isDense(Set<TableMetadata.Flag> flags) {
             return flags.contains(TableMetadata.Flag.DENSE);
         }
 
-        public static boolean isCompound(Set<TableMetadata.Flag> flags)
-        {
+        public static boolean isCompound(Set<TableMetadata.Flag> flags) {
             return flags.contains(TableMetadata.Flag.COMPOUND);
         }
 
-
-        public static boolean isSuper(Set<TableMetadata.Flag> flags)
-        {
+        public static boolean isSuper(Set<TableMetadata.Flag> flags) {
             return flags.contains(TableMetadata.Flag.SUPER);
         }
 
-        public static boolean isCQLTable(Set<TableMetadata.Flag> flags)
-        {
+        public static boolean isCQLTable(Set<TableMetadata.Flag> flags) {
             return !isSuper(flags) && !isDense(flags) && isCompound(flags);
         }
 
-        public static boolean isStaticCompactTable(Set<TableMetadata.Flag> flags)
-        {
+        public static boolean isStaticCompactTable(Set<TableMetadata.Flag> flags) {
             return !Flag.isSuper(flags) && !Flag.isDense(flags) && !Flag.isCompound(flags);
         }
 
-        public static Set<Flag> fromStringSet(Set<String> strings)
-        {
+        public static Set<Flag> fromStringSet(Set<String> strings) {
             return strings.stream().map(String::toUpperCase).map(Flag::valueOf).collect(toSet());
         }
 
-        public static Set<String> toStringSet(Set<Flag> flags)
-        {
+        public static Set<String> toStringSet(Set<Flag> flags) {
             return flags.stream().map(Flag::toString).map(String::toLowerCase).collect(toSet());
         }
     }
 
-    public enum Kind
-    {
+    public enum Kind {
+
         REGULAR, INDEX, VIEW, VIRTUAL
     }
 
-    public final String keyspace;
-    public final String name;
-    public final TableId id;
+    public final transient String keyspace;
 
-    public final IPartitioner partitioner;
-    public final Kind kind;
-    public final TableParams params;
-    public final ImmutableSet<Flag> flags;
+    public final transient String name;
+
+    public final transient TableId id;
+
+    public final transient IPartitioner partitioner;
+
+    public final transient Kind kind;
+
+    public final transient TableParams params;
+
+    public final transient ImmutableSet<Flag> flags;
 
     @Nullable
-    private final String indexName; // derived from table name
+    private final transient String // derived from table name
+    indexName;
 
     /*
      * All CQL3 columns definition are stored in the columns map.
@@ -140,36 +138,37 @@ public class TableMetadata implements SchemaElement
      * 1) allow easy access to each kind and
      * 2) for the partition key and clustering key ones, those list are ordered by the "component index" of the elements.
      */
-    public final ImmutableMap<ByteBuffer, DroppedColumn> droppedColumns;
-    final ImmutableMap<ByteBuffer, ColumnMetadata> columns;
+    public final transient ImmutableMap<ByteBuffer, DroppedColumn> droppedColumns;
 
-    protected final ImmutableList<ColumnMetadata> partitionKeyColumns;
-    protected final ImmutableList<ColumnMetadata> clusteringColumns;
-    protected final RegularAndStaticColumns regularAndStaticColumns;
+    final transient ImmutableMap<ByteBuffer, ColumnMetadata> columns;
 
-    public final Indexes indexes;
-    public final Triggers triggers;
+    protected final transient ImmutableList<ColumnMetadata> partitionKeyColumns;
+
+    protected final transient ImmutableList<ColumnMetadata> clusteringColumns;
+
+    protected final transient RegularAndStaticColumns regularAndStaticColumns;
+
+    public final transient Indexes indexes;
+
+    public final transient Triggers triggers;
 
     // derived automatically from flags and columns
-    public final AbstractType<?> partitionKeyType;
-    public final ClusteringComparator comparator;
+    public final transient AbstractType<?> partitionKeyType;
+
+    public final transient ClusteringComparator comparator;
 
     // performance hacks; TODO see if all are really necessary
-    public final DataResource resource;
+    public final transient DataResource resource;
 
-    protected TableMetadata(Builder builder)
-    {
+    protected TableMetadata(Builder builder) {
         flags = Sets.immutableEnumSet(builder.flags);
         keyspace = builder.keyspace;
         name = builder.name;
         id = builder.id;
-
         partitioner = builder.partitioner;
         kind = builder.kind;
         params = builder.params.build();
-
         indexName = kind == Kind.INDEX ? name.substring(name.indexOf('.') + 1) : null;
-
         droppedColumns = ImmutableMap.copyOf(builder.droppedColumns);
         Collections.sort(builder.partitionKeyColumns);
         partitionKeyColumns = ImmutableList.copyOf(builder.partitionKeyColumns);
@@ -177,170 +176,125 @@ public class TableMetadata implements SchemaElement
         clusteringColumns = ImmutableList.copyOf(builder.clusteringColumns);
         regularAndStaticColumns = RegularAndStaticColumns.builder().addAll(builder.regularAndStaticColumns).build();
         columns = ImmutableMap.copyOf(builder.columns);
-
         indexes = builder.indexes;
         triggers = builder.triggers;
-
-        partitionKeyType = partitionKeyColumns.size() == 1
-                         ? partitionKeyColumns.get(0).type
-                         : CompositeType.getInstance(transform(partitionKeyColumns, t -> t.type));
-
+        partitionKeyType = partitionKeyColumns.size() == 1 ? partitionKeyColumns.get(0).type : CompositeType.getInstance(transform(partitionKeyColumns, t -> t.type));
         comparator = new ClusteringComparator(transform(clusteringColumns, c -> c.type));
-
         resource = DataResource.table(keyspace, name);
     }
 
-    public static Builder builder(String keyspace, String table)
-    {
+    public static Builder builder(String keyspace, String table) {
         return new Builder(keyspace, table);
     }
 
-    public static Builder builder(String keyspace, String table, TableId id)
-    {
+    public static Builder builder(String keyspace, String table, TableId id) {
         return new Builder(keyspace, table, id);
     }
 
-    public Builder unbuild()
-    {
-        return builder(keyspace, name, id)
-               .partitioner(partitioner)
-               .kind(kind)
-               .params(params)
-               .flags(flags)
-               .addColumns(columns())
-               .droppedColumns(droppedColumns)
-               .indexes(indexes)
-               .triggers(triggers);
+    public Builder unbuild() {
+        return builder(keyspace, name, id).partitioner(partitioner).kind(kind).params(params).flags(flags).addColumns(columns()).droppedColumns(droppedColumns).indexes(indexes).triggers(triggers);
     }
 
-    public boolean isIndex()
-    {
+    public boolean isIndex() {
         return kind == Kind.INDEX;
     }
 
-    public TableMetadata withSwapped(TableParams params)
-    {
+    public TableMetadata withSwapped(TableParams params) {
         return unbuild().params(params).build();
     }
 
-    public TableMetadata withSwapped(Set<Flag> flags)
-    {
+    public TableMetadata withSwapped(Set<Flag> flags) {
         return unbuild().flags(flags).build();
     }
 
-    public TableMetadata withSwapped(Triggers triggers)
-    {
+    public TableMetadata withSwapped(Triggers triggers) {
         return unbuild().triggers(triggers).build();
     }
 
-    public TableMetadata withSwapped(Indexes indexes)
-    {
+    public TableMetadata withSwapped(Indexes indexes) {
         return unbuild().indexes(indexes).build();
     }
 
-    public boolean isView()
-    {
+    public boolean isView() {
         return kind == Kind.VIEW;
     }
 
-    public boolean isVirtual()
-    {
+    public boolean isVirtual() {
         return kind == Kind.VIRTUAL;
     }
 
-    public Optional<String> indexName()
-    {
+    public Optional<String> indexName() {
         return Optional.ofNullable(indexName);
     }
 
-    public boolean isCounter()
-    {
+    public boolean isCounter() {
         return flags.contains(Flag.COUNTER);
     }
 
-    public boolean isCompactTable()
-    {
+    public boolean isCompactTable() {
         return false;
     }
 
-    public boolean isStaticCompactTable()
-    {
+    public boolean isStaticCompactTable() {
         return false;
     }
 
-    public ImmutableCollection<ColumnMetadata> columns()
-    {
+    public ImmutableCollection<ColumnMetadata> columns() {
         return columns.values();
     }
 
-    public Iterable<ColumnMetadata> primaryKeyColumns()
-    {
+    public Iterable<ColumnMetadata> primaryKeyColumns() {
         return Iterables.concat(partitionKeyColumns, clusteringColumns);
     }
 
-    public ImmutableList<ColumnMetadata> partitionKeyColumns()
-    {
+    public ImmutableList<ColumnMetadata> partitionKeyColumns() {
         return partitionKeyColumns;
     }
 
-    public ImmutableList<ColumnMetadata> clusteringColumns()
-    {
+    public ImmutableList<ColumnMetadata> clusteringColumns() {
         return clusteringColumns;
     }
 
-    public RegularAndStaticColumns regularAndStaticColumns()
-    {
+    public RegularAndStaticColumns regularAndStaticColumns() {
         return regularAndStaticColumns;
     }
 
-    public Columns regularColumns()
-    {
+    public Columns regularColumns() {
         return regularAndStaticColumns.regulars;
     }
 
-    public Columns staticColumns()
-    {
+    public Columns staticColumns() {
         return regularAndStaticColumns.statics;
     }
 
     /*
      * An iterator over all column definitions but that respect the order of a SELECT *.
      */
-    public Iterator<ColumnMetadata> allColumnsInSelectOrder()
-    {
+    public Iterator<ColumnMetadata> allColumnsInSelectOrder() {
         Iterator<ColumnMetadata> partitionKeyIter = partitionKeyColumns.iterator();
         Iterator<ColumnMetadata> clusteringIter = clusteringColumns.iterator();
         Iterator<ColumnMetadata> otherColumns = regularAndStaticColumns.selectOrderIterator();
-
         return columnsIterator(partitionKeyIter, clusteringIter, otherColumns);
     }
 
     /**
      * Returns an iterator over all column definitions that respect the order of the CREATE statement.
      */
-    public Iterator<ColumnMetadata> allColumnsInCreateOrder()
-    {
+    public Iterator<ColumnMetadata> allColumnsInCreateOrder() {
         Iterator<ColumnMetadata> partitionKeyIter = partitionKeyColumns.iterator();
         Iterator<ColumnMetadata> clusteringIter = clusteringColumns.iterator();
         Iterator<ColumnMetadata> otherColumns = regularAndStaticColumns.iterator();
-
         return columnsIterator(partitionKeyIter, clusteringIter, otherColumns);
     }
 
-    private static Iterator<ColumnMetadata> columnsIterator(Iterator<ColumnMetadata> partitionKeys,
-                                                            Iterator<ColumnMetadata> clusteringColumns,
-                                                            Iterator<ColumnMetadata> otherColumns)
-    {
-        return new AbstractIterator<ColumnMetadata>()
-        {
-            protected ColumnMetadata computeNext()
-            {
+    private static Iterator<ColumnMetadata> columnsIterator(Iterator<ColumnMetadata> partitionKeys, Iterator<ColumnMetadata> clusteringColumns, Iterator<ColumnMetadata> otherColumns) {
+        return new AbstractIterator<ColumnMetadata>() {
+
+            protected ColumnMetadata computeNext() {
                 if (partitionKeys.hasNext())
                     return partitionKeys.next();
-
                 if (clusteringColumns.hasNext())
                     return clusteringColumns.next();
-
                 return otherColumns.hasNext() ? otherColumns.next() : endOfData();
             }
         };
@@ -349,10 +303,10 @@ public class TableMetadata implements SchemaElement
     /**
      * Returns the ColumnMetadata for {@code name}.
      */
-    public ColumnMetadata getColumn(ColumnIdentifier name)
-    {
+    public ColumnMetadata getColumn(ColumnIdentifier name) {
         return columns.get(name.bytes);
     }
+
     /**
      * Returns the column of the provided name if it exists, but throws a user-visible exception if that column doesn't
      * exist.
@@ -365,26 +319,24 @@ public class TableMetadata implements SchemaElement
      *
      * @throws InvalidRequestException if there is no non-hidden column named {@code name} in this table.
      */
-    public ColumnMetadata getExistingColumn(ColumnIdentifier name)
-    {
+    public ColumnMetadata getExistingColumn(ColumnIdentifier name) {
         ColumnMetadata def = getColumn(name);
         if (def == null)
             throw new InvalidRequestException(format("Undefined column name %s in table %s", name.toCQLString(), this));
         return def;
     }
+
     /*
      * In general it is preferable to work with ColumnIdentifier to make it
      * clear that we are talking about a CQL column, not a cell name, but there
      * is a few cases where all we have is a ByteBuffer (when dealing with IndexExpression
      * for instance) so...
      */
-    public ColumnMetadata getColumn(ByteBuffer name)
-    {
+    public ColumnMetadata getColumn(ByteBuffer name) {
         return columns.get(name);
     }
 
-    public ColumnMetadata getDroppedColumn(ByteBuffer name)
-    {
+    public ColumnMetadata getDroppedColumn(ByteBuffer name) {
         DroppedColumn dropped = droppedColumns.get(name);
         return dropped == null ? null : dropped.column;
     }
@@ -396,54 +348,38 @@ public class TableMetadata implements SchemaElement
      * @param name - the column name
      * @param isStatic - whether the column was a static column, if known
      */
-    public ColumnMetadata getDroppedColumn(ByteBuffer name, boolean isStatic)
-    {
+    public ColumnMetadata getDroppedColumn(ByteBuffer name, boolean isStatic) {
         DroppedColumn dropped = droppedColumns.get(name);
         if (dropped == null)
             return null;
-
         if (isStatic && !dropped.column.isStatic())
             return ColumnMetadata.staticColumn(this, name, dropped.column.type);
-
         return dropped.column;
     }
 
-    public boolean hasStaticColumns()
-    {
+    public boolean hasStaticColumns() {
         return !staticColumns().isEmpty();
     }
 
-    public void validate()
-    {
+    public void validate() {
         if (!isNameValid(keyspace))
             except("Keyspace name must not be empty, more than %s characters long, or contain non-alphanumeric-underscore characters (got \"%s\")", SchemaConstants.NAME_LENGTH, keyspace);
-
         if (!isNameValid(name))
             except("Table name must not be empty, more than %s characters long, or contain non-alphanumeric-underscore characters (got \"%s\")", SchemaConstants.NAME_LENGTH, name);
-
         params.validate();
-
         if (partitionKeyColumns.stream().anyMatch(c -> c.type.isCounter()))
             except("PRIMARY KEY columns cannot contain counters");
-
         // Mixing counter with non counter columns is not supported (#2614)
-        if (isCounter())
-        {
-            for (ColumnMetadata column : regularAndStaticColumns)
-                if (!(column.type.isCounter()) && !isSuperColumnMapColumnName(column.name))
-                    except("Cannot have a non counter column (\"%s\") in a counter table", column.name);
+        if (isCounter()) {
+            for (ColumnMetadata column : regularAndStaticColumns) if (!(column.type.isCounter()) && !isSuperColumnMapColumnName(column.name))
+                except("Cannot have a non counter column (\"%s\") in a counter table", column.name);
+        } else {
+            for (ColumnMetadata column : regularAndStaticColumns) if (column.type.isCounter())
+                except("Cannot have a counter column (\"%s\") in a non counter table", column.name);
         }
-        else
-        {
-            for (ColumnMetadata column : regularAndStaticColumns)
-                if (column.type.isCounter())
-                    except("Cannot have a counter column (\"%s\") in a non counter table", column.name);
-        }
-
         // All tables should have a partition key
         if (partitionKeyColumns.isEmpty())
             except("Missing partition keys for table %s", toString());
-
         indexes.validate(this);
     }
 
@@ -463,72 +399,45 @@ public class TableMetadata implements SchemaElement
      *   table with counters to rename that weirdly name map to something more meaningful (it's not possible today
      *   as after renaming the validation in {@link #validate)} would trigger).
      */
-    private static boolean isSuperColumnMapColumnName(ColumnIdentifier columnName)
-    {
+    private static boolean isSuperColumnMapColumnName(ColumnIdentifier columnName) {
         return !columnName.bytes.hasRemaining();
     }
 
-    void validateCompatibility(TableMetadata previous)
-    {
+    void validateCompatibility(TableMetadata previous) {
         if (isIndex())
             return;
-
         if (!previous.keyspace.equals(keyspace))
             except("Keyspace mismatch (found %s; expected %s)", keyspace, previous.keyspace);
-
         if (!previous.name.equals(name))
             except("Table mismatch (found %s; expected %s)", name, previous.name);
-
         if (!previous.id.equals(id))
             except("Table ID mismatch (found %s; expected %s)", id, previous.id);
-
         if (!previous.flags.equals(flags) && (!Flag.isCQLTable(flags) || Flag.isCQLTable(previous.flags)))
             except("Table type mismatch (found %s; expected %s)", flags, previous.flags);
-
-        if (previous.partitionKeyColumns.size() != partitionKeyColumns.size())
-        {
-            except("Partition keys of different length (found %s; expected %s)",
-                   partitionKeyColumns.size(),
-                   previous.partitionKeyColumns.size());
+        if (previous.partitionKeyColumns.size() != partitionKeyColumns.size()) {
+            except("Partition keys of different length (found %s; expected %s)", partitionKeyColumns.size(), previous.partitionKeyColumns.size());
         }
-
-        for (int i = 0; i < partitionKeyColumns.size(); i++)
-        {
-            if (!partitionKeyColumns.get(i).type.isCompatibleWith(previous.partitionKeyColumns.get(i).type))
-            {
-                except("Partition key column mismatch (found %s; expected %s)",
-                       partitionKeyColumns.get(i).type,
-                       previous.partitionKeyColumns.get(i).type);
+        for (int i = 0; i < partitionKeyColumns.size(); i++) {
+            if (!partitionKeyColumns.get(i).type.isCompatibleWith(previous.partitionKeyColumns.get(i).type)) {
+                except("Partition key column mismatch (found %s; expected %s)", partitionKeyColumns.get(i).type, previous.partitionKeyColumns.get(i).type);
             }
         }
-
-        if (previous.clusteringColumns.size() != clusteringColumns.size())
-        {
-            except("Clustering columns of different length (found %s; expected %s)",
-                   clusteringColumns.size(),
-                   previous.clusteringColumns.size());
+        if (previous.clusteringColumns.size() != clusteringColumns.size()) {
+            except("Clustering columns of different length (found %s; expected %s)", clusteringColumns.size(), previous.clusteringColumns.size());
         }
-
-        for (int i = 0; i < clusteringColumns.size(); i++)
-        {
-            if (!clusteringColumns.get(i).type.isCompatibleWith(previous.clusteringColumns.get(i).type))
-            {
-                except("Clustering column mismatch (found %s; expected %s)",
-                       clusteringColumns.get(i).type,
-                       previous.clusteringColumns.get(i).type);
+        for (int i = 0; i < clusteringColumns.size(); i++) {
+            if (!clusteringColumns.get(i).type.isCompatibleWith(previous.clusteringColumns.get(i).type)) {
+                except("Clustering column mismatch (found %s; expected %s)", clusteringColumns.get(i).type, previous.clusteringColumns.get(i).type);
             }
         }
-
-        for (ColumnMetadata previousColumn : previous.regularAndStaticColumns)
-        {
+        for (ColumnMetadata previousColumn : previous.regularAndStaticColumns) {
             ColumnMetadata column = getColumn(previousColumn.name);
             if (column != null && !column.type.isCompatibleWith(previousColumn.type))
                 except("Column mismatch (found %s; expected %s)", column, previousColumn);
         }
     }
 
-    public ClusteringComparator partitionKeyAsClusteringComparator()
-    {
+    public ClusteringComparator partitionKeyAsClusteringComparator() {
         return new ClusteringComparator(partitionKeyColumns.stream().map(c -> c.type).collect(toList()));
     }
 
@@ -540,8 +449,7 @@ public class TableMetadata implements SchemaElement
      *
      * @return name of the index table
      */
-    public String indexTableName(IndexMetadata info)
-    {
+    public String indexTableName(IndexMetadata info) {
         // TODO simplify this when info.index_name is guaranteed to be set
         return name + Directories.SECONDARY_INDEX_NAME_SEPARATOR + info.name;
     }
@@ -551,15 +459,8 @@ public class TableMetadata implements SchemaElement
      *         e.g. any columns or indexes were added, removed, or altered; otherwise, false is returned.
      *         Used to determine whether prepared statements against this table need to be re-prepared.
      */
-    boolean changeAffectsPreparedStatements(TableMetadata updated)
-    {
-        return !partitionKeyColumns.equals(updated.partitionKeyColumns)
-            || !clusteringColumns.equals(updated.clusteringColumns)
-            || !regularAndStaticColumns.equals(updated.regularAndStaticColumns)
-            || !indexes.equals(updated.indexes)
-            || params.defaultTimeToLive != updated.params.defaultTimeToLive
-            || params.gcGraceSeconds != updated.params.gcGraceSeconds
-            || ( !Flag.isCQLTable(flags) && Flag.isCQLTable(updated.flags) );
+    boolean changeAffectsPreparedStatements(TableMetadata updated) {
+        return !partitionKeyColumns.equals(updated.partitionKeyColumns) || !clusteringColumns.equals(updated.clusteringColumns) || !regularAndStaticColumns.equals(updated.regularAndStaticColumns) || !indexes.equals(updated.indexes) || params.defaultTimeToLive != updated.params.defaultTimeToLive || params.gcGraceSeconds != updated.params.gcGraceSeconds || (!Flag.isCQLTable(flags) && Flag.isCQLTable(updated.flags));
     }
 
     /**
@@ -567,97 +468,62 @@ public class TableMetadata implements SchemaElement
      * and know that only the keyspace and name matter. This creates such "fake" metadata. Use only if you know what
      * you're doing.
      */
-    public static TableMetadata minimal(String keyspace, String name)
-    {
-        return TableMetadata.builder(keyspace, name)
-                            .addPartitionKeyColumn("key", BytesType.instance)
-                            .build();
+    public static TableMetadata minimal(String keyspace, String name) {
+        return TableMetadata.builder(keyspace, name).addPartitionKeyColumn("key", BytesType.instance).build();
     }
 
-    public TableMetadata updateIndexTableMetadata(TableParams baseTableParams)
-    {
+    public TableMetadata updateIndexTableMetadata(TableParams baseTableParams) {
         TableParams.Builder builder = baseTableParams.unbuild().gcGraceSeconds(0);
-
         // Depends on parent's cache setting, turn on its index table's cache.
         // Row caching is never enabled; see CASSANDRA-5732
         builder.caching(baseTableParams.caching.cacheKeys() ? CachingParams.CACHE_KEYS : CachingParams.CACHE_NOTHING);
-
         return unbuild().params(builder.build()).build();
     }
 
-    boolean referencesUserType(ByteBuffer name)
-    {
+    boolean referencesUserType(ByteBuffer name) {
         return any(columns(), c -> c.type.referencesUserType(name));
     }
 
-    public TableMetadata withUpdatedUserType(UserType udt)
-    {
+    public TableMetadata withUpdatedUserType(UserType udt) {
         if (!referencesUserType(udt.name))
             return this;
-
         Builder builder = unbuild();
         columns().forEach(c -> builder.alterColumnType(c.name, c.type.withUpdatedUserType(udt)));
-
         return builder.build();
     }
 
-    protected void except(String format, Object... args)
-    {
+    protected void except(String format, Object... args) {
         throw new ConfigurationException(keyspace + "." + name + ": " + format(format, args));
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof TableMetadata))
             return false;
-
         TableMetadata tm = (TableMetadata) o;
-
         return equalsWithoutColumns(tm) && columns.equals(tm.columns);
     }
 
-    private boolean equalsWithoutColumns(TableMetadata tm)
-    {
-        return keyspace.equals(tm.keyspace)
-            && name.equals(tm.name)
-            && id.equals(tm.id)
-            && partitioner.equals(tm.partitioner)
-            && kind == tm.kind
-            && params.equals(tm.params)
-            && flags.equals(tm.flags)
-            && droppedColumns.equals(tm.droppedColumns)
-            && indexes.equals(tm.indexes)
-            && triggers.equals(tm.triggers);
+    private boolean equalsWithoutColumns(TableMetadata tm) {
+        return keyspace.equals(tm.keyspace) && name.equals(tm.name) && id.equals(tm.id) && partitioner.equals(tm.partitioner) && kind == tm.kind && params.equals(tm.params) && flags.equals(tm.flags) && droppedColumns.equals(tm.droppedColumns) && indexes.equals(tm.indexes) && triggers.equals(tm.triggers);
     }
 
-    Optional<Difference> compare(TableMetadata other)
-    {
-        return equalsWithoutColumns(other)
-             ? compareColumns(other.columns)
-             : Optional.of(Difference.SHALLOW);
+    Optional<Difference> compare(TableMetadata other) {
+        return equalsWithoutColumns(other) ? compareColumns(other.columns) : Optional.of(Difference.SHALLOW);
     }
 
-    private Optional<Difference> compareColumns(Map<ByteBuffer, ColumnMetadata> other)
-    {
+    private Optional<Difference> compareColumns(Map<ByteBuffer, ColumnMetadata> other) {
         if (!columns.keySet().equals(other.keySet()))
             return Optional.of(Difference.SHALLOW);
-
         boolean differsDeeply = false;
-
-        for (Map.Entry<ByteBuffer, ColumnMetadata> entry : columns.entrySet())
-        {
+        for (Map.Entry<ByteBuffer, ColumnMetadata> entry : columns.entrySet()) {
             ColumnMetadata thisColumn = entry.getValue();
             ColumnMetadata thatColumn = other.get(entry.getKey());
-
             Optional<Difference> difference = thisColumn.compare(thatColumn);
-            if (difference.isPresent())
-            {
-                switch (difference.get())
-                {
+            if (difference.isPresent()) {
+                switch(difference.get()) {
                     case SHALLOW:
                         return difference;
                     case DEEP:
@@ -665,272 +531,229 @@ public class TableMetadata implements SchemaElement
                 }
             }
         }
-
         return differsDeeply ? Optional.of(Difference.DEEP) : Optional.empty();
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(keyspace, name, id, partitioner, kind, params, flags, columns, droppedColumns, indexes, triggers);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return format("%s.%s", ColumnIdentifier.maybeQuote(keyspace), ColumnIdentifier.maybeQuote(name));
     }
 
-    public String toDebugString()
-    {
-        return MoreObjects.toStringHelper(this)
-                          .add("keyspace", keyspace)
-                          .add("table", name)
-                          .add("id", id)
-                          .add("partitioner", partitioner)
-                          .add("kind", kind)
-                          .add("params", params)
-                          .add("flags", flags)
-                          .add("columns", columns())
-                          .add("droppedColumns", droppedColumns.values())
-                          .add("indexes", indexes)
-                          .add("triggers", triggers)
-                          .toString();
+    public String toDebugString() {
+        return MoreObjects.toStringHelper(this).add("keyspace", keyspace).add("table", name).add("id", id).add("partitioner", partitioner).add("kind", kind).add("params", params).add("flags", flags).add("columns", columns()).add("droppedColumns", droppedColumns.values()).add("indexes", indexes).add("triggers", triggers).toString();
     }
 
-    public static final class Builder
-    {
-        final String keyspace;
-        final String name;
+    public static final class Builder {
 
-        private TableId id;
+        final transient String keyspace;
 
-        private IPartitioner partitioner;
-        private Kind kind = Kind.REGULAR;
-        private TableParams.Builder params = TableParams.builder();
+        final transient String name;
+
+        private transient TableId id;
+
+        private transient IPartitioner partitioner;
+
+        private transient Kind kind = Kind.REGULAR;
+
+        private transient TableParams.Builder params = TableParams.builder();
 
         // See the comment on Flag.COMPOUND definition for why we (still) inconditionally add this flag.
-        private Set<Flag> flags = EnumSet.of(Flag.COMPOUND);
-        private Triggers triggers = Triggers.none();
-        private Indexes indexes = Indexes.none();
+        private transient Set<Flag> flags = EnumSet.of(Flag.COMPOUND);
 
-        private final Map<ByteBuffer, DroppedColumn> droppedColumns = new HashMap<>();
-        private final Map<ByteBuffer, ColumnMetadata> columns = new HashMap<>();
-        private final List<ColumnMetadata> partitionKeyColumns = new ArrayList<>();
-        private final List<ColumnMetadata> clusteringColumns = new ArrayList<>();
-        private final List<ColumnMetadata> regularAndStaticColumns = new ArrayList<>();
+        private transient Triggers triggers = Triggers.none();
 
-        private Builder(String keyspace, String name, TableId id)
-        {
+        private transient Indexes indexes = Indexes.none();
+
+        private final transient Map<ByteBuffer, DroppedColumn> droppedColumns = new HashMap<>();
+
+        private final transient Map<ByteBuffer, ColumnMetadata> columns = new HashMap<>();
+
+        private final transient List<ColumnMetadata> partitionKeyColumns = new ArrayList<>();
+
+        private final transient List<ColumnMetadata> clusteringColumns = new ArrayList<>();
+
+        private final transient List<ColumnMetadata> regularAndStaticColumns = new ArrayList<>();
+
+        private Builder(String keyspace, String name, TableId id) {
             this.keyspace = keyspace;
             this.name = name;
             this.id = id;
         }
 
-        private Builder(String keyspace, String name)
-        {
+        private Builder(String keyspace, String name) {
             this.keyspace = keyspace;
             this.name = name;
         }
 
-        public TableMetadata build()
-        {
+        public TableMetadata build() {
             if (partitioner == null)
                 partitioner = DatabaseDescriptor.getPartitioner();
-
             if (id == null)
                 id = TableId.generate();
-
             if (Flag.isCQLTable(flags))
                 return new TableMetadata(this);
             else
                 return new CompactTableMetadata(this);
         }
 
-        public Builder id(TableId val)
-        {
+        public Builder id(TableId val) {
             id = val;
             return this;
         }
 
-        public Builder partitioner(IPartitioner val)
-        {
+        public Builder partitioner(IPartitioner val) {
             partitioner = val;
             return this;
         }
 
-        public Builder kind(Kind val)
-        {
+        public Builder kind(Kind val) {
             kind = val;
             return this;
         }
 
-        public Builder params(TableParams val)
-        {
+        public Builder params(TableParams val) {
             params = val.unbuild();
             return this;
         }
 
-        public Builder bloomFilterFpChance(double val)
-        {
+        public Builder bloomFilterFpChance(double val) {
             params.bloomFilterFpChance(val);
             return this;
         }
 
-        public Builder caching(CachingParams val)
-        {
+        public Builder caching(CachingParams val) {
             params.caching(val);
             return this;
         }
 
-        public Builder comment(String val)
-        {
+        public Builder comment(String val) {
             params.comment(val);
             return this;
         }
 
-        public Builder compaction(CompactionParams val)
-        {
+        public Builder compaction(CompactionParams val) {
             params.compaction(val);
             return this;
         }
 
-        public Builder compression(CompressionParams val)
-        {
+        public Builder compression(CompressionParams val) {
             params.compression(val);
             return this;
         }
 
-        public Builder defaultTimeToLive(int val)
-        {
+        public Builder defaultTimeToLive(int val) {
             params.defaultTimeToLive(val);
             return this;
         }
 
-        public Builder gcGraceSeconds(int val)
-        {
+        public Builder gcGraceSeconds(int val) {
             params.gcGraceSeconds(val);
             return this;
         }
 
-        public Builder maxIndexInterval(int val)
-        {
+        public Builder maxIndexInterval(int val) {
             params.maxIndexInterval(val);
             return this;
         }
 
-        public Builder memtableFlushPeriod(int val)
-        {
+        public Builder memtableFlushPeriod(int val) {
             params.memtableFlushPeriodInMs(val);
             return this;
         }
 
-        public Builder minIndexInterval(int val)
-        {
+        public Builder minIndexInterval(int val) {
             params.minIndexInterval(val);
             return this;
         }
 
-        public Builder crcCheckChance(double val)
-        {
+        public Builder crcCheckChance(double val) {
             params.crcCheckChance(val);
             return this;
         }
 
-        public Builder speculativeRetry(SpeculativeRetryPolicy val)
-        {
+        public Builder speculativeRetry(SpeculativeRetryPolicy val) {
             params.speculativeRetry(val);
             return this;
         }
 
-        public Builder additionalWritePolicy(SpeculativeRetryPolicy val)
-        {
+        public Builder additionalWritePolicy(SpeculativeRetryPolicy val) {
             params.additionalWritePolicy(val);
             return this;
         }
 
-        public Builder extensions(Map<String, ByteBuffer> val)
-        {
+        public Builder extensions(Map<String, ByteBuffer> val) {
             params.extensions(val);
             return this;
         }
 
-        public Builder flags(Set<Flag> val)
-        {
+        public Builder flags(Set<Flag> val) {
             flags = val;
             return this;
         }
 
-        public Builder isCounter(boolean val)
-        {
+        public Builder isCounter(boolean val) {
             return flag(Flag.COUNTER, val);
         }
 
-        private Builder flag(Flag flag, boolean set)
-        {
-            if (set) flags.add(flag); else flags.remove(flag);
+        private Builder flag(Flag flag, boolean set) {
+            if (set)
+                flags.add(flag);
+            else
+                flags.remove(flag);
             return this;
         }
 
-        public Builder triggers(Triggers val)
-        {
+        public Builder triggers(Triggers val) {
             triggers = val;
             return this;
         }
 
-        public Builder indexes(Indexes val)
-        {
+        public Builder indexes(Indexes val) {
             indexes = val;
             return this;
         }
 
-        public Builder addPartitionKeyColumn(String name, AbstractType type)
-        {
+        public Builder addPartitionKeyColumn(String name, AbstractType type) {
             return addPartitionKeyColumn(ColumnIdentifier.getInterned(name, false), type);
         }
 
-        public Builder addPartitionKeyColumn(ColumnIdentifier name, AbstractType type)
-        {
+        public Builder addPartitionKeyColumn(ColumnIdentifier name, AbstractType type) {
             return addColumn(new ColumnMetadata(keyspace, this.name, name, type, partitionKeyColumns.size(), ColumnMetadata.Kind.PARTITION_KEY));
         }
 
-        public Builder addClusteringColumn(String name, AbstractType type)
-        {
+        public Builder addClusteringColumn(String name, AbstractType type) {
             return addClusteringColumn(ColumnIdentifier.getInterned(name, false), type);
         }
 
-        public Builder addClusteringColumn(ColumnIdentifier name, AbstractType type)
-        {
+        public Builder addClusteringColumn(ColumnIdentifier name, AbstractType type) {
             return addColumn(new ColumnMetadata(keyspace, this.name, name, type, clusteringColumns.size(), ColumnMetadata.Kind.CLUSTERING));
         }
 
-        public Builder addRegularColumn(String name, AbstractType type)
-        {
+        public Builder addRegularColumn(String name, AbstractType type) {
             return addRegularColumn(ColumnIdentifier.getInterned(name, false), type);
         }
 
-        public Builder addRegularColumn(ColumnIdentifier name, AbstractType type)
-        {
+        public Builder addRegularColumn(ColumnIdentifier name, AbstractType type) {
             return addColumn(new ColumnMetadata(keyspace, this.name, name, type, ColumnMetadata.NO_POSITION, ColumnMetadata.Kind.REGULAR));
         }
 
-        public Builder addStaticColumn(String name, AbstractType type)
-        {
+        public Builder addStaticColumn(String name, AbstractType type) {
             return addStaticColumn(ColumnIdentifier.getInterned(name, false), type);
         }
 
-        public Builder addStaticColumn(ColumnIdentifier name, AbstractType type)
-        {
+        public Builder addStaticColumn(ColumnIdentifier name, AbstractType type) {
             return addColumn(new ColumnMetadata(keyspace, this.name, name, type, ColumnMetadata.NO_POSITION, ColumnMetadata.Kind.STATIC));
         }
 
-        public Builder addColumn(ColumnMetadata column)
-        {
+        public Builder addColumn(ColumnMetadata column) {
             if (columns.containsKey(column.name.bytes))
                 throw new IllegalArgumentException();
-
-            switch (column.kind)
-            {
+            switch(column.kind) {
                 case PARTITION_KEY:
                     partitionKeyColumns.add(column);
                     Collections.sort(partitionKeyColumns);
@@ -943,20 +766,16 @@ public class TableMetadata implements SchemaElement
                 default:
                     regularAndStaticColumns.add(column);
             }
-
             columns.put(column.name.bytes, column);
-
             return this;
         }
 
-        public Builder addColumns(Iterable<ColumnMetadata> columns)
-        {
+        public Builder addColumns(Iterable<ColumnMetadata> columns) {
             columns.forEach(this::addColumn);
             return this;
         }
 
-        public Builder droppedColumns(Map<ByteBuffer, DroppedColumn> droppedColumns)
-        {
+        public Builder droppedColumns(Map<ByteBuffer, DroppedColumn> droppedColumns) {
             this.droppedColumns.clear();
             this.droppedColumns.putAll(droppedColumns);
             return this;
@@ -965,92 +784,72 @@ public class TableMetadata implements SchemaElement
         /**
          * Records a deprecated column for a system table.
          */
-        public Builder recordDeprecatedSystemColumn(String name, AbstractType<?> type)
-        {
+        public Builder recordDeprecatedSystemColumn(String name, AbstractType<?> type) {
             // As we play fast and loose with the removal timestamp, make sure this is misued for a non system table.
             assert SchemaConstants.isLocalSystemKeyspace(keyspace);
             recordColumnDrop(ColumnMetadata.regularColumn(keyspace, this.name, name, type), Long.MAX_VALUE);
             return this;
         }
 
-        public Builder recordColumnDrop(ColumnMetadata column, long timeMicros)
-        {
+        public Builder recordColumnDrop(ColumnMetadata column, long timeMicros) {
             droppedColumns.put(column.name.bytes, new DroppedColumn(column.withNewType(column.type.expandUserTypes()), timeMicros));
             return this;
         }
 
-        public Iterable<ColumnMetadata> columns()
-        {
+        public Iterable<ColumnMetadata> columns() {
             return columns.values();
         }
 
-        public Set<String> columnNames()
-        {
+        public Set<String> columnNames() {
             return columns.values().stream().map(c -> c.name.toString()).collect(toSet());
         }
 
-        public ColumnMetadata getColumn(ColumnIdentifier identifier)
-        {
+        public ColumnMetadata getColumn(ColumnIdentifier identifier) {
             return columns.get(identifier.bytes);
         }
 
-        public ColumnMetadata getColumn(ByteBuffer name)
-        {
+        public ColumnMetadata getColumn(ByteBuffer name) {
             return columns.get(name);
         }
 
-        public boolean hasRegularColumns()
-        {
+        public boolean hasRegularColumns() {
             return regularAndStaticColumns.stream().anyMatch(ColumnMetadata::isRegular);
         }
 
         /*
          * The following methods all assume a Builder with valid set of partition key, clustering, regular and static columns.
          */
-
-        public Builder removeRegularOrStaticColumn(ColumnIdentifier identifier)
-        {
+        public Builder removeRegularOrStaticColumn(ColumnIdentifier identifier) {
             ColumnMetadata column = columns.get(identifier.bytes);
             if (column == null || column.isPrimaryKeyColumn())
                 throw new IllegalArgumentException();
-
             columns.remove(identifier.bytes);
             regularAndStaticColumns.remove(column);
-
             return this;
         }
 
-        public Builder renamePrimaryKeyColumn(ColumnIdentifier from, ColumnIdentifier to)
-        {
+        public Builder renamePrimaryKeyColumn(ColumnIdentifier from, ColumnIdentifier to) {
             if (columns.containsKey(to.bytes))
                 throw new IllegalArgumentException();
-
             ColumnMetadata column = columns.get(from.bytes);
             if (column == null || !column.isPrimaryKeyColumn())
                 throw new IllegalArgumentException();
-
             ColumnMetadata newColumn = column.withNewName(to);
             if (column.isPartitionKey())
                 partitionKeyColumns.set(column.position(), newColumn);
             else
                 clusteringColumns.set(column.position(), newColumn);
-
             columns.remove(from.bytes);
             columns.put(to.bytes, newColumn);
-
             return this;
         }
 
-        Builder alterColumnType(ColumnIdentifier name, AbstractType<?> type)
-        {
+        Builder alterColumnType(ColumnIdentifier name, AbstractType<?> type) {
             ColumnMetadata column = columns.get(name.bytes);
             if (column == null)
                 throw new IllegalArgumentException();
-
             ColumnMetadata newColumn = column.withNewType(type);
-
-            switch (column.kind)
-            {
+            switch(column.kind) {
                 case PARTITION_KEY:
                     partitionKeyColumns.set(column.position(), newColumn);
                     break;
@@ -1063,13 +862,11 @@ public class TableMetadata implements SchemaElement
                     regularAndStaticColumns.add(newColumn);
                     break;
             }
-
             columns.put(column.name.bytes, newColumn);
-
             return this;
         }
     }
-    
+
     /**
      * A table with strict liveness filters/ignores rows without PK liveness info,
      * effectively tying the row liveness to its primary key liveness.
@@ -1080,8 +877,7 @@ public class TableMetadata implements SchemaElement
      *
      * TODO: does not belong here, should be gone
      */
-    public boolean enforceStrictLiveness()
-    {
+    public boolean enforceStrictLiveness() {
         return isView() && Keyspace.open(keyspace).viewManager.getByName(name).enforceStrictLiveness();
     }
 
@@ -1090,8 +886,7 @@ public class TableMetadata implements SchemaElement
      *
      * @return the names of all the user types referenced by this table.
      */
-    public Set<ByteBuffer> getReferencedUserTypes()
-    {
+    public Set<ByteBuffer> getReferencedUserTypes() {
         Set<ByteBuffer> types = new LinkedHashSet<>();
         columns().forEach(c -> addUserTypes(c.type, types));
         return types;
@@ -1105,417 +900,258 @@ public class TableMetadata implements SchemaElement
      * insertion ordering is important and ensures that if a user type A uses another user type B, then B will appear
      * before A in iteration order.
      */
-    private static void addUserTypes(AbstractType<?> type, Set<ByteBuffer> types)
-    {
+    private static void addUserTypes(AbstractType<?> type, Set<ByteBuffer> types) {
         // Reach into subtypes first, so that if the type is a UDT, it's dependencies are recreated first.
         type.subTypes().forEach(t -> addUserTypes(t, types));
-
         if (type.isUDT())
-            types.add(((UserType)type).name);
+            types.add(((UserType) type).name);
     }
 
     @Override
-    public SchemaElementType elementType()
-    {
+    public SchemaElementType elementType() {
         return SchemaElementType.TABLE;
     }
 
     @Override
-    public String elementKeyspace()
-    {
+    public String elementKeyspace() {
         return keyspace;
     }
 
     @Override
-    public String elementName()
-    {
+    public String elementName() {
         return name;
     }
 
     @Override
-    public String toCqlString(boolean withInternals, boolean ifNotExists)
-    {
+    public String toCqlString(boolean withInternals, boolean ifNotExists) {
         CqlBuilder builder = new CqlBuilder(2048);
         appendCqlTo(builder, withInternals, withInternals, ifNotExists);
         return builder.toString();
     }
 
-    public String toCqlString(boolean includeDroppedColumns,
-                              boolean internals,
-                              boolean ifNotExists)
-    {
+    public String toCqlString(boolean includeDroppedColumns, boolean internals, boolean ifNotExists) {
         CqlBuilder builder = new CqlBuilder(2048);
         appendCqlTo(builder, includeDroppedColumns, internals, ifNotExists);
         return builder.toString();
     }
 
-    public void appendCqlTo(CqlBuilder builder,
-                            boolean includeDroppedColumns,
-                            boolean internals,
-                            boolean ifNotExists)
-    {
+    public void appendCqlTo(CqlBuilder builder, boolean includeDroppedColumns, boolean internals, boolean ifNotExists) {
         assert !isView();
-
         String createKeyword = "CREATE";
-        if (isVirtual())
-        {
-            builder.append(String.format("/*\n" +
-                    "Warning: Table %s is a virtual table and cannot be recreated with CQL.\n" +
-                    "Structure, for reference:\n",
-                                         toString()));
+        if (isVirtual()) {
+            builder.append(String.format("/*\n" + "Warning: Table %s is a virtual table and cannot be recreated with CQL.\n" + "Structure, for reference:\n", toString()));
             createKeyword = "VIRTUAL";
         }
-
-        builder.append(createKeyword)
-               .append(" TABLE ");
-
+        builder.append(createKeyword).append(" TABLE ");
         if (ifNotExists)
             builder.append("IF NOT EXISTS ");
-
-        builder.append(toString())
-               .append(" (")
-               .newLine()
-               .increaseIndent();
-
+        builder.append(toString()).append(" (").newLine().increaseIndent();
         boolean hasSingleColumnPrimaryKey = partitionKeyColumns.size() == 1 && clusteringColumns.isEmpty();
-
         appendColumnDefinitions(builder, includeDroppedColumns, hasSingleColumnPrimaryKey);
-
         if (!hasSingleColumnPrimaryKey)
             appendPrimaryKey(builder);
-
-        builder.decreaseIndent()
-               .append(')');
-
-        builder.append(" WITH ")
-               .increaseIndent();
-
+        builder.decreaseIndent().append(')');
+        builder.append(" WITH ").increaseIndent();
         appendTableOptions(builder, internals);
-
         builder.decreaseIndent();
-
-        if (isVirtual())
-        {
-            builder.newLine()
-                   .append("*/");
+        if (isVirtual()) {
+            builder.newLine().append("*/");
         }
-
         if (includeDroppedColumns)
             appendDropColumns(builder);
     }
 
-    private void appendColumnDefinitions(CqlBuilder builder,
-                                         boolean includeDroppedColumns,
-                                         boolean hasSingleColumnPrimaryKey)
-    {
+    private void appendColumnDefinitions(CqlBuilder builder, boolean includeDroppedColumns, boolean hasSingleColumnPrimaryKey) {
         Iterator<ColumnMetadata> iter = allColumnsInCreateOrder();
-        while (iter.hasNext())
-        {
+        while (iter.hasNext()) {
             ColumnMetadata column = iter.next();
             // If the column has been re-added after a drop, we don't include it right away. Instead, we'll add the
             // dropped one first below, then we'll issue the DROP and then the actual ADD for this column, thus
             // simulating the proper sequence of events.
             if (includeDroppedColumns && droppedColumns.containsKey(column.name.bytes))
                 continue;
-
             column.appendCqlTo(builder);
-
             if (hasSingleColumnPrimaryKey && column.isPartitionKey())
                 builder.append(" PRIMARY KEY");
-
             if (!hasSingleColumnPrimaryKey || (includeDroppedColumns && !droppedColumns.isEmpty()) || iter.hasNext())
                 builder.append(',');
-
             builder.newLine();
         }
-
-        if (includeDroppedColumns)
-        {
+        if (includeDroppedColumns) {
             Iterator<DroppedColumn> iterDropped = droppedColumns.values().iterator();
-            while (iterDropped.hasNext())
-            {
+            while (iterDropped.hasNext()) {
                 DroppedColumn dropped = iterDropped.next();
                 dropped.column.appendCqlTo(builder);
-
                 if (!hasSingleColumnPrimaryKey || iter.hasNext())
                     builder.append(',');
-
                 builder.newLine();
             }
         }
     }
 
-    void appendPrimaryKey(CqlBuilder builder)
-    {
+    void appendPrimaryKey(CqlBuilder builder) {
         List<ColumnMetadata> partitionKeyColumns = partitionKeyColumns();
         List<ColumnMetadata> clusteringColumns = clusteringColumns();
-
         if (isStaticCompactTable())
             clusteringColumns = Collections.emptyList();
-
         builder.append("PRIMARY KEY (");
-        if (partitionKeyColumns.size() > 1)
-        {
-            builder.append('(')
-                   .appendWithSeparators(partitionKeyColumns, (b, c) -> b.append(c.name), ", ")
-                   .append(')');
-        }
-        else
-        {
+        if (partitionKeyColumns.size() > 1) {
+            builder.append('(').appendWithSeparators(partitionKeyColumns, (b, c) -> b.append(c.name), ", ").append(')');
+        } else {
             builder.append(partitionKeyColumns.get(0).name);
         }
-
         if (!clusteringColumns.isEmpty())
-            builder.append(", ")
-                   .appendWithSeparators(clusteringColumns, (b, c) -> b.append(c.name), ", ");
-
-        builder.append(')')
-               .newLine();
+            builder.append(", ").appendWithSeparators(clusteringColumns, (b, c) -> b.append(c.name), ", ");
+        builder.append(')').newLine();
     }
 
-    void appendTableOptions(CqlBuilder builder, boolean internals)
-    {
+    void appendTableOptions(CqlBuilder builder, boolean internals) {
         if (internals)
-            builder.append("ID = ")
-                   .append(id.toString())
-                   .newLine()
-                   .append("AND ");
-
+            builder.append("ID = ").append(id.toString()).newLine().append("AND ");
         List<ColumnMetadata> clusteringColumns = clusteringColumns();
-        if (!clusteringColumns.isEmpty())
-        {
-            builder.append("CLUSTERING ORDER BY (")
-                   .appendWithSeparators(clusteringColumns, (b, c) -> c.appendNameAndOrderTo(b), ", ")
-                   .append(')')
-                   .newLine()
-                   .append("AND ");
+        if (!clusteringColumns.isEmpty()) {
+            builder.append("CLUSTERING ORDER BY (").appendWithSeparators(clusteringColumns, (b, c) -> c.appendNameAndOrderTo(b), ", ").append(')').newLine().append("AND ");
         }
-
-        if (isVirtual())
-        {
+        if (isVirtual()) {
             builder.append("comment = ").appendWithSingleQuotes(params.comment);
-        }
-        else
-        {
+        } else {
             params.appendCqlTo(builder, isView());
         }
         builder.append(";");
     }
 
-    private void appendDropColumns(CqlBuilder builder)
-    {
-        for (Entry<ByteBuffer, DroppedColumn> entry : droppedColumns.entrySet())
-        {
+    private void appendDropColumns(CqlBuilder builder) {
+        for (Entry<ByteBuffer, DroppedColumn> entry : droppedColumns.entrySet()) {
             DroppedColumn dropped = entry.getValue();
-
-            builder.newLine()
-                   .append("ALTER TABLE ")
-                   .append(toString())
-                   .append(" DROP ")
-                   .append(dropped.column.name)
-                   .append(" USING TIMESTAMP ")
-                   .append(dropped.droppedTime)
-                   .append(';');
-
+            builder.newLine().append("ALTER TABLE ").append(toString()).append(" DROP ").append(dropped.column.name).append(" USING TIMESTAMP ").append(dropped.droppedTime).append(';');
             ColumnMetadata column = getColumn(entry.getKey());
-            if (column != null)
-            {
-                builder.newLine()
-                       .append("ALTER TABLE ")
-                       .append(toString())
-                       .append(" ADD ");
-
+            if (column != null) {
+                builder.newLine().append("ALTER TABLE ").append(toString()).append(" ADD ");
                 column.appendCqlTo(builder);
-
                 builder.append(';');
             }
         }
     }
 
-    public static class CompactTableMetadata extends TableMetadata
-    {
+    public static class CompactTableMetadata extends TableMetadata {
 
         /*
          * For dense tables, this alias the single non-PK column the table contains (since it can only have one). We keep
          * that as convenience to access that column more easily (but we could replace calls by regularAndStaticColumns().iterator().next()
          * for those tables in practice).
          */
-        public final ColumnMetadata compactValueColumn;
+        public final transient ColumnMetadata compactValueColumn;
 
-        private final Set<ColumnMetadata> hiddenColumns;
-        protected CompactTableMetadata(Builder builder)
-        {
+        private final transient Set<ColumnMetadata> hiddenColumns;
+
+        protected CompactTableMetadata(Builder builder) {
             super(builder);
-
             compactValueColumn = getCompactValueColumn(regularAndStaticColumns);
-
-            if (isCompactTable() && Flag.isDense(this.flags) && hasEmptyCompactValue())
-            {
+            if (isCompactTable() && Flag.isDense(this.flags) && hasEmptyCompactValue()) {
                 hiddenColumns = Collections.singleton(compactValueColumn);
-            }
-            else if (isCompactTable() && !Flag.isDense(this.flags))
-            {
+            } else if (isCompactTable() && !Flag.isDense(this.flags)) {
                 hiddenColumns = Sets.newHashSetWithExpectedSize(clusteringColumns.size() + 1);
                 hiddenColumns.add(compactValueColumn);
                 hiddenColumns.addAll(clusteringColumns);
-
-            }
-            else
-            {
+            } else {
                 hiddenColumns = Collections.emptySet();
             }
         }
 
         @Override
-        public boolean isCompactTable()
-        {
+        public boolean isCompactTable() {
             return true;
         }
 
-        public ColumnMetadata getExistingColumn(ColumnIdentifier name)
-        {
+        public ColumnMetadata getExistingColumn(ColumnIdentifier name) {
             ColumnMetadata def = getColumn(name);
             if (def == null || isHiddenColumn(def))
                 throw new InvalidRequestException(format("Undefined column name %s in table %s", name.toCQLString(), this));
             return def;
         }
 
-        public boolean isHiddenColumn(ColumnMetadata def)
-        {
+        public boolean isHiddenColumn(ColumnMetadata def) {
             return hiddenColumns.contains(def);
         }
 
         @Override
-        public Iterator<ColumnMetadata> allColumnsInSelectOrder()
-        {
+        public Iterator<ColumnMetadata> allColumnsInSelectOrder() {
             boolean isStaticCompactTable = isStaticCompactTable();
             boolean noNonPkColumns = hasEmptyCompactValue();
-
             Iterator<ColumnMetadata> partitionKeyIter = partitionKeyColumns.iterator();
-            Iterator<ColumnMetadata> clusteringIter =
-            isStaticCompactTable ? Collections.emptyIterator() : clusteringColumns.iterator();
-            Iterator<ColumnMetadata> otherColumns = noNonPkColumns ? Collections.emptyIterator()
-                                                                   : (isStaticCompactTable ? staticColumns().selectOrderIterator()
-                                                                                           : regularAndStaticColumns.selectOrderIterator());
-
+            Iterator<ColumnMetadata> clusteringIter = isStaticCompactTable ? Collections.emptyIterator() : clusteringColumns.iterator();
+            Iterator<ColumnMetadata> otherColumns = noNonPkColumns ? Collections.emptyIterator() : (isStaticCompactTable ? staticColumns().selectOrderIterator() : regularAndStaticColumns.selectOrderIterator());
             return columnsIterator(partitionKeyIter, clusteringIter, otherColumns);
         }
 
-        public ImmutableList<ColumnMetadata> createStatementClusteringColumns()
-        {
+        public ImmutableList<ColumnMetadata> createStatementClusteringColumns() {
             return isStaticCompactTable() ? ImmutableList.of() : clusteringColumns;
         }
 
-        public Iterator<ColumnMetadata> allColumnsInCreateOrder()
-        {
+        public Iterator<ColumnMetadata> allColumnsInCreateOrder() {
             boolean isStaticCompactTable = isStaticCompactTable();
             boolean noNonPkColumns = !Flag.isCQLTable(flags) && hasEmptyCompactValue();
-
             Iterator<ColumnMetadata> partitionKeyIter = partitionKeyColumns.iterator();
             Iterator<ColumnMetadata> clusteringIter;
-
             if (isStaticCompactTable())
                 clusteringIter = Collections.EMPTY_LIST.iterator();
             else
                 clusteringIter = createStatementClusteringColumns().iterator();
-
             Iterator<ColumnMetadata> otherColumns;
-
-            if (noNonPkColumns)
-            {
+            if (noNonPkColumns) {
                 otherColumns = Collections.emptyIterator();
-            }
-            else if (isStaticCompactTable)
-            {
+            } else if (isStaticCompactTable) {
                 List<ColumnMetadata> columns = new ArrayList<>();
-                for (ColumnMetadata c : regularAndStaticColumns)
-                {
+                for (ColumnMetadata c : regularAndStaticColumns) {
                     if (c.isStatic())
                         columns.add(new ColumnMetadata(c.ksName, c.cfName, c.name, c.type, -1, ColumnMetadata.Kind.REGULAR));
                 }
                 otherColumns = columns.iterator();
-            }
-            else
-            {
+            } else {
                 otherColumns = regularAndStaticColumns.iterator();
             }
-
             return columnsIterator(partitionKeyIter, clusteringIter, otherColumns);
         }
 
-        public boolean hasEmptyCompactValue()
-        {
+        public boolean hasEmptyCompactValue() {
             return compactValueColumn.type instanceof EmptyType;
         }
 
-        public void validate()
-        {
+        public void validate() {
             super.validate();
-
             // A compact table should always have a clustering
             if (!Flag.isCQLTable(flags) && clusteringColumns.isEmpty())
-                except("For table %s, isDense=%b, isCompound=%b, clustering=%s", toString(),
-                       Flag.isDense(flags), Flag.isCompound(flags), clusteringColumns);
+                except("For table %s, isDense=%b, isCompound=%b, clustering=%s", toString(), Flag.isDense(flags), Flag.isCompound(flags), clusteringColumns);
         }
 
-        AbstractType<?> staticCompactOrSuperTableColumnNameType()
-        {
+        AbstractType<?> staticCompactOrSuperTableColumnNameType() {
             assert isStaticCompactTable();
             return clusteringColumns.get(0).type;
         }
 
-        public AbstractType<?> columnDefinitionNameComparator(ColumnMetadata.Kind kind)
-        {
-            return (Flag.isSuper(this.flags) && kind == ColumnMetadata.Kind.REGULAR) ||
-                   (isStaticCompactTable() && kind == ColumnMetadata.Kind.STATIC)
-                   ? staticCompactOrSuperTableColumnNameType()
-                   : UTF8Type.instance;
+        public AbstractType<?> columnDefinitionNameComparator(ColumnMetadata.Kind kind) {
+            return (Flag.isSuper(this.flags) && kind == ColumnMetadata.Kind.REGULAR) || (isStaticCompactTable() && kind == ColumnMetadata.Kind.STATIC) ? staticCompactOrSuperTableColumnNameType() : UTF8Type.instance;
         }
 
         @Override
-        public boolean isStaticCompactTable()
-        {
+        public boolean isStaticCompactTable() {
             return !Flag.isSuper(flags) && !Flag.isDense(flags) && !Flag.isCompound(flags);
         }
 
-        public void appendCqlTo(CqlBuilder builder,
-                                boolean includeDroppedColumns,
-                                boolean internals,
-                                boolean ifNotExists)
-        {
-            builder.append("/*")
-                   .newLine()
-                   .append("Warning: Table ")
-                   .append(toString())
-                   .append(" omitted because it has constructs not compatible with CQL (was created via legacy API).")
-                   .newLine()
-                   .append("Approximate structure, for reference:")
-                   .newLine()
-                   .append("(this should not be used to reproduce this schema)")
-                   .newLine()
-                   .newLine();
-
+        public void appendCqlTo(CqlBuilder builder, boolean includeDroppedColumns, boolean internals, boolean ifNotExists) {
+            builder.append("/*").newLine().append("Warning: Table ").append(toString()).append(" omitted because it has constructs not compatible with CQL (was created via legacy API).").newLine().append("Approximate structure, for reference:").newLine().append("(this should not be used to reproduce this schema)").newLine().newLine();
             super.appendCqlTo(builder, includeDroppedColumns, internals, ifNotExists);
-
-            builder.newLine()
-                   .append("*/");
+            builder.newLine().append("*/");
         }
 
-        void appendTableOptions(CqlBuilder builder, boolean internals)
-        {
-            builder.append("COMPACT STORAGE")
-                   .newLine()
-                   .append("AND ");
-
+        void appendTableOptions(CqlBuilder builder, boolean internals) {
+            builder.append("COMPACT STORAGE").newLine().append("AND ");
             super.appendTableOptions(builder, internals);
         }
 
-        public static ColumnMetadata getCompactValueColumn(RegularAndStaticColumns columns)
-        {
+        public static ColumnMetadata getCompactValueColumn(RegularAndStaticColumns columns) {
             assert columns.regulars.simpleColumnCount() == 1 && columns.regulars.complexColumnCount() == 0;
             return columns.regulars.getSimple(0);
         }
-
     }
-
 }

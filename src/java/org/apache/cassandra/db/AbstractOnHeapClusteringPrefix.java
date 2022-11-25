@@ -17,51 +17,48 @@
  */
 package org.apache.cassandra.db;
 
-public abstract class AbstractOnHeapClusteringPrefix<V> implements ClusteringPrefix<V>
-{
-    protected final Kind kind;
-    protected final V[] values;
+public abstract class AbstractOnHeapClusteringPrefix<V> implements ClusteringPrefix<V> {
 
-    public AbstractOnHeapClusteringPrefix(Kind kind, V[] values)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractOnHeapClusteringPrefix.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AbstractOnHeapClusteringPrefix.class);
+
+    protected final transient Kind kind;
+
+    protected final transient V[] values;
+
+    public AbstractOnHeapClusteringPrefix(Kind kind, V[] values) {
         this.kind = kind;
         this.values = values;
     }
 
-    public Kind kind()
-    {
+    public Kind kind() {
         return kind;
     }
 
-    public ClusteringPrefix<V> clustering()
-    {
+    public ClusteringPrefix<V> clustering() {
         return this;
     }
 
-    public int size()
-    {
+    public int size() {
         return values.length;
     }
 
-    public V get(int i)
-    {
+    public V get(int i) {
         return values[i];
     }
 
-    public V[] getRawValues()
-    {
+    public V[] getRawValues() {
         return values;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return ClusteringPrefix.hashCode(this);
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         return ClusteringPrefix.equals(this, o);
     }
 }

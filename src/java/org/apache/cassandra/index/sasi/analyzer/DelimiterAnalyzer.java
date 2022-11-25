@@ -24,88 +24,81 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
-
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.AsciiType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.utils.AbstractIterator;
 
 @Beta
-public class DelimiterAnalyzer extends AbstractAnalyzer
-{
+public class DelimiterAnalyzer extends AbstractAnalyzer {
 
-    private static final Map<AbstractType<?>, Charset> VALID_ANALYZABLE_TYPES = new HashMap<AbstractType<?>, Charset>()
-    {{
-        put(UTF8Type.instance, StandardCharsets.UTF_8);
-        put(AsciiType.instance, StandardCharsets.US_ASCII);
-    }};
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DelimiterAnalyzer.class);
 
-    private char delimiter;
-    private Charset charset;
-    private Iterator<ByteBuffer> iter;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(DelimiterAnalyzer.class);
 
-    public DelimiterAnalyzer()
-    {
+    private static final transient Map<AbstractType<?>, Charset> VALID_ANALYZABLE_TYPES = new HashMap<AbstractType<?>, Charset>() {
+
+        {
+            put(UTF8Type.instance, StandardCharsets.UTF_8);
+            put(AsciiType.instance, StandardCharsets.US_ASCII);
+        }
+    };
+
+    private transient char delimiter;
+
+    private transient Charset charset;
+
+    private transient Iterator<ByteBuffer> iter;
+
+    public DelimiterAnalyzer() {
     }
 
     @Override
-    public ByteBuffer next()
-    {
+    public ByteBuffer next() {
         return iter.next();
     }
 
-    public void init(Map<String, String> options, AbstractType<?> validator)
-    {
+    public void init(Map<String, String> options, AbstractType<?> validator) {
         DelimiterTokenizingOptions tokenizingOptions = DelimiterTokenizingOptions.buildFromMap(options);
         delimiter = tokenizingOptions.getDelimiter();
         charset = VALID_ANALYZABLE_TYPES.get(validator);
     }
 
-    public boolean hasNext()
-    {
+    public boolean hasNext() {
         return iter.hasNext();
     }
 
-    public void reset(ByteBuffer input)
-    {
+    public void reset(ByteBuffer input) {
         Preconditions.checkNotNull(input);
         final CharBuffer cb = charset.decode(input);
-
         this.iter = new AbstractIterator<ByteBuffer>() {
-            protected ByteBuffer computeNext() {
 
+            protected ByteBuffer computeNext() {
                 if (!cb.hasRemaining())
                     return endOfData();
-
                 CharBuffer readahead = cb.duplicate();
                 // loop until we see the next delimiter character, or reach end of data
                 boolean readaheadRemaining;
-                while ((readaheadRemaining = readahead.hasRemaining()) && readahead.get() != delimiter);
-
+                while ((readaheadRemaining = readahead.hasRemaining()) && readahead.get() != delimiter) ;
                 char[] chars = new char[readahead.position() - cb.position() - (readaheadRemaining ? 1 : 0)];
                 cb.get(chars);
                 Preconditions.checkState(!cb.hasRemaining() || cb.get() == delimiter);
-
-                return 0 < chars.length
-                        ? charset.encode(CharBuffer.wrap(chars))
-                        // blank partition keys not permitted, ref ConcurrentRadixTree.putIfAbsent(..)
-                        : computeNext();
+                return // blank partition keys not permitted, ref ConcurrentRadixTree.putIfAbsent(..)
+                0 < chars.length ? // blank partition keys not permitted, ref ConcurrentRadixTree.putIfAbsent(..)
+                charset.encode(CharBuffer.wrap(chars)) : computeNext();
             }
         };
     }
 
     @Override
-    public boolean isTokenizing()
-    {
+    public boolean isTokenizing() {
         return true;
     }
 
     @Override
-    public boolean isCompatibleWith(AbstractType<?> validator)
-    {
+    public boolean isCompatibleWith(AbstractType<?> validator) {
         return VALID_ANALYZABLE_TYPES.containsKey(validator);
     }
 }

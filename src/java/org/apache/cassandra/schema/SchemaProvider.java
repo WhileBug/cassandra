@@ -15,17 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.schema;
 
 import javax.annotation.Nullable;
-
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.exceptions.UnknownTableException;
 import org.apache.cassandra.io.sstable.Descriptor;
 
-public interface SchemaProvider
-{
+public interface SchemaProvider {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaProvider.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SchemaProvider.class);
+
     @Nullable
     Keyspace getKeyspaceInstance(String keyspaceName);
 
@@ -40,16 +42,11 @@ public interface SchemaProvider
     @Nullable
     TableMetadata getTableMetadata(String keyspace, String table);
 
-    default TableMetadata getExistingTableMetadata(TableId id) throws UnknownTableException
-    {
+    default TableMetadata getExistingTableMetadata(TableId id) throws UnknownTableException {
         TableMetadata metadata = getTableMetadata(id);
         if (metadata != null)
             return metadata;
-
-        String message =
-            String.format("Couldn't find table with id %s. If a table was just created, this is likely due to the schema"
-                          + "not being fully propagated.  Please wait for schema agreement on table creation.",
-                          id);
+        String message = String.format("Couldn't find table with id %s. If a table was just created, this is likely due to the schema" + "not being fully propagated.  Please wait for schema agreement on table creation.", id);
         throw new UnknownTableException(message, id);
     }
 
@@ -60,8 +57,7 @@ public interface SchemaProvider
     TableMetadataRef getTableMetadataRef(TableId id);
 
     @Nullable
-    default TableMetadataRef getTableMetadataRef(Descriptor descriptor)
-    {
+    default TableMetadataRef getTableMetadataRef(Descriptor descriptor) {
         return getTableMetadataRef(descriptor.ksname, descriptor.cfname);
     }
 }

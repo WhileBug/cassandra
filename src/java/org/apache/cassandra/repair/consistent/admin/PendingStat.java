@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.consistent.admin;
 
 import java.util.Collections;
@@ -31,93 +30,82 @@ import javax.management.openmbean.CompositeType;
 import javax.management.openmbean.OpenDataException;
 import javax.management.openmbean.OpenType;
 import javax.management.openmbean.SimpleType;
-
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
-
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.util.FileUtils;
 
-public class PendingStat
-{
-    private static final String[] COMPOSITE_NAMES = new String[] {"dataSize", "numSSTables", "sessions"};
-    private static final OpenType<?>[] COMPOSITE_TYPES;
-    public static final CompositeType COMPOSITE_TYPE;
+public class PendingStat {
 
-    static
-    {
-        try
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PendingStat.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PendingStat.class);
+
+    private static final transient String[] COMPOSITE_NAMES = new String[] { "dataSize", "numSSTables", "sessions" };
+
+    private static final transient OpenType<?>[] COMPOSITE_TYPES;
+
+    public static final transient CompositeType COMPOSITE_TYPE;
+
+    static {
+        try {
             COMPOSITE_TYPES = new OpenType[] { SimpleType.LONG, SimpleType.INTEGER, ArrayType.getArrayType(SimpleType.STRING) };
-            COMPOSITE_TYPE = new CompositeType(PendingStat.class.getName(),
-                                               PendingStat.class.getSimpleName(),
-                                               COMPOSITE_NAMES, COMPOSITE_NAMES, COMPOSITE_TYPES);
-        }
-        catch (OpenDataException e)
-        {
+            COMPOSITE_TYPE = new CompositeType(PendingStat.class.getName(), PendingStat.class.getSimpleName(), COMPOSITE_NAMES, COMPOSITE_NAMES, COMPOSITE_TYPES);
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }
 
+    public final transient long dataSize;
 
+    public final transient int numSSTables;
 
-    public final long dataSize;
-    public final int numSSTables;
-    public final Set<UUID> sessions;
+    public final transient Set<UUID> sessions;
 
-    public PendingStat(long dataSize, int numSSTables, Set<UUID> sessions)
-    {
+    public PendingStat(long dataSize, int numSSTables, Set<UUID> sessions) {
         this.dataSize = dataSize;
         this.numSSTables = numSSTables;
         this.sessions = Collections.unmodifiableSet(sessions);
     }
 
-    public String sizeString()
-    {
+    public String sizeString() {
         return String.format("%s (%s sstables / %s sessions)", FileUtils.stringifyFileSize(dataSize), numSSTables, sessions.size());
     }
 
-    public CompositeData toComposite()
-    {
+    public CompositeData toComposite() {
         Map<String, Object> values = new HashMap<>();
         values.put(COMPOSITE_NAMES[0], dataSize);
         values.put(COMPOSITE_NAMES[1], numSSTables);
         String[] sessionIds = new String[sessions.size()];
         int idx = 0;
-        for (UUID session : sessions)
-            sessionIds[idx++] = session.toString();
+        for (UUID session : sessions) sessionIds[idx++] = session.toString();
         values.put(COMPOSITE_NAMES[2], sessionIds);
-
-        try
-        {
+        try {
             return new CompositeDataSupport(COMPOSITE_TYPE, values);
-        }
-        catch (OpenDataException e)
-        {
+        } catch (OpenDataException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public static PendingStat fromComposite(CompositeData cd)
-    {
+    public static PendingStat fromComposite(CompositeData cd) {
         Preconditions.checkArgument(cd.getCompositeType().equals(COMPOSITE_TYPE));
         Object[] values = cd.getAll(COMPOSITE_NAMES);
         Set<UUID> sessions = new HashSet<>();
-        for (String session : (String[]) values[2])
-            sessions.add(UUID.fromString(session));
+        for (String session : (String[]) values[2]) sessions.add(UUID.fromString(session));
         return new PendingStat((long) values[0], (int) values[1], sessions);
     }
 
-    public static class Builder
-    {
-        public long dataSize = 0;
-        public int numSSTables = 0;
-        public Set<UUID> sessions = new HashSet<>();
+    public static class Builder {
 
-        public Builder addSSTable(SSTableReader sstable)
-        {
+        public transient long dataSize = 0;
+
+        public transient int numSSTables = 0;
+
+        public transient Set<UUID> sessions = new HashSet<>();
+
+        public Builder addSSTable(SSTableReader sstable) {
             UUID sessionID = sstable.getPendingRepair();
             if (sessionID == null)
                 return this;
@@ -127,16 +115,14 @@ public class PendingStat
             return this;
         }
 
-        public Builder addStat(PendingStat stat)
-        {
+        public Builder addStat(PendingStat stat) {
             dataSize += stat.dataSize;
             numSSTables += stat.numSSTables;
             sessions.addAll(stat.sessions);
             return this;
         }
 
-        public PendingStat build()
-        {
+        public PendingStat build() {
             return new PendingStat(dataSize, numSSTables, sessions);
         }
     }

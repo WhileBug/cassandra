@@ -19,46 +19,43 @@ package org.apache.cassandra.index.sasi.utils;
 
 import java.io.IOException;
 import java.util.Iterator;
-
 import org.apache.cassandra.index.sasi.disk.OnDiskIndex;
 import org.apache.cassandra.index.sasi.disk.OnDiskIndex.DataTerm;
 import org.apache.cassandra.db.marshal.AbstractType;
 
-public class OnDiskIndexIterator extends RangeIterator<DataTerm, CombinedTerm>
-{
-    private final AbstractType<?> comparator;
-    private final Iterator<DataTerm> terms;
+public class OnDiskIndexIterator extends RangeIterator<DataTerm, CombinedTerm> {
 
-    public OnDiskIndexIterator(OnDiskIndex index)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OnDiskIndexIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OnDiskIndexIterator.class);
+
+    private final transient AbstractType<?> comparator;
+
+    private final transient Iterator<DataTerm> terms;
+
+    public OnDiskIndexIterator(OnDiskIndex index) {
         super(index.min(), index.max(), Long.MAX_VALUE);
-
         this.comparator = index.getComparator();
         this.terms = index.iterator();
     }
 
-    public static RangeIterator<DataTerm, CombinedTerm> union(OnDiskIndex... union)
-    {
+    public static RangeIterator<DataTerm, CombinedTerm> union(OnDiskIndex... union) {
         RangeUnionIterator.Builder<DataTerm, CombinedTerm> builder = RangeUnionIterator.builder();
-        for (OnDiskIndex e : union)
-        {
+        for (OnDiskIndex e : union) {
             if (e != null)
                 builder.add(new OnDiskIndexIterator(e));
         }
-
         return builder.build();
     }
 
-    protected CombinedTerm computeNext()
-    {
+    protected CombinedTerm computeNext() {
         return terms.hasNext() ? new CombinedTerm(comparator, terms.next()) : endOfData();
     }
 
-    protected void performSkipTo(DataTerm nextToken)
-    {
+    protected void performSkipTo(DataTerm nextToken) {
         throw new UnsupportedOperationException();
     }
 
-    public void close() throws IOException
-    {}
+    public void close() throws IOException {
+    }
 }

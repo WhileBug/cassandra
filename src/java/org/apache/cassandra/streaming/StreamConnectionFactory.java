@@ -15,15 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.streaming;
 
 import java.io.IOException;
-
 import io.netty.channel.Channel;
 import org.apache.cassandra.net.OutboundConnectionSettings;
 
-public interface StreamConnectionFactory
-{
+public interface StreamConnectionFactory {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamConnectionFactory.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamConnectionFactory.class);
+
     Channel createConnection(OutboundConnectionSettings template, int messagingVersion) throws IOException;
 }

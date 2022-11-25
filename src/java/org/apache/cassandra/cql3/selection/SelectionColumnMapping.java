@@ -22,10 +22,8 @@ package org.apache.cassandra.cql3.selection;
 
 import java.util.*;
 import java.util.stream.Collectors;
-
 import com.google.common.base.Objects;
 import com.google.common.collect.*;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.cql3.ColumnSpecification;
 
@@ -35,32 +33,32 @@ import org.apache.cassandra.cql3.ColumnSpecification;
  * includes a column specification which does not map to any particular real
  * column, e.g. COUNT queries or where no-arg functions like now() are used
  */
-public class SelectionColumnMapping implements SelectionColumns
-{
-    private final List<ColumnSpecification> columnSpecifications;
-    private final Multimap<ColumnSpecification, ColumnMetadata> columnMappings;
+public class SelectionColumnMapping implements SelectionColumns {
 
-    private SelectionColumnMapping()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SelectionColumnMapping.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SelectionColumnMapping.class);
+
+    private final transient List<ColumnSpecification> columnSpecifications;
+
+    private final transient Multimap<ColumnSpecification, ColumnMetadata> columnMappings;
+
+    private SelectionColumnMapping() {
         this.columnSpecifications = new ArrayList<>();
         this.columnMappings = HashMultimap.create();
     }
 
-    protected static SelectionColumnMapping newMapping()
-    {
+    protected static SelectionColumnMapping newMapping() {
         return new SelectionColumnMapping();
     }
 
-    protected static SelectionColumnMapping simpleMapping(Iterable<ColumnMetadata> columnDefinitions)
-    {
+    protected static SelectionColumnMapping simpleMapping(Iterable<ColumnMetadata> columnDefinitions) {
         SelectionColumnMapping mapping = new SelectionColumnMapping();
-        for (ColumnMetadata def: columnDefinitions)
-            mapping.addMapping(def, def);
+        for (ColumnMetadata def : columnDefinitions) mapping.addMapping(def, def);
         return mapping;
     }
 
-    protected SelectionColumnMapping addMapping(ColumnSpecification colSpec, ColumnMetadata column)
-    {
+    protected SelectionColumnMapping addMapping(ColumnSpecification colSpec, ColumnMetadata column) {
         columnSpecifications.add(colSpec);
         // functions without arguments do not map to any column, so don't
         // record any mapping in that case
@@ -69,59 +67,36 @@ public class SelectionColumnMapping implements SelectionColumns
         return this;
     }
 
-    protected SelectionColumnMapping addMapping(ColumnSpecification colSpec, Iterable<ColumnMetadata> columns)
-    {
+    protected SelectionColumnMapping addMapping(ColumnSpecification colSpec, Iterable<ColumnMetadata> columns) {
         columnSpecifications.add(colSpec);
         columnMappings.putAll(colSpec, columns);
         return this;
     }
 
-    public List<ColumnSpecification> getColumnSpecifications()
-    {
+    public List<ColumnSpecification> getColumnSpecifications() {
         // return a mutable copy as we may add extra columns
         // for ordering (CASSANDRA-4911 & CASSANDRA-8286)
         return Lists.newArrayList(columnSpecifications);
     }
 
-    public Multimap<ColumnSpecification, ColumnMetadata> getMappings()
-    {
+    public Multimap<ColumnSpecification, ColumnMetadata> getMappings() {
         return Multimaps.unmodifiableMultimap(columnMappings);
     }
 
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         if (obj == null)
             return false;
-
         if (!(obj instanceof SelectionColumnMapping))
             return false;
-
-        SelectionColumns other = (SelectionColumns)obj;
-        return Objects.equal(columnMappings, other.getMappings())
-            && Objects.equal(columnSpecifications, other.getColumnSpecifications());
+        SelectionColumns other = (SelectionColumns) obj;
+        return Objects.equal(columnMappings, other.getMappings()) && Objects.equal(columnSpecifications, other.getColumnSpecifications());
     }
 
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(columnMappings);
     }
 
-    public String toString()
-    {
-        return columnMappings.asMap()
-                             .entrySet()
-                             .stream()
-                             .map(entry ->
-                                  entry.getValue()
-                                       .stream()
-                                       .map(colDef -> colDef.name.toString())
-                                       .collect(Collectors.joining(", ", entry.getKey().name.toString() + ":[", "]")))
-                             .collect(Collectors.joining(", ",
-                                                         columnSpecifications.stream()
-                                                                             .map(colSpec -> colSpec.name.toString())
-                                                                             .collect(Collectors.joining(", ",
-                                                                                                         "{ Columns:[",
-                                                                                                         "], Mappings:{")),
-                                                         "} }"));
+    public String toString() {
+        return columnMappings.asMap().entrySet().stream().map(entry -> entry.getValue().stream().map(colDef -> colDef.name.toString()).collect(Collectors.joining(", ", entry.getKey().name.toString() + ":[", "]"))).collect(Collectors.joining(", ", columnSpecifications.stream().map(colSpec -> colSpec.name.toString()).collect(Collectors.joining(", ", "{ Columns:[", "], Mappings:{")), "} }"));
     }
 }

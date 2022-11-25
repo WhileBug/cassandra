@@ -24,7 +24,9 @@ package org.apache.cassandra.notifications;
  * Time: 10:53 PM
  * To change this template use File | Settings | File Templates.
  */
-public interface INotification
-{
+public interface INotification {
 
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(INotification.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(INotification.class);
 }

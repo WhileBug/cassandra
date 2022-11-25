@@ -23,18 +23,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.OpenDataException;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 
 /**
  * The MBean interface for ColumnFamilyStore
  */
-public interface ColumnFamilyStoreMBean
-{
+public interface ColumnFamilyStoreMBean {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnFamilyStoreMBean.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ColumnFamilyStoreMBean.class);
+
     /**
      * @return the name of the column family
      */
@@ -59,6 +61,7 @@ public interface ColumnFamilyStoreMBean
      * @param tokenRanges The token ranges to be compacted, interpreted as closed intervals.
      */
     public void forceCompactionForTokenRange(Collection<Range<Token>> tokenRanges) throws ExecutionException, InterruptedException;
+
     /**
      * Gets the minimum number of sstables in queue before compaction kicks off
      */
@@ -92,6 +95,7 @@ public interface ColumnFamilyStoreMBean
      * @param options compaction options with the same syntax as when doing ALTER ... WITH compaction = {..}
      */
     public void setCompactionParametersJson(String options);
+
     public String getCompactionParametersJson();
 
     /**
@@ -102,12 +106,13 @@ public interface ColumnFamilyStoreMBean
      * @param options compaction options map
      */
     public void setCompactionParameters(Map<String, String> options);
+
     public Map<String, String> getCompactionParameters();
 
     /**
      * Get the compression parameters
      */
-    public Map<String,String> getCompressionParameters();
+    public Map<String, String> getCompressionParameters();
 
     public String getCompressionParametersJson();
 
@@ -115,7 +120,8 @@ public interface ColumnFamilyStoreMBean
      * Set the compression parameters locally for this node
      * @param opts map of string names to values
      */
-    public void setCompressionParameters(Map<String,String> opts);
+    public void setCompressionParameters(Map<String, String> opts);
+
     public void setCompressionParametersJson(String options);
 
     /**
@@ -126,7 +132,6 @@ public interface ColumnFamilyStoreMBean
     public boolean isAutoCompactionDisabled();
 
     public long estimateKeys();
-
 
     /**
      * Returns a list of the names of the built column indexes for current store
@@ -163,13 +168,7 @@ public interface ColumnFamilyStoreMBean
      * @return list of failed import directories
      */
     @Deprecated
-    public List<String> importNewSSTables(Set<String> srcPaths,
-                                           boolean resetLevel,
-                                           boolean clearRepaired,
-                                           boolean verifySSTables,
-                                           boolean verifyTokens,
-                                           boolean invalidateCaches,
-                                           boolean extendedVerify);
+    public List<String> importNewSSTables(Set<String> srcPaths, boolean resetLevel, boolean clearRepaired, boolean verifySSTables, boolean verifyTokens, boolean invalidateCaches, boolean extendedVerify);
 
     /**
      * Load new sstables from the given directory
@@ -185,17 +184,11 @@ public interface ColumnFamilyStoreMBean
      *
      * @return list of failed import directories
      */
-    public List<String> importNewSSTables(Set<String> srcPaths,
-                                          boolean resetLevel,
-                                          boolean clearRepaired,
-                                          boolean verifySSTables,
-                                          boolean verifyTokens,
-                                          boolean invalidateCaches,
-                                          boolean extendedVerify,
-                                          boolean copyData);
+    public List<String> importNewSSTables(Set<String> srcPaths, boolean resetLevel, boolean clearRepaired, boolean verifySSTables, boolean verifyTokens, boolean invalidateCaches, boolean extendedVerify, boolean copyData);
 
     @Deprecated
     public void loadNewSSTables();
+
     /**
      * @return the number of SSTables in L0.  Always return 0 if Leveled compaction is not enabled.
      */

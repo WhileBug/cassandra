@@ -15,16 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.repair.asymmetric;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
-
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -39,33 +36,36 @@ import org.apache.cassandra.locator.InetAddressAndPort;
  * new StreamFromOptions (see copy below) with the same streamOptions, one with range (100, 180] and one with (180, 200] - then it
  * adds the new incoming difference to the StreamFromOptions for the new range (180, 200].
  */
-public class StreamFromOptions
-{
+public class StreamFromOptions {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamFromOptions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(StreamFromOptions.class);
+
     /**
      * all differences - used to figure out if two nodes are equals on the range
      */
-    private final DifferenceHolder differences;
+    private final transient DifferenceHolder differences;
+
     /**
      * The range to stream
      */
     @VisibleForTesting
-    final Range<Token> range;
+    final transient Range<Token> range;
+
     /**
      * Contains the hosts to stream from - if two nodes are in the same inner set, they are identical for the range we are handling
      */
-    private final Set<Set<InetAddressAndPort>> streamOptions = new HashSet<>();
+    private final transient Set<Set<InetAddressAndPort>> streamOptions = new HashSet<>();
 
-    public StreamFromOptions(DifferenceHolder differences, Range<Token> range)
-    {
+    public StreamFromOptions(DifferenceHolder differences, Range<Token> range) {
         this(differences, range, Collections.emptySet());
     }
 
-    private StreamFromOptions(DifferenceHolder differences, Range<Token> range, Set<Set<InetAddressAndPort>> existing)
-    {
+    private StreamFromOptions(DifferenceHolder differences, Range<Token> range, Set<Set<InetAddressAndPort>> existing) {
         this.differences = differences;
         this.range = range;
-        for (Set<InetAddressAndPort> addresses : existing)
-            this.streamOptions.add(Sets.newHashSet(addresses));
+        for (Set<InetAddressAndPort> addresses : existing) this.streamOptions.add(Sets.newHashSet(addresses));
     }
 
     /**
@@ -75,13 +75,10 @@ public class StreamFromOptions
      * range we are tracking, then just add it to the set with the identical remote nodes. Otherwise create a new group
      * of nodes containing this new node.
      */
-    public void add(InetAddressAndPort streamFromNode)
-    {
-        for (Set<InetAddressAndPort> options : streamOptions)
-        {
+    public void add(InetAddressAndPort streamFromNode) {
+        for (Set<InetAddressAndPort> options : streamOptions) {
             InetAddressAndPort first = options.iterator().next();
-            if (!differences.hasDifferenceBetween(first, streamFromNode, range))
-            {
+            if (!differences.hasDifferenceBetween(first, streamFromNode, range)) {
                 options.add(streamFromNode);
                 return;
             }
@@ -89,21 +86,15 @@ public class StreamFromOptions
         streamOptions.add(Sets.newHashSet(streamFromNode));
     }
 
-    public StreamFromOptions copy(Range<Token> withRange)
-    {
+    public StreamFromOptions copy(Range<Token> withRange) {
         return new StreamFromOptions(differences, withRange, streamOptions);
     }
 
-    public Iterable<Set<InetAddressAndPort>> allStreams()
-    {
+    public Iterable<Set<InetAddressAndPort>> allStreams() {
         return streamOptions;
     }
 
-    public String toString()
-    {
-        return "StreamFromOptions{" +
-               ", range=" + range +
-               ", streamOptions=" + streamOptions +
-               '}';
+    public String toString() {
+        return "StreamFromOptions{" + ", range=" + range + ", streamOptions=" + streamOptions + '}';
     }
 }

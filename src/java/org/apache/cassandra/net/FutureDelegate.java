@@ -20,7 +20,6 @@ package org.apache.cassandra.net;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
@@ -29,117 +28,99 @@ import io.netty.util.concurrent.GenericFutureListener;
  *
  * See {@link FutureCombiner} and {@link FutureResult}
  */
-class FutureDelegate<V> implements Future<V>
-{
-    final Future<V> delegate;
+class FutureDelegate<V> implements Future<V> {
 
-    FutureDelegate(Future<V> delegate)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FutureDelegate.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(FutureDelegate.class);
+
+    final transient Future<V> delegate;
+
+    FutureDelegate(Future<V> delegate) {
         this.delegate = delegate;
     }
 
-    public boolean isSuccess()
-    {
+    public boolean isSuccess() {
         return delegate.isSuccess();
     }
 
-    public boolean isCancellable()
-    {
+    public boolean isCancellable() {
         return delegate.isCancellable();
     }
 
-    public Throwable cause()
-    {
+    public Throwable cause() {
         return delegate.cause();
     }
 
-    public Future<V> addListener(GenericFutureListener<? extends Future<? super V>> genericFutureListener)
-    {
+    public Future<V> addListener(GenericFutureListener<? extends Future<? super V>> genericFutureListener) {
         return delegate.addListener(genericFutureListener);
     }
 
-    public Future<V> addListeners(GenericFutureListener<? extends Future<? super V>>... genericFutureListeners)
-    {
+    public Future<V> addListeners(GenericFutureListener<? extends Future<? super V>>... genericFutureListeners) {
         return delegate.addListeners(genericFutureListeners);
     }
 
-    public Future<V> removeListener(GenericFutureListener<? extends Future<? super V>> genericFutureListener)
-    {
+    public Future<V> removeListener(GenericFutureListener<? extends Future<? super V>> genericFutureListener) {
         return delegate.removeListener(genericFutureListener);
     }
 
-    public Future<V> removeListeners(GenericFutureListener<? extends Future<? super V>>... genericFutureListeners)
-    {
+    public Future<V> removeListeners(GenericFutureListener<? extends Future<? super V>>... genericFutureListeners) {
         return delegate.removeListeners(genericFutureListeners);
     }
 
-    public Future<V> sync() throws InterruptedException
-    {
+    public Future<V> sync() throws InterruptedException {
         return delegate.sync();
     }
 
-    public Future<V> syncUninterruptibly()
-    {
+    public Future<V> syncUninterruptibly() {
         return delegate.syncUninterruptibly();
     }
 
-    public Future<V> await() throws InterruptedException
-    {
+    public Future<V> await() throws InterruptedException {
         return delegate.await();
     }
 
-    public Future<V> awaitUninterruptibly()
-    {
+    public Future<V> awaitUninterruptibly() {
         return delegate.awaitUninterruptibly();
     }
 
-    public boolean await(long l, TimeUnit timeUnit) throws InterruptedException
-    {
+    public boolean await(long l, TimeUnit timeUnit) throws InterruptedException {
         return delegate.await(l, timeUnit);
     }
 
-    public boolean await(long l) throws InterruptedException
-    {
+    public boolean await(long l) throws InterruptedException {
         return delegate.await(l);
     }
 
-    public boolean awaitUninterruptibly(long l, TimeUnit timeUnit)
-    {
+    public boolean awaitUninterruptibly(long l, TimeUnit timeUnit) {
         return delegate.awaitUninterruptibly(l, timeUnit);
     }
 
-    public boolean awaitUninterruptibly(long l)
-    {
+    public boolean awaitUninterruptibly(long l) {
         return delegate.awaitUninterruptibly(l);
     }
 
-    public V getNow()
-    {
+    public V getNow() {
         return delegate.getNow();
     }
 
-    public boolean cancel(boolean b)
-    {
+    public boolean cancel(boolean b) {
         return delegate.cancel(b);
     }
 
-    public boolean isCancelled()
-    {
+    public boolean isCancelled() {
         return delegate.isCancelled();
     }
 
-    public boolean isDone()
-    {
+    public boolean isDone() {
         return delegate.isDone();
     }
 
-    public V get() throws InterruptedException, ExecutionException
-    {
+    public V get() throws InterruptedException, ExecutionException {
         return delegate.get();
     }
 
-    public V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
-    {
+    public V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
         return delegate.get(timeout, unit);
     }
 }

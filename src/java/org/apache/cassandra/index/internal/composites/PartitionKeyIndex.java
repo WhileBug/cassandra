@@ -18,7 +18,6 @@
 package org.apache.cassandra.index.internal.composites;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.marshal.CompositeType;
 import org.apache.cassandra.db.rows.CellPath;
@@ -45,53 +44,41 @@ import org.apache.cassandra.schema.IndexMetadata;
  * want to order the index cell name by partitioner first, and skipping a part
  * of the row key would change the order.
  */
-public class PartitionKeyIndex extends CassandraIndex
-{
-    private final boolean enforceStrictLiveness;
-    public PartitionKeyIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef)
-    {
+public class PartitionKeyIndex extends CassandraIndex {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionKeyIndex.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionKeyIndex.class);
+
+    private final transient boolean enforceStrictLiveness;
+
+    public PartitionKeyIndex(ColumnFamilyStore baseCfs, IndexMetadata indexDef) {
         super(baseCfs, indexDef);
         this.enforceStrictLiveness = baseCfs.metadata.get().enforceStrictLiveness();
     }
 
-    public ByteBuffer getIndexedValue(ByteBuffer partitionKey,
-                                      Clustering<?> clustering,
-                                      CellPath path,
-                                      ByteBuffer cellValue)
-    {
-        CompositeType keyComparator = (CompositeType)baseCfs.metadata().partitionKeyType;
+    public ByteBuffer getIndexedValue(ByteBuffer partitionKey, Clustering<?> clustering, CellPath path, ByteBuffer cellValue) {
+        CompositeType keyComparator = (CompositeType) baseCfs.metadata().partitionKeyType;
         ByteBuffer[] components = keyComparator.split(partitionKey);
         return components[indexedColumn.position()];
     }
 
-    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey,
-                                                   ClusteringPrefix<T> prefix,
-                                                   CellPath path)
-    {
+    public <T> CBuilder buildIndexClusteringPrefix(ByteBuffer partitionKey, ClusteringPrefix<T> prefix, CellPath path) {
         CBuilder builder = CBuilder.create(getIndexComparator());
         builder.add(partitionKey);
-        for (int i = 0; i < prefix.size(); i++)
-            builder.add(prefix.get(i), prefix.accessor());
+        for (int i = 0; i < prefix.size(); i++) builder.add(prefix.get(i), prefix.accessor());
         return builder;
     }
 
-    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry)
-    {
+    public IndexEntry decodeEntry(DecoratedKey indexedValue, Row indexEntry) {
         int ckCount = baseCfs.metadata().clusteringColumns().size();
         Clustering<?> clustering = indexEntry.clustering();
         CBuilder builder = CBuilder.create(baseCfs.getComparator());
-        for (int i = 0; i < ckCount; i++)
-            builder.add(clustering, i + 1);
-
-        return new IndexEntry(indexedValue,
-                              clustering,
-                              indexEntry.primaryKeyLivenessInfo().timestamp(),
-                              clustering.bufferAt(0),
-                              builder.build());
+        for (int i = 0; i < ckCount; i++) builder.add(clustering, i + 1);
+        return new IndexEntry(indexedValue, clustering, indexEntry.primaryKeyLivenessInfo().timestamp(), clustering.bufferAt(0), builder.build());
     }
 
-    public boolean isStale(Row data, ByteBuffer indexValue, int nowInSec)
-    {
+    public boolean isStale(Row data, ByteBuffer indexValue, int nowInSec) {
         return !data.hasLiveData(nowInSec, enforceStrictLiveness);
     }
 }

@@ -21,9 +21,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.UUID;
-
 import org.apache.commons.lang3.ArrayUtils;
-
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.UUIDGen;
 
@@ -33,27 +31,27 @@ import org.apache.cassandra.utils.UUIDGen;
  * This is essentially a UUID, but we wrap it as it's used quite a bit in the code and having a nicely named class make
  * the code more readable.
  */
-public class TableId
-{
-    private final UUID id;
+public class TableId {
 
-    private TableId(UUID id)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableId.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableId.class);
+
+    private final transient UUID id;
+
+    private TableId(UUID id) {
         this.id = id;
     }
 
-    public static TableId fromUUID(UUID id)
-    {
+    public static TableId fromUUID(UUID id) {
         return new TableId(id);
     }
 
-    public static TableId generate()
-    {
+    public static TableId generate() {
         return new TableId(UUIDGen.getTimeUUID());
     }
 
-    public static TableId fromString(String idString)
-    {
+    public static TableId fromString(String idString) {
         return new TableId(UUID.fromString(idString));
     }
 
@@ -65,53 +63,44 @@ public class TableId
      *
      * We shouldn't use this for any other table.
      */
-    public static TableId forSystemTable(String keyspace, String table)
-    {
+    public static TableId forSystemTable(String keyspace, String table) {
         assert SchemaConstants.isLocalSystemKeyspace(keyspace) || SchemaConstants.isReplicatedSystemKeyspace(keyspace);
         return new TableId(UUID.nameUUIDFromBytes(ArrayUtils.addAll(keyspace.getBytes(), table.getBytes())));
     }
 
-    public String toHexString()
-    {
+    public String toHexString() {
         return ByteBufferUtil.bytesToHex(ByteBufferUtil.bytes(id));
     }
 
-    public UUID asUUID()
-    {
+    public UUID asUUID() {
         return id;
     }
 
     @Override
-    public final int hashCode()
-    {
+    public final int hashCode() {
         return id.hashCode();
     }
 
     @Override
-    public final boolean equals(Object o)
-    {
+    public final boolean equals(Object o) {
         return this == o || (o instanceof TableId && this.id.equals(((TableId) o).id));
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return id.toString();
     }
 
-    public void serialize(DataOutput out) throws IOException
-    {
+    public void serialize(DataOutput out) throws IOException {
         out.writeLong(id.getMostSignificantBits());
         out.writeLong(id.getLeastSignificantBits());
     }
 
-    public int serializedSize()
-    {
+    public int serializedSize() {
         return 16;
     }
 
-    public static TableId deserialize(DataInput in) throws IOException
-    {
+    public static TableId deserialize(DataInput in) throws IOException {
         return new TableId(new UUID(in.readLong(), in.readLong()));
     }
 }

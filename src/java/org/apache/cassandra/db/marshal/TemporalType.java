@@ -18,17 +18,18 @@
 package org.apache.cassandra.db.marshal;
 
 import java.nio.ByteBuffer;
-
 import org.apache.cassandra.cql3.Duration;
 
 /**
  * Base type for temporal types (timestamp, date ...).
- *
  */
-public abstract class TemporalType<T> extends AbstractType<T>
-{
-    protected TemporalType(ComparisonType comparisonType)
-    {
+public abstract class TemporalType<T> extends AbstractType<T> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TemporalType.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TemporalType.class);
+
+    protected TemporalType(ComparisonType comparisonType) {
         super(comparisonType);
     }
 
@@ -36,8 +37,7 @@ public abstract class TemporalType<T> extends AbstractType<T>
      * Returns the current temporal value.
      * @return the current temporal value.
      */
-    public ByteBuffer now()
-    {
+    public ByteBuffer now() {
         return fromTimeInMillis(System.currentTimeMillis());
     }
 
@@ -46,8 +46,7 @@ public abstract class TemporalType<T> extends AbstractType<T>
      * @param value the temporal value.
      * @return the UNIX timestamp corresponding to this temporal.
      */
-    public long toTimeInMillis(ByteBuffer value)
-    {
+    public long toTimeInMillis(ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
 
@@ -56,8 +55,7 @@ public abstract class TemporalType<T> extends AbstractType<T>
      * @param timeInMillis the UNIX timestamp to convert
      * @return the temporal value corresponding to the specified UNIX timestamp
      */
-    public ByteBuffer fromTimeInMillis(long timeInMillis)
-    {
+    public ByteBuffer fromTimeInMillis(long timeInMillis) {
         throw new UnsupportedOperationException();
     }
 
@@ -68,9 +66,7 @@ public abstract class TemporalType<T> extends AbstractType<T>
      * @param duration the duration to add
      * @return the addition result
      */
-    public ByteBuffer addDuration(ByteBuffer temporal,
-                                  ByteBuffer duration)
-    {
+    public ByteBuffer addDuration(ByteBuffer temporal, ByteBuffer duration) {
         long timeInMillis = toTimeInMillis(temporal);
         Duration d = DurationType.instance.compose(duration);
         validateDuration(d);
@@ -84,9 +80,7 @@ public abstract class TemporalType<T> extends AbstractType<T>
      * @param duration the duration to substract
      * @return the substracion result
      */
-    public ByteBuffer substractDuration(ByteBuffer temporal,
-                                ByteBuffer duration)
-    {
+    public ByteBuffer substractDuration(ByteBuffer temporal, ByteBuffer duration) {
         long timeInMillis = toTimeInMillis(temporal);
         Duration d = DurationType.instance.compose(duration);
         validateDuration(d);
@@ -97,7 +91,6 @@ public abstract class TemporalType<T> extends AbstractType<T>
      * Validates that the duration has the correct precision.
      * @param duration the duration to validate.
      */
-    protected void validateDuration(Duration duration)
-    {
+    protected void validateDuration(Duration duration) {
     }
 }

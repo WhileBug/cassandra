@@ -24,6 +24,9 @@ import io.airlift.airline.Command;
  */
 @Command(name = "cfhistograms", hidden = true, description = "Print statistic histograms for a given column family")
 @Deprecated
-public class CfHistograms extends TableHistograms
-{
+public class CfHistograms extends TableHistograms {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CfHistograms.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CfHistograms.class);
 }

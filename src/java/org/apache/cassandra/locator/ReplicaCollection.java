@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import java.util.Comparator;
@@ -28,8 +27,12 @@ import java.util.stream.Stream;
  * A collection like class for Replica objects. Represents both a well defined order on the contained Replica objects,
  * and efficient methods for accessing the contained Replicas, directly and as a projection onto their endpoints and ranges.
  */
-public interface ReplicaCollection<C extends ReplicaCollection<C>> extends Iterable<Replica>
-{
+public interface ReplicaCollection<C extends ReplicaCollection<C>> extends Iterable<Replica> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicaCollection.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicaCollection.class);
+
     /**
      * @return a Set of the endpoints of the contained Replicas.
      * Iteration order is maintained where there is a 1:1 relationship between endpoint and Replica
@@ -104,18 +107,21 @@ public interface ReplicaCollection<C extends ReplicaCollection<C>> extends Itera
     public abstract C sorted(Comparator<Replica> comparator);
 
     public abstract Iterator<Replica> iterator();
+
     public abstract Stream<Replica> stream();
 
     public abstract boolean equals(Object o);
+
     public abstract int hashCode();
+
     public abstract String toString();
 
     /**
      * A mutable (append-only) extension of a ReplicaCollection.
      * All methods besides add() will return an immutable snapshot of the collection, or the matching items.
      */
-    public interface Builder<C extends ReplicaCollection<C>> extends ReplicaCollection<C>
-    {
+    public interface Builder<C extends ReplicaCollection<C>> extends ReplicaCollection<C> {
+
         /**
          * @return an Immutable clone that assumes this Builder will never be modified again,
          * so its contents can be reused.
@@ -133,13 +139,19 @@ public interface ReplicaCollection<C extends ReplicaCollection<C>> extends Itera
          * Passed to add() and addAll() as ignoreConflicts parameter. The meaning of conflict varies by collection type
          * (for Endpoints, it is a duplicate InetAddressAndPort; for RangesAtEndpoint it is a duplicate Range).
          */
-        enum Conflict
-        {
-            /** fail on addition of any such conflict */
+        enum Conflict {
+
+            /**
+             * fail on addition of any such conflict
+             */
             NONE,
-            /** fail on addition of any such conflict where the contents differ (first occurrence and position wins) */
+            /**
+             * fail on addition of any such conflict where the contents differ (first occurrence and position wins)
+             */
             DUPLICATE,
-            /** ignore all conflicts (the first occurrence and position wins) */
+            /**
+             * ignore all conflicts (the first occurrence and position wins)
+             */
             ALL
         }
 
@@ -149,22 +161,17 @@ public interface ReplicaCollection<C extends ReplicaCollection<C>> extends Itera
          */
         Builder<C> add(Replica replica, Conflict ignoreConflict);
 
-        default public Builder<C> add(Replica replica)
-        {
+        default public Builder<C> add(Replica replica) {
             return add(replica, Conflict.NONE);
         }
 
-        default public Builder<C> addAll(Iterable<Replica> replicas, Conflict ignoreConflicts)
-        {
-            for (Replica replica : replicas)
-                add(replica, ignoreConflicts);
+        default public Builder<C> addAll(Iterable<Replica> replicas, Conflict ignoreConflicts) {
+            for (Replica replica : replicas) add(replica, ignoreConflicts);
             return this;
         }
 
-        default public Builder<C> addAll(Iterable<Replica> replicas)
-        {
+        default public Builder<C> addAll(Iterable<Replica> replicas) {
             return addAll(replicas, Conflict.NONE);
         }
     }
-
 }

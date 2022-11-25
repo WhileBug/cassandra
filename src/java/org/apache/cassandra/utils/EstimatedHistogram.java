@@ -20,19 +20,21 @@ package org.apache.cassandra.utils;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLongArray;
-
 import com.google.common.base.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.db.TypeSizes;
 import org.apache.cassandra.io.ISerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 
-public class EstimatedHistogram
-{
-    public static final EstimatedHistogramSerializer serializer = new EstimatedHistogramSerializer();
+public class EstimatedHistogram {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EstimatedHistogram.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(EstimatedHistogram.class);
+
+    public static final transient EstimatedHistogramSerializer serializer = new EstimatedHistogramSerializer();
 
     /**
      * The series of values to which the counts in `buckets` correspond:
@@ -45,23 +47,20 @@ public class EstimatedHistogram
      *
      * Each bucket represents values from (previous bucket offset, current offset].
      */
-    private final long[] bucketOffsets;
+    private final transient long[] bucketOffsets;
 
     // buckets is one element longer than bucketOffsets -- the last element is values greater than the last offset
-    final AtomicLongArray buckets;
+    final transient AtomicLongArray buckets;
 
-    public EstimatedHistogram()
-    {
+    public EstimatedHistogram() {
         this(90);
     }
 
-    public EstimatedHistogram(int bucketCount)
-    {
+    public EstimatedHistogram(int bucketCount) {
         this(bucketCount, false);
     }
 
-    public EstimatedHistogram(int bucketCount, boolean considerZeroes)
-    {
+    public EstimatedHistogram(int bucketCount, boolean considerZeroes) {
         bucketOffsets = newOffsets(bucketCount, considerZeroes);
         buckets = new AtomicLongArray(bucketOffsets.length + 1);
     }
@@ -71,53 +70,45 @@ public class EstimatedHistogram
      *
      * @param bucketData bucket data
      */
-    public EstimatedHistogram(long[] bucketData)
-    {
+    public EstimatedHistogram(long[] bucketData) {
         assert bucketData != null && bucketData.length > 0 : "Bucket data must be an array of size more than 0";
         bucketOffsets = newOffsets(bucketData.length - 1, false);
         buckets = new AtomicLongArray(bucketData);
     }
 
-    public EstimatedHistogram(long[] offsets, long[] bucketData)
-    {
-        assert bucketData.length == offsets.length +1;
+    public EstimatedHistogram(long[] offsets, long[] bucketData) {
+        assert bucketData.length == offsets.length + 1;
         bucketOffsets = offsets;
         buckets = new AtomicLongArray(bucketData);
     }
 
-    public static long[] newOffsets(int size, boolean considerZeroes)
-    {
+    public static long[] newOffsets(int size, boolean considerZeroes) {
         long[] result = new long[size + (considerZeroes ? 1 : 0)];
         int i = 0;
         if (considerZeroes)
             result[i++] = 0;
         long last = 1;
         result[i++] = last;
-        for (; i < result.length; i++)
-        {
+        for (; i < result.length; i++) {
             long next = Math.round(last * 1.2);
             if (next == last)
                 next++;
             result[i] = next;
             last = next;
         }
-
         return result;
     }
 
     /**
      * @return the histogram values corresponding to each bucket index
      */
-    public long[] getBucketOffsets()
-    {
+    public long[] getBucketOffsets() {
         return bucketOffsets;
     }
 
-    private int findIndex(long n)
-    {
+    private int findIndex(long n) {
         int index = Arrays.binarySearch(bucketOffsets, n);
-        if (index < 0)
-        {
+        if (index < 0) {
             // inexact match, take the first bucket higher than n
             index = -index - 1;
         }
@@ -128,8 +119,7 @@ public class EstimatedHistogram
      * Increments the count of the bucket closest to n, rounding UP.
      * @param n
      */
-    public void add(long n)
-    {
+    public void add(long n) {
         buckets.incrementAndGet(findIndex(n));
     }
 
@@ -137,16 +127,14 @@ public class EstimatedHistogram
      * Increments the count of the bucket closest to n, rounding UP by delta
      * @param n
      */
-    public void add(long n, long delta)
-    {
+    public void add(long n, long delta) {
         buckets.addAndGet(findIndex(n), delta);
     }
 
     /**
      * @return the count in the given bucket
      */
-    long get(int bucket)
-    {
+    long get(int bucket) {
         return buckets.get(bucket);
     }
 
@@ -154,28 +142,21 @@ public class EstimatedHistogram
      * @param reset zero out buckets afterwards if true
      * @return a long[] containing the current histogram buckets
      */
-    public long[] getBuckets(boolean reset)
-    {
+    public long[] getBuckets(boolean reset) {
         final int len = buckets.length();
         long[] rv = new long[len];
-
         if (reset)
-            for (int i = 0; i < len; i++)
-                rv[i] = buckets.getAndSet(i, 0L);
+            for (int i = 0; i < len; i++) rv[i] = buckets.getAndSet(i, 0L);
         else
-            for (int i = 0; i < len; i++)
-                rv[i] = buckets.get(i);
-
+            for (int i = 0; i < len; i++) rv[i] = buckets.get(i);
         return rv;
     }
 
     /**
      * @return the smallest value that could have been added to this histogram
      */
-    public long min()
-    {
-        for (int i = 0; i < buckets.length(); i++)
-        {
+    public long min() {
+        for (int i = 0; i < buckets.length(); i++) {
             if (buckets.get(i) > 0)
                 return i == 0 ? 0 : 1 + bucketOffsets[i - 1];
         }
@@ -186,14 +167,11 @@ public class EstimatedHistogram
      * @return the largest value that could have been added to this histogram.  If the histogram
      * overflowed, returns Long.MAX_VALUE.
      */
-    public long max()
-    {
+    public long max() {
         int lastBucket = buckets.length() - 1;
         if (buckets.get(lastBucket) > 0)
             return Long.MAX_VALUE;
-
-        for (int i = lastBucket - 1; i >= 0; i--)
-        {
+        for (int i = lastBucket - 1; i >= 0; i--) {
             if (buckets.get(i) > 0)
                 return bucketOffsets[i];
         }
@@ -204,20 +182,16 @@ public class EstimatedHistogram
      * @param percentile
      * @return estimated value at given percentile
      */
-    public long percentile(double percentile)
-    {
+    public long percentile(double percentile) {
         assert percentile >= 0 && percentile <= 1.0;
         int lastBucket = buckets.length() - 1;
         if (buckets.get(lastBucket) > 0)
             throw new IllegalStateException("Unable to compute when histogram overflowed");
-
         long pcount = (long) Math.ceil(count() * percentile);
         if (pcount == 0)
             return 0;
-
         long elements = 0;
-        for (int i = 0; i < lastBucket; i++)
-        {
+        for (int i = 0; i < lastBucket; i++) {
             elements += buckets.get(i);
             if (elements >= pcount)
                 return bucketOffsets[i];
@@ -229,8 +203,7 @@ public class EstimatedHistogram
      * @return the ceil of mean histogram value (average of bucket offsets, weighted by count)
      * @throws IllegalStateException if any values were greater than the largest bucket threshold
      */
-    public long mean()
-    {
+    public long mean() {
         return (long) Math.ceil(rawMean());
     }
 
@@ -238,64 +211,54 @@ public class EstimatedHistogram
      * @return the mean histogram value (average of bucket offsets, weighted by count)
      * @throws IllegalStateException if any values were greater than the largest bucket threshold
      */
-    public double rawMean()
-    {
+    public double rawMean() {
         int lastBucket = buckets.length() - 1;
         if (buckets.get(lastBucket) > 0)
             throw new IllegalStateException("Unable to compute ceiling for max when histogram overflowed");
-
         long elements = 0;
         long sum = 0;
-        for (int i = 0; i < lastBucket; i++)
-        {
+        for (int i = 0; i < lastBucket; i++) {
             long bCount = buckets.get(i);
             elements += bCount;
             sum += bCount * bucketOffsets[i];
         }
-
         return (double) sum / elements;
     }
 
     /**
      * @return the total number of non-zero values
      */
-    public long count()
-    {
-       long sum = 0L;
-       for (int i = 0; i < buckets.length(); i++)
-           sum += buckets.get(i);
-       return sum;
+    public long count() {
+        long sum = 0L;
+        for (int i = 0; i < buckets.length(); i++) sum += buckets.get(i);
+        return sum;
     }
 
     /**
      * @return the largest bucket offset
      */
-    public long getLargestBucketOffset()
-    {
+    public long getLargestBucketOffset() {
         return bucketOffsets[bucketOffsets.length - 1];
     }
 
     /**
      * @return true if a value larger than our largest bucket offset has been recorded, and false otherwise
      */
-    public boolean isOverflowed()
-    {
+    public boolean isOverflowed() {
         return overflowCount() > 0;
     }
 
     /**
      * @return the number of recorded values larger than the largest bucket offset
      */
-    public long overflowCount()
-    {
+    public long overflowCount() {
         return buckets.get(buckets.length() - 1);
     }
 
     /**
      * Resets the count in the overflow bucket to zero. Subsequent calls to {@link #isOverflowed()} will return false.
      */
-    public void clearOverflow()
-    {
+    public void clearOverflow() {
         buckets.set(buckets.length() - 1, 0);
     }
 
@@ -304,8 +267,7 @@ public class EstimatedHistogram
      *
      * @param log
      */
-    public void log(Logger log)
-    {
+    public void log(Logger log) {
         // only print overflow if there is any
         int nameCount;
         if (buckets.get(buckets.length() - 1) == 0)
@@ -313,18 +275,14 @@ public class EstimatedHistogram
         else
             nameCount = buckets.length();
         String[] names = new String[nameCount];
-
         int maxNameLength = 0;
-        for (int i = 0; i < nameCount; i++)
-        {
+        for (int i = 0; i < nameCount; i++) {
             names[i] = nameOfRange(bucketOffsets, i);
             maxNameLength = Math.max(maxNameLength, names[i].length());
         }
-
         // emit log records
         String formatstr = "%" + maxNameLength + "s: %d";
-        for (int i = 0; i < nameCount; i++)
-        {
+        for (int i = 0; i < nameCount; i++) {
             long count = buckets.get(i);
             // sort-of-hack to not print empty ranges at the start that are only used to demarcate the
             // first populated range. for code clarity we don't omit this record from the maxNameLength
@@ -335,15 +293,13 @@ public class EstimatedHistogram
         }
     }
 
-    private static String nameOfRange(long[] bucketOffsets, int index)
-    {
+    private static String nameOfRange(long[] bucketOffsets, int index) {
         StringBuilder sb = new StringBuilder();
         appendRange(sb, bucketOffsets, index);
         return sb.toString();
     }
 
-    private static void appendRange(StringBuilder sb, long[] bucketOffsets, int index)
-    {
+    private static void appendRange(StringBuilder sb, long[] bucketOffsets, int index) {
         sb.append("[");
         if (index == 0)
             if (bucketOffsets[0] > 0)
@@ -363,70 +319,54 @@ public class EstimatedHistogram
     }
 
     @Override
-    public boolean equals(Object o)
-    {
+    public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (!(o instanceof EstimatedHistogram))
             return false;
-
         EstimatedHistogram that = (EstimatedHistogram) o;
-        return Arrays.equals(getBucketOffsets(), that.getBucketOffsets()) &&
-               Arrays.equals(getBuckets(false), that.getBuckets(false));
+        return Arrays.equals(getBucketOffsets(), that.getBucketOffsets()) && Arrays.equals(getBuckets(false), that.getBuckets(false));
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(getBucketOffsets(), getBuckets(false));
     }
 
-    public static class EstimatedHistogramSerializer implements ISerializer<EstimatedHistogram>
-    {
-        private static final Logger logger = LoggerFactory.getLogger(EstimatedHistogramSerializer.class);
+    public static class EstimatedHistogramSerializer implements ISerializer<EstimatedHistogram> {
 
-        public void serialize(EstimatedHistogram eh, DataOutputPlus out) throws IOException
-        {
-            if (eh.isOverflowed())
-            {
-                logger.warn("Serializing a histogram with {} values greater than the maximum of {}...",
-                            eh.overflowCount(), eh.getLargestBucketOffset());
+        private static final transient Logger logger = LoggerFactory.getLogger(EstimatedHistogramSerializer.class);
+
+        public void serialize(EstimatedHistogram eh, DataOutputPlus out) throws IOException {
+            if (eh.isOverflowed()) {
+                logger.warn("Serializing a histogram with {} values greater than the maximum of {}...", eh.overflowCount(), eh.getLargestBucketOffset());
             }
-
             long[] offsets = eh.getBucketOffsets();
             long[] buckets = eh.getBuckets(false);
             out.writeInt(buckets.length);
-            for (int i = 0; i < buckets.length; i++)
-            {
+            for (int i = 0; i < buckets.length; i++) {
                 out.writeLong(offsets[i == 0 ? 0 : i - 1]);
                 out.writeLong(buckets[i]);
             }
         }
 
-        public EstimatedHistogram deserialize(DataInputPlus in) throws IOException
-        {
+        public EstimatedHistogram deserialize(DataInputPlus in) throws IOException {
             int size = in.readInt();
             long[] offsets = new long[size - 1];
             long[] buckets = new long[size];
-
-            for (int i = 0; i < size; i++)
-            {
+            for (int i = 0; i < size; i++) {
                 offsets[i == 0 ? 0 : i - 1] = in.readLong();
                 buckets[i] = in.readLong();
             }
             return new EstimatedHistogram(offsets, buckets);
         }
 
-        public long serializedSize(EstimatedHistogram eh)
-        {
+        public long serializedSize(EstimatedHistogram eh) {
             int size = 0;
-
             long[] offsets = eh.getBucketOffsets();
             long[] buckets = eh.getBuckets(false);
             size += TypeSizes.sizeof(buckets.length);
-            for (int i = 0; i < buckets.length; i++)
-            {
+            for (int i = 0; i < buckets.length; i++) {
                 size += TypeSizes.sizeof(offsets[i == 0 ? 0 : i - 1]);
                 size += TypeSizes.sizeof(buckets[i]);
             }

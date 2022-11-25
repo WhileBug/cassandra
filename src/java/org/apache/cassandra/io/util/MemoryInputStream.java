@@ -21,27 +21,28 @@ import java.io.DataInput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
-
 import org.apache.cassandra.utils.memory.MemoryUtil;
 
-public class MemoryInputStream extends RebufferingInputStream implements DataInput
-{
-    private final Memory mem;
-    private final int bufferSize;
-    private long offset;
+public class MemoryInputStream extends RebufferingInputStream implements DataInput {
 
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemoryInputStream.class);
 
-    public MemoryInputStream(Memory mem)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MemoryInputStream.class);
+
+    private final transient Memory mem;
+
+    private final transient int bufferSize;
+
+    private transient long offset;
+
+    public MemoryInputStream(Memory mem) {
         this(mem, Ints.saturatedCast(mem.size));
     }
 
     @VisibleForTesting
-    public MemoryInputStream(Memory mem, int bufferSize)
-    {
+    public MemoryInputStream(Memory mem, int bufferSize) {
         super(getByteBuffer(mem.peer, bufferSize));
         this.mem = mem;
         this.bufferSize = bufferSize;
@@ -49,28 +50,23 @@ public class MemoryInputStream extends RebufferingInputStream implements DataInp
     }
 
     @Override
-    protected void reBuffer() throws IOException
-    {
+    protected void reBuffer() throws IOException {
         if (offset - mem.peer >= mem.size())
             return;
-
         buffer = getByteBuffer(offset, Math.min(bufferSize, Ints.saturatedCast(memRemaining())));
         offset += buffer.capacity();
     }
 
     @Override
-    public int available()
-    {
+    public int available() {
         return Ints.saturatedCast(buffer.remaining() + memRemaining());
     }
 
-    private long memRemaining()
-    {
+    private long memRemaining() {
         return mem.size + mem.peer - offset;
     }
 
-    private static ByteBuffer getByteBuffer(long offset, int length)
-    {
+    private static ByteBuffer getByteBuffer(long offset, int length) {
         return MemoryUtil.getByteBuffer(offset, length, ByteOrder.BIG_ENDIAN);
     }
 }

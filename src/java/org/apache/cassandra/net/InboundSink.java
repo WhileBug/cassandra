@@ -21,9 +21,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.Predicate;
-
 import org.slf4j.LoggerFactory;
-
 import net.openhft.chronicle.core.util.ThrowingConsumer;
 import org.apache.cassandra.db.filter.TombstoneOverwhelmingException;
 import org.apache.cassandra.exceptions.RequestFailureReason;
@@ -42,64 +40,56 @@ import org.apache.cassandra.utils.NoSpamLogger;
  * {@link #accept(Message)} is invoked on a thread belonging to the {@link org.apache.cassandra.concurrent.Stage}
  * assigned to the {@link Verb} of the message.
  */
-public class InboundSink implements InboundMessageHandlers.MessageConsumer
-{
-    private static final NoSpamLogger noSpamLogger =
-        NoSpamLogger.getLogger(LoggerFactory.getLogger(InboundSink.class), 1L, TimeUnit.SECONDS);
+public class InboundSink implements InboundMessageHandlers.MessageConsumer {
 
-    private static class Filtered implements ThrowingConsumer<Message<?>, IOException>
-    {
-        final Predicate<Message<?>> condition;
-        final ThrowingConsumer<Message<?>, IOException> next;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InboundSink.class);
 
-        private Filtered(Predicate<Message<?>> condition, ThrowingConsumer<Message<?>, IOException> next)
-        {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(InboundSink.class);
+
+    private static final transient NoSpamLogger noSpamLogger = NoSpamLogger.getLogger(LoggerFactory.getLogger(InboundSink.class), 1L, TimeUnit.SECONDS);
+
+    private static class Filtered implements ThrowingConsumer<Message<?>, IOException> {
+
+        final transient Predicate<Message<?>> condition;
+
+        final transient ThrowingConsumer<Message<?>, IOException> next;
+
+        private Filtered(Predicate<Message<?>> condition, ThrowingConsumer<Message<?>, IOException> next) {
             this.condition = condition;
             this.next = next;
         }
 
-        public void accept(Message<?> message) throws IOException
-        {
+        public void accept(Message<?> message) throws IOException {
             if (condition.test(message))
                 next.accept(message);
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
-    private volatile ThrowingConsumer<Message<?>, IOException> sink;
-    private static final AtomicReferenceFieldUpdater<InboundSink, ThrowingConsumer> sinkUpdater
-        = AtomicReferenceFieldUpdater.newUpdater(InboundSink.class, ThrowingConsumer.class, "sink");
+    private volatile transient ThrowingConsumer<Message<?>, IOException> sink;
 
-    private final MessagingService messaging;
+    private static final transient AtomicReferenceFieldUpdater<InboundSink, ThrowingConsumer> sinkUpdater = AtomicReferenceFieldUpdater.newUpdater(InboundSink.class, ThrowingConsumer.class, "sink");
 
-    InboundSink(MessagingService messaging)
-    {
+    private final transient MessagingService messaging;
+
+    InboundSink(MessagingService messaging) {
         this.messaging = messaging;
         this.sink = message -> message.header.verb.handler().doVerb((Message<Object>) message);
     }
 
-    public void fail(Message.Header header, Throwable failure)
-    {
-        if (header.callBackOnFailure())
-        {
+    public void fail(Message.Header header, Throwable failure) {
+        if (header.callBackOnFailure()) {
             InetAddressAndPort to = header.respondTo() != null ? header.respondTo() : header.from;
-            Message<RequestFailureReason> response = Message.failureResponse(header.id,
-                                                                             header.expiresAtNanos,
-                                                                             RequestFailureReason.forException(failure));
+            Message<RequestFailureReason> response = Message.failureResponse(header.id, header.expiresAtNanos, RequestFailureReason.forException(failure));
             messaging.send(response, to);
         }
     }
 
-    public void accept(Message<?> message)
-    {
-        try
-        {
+    public void accept(Message<?> message) {
+        try {
             sink.accept(message);
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             fail(message.header, t);
-
             if (t instanceof TombstoneOverwhelmingException || t instanceof IndexNotAvailableException)
                 noSpamLogger.error(t.getMessage());
             else if (t instanceof RuntimeException)
@@ -109,51 +99,39 @@ public class InboundSink implements InboundMessageHandlers.MessageConsumer
         }
     }
 
-    public void add(Predicate<Message<?>> allow)
-    {
+    public void add(Predicate<Message<?>> allow) {
         sinkUpdater.updateAndGet(this, sink -> new Filtered(allow, sink));
     }
 
-    public void remove(Predicate<Message<?>> allow)
-    {
+    public void remove(Predicate<Message<?>> allow) {
         sinkUpdater.updateAndGet(this, sink -> without(sink, allow));
     }
 
-    public void clear()
-    {
+    public void clear() {
         sinkUpdater.updateAndGet(this, InboundSink::clear);
     }
 
-    @Deprecated // TODO: this is not the correct way to do things
-    public boolean allow(Message<?> message)
-    {
+    // TODO: this is not the correct way to do things
+    @Deprecated
+    public boolean allow(Message<?> message) {
         return allows(sink, message);
     }
 
-    private static ThrowingConsumer<Message<?>, IOException> clear(ThrowingConsumer<Message<?>, IOException> sink)
-    {
-        while (sink instanceof Filtered)
-            sink = ((Filtered) sink).next;
+    private static ThrowingConsumer<Message<?>, IOException> clear(ThrowingConsumer<Message<?>, IOException> sink) {
+        while (sink instanceof Filtered) sink = ((Filtered) sink).next;
         return sink;
     }
 
-    private static ThrowingConsumer<Message<?>, IOException> without(ThrowingConsumer<Message<?>, IOException> sink, Predicate<Message<?>> condition)
-    {
+    private static ThrowingConsumer<Message<?>, IOException> without(ThrowingConsumer<Message<?>, IOException> sink, Predicate<Message<?>> condition) {
         if (!(sink instanceof Filtered))
             return sink;
-
         Filtered filtered = (Filtered) sink;
         ThrowingConsumer<Message<?>, IOException> next = without(filtered.next, condition);
-        return condition.equals(filtered.condition) ? next
-                                                    : next == filtered.next
-                                                      ? sink
-                                                      : new Filtered(filtered.condition, next);
+        return condition.equals(filtered.condition) ? next : next == filtered.next ? sink : new Filtered(filtered.condition, next);
     }
 
-    private static boolean allows(ThrowingConsumer<Message<?>, IOException> sink, Message<?> message)
-    {
-        while (sink instanceof Filtered)
-        {
+    private static boolean allows(ThrowingConsumer<Message<?>, IOException> sink, Message<?> message) {
+        while (sink instanceof Filtered) {
             Filtered filtered = (Filtered) sink;
             if (!filtered.condition.test(message))
                 return false;
@@ -161,5 +139,4 @@ public class InboundSink implements InboundMessageHandlers.MessageConsumer
         }
         return true;
     }
-
 }

@@ -17,23 +17,40 @@
  */
 package org.apache.cassandra.net;
 
-interface OutboundDebugCallbacks
-{
-    static final OutboundDebugCallbacks NONE = new OutboundDebugCallbacks()
-    {
-        public void onSendSmallFrame(int messageCount, int payloadSizeInBytes) {}
-        public void onSentSmallFrame(int messageCount, int payloadSizeInBytes) {}
-        public void onFailedSmallFrame(int messageCount, int payloadSizeInBytes) {}
-        public void onConnect(int messagingVersion, OutboundConnectionSettings settings) {}
+interface OutboundDebugCallbacks {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutboundDebugCallbacks.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(OutboundDebugCallbacks.class);
+
+    static final transient OutboundDebugCallbacks NONE = new OutboundDebugCallbacks() {
+
+        public void onSendSmallFrame(int messageCount, int payloadSizeInBytes) {
+        }
+
+        public void onSentSmallFrame(int messageCount, int payloadSizeInBytes) {
+        }
+
+        public void onFailedSmallFrame(int messageCount, int payloadSizeInBytes) {
+        }
+
+        public void onConnect(int messagingVersion, OutboundConnectionSettings settings) {
+        }
     };
 
-    /** A complete Frame has been handed to Netty to write to the wire. */
+    /**
+     * A complete Frame has been handed to Netty to write to the wire.
+     */
     void onSendSmallFrame(int messageCount, int payloadSizeInBytes);
 
-    /** A complete Frame has been serialized to the wire */
+    /**
+     * A complete Frame has been serialized to the wire
+     */
     void onSentSmallFrame(int messageCount, int payloadSizeInBytes);
 
-    /** Failed to send an entire frame due to network problems; presumed to be invoked in same order as onSendSmallFrame */
+    /**
+     * Failed to send an entire frame due to network problems; presumed to be invoked in same order as onSendSmallFrame
+     */
     void onFailedSmallFrame(int messageCount, int payloadSizeInBytes);
 
     void onConnect(int messagingVersion, OutboundConnectionSettings settings);

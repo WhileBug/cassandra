@@ -15,13 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db;
 
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.index.transactions.UpdateTransaction;
 
-public interface TableWriteHandler
-{
+public interface TableWriteHandler {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableWriteHandler.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TableWriteHandler.class);
+
     void write(PartitionUpdate update, WriteContext context, UpdateTransaction updateTransaction);
 }

@@ -24,29 +24,30 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class SetHostStat implements Iterable<HostStat>
-{
-    final List<HostStat> hostStats = new ArrayList<HostStat>();
-    final boolean resolveIp;
+public class SetHostStat implements Iterable<HostStat> {
 
-    public SetHostStat(boolean resolveIp)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetHostStat.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SetHostStat.class);
+
+    final transient List<HostStat> hostStats = new ArrayList<HostStat>();
+
+    final transient boolean resolveIp;
+
+    public SetHostStat(boolean resolveIp) {
         this.resolveIp = resolveIp;
     }
 
-    public int size()
-    {
+    public int size() {
         return hostStats.size();
     }
 
     @Override
-    public Iterator<HostStat> iterator()
-    {
+    public Iterator<HostStat> iterator() {
         return hostStats.iterator();
     }
 
-    public void add(String token, String host, Map<InetAddress, Float> ownerships) throws UnknownHostException
-    {
+    public void add(String token, String host, Map<InetAddress, Float> ownerships) throws UnknownHostException {
         InetAddress endpoint = InetAddress.getByName(host);
         Float owns = ownerships.get(endpoint);
         hostStats.add(new HostStat(token, endpoint, resolveIp, owns));

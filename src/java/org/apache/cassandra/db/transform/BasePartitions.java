@@ -21,56 +21,43 @@
 package org.apache.cassandra.db.transform;
 
 import java.util.Collections;
-
 import org.apache.cassandra.db.partitions.BasePartitionIterator;
 import org.apache.cassandra.db.rows.BaseRowIterator;
 import org.apache.cassandra.utils.Throwables;
-
 import static org.apache.cassandra.utils.Throwables.merge;
 
-public abstract class BasePartitions<R extends BaseRowIterator<?>, I extends BasePartitionIterator<? extends BaseRowIterator<?>>>
-extends BaseIterator<BaseRowIterator<?>, I, R>
-implements BasePartitionIterator<R>
-{
+public abstract class BasePartitions<R extends BaseRowIterator<?>, I extends BasePartitionIterator<? extends BaseRowIterator<?>>> extends BaseIterator<BaseRowIterator<?>, I, R> implements BasePartitionIterator<R> {
 
-    public BasePartitions(I input)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BasePartitions.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BasePartitions.class);
+
+    public BasePartitions(I input) {
         super(input);
     }
 
-    BasePartitions(BasePartitions<?, ? extends I> copyFrom)
-    {
+    BasePartitions(BasePartitions<?, ? extends I> copyFrom) {
         super(copyFrom);
     }
 
-
     // *********************************
-
-
-    protected BaseRowIterator<?> applyOne(BaseRowIterator<?> value, Transformation transformation)
-    {
+    protected BaseRowIterator<?> applyOne(BaseRowIterator<?> value, Transformation transformation) {
         return value == null ? null : transformation.applyToPartition(value);
     }
 
-    void add(Transformation transformation)
-    {
+    void add(Transformation transformation) {
         transformation.attachTo(this);
         super.add(transformation);
         next = applyOne(next, transformation);
     }
 
-    protected Throwable runOnClose(int length)
-    {
+    protected Throwable runOnClose(int length) {
         Throwable fail = null;
         Transformation[] fs = stack;
-        for (int i = 0 ; i < length ; i++)
-        {
-            try
-            {
+        for (int i = 0; i < length; i++) {
+            try {
                 fs[i].onClose();
-            }
-            catch (Throwable t)
-            {
+            } catch (Throwable t) {
                 fail = merge(fail, t);
             }
         }
@@ -78,44 +65,29 @@ implements BasePartitionIterator<R>
     }
 
     @SuppressWarnings("resource")
-    public final boolean hasNext()
-    {
+    public final boolean hasNext() {
         BaseRowIterator<?> next = null;
-        try
-        {
-
+        try {
             Stop stop = this.stop;
-            while (this.next == null)
-            {
+            while (this.next == null) {
                 Transformation[] fs = stack;
                 int len = length;
-
-                while (!stop.isSignalled && !stopChild.isSignalled && input.hasNext())
-                {
+                while (!stop.isSignalled && !stopChild.isSignalled && input.hasNext()) {
                     next = input.next();
-                    for (int i = 0 ; next != null & i < len ; i++)
-                        next = fs[i].applyToPartition(next);
-
-                    if (next != null)
-                    {
+                    for (int i = 0; next != null & i < len; i++) next = fs[i].applyToPartition(next);
+                    if (next != null) {
                         this.next = next;
                         return true;
                     }
                 }
-
                 if (stop.isSignalled || !hasMoreContents())
                     return false;
             }
             return true;
-
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             if (next != null)
                 Throwables.close(t, Collections.singleton(next));
             throw t;
         }
     }
-
 }
-

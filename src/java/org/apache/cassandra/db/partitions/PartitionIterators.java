@@ -18,36 +18,33 @@
 package org.apache.cassandra.db.partitions;
 
 import java.util.*;
-
 import org.apache.cassandra.db.EmptyIterators;
 import org.apache.cassandra.db.transform.MorePartitions;
 import org.apache.cassandra.db.transform.Transformation;
 import org.apache.cassandra.utils.AbstractIterator;
-
 import org.apache.cassandra.db.SinglePartitionReadQuery;
 import org.apache.cassandra.db.rows.*;
 
-public abstract class PartitionIterators
-{
-    private PartitionIterators() {}
+public abstract class PartitionIterators {
 
-    @SuppressWarnings("resource") // The created resources are returned right away
-    public static RowIterator getOnlyElement(final PartitionIterator iter, SinglePartitionReadQuery query)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionIterators.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(PartitionIterators.class);
+
+    private PartitionIterators() {
+    }
+
+    // The created resources are returned right away
+    @SuppressWarnings("resource")
+    public static RowIterator getOnlyElement(final PartitionIterator iter, SinglePartitionReadQuery query) {
         // If the query has no results, we'll get an empty iterator, but we still
         // want a RowIterator out of this method, so we return an empty one.
-        RowIterator toReturn = iter.hasNext()
-                             ? iter.next()
-                             : EmptyIterators.row(query.metadata(),
-                                                  query.partitionKey(),
-                                                  query.clusteringIndexFilter().isReversed());
-
+        RowIterator toReturn = iter.hasNext() ? iter.next() : EmptyIterators.row(query.metadata(), query.partitionKey(), query.clusteringIndexFilter().isReversed());
         // Note that in general, we should wrap the result so that it's close method actually
         // close the whole PartitionIterator.
-        class Close extends Transformation
-        {
-            public void onPartitionClose()
-            {
+        class Close extends Transformation {
+
+            public void onPartitionClose() {
                 // asserting this only now because it bothers UnfilteredPartitionIterators.Serializer (which might be used
                 // under the provided DataIter) if hasNext() is called before the previously returned iterator hasn't been fully consumed.
                 boolean hadNext = iter.hasNext();
@@ -58,39 +55,32 @@ public abstract class PartitionIterators
         return Transformation.apply(toReturn, new Close());
     }
 
-    @SuppressWarnings("resource") // The created resources are returned right away
-    public static PartitionIterator concat(final List<PartitionIterator> iterators)
-    {
+    // The created resources are returned right away
+    @SuppressWarnings("resource")
+    public static PartitionIterator concat(final List<PartitionIterator> iterators) {
         if (iterators.size() == 1)
             return iterators.get(0);
+        class Extend implements MorePartitions<PartitionIterator> {
 
-        class Extend implements MorePartitions<PartitionIterator>
-        {
-            int i = 0;
-            public PartitionIterator moreContents()
-            {
+            transient int i = 0;
+
+            public PartitionIterator moreContents() {
                 if (i >= iterators.size())
                     return null;
                 return iterators.get(i++);
             }
         }
-
         return MorePartitions.extend(EmptyIterators.partition(), new Extend());
     }
 
-    public static PartitionIterator singletonIterator(RowIterator iterator)
-    {
+    public static PartitionIterator singletonIterator(RowIterator iterator) {
         return new SingletonPartitionIterator(iterator);
     }
 
-    public static void consume(PartitionIterator iterator)
-    {
-        while (iterator.hasNext())
-        {
-            try (RowIterator partition = iterator.next())
-            {
-                while (partition.hasNext())
-                    partition.next();
+    public static void consume(PartitionIterator iterator) {
+        while (iterator.hasNext()) {
+            try (RowIterator partition = iterator.next()) {
+                while (partition.hasNext()) partition.next();
             }
         }
     }
@@ -98,14 +88,10 @@ public abstract class PartitionIterators
     /**
      * Consumes all rows in the next partition of the provided partition iterator.
      */
-    public static void consumeNext(PartitionIterator iterator)
-    {
-        if (iterator.hasNext())
-        {
-            try (RowIterator partition = iterator.next())
-            {
-                while (partition.hasNext())
-                    partition.next();
+    public static void consumeNext(PartitionIterator iterator) {
+        if (iterator.hasNext()) {
+            try (RowIterator partition = iterator.next()) {
+                while (partition.hasNext()) partition.next();
             }
         }
     }
@@ -116,13 +102,12 @@ public abstract class PartitionIterators
      * Note that this is only meant for debugging as this can log a very large amount of
      * logging at INFO.
      */
-    @SuppressWarnings("resource") // The created resources are returned right away
-    public static PartitionIterator loggingIterator(PartitionIterator iterator, final String id)
-    {
-        class Logger extends Transformation<RowIterator>
-        {
-            public RowIterator applyToPartition(RowIterator partition)
-            {
+    // The created resources are returned right away
+    @SuppressWarnings("resource")
+    public static PartitionIterator loggingIterator(PartitionIterator iterator, final String id) {
+        class Logger extends Transformation<RowIterator> {
+
+            public RowIterator applyToPartition(RowIterator partition) {
                 return RowIterators.loggingIterator(partition, id);
             }
         }
@@ -133,55 +118,45 @@ public abstract class PartitionIterators
      * Wraps the provided iterator to run a specified action on close. Note that the action will be
      * run even if closure of the provided iterator throws an exception.
      */
-    public static PartitionIterator doOnClose(PartitionIterator delegate, Runnable action)
-    {
-        return new PartitionIterator()
-        {
-            public void close()
-            {
-                try
-                {
+    public static PartitionIterator doOnClose(PartitionIterator delegate, Runnable action) {
+        return new PartitionIterator() {
+
+            public void close() {
+                try {
                     delegate.close();
-                }
-                finally
-                {
+                } finally {
                     action.run();
                 }
             }
 
-            public boolean hasNext()
-            {
+            public boolean hasNext() {
                 return delegate.hasNext();
             }
 
-            public RowIterator next()
-            {
+            public RowIterator next() {
                 return delegate.next();
             }
         };
     }
 
-    private static class SingletonPartitionIterator extends AbstractIterator<RowIterator> implements PartitionIterator
-    {
-        private final RowIterator iterator;
-        private boolean returned;
+    private static class SingletonPartitionIterator extends AbstractIterator<RowIterator> implements PartitionIterator {
 
-        private SingletonPartitionIterator(RowIterator iterator)
-        {
+        private final transient RowIterator iterator;
+
+        private transient boolean returned;
+
+        private SingletonPartitionIterator(RowIterator iterator) {
             this.iterator = iterator;
         }
 
-        protected RowIterator computeNext()
-        {
+        protected RowIterator computeNext() {
             if (returned)
                 return endOfData();
-
             returned = true;
             return iterator;
         }
 
-        public void close()
-        {
+        public void close() {
             iterator.close();
         }
     }

@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.db.monitoring;
 
 import java.util.Arrays;
@@ -29,15 +28,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.ScheduledExecutors;
 import org.apache.cassandra.config.Config;
 import org.apache.cassandra.utils.NoSpamLogger;
-
 import static java.lang.System.getProperty;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.apache.cassandra.utils.MonotonicClock.approxTime;
@@ -47,136 +43,112 @@ import static org.apache.cassandra.utils.MonotonicClock.approxTime;
  * We also log timed out operations, see CASSANDRA-7392.
  * Since CASSANDRA-12403 we also log queries that were slow.
  */
-class MonitoringTask
-{
-    private static final String LINE_SEPARATOR = getProperty("line.separator");
-    private static final Logger logger = LoggerFactory.getLogger(MonitoringTask.class);
-    private static final NoSpamLogger noSpamLogger = NoSpamLogger.getLogger(logger, 5L, TimeUnit.MINUTES);
+class MonitoringTask {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MonitoringTask.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(MonitoringTask.class);
+
+    private static final transient String LINE_SEPARATOR = getProperty("line.separator");
+
+    private static final transient Logger logger = LoggerFactory.getLogger(MonitoringTask.class);
+
+    private static final transient NoSpamLogger noSpamLogger = NoSpamLogger.getLogger(logger, 5L, TimeUnit.MINUTES);
 
     /**
      * Defines the interval for reporting any operations that have timed out.
      */
-    private static final int REPORT_INTERVAL_MS = Math.max(0, Integer.parseInt(System.getProperty(Config.PROPERTY_PREFIX + "monitoring_report_interval_ms", "5000")));
+    private static final transient int REPORT_INTERVAL_MS = Math.max(0, Integer.parseInt(System.getProperty(Config.PROPERTY_PREFIX + "monitoring_report_interval_ms", "5000")));
 
     /**
      * Defines the maximum number of unique timed out queries that will be reported in the logs.
      * Use a negative number to remove any limit.
      */
-    private static final int MAX_OPERATIONS = Integer.parseInt(System.getProperty(Config.PROPERTY_PREFIX + "monitoring_max_operations", "50"));
+    private static final transient int MAX_OPERATIONS = Integer.parseInt(System.getProperty(Config.PROPERTY_PREFIX + "monitoring_max_operations", "50"));
 
     @VisibleForTesting
-    static MonitoringTask instance = make(REPORT_INTERVAL_MS, MAX_OPERATIONS);
+    static transient MonitoringTask instance = make(REPORT_INTERVAL_MS, MAX_OPERATIONS);
 
-    private final ScheduledFuture<?> reportingTask;
-    private final OperationsQueue failedOperationsQueue;
-    private final OperationsQueue slowOperationsQueue;
-    private long approxLastLogTimeNanos;
+    private final transient ScheduledFuture<?> reportingTask;
 
+    private final transient OperationsQueue failedOperationsQueue;
+
+    private final transient OperationsQueue slowOperationsQueue;
+
+    private transient long approxLastLogTimeNanos;
 
     @VisibleForTesting
-    static MonitoringTask make(int reportIntervalMillis, int maxTimedoutOperations)
-    {
-        if (instance != null)
-        {
+    static MonitoringTask make(int reportIntervalMillis, int maxTimedoutOperations) {
+        if (instance != null) {
             instance.cancel();
             instance = null;
         }
-
         return new MonitoringTask(reportIntervalMillis, maxTimedoutOperations);
     }
 
-    private MonitoringTask(int reportIntervalMillis, int maxOperations)
-    {
+    private MonitoringTask(int reportIntervalMillis, int maxOperations) {
         this.failedOperationsQueue = new OperationsQueue(maxOperations);
         this.slowOperationsQueue = new OperationsQueue(maxOperations);
-
         this.approxLastLogTimeNanos = approxTime.now();
-
         logger.info("Scheduling monitoring task with report interval of {} ms, max operations {}", reportIntervalMillis, maxOperations);
-        this.reportingTask = ScheduledExecutors.scheduledTasks.scheduleWithFixedDelay(() -> logOperations(approxTime.now()),
-                                                                                     reportIntervalMillis,
-                                                                                     reportIntervalMillis,
-                                                                                     TimeUnit.MILLISECONDS);
+        this.reportingTask = ScheduledExecutors.scheduledTasks.scheduleWithFixedDelay(() -> logOperations(approxTime.now()), reportIntervalMillis, reportIntervalMillis, TimeUnit.MILLISECONDS);
     }
 
-    public void cancel()
-    {
+    public void cancel() {
         reportingTask.cancel(false);
     }
 
-    static void addFailedOperation(Monitorable operation, long nowNanos)
-    {
+    static void addFailedOperation(Monitorable operation, long nowNanos) {
         instance.failedOperationsQueue.offer(new FailedOperation(operation, nowNanos));
     }
 
-    static void addSlowOperation(Monitorable operation, long nowNanos)
-    {
+    static void addSlowOperation(Monitorable operation, long nowNanos) {
         instance.slowOperationsQueue.offer(new SlowOperation(operation, nowNanos));
     }
 
     @VisibleForTesting
-    List<String> getFailedOperations()
-    {
+    List<String> getFailedOperations() {
         return getLogMessages(failedOperationsQueue.popOperations());
     }
 
     @VisibleForTesting
-    List<String> getSlowOperations()
-    {
+    List<String> getSlowOperations() {
         return getLogMessages(slowOperationsQueue.popOperations());
     }
 
-    private List<String> getLogMessages(AggregatedOperations operations)
-    {
+    private List<String> getLogMessages(AggregatedOperations operations) {
         String ret = operations.getLogMessage();
         return ret.isEmpty() ? Collections.emptyList() : Arrays.asList(ret.split("\n"));
     }
 
     @VisibleForTesting
-    private void logOperations(long approxCurrentTimeNanos)
-    {
+    private void logOperations(long approxCurrentTimeNanos) {
         logSlowOperations(approxCurrentTimeNanos);
         logFailedOperations(approxCurrentTimeNanos);
-
         approxLastLogTimeNanos = approxCurrentTimeNanos;
     }
 
     @VisibleForTesting
-    boolean logFailedOperations(long nowNanos)
-    {
+    boolean logFailedOperations(long nowNanos) {
         AggregatedOperations failedOperations = failedOperationsQueue.popOperations();
-        if (!failedOperations.isEmpty())
-        {
+        if (!failedOperations.isEmpty()) {
             long elapsedNanos = nowNanos - approxLastLogTimeNanos;
             noSpamLogger.warn("Some operations timed out, details available at debug level (debug.log)");
-
             if (logger.isDebugEnabled())
-                logger.debug("{} operations timed out in the last {} msecs:{}{}",
-                            failedOperations.num(),
-                             NANOSECONDS.toMillis(elapsedNanos),
-                            LINE_SEPARATOR,
-                            failedOperations.getLogMessage());
+                logger.debug("{} operations timed out in the last {} msecs:{}{}", failedOperations.num(), NANOSECONDS.toMillis(elapsedNanos), LINE_SEPARATOR, failedOperations.getLogMessage());
             return true;
         }
-
         return false;
     }
 
     @VisibleForTesting
-    boolean logSlowOperations(long approxCurrentTimeNanos)
-    {
+    boolean logSlowOperations(long approxCurrentTimeNanos) {
         AggregatedOperations slowOperations = slowOperationsQueue.popOperations();
-        if (!slowOperations.isEmpty())
-        {
+        if (!slowOperations.isEmpty()) {
             long approxElapsedNanos = approxCurrentTimeNanos - approxLastLogTimeNanos;
             noSpamLogger.info("Some operations were slow, details available at debug level (debug.log)");
-
             if (logger.isDebugEnabled())
-                logger.debug("{} operations were slow in the last {} msecs:{}{}",
-                             slowOperations.num(),
-                             NANOSECONDS.toMillis(approxElapsedNanos),
-                             LINE_SEPARATOR,
-                             slowOperations.getLogMessage());
+                logger.debug("{} operations were slow in the last {} msecs:{}{}", slowOperations.num(), NANOSECONDS.toMillis(approxElapsedNanos), LINE_SEPARATOR, slowOperations.getLogMessage());
             return true;
         }
         return false;
@@ -186,26 +158,26 @@ class MonitoringTask
      * A wrapper for a queue that can be either bounded, in which case
      * we increment a counter if we exceed the queue size, or unbounded.
      */
-    private static final class OperationsQueue
-    {
-        /** The max operations on the queue. If this value is zero then logging is disabled
+    private static final class OperationsQueue {
+
+        /**
+         * The max operations on the queue. If this value is zero then logging is disabled
          * and the queue will always be empty. If this value is negative then the queue is unbounded.
          */
-        private final int maxOperations;
+        private final transient int maxOperations;
 
         /**
          * The operations queue, it can be either bounded or unbounded depending on the value of maxOperations.
          */
-        private final BlockingQueue<Operation> queue;
+        private final transient BlockingQueue<Operation> queue;
 
         /**
          * If we fail to add an operation to the queue then we increment this value. We reset this value
          * when the queue is emptied.
          */
-        private final AtomicLong numDroppedOperations;
+        private final transient AtomicLong numDroppedOperations;
 
-        OperationsQueue(int maxOperations)
-        {
+        OperationsQueue(int maxOperations) {
             this.maxOperations = maxOperations;
             this.queue = maxOperations > 0 ? new ArrayBlockingQueue<>(maxOperations) : new LinkedBlockingQueue<>();
             this.numDroppedOperations = new AtomicLong();
@@ -216,15 +188,13 @@ class MonitoringTask
          *
          * @param operation - the operations to add
          */
-        private void offer(Operation operation)
-        {
+        private void offer(Operation operation) {
             if (maxOperations == 0)
-                return; // logging of operations is disabled
-
+                // logging of operations is disabled
+                return;
             if (!queue.offer(operation))
                 numDroppedOperations.incrementAndGet();
         }
-
 
         /**
          * Return all operations in the queue, aggregated by name, and reset
@@ -232,13 +202,10 @@ class MonitoringTask
          *
          * @return - the aggregated operations
          */
-        private AggregatedOperations popOperations()
-        {
+        private AggregatedOperations popOperations() {
             Map<String, Operation> operations = new HashMap<>();
-
             Operation operation;
-            while((operation = queue.poll()) != null)
-            {
+            while ((operation = queue.poll()) != null) {
                 Operation existing = operations.get(operation.name());
                 if (existing != null)
                     existing.add(operation);
@@ -253,49 +220,38 @@ class MonitoringTask
      * Convert a map of aggregated operations into a log message that
      * includes the information of whether some operations were dropped.
      */
-    private static final class AggregatedOperations
-    {
-        private final Map<String, Operation> operations;
-        private final long numDropped;
+    private static final class AggregatedOperations {
 
-        AggregatedOperations(Map<String, Operation> operations, long numDropped)
-        {
+        private final transient Map<String, Operation> operations;
+
+        private final transient long numDropped;
+
+        AggregatedOperations(Map<String, Operation> operations, long numDropped) {
             this.operations = operations;
             this.numDropped = numDropped;
         }
 
-        public boolean isEmpty()
-        {
+        public boolean isEmpty() {
             return operations.isEmpty() && numDropped == 0;
         }
 
-        public long num()
-        {
+        public long num() {
             return operations.size() + numDropped;
         }
 
-        String getLogMessage()
-        {
+        String getLogMessage() {
             if (isEmpty())
                 return "";
-
             final StringBuilder ret = new StringBuilder();
             operations.values().forEach(o -> addOperation(ret, o));
-
             if (numDropped > 0)
-                ret.append(LINE_SEPARATOR)
-                   .append("... (")
-                   .append(numDropped)
-                   .append(" were dropped)");
-
+                ret.append(LINE_SEPARATOR).append("... (").append(numDropped).append(" were dropped)");
             return ret.toString();
         }
 
-        private static void addOperation(StringBuilder ret, Operation operation)
-        {
+        private static void addOperation(StringBuilder ret, Operation operation) {
             if (ret.length() > 0)
                 ret.append(LINE_SEPARATOR);
-
             ret.append(operation.getLogMessage());
         }
     }
@@ -307,29 +263,40 @@ class MonitoringTask
      * same name (CQL query text) is reported and store the average, min and max
      * times.
      */
-    protected abstract static class Operation
-    {
-        /** The operation that was reported as slow or timed out */
-        final Monitorable operation;
+    protected abstract static class Operation {
 
-        /** The number of times the operation was reported */
-        int numTimesReported;
+        /**
+         * The operation that was reported as slow or timed out
+         */
+        final transient Monitorable operation;
 
-        /** The total time spent by this operation */
-        long totalTimeNanos;
+        /**
+         * The number of times the operation was reported
+         */
+        transient int numTimesReported;
 
-        /** The maximum time spent by this operation */
-        long maxTime;
+        /**
+         * The total time spent by this operation
+         */
+        transient long totalTimeNanos;
 
-        /** The minimum time spent by this operation */
-        long minTime;
+        /**
+         * The maximum time spent by this operation
+         */
+        transient long maxTime;
 
-        /** The name of the operation, i.e. the SELECT query CQL,
-         * this is set lazily as it takes time to build the query CQL */
-        private String name;
+        /**
+         * The minimum time spent by this operation
+         */
+        transient long minTime;
 
-        Operation(Monitorable operation, long failedAtNanos)
-        {
+        /**
+         * The name of the operation, i.e. the SELECT query CQL,
+         * this is set lazily as it takes time to build the query CQL
+         */
+        private transient String name;
+
+        Operation(Monitorable operation, long failedAtNanos) {
             this.operation = operation;
             numTimesReported = 1;
             totalTimeNanos = failedAtNanos - operation.creationTimeNanos();
@@ -337,15 +304,13 @@ class MonitoringTask
             maxTime = totalTimeNanos;
         }
 
-        public String name()
-        {
+        public String name() {
             if (name == null)
                 name = operation.name();
             return name;
         }
 
-        void add(Operation operation)
-        {
+        void add(Operation operation) {
             numTimesReported++;
             totalTimeNanos += operation.totalTimeNanos;
             maxTime = Math.max(maxTime, operation.maxTime);
@@ -358,60 +323,34 @@ class MonitoringTask
     /**
      * An operation (query) that timed out.
      */
-    private final static class FailedOperation extends Operation
-    {
-        FailedOperation(Monitorable operation, long failedAtNanos)
-        {
+    private final static class FailedOperation extends Operation {
+
+        FailedOperation(Monitorable operation, long failedAtNanos) {
             super(operation, failedAtNanos);
         }
 
-        public String getLogMessage()
-        {
+        public String getLogMessage() {
             if (numTimesReported == 1)
-                return String.format("<%s>, total time %d msec, timeout %d %s",
-                                     name(),
-                                     NANOSECONDS.toMillis(totalTimeNanos),
-                                     NANOSECONDS.toMillis(operation.timeoutNanos()),
-                                     operation.isCrossNode() ? "msec/cross-node" : "msec");
+                return String.format("<%s>, total time %d msec, timeout %d %s", name(), NANOSECONDS.toMillis(totalTimeNanos), NANOSECONDS.toMillis(operation.timeoutNanos()), operation.isCrossNode() ? "msec/cross-node" : "msec");
             else
-                return String.format("<%s> timed out %d times, avg/min/max %d/%d/%d msec, timeout %d %s",
-                                     name(),
-                                     numTimesReported,
-                                     NANOSECONDS.toMillis(totalTimeNanos / numTimesReported),
-                                     NANOSECONDS.toMillis(minTime),
-                                     NANOSECONDS.toMillis(maxTime),
-                                     NANOSECONDS.toMillis(operation.timeoutNanos()),
-                                     operation.isCrossNode() ? "msec/cross-node" : "msec");
+                return String.format("<%s> timed out %d times, avg/min/max %d/%d/%d msec, timeout %d %s", name(), numTimesReported, NANOSECONDS.toMillis(totalTimeNanos / numTimesReported), NANOSECONDS.toMillis(minTime), NANOSECONDS.toMillis(maxTime), NANOSECONDS.toMillis(operation.timeoutNanos()), operation.isCrossNode() ? "msec/cross-node" : "msec");
         }
     }
 
     /**
      * An operation (query) that was reported as slow.
      */
-    private final static class SlowOperation extends Operation
-    {
-        SlowOperation(Monitorable operation, long failedAt)
-        {
+    private final static class SlowOperation extends Operation {
+
+        SlowOperation(Monitorable operation, long failedAt) {
             super(operation, failedAt);
         }
 
-        public String getLogMessage()
-        {
+        public String getLogMessage() {
             if (numTimesReported == 1)
-                return String.format("<%s>, time %d msec - slow timeout %d %s",
-                                     name(),
-                                     NANOSECONDS.toMillis(totalTimeNanos),
-                                     NANOSECONDS.toMillis(operation.slowTimeoutNanos()),
-                                     operation.isCrossNode() ? "msec/cross-node" : "msec");
+                return String.format("<%s>, time %d msec - slow timeout %d %s", name(), NANOSECONDS.toMillis(totalTimeNanos), NANOSECONDS.toMillis(operation.slowTimeoutNanos()), operation.isCrossNode() ? "msec/cross-node" : "msec");
             else
-                return String.format("<%s>, was slow %d times: avg/min/max %d/%d/%d msec - slow timeout %d %s",
-                                     name(),
-                                     numTimesReported,
-                                     NANOSECONDS.toMillis(totalTimeNanos/ numTimesReported),
-                                     NANOSECONDS.toMillis(minTime),
-                                     NANOSECONDS.toMillis(maxTime),
-                                     NANOSECONDS.toMillis(operation.slowTimeoutNanos()),
-                                     operation.isCrossNode() ? "msec/cross-node" : "msec");
+                return String.format("<%s>, was slow %d times: avg/min/max %d/%d/%d msec - slow timeout %d %s", name(), numTimesReported, NANOSECONDS.toMillis(totalTimeNanos / numTimesReported), NANOSECONDS.toMillis(minTime), NANOSECONDS.toMillis(maxTime), NANOSECONDS.toMillis(operation.slowTimeoutNanos()), operation.isCrossNode() ? "msec/cross-node" : "msec");
         }
     }
 }

@@ -22,10 +22,22 @@ import io.netty.channel.MessageSizeEstimator;
 /**
  * We want to manage the bytes we have in-flight, so this class asks Netty not to by returning zero for every object.
  */
-class NoSizeEstimator implements MessageSizeEstimator, MessageSizeEstimator.Handle
-{
-    public static final NoSizeEstimator instance = new NoSizeEstimator();
-    private NoSizeEstimator() {}
-    public Handle newHandle() { return this; }
-    public int size(Object o) { return 0; }
+class NoSizeEstimator implements MessageSizeEstimator, MessageSizeEstimator.Handle {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NoSizeEstimator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(NoSizeEstimator.class);
+
+    public static final transient NoSizeEstimator instance = new NoSizeEstimator();
+
+    private NoSizeEstimator() {
+    }
+
+    public Handle newHandle() {
+        return this;
+    }
+
+    public int size(Object o) {
+        return 0;
+    }
 }

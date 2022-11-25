@@ -23,8 +23,12 @@ import org.apache.cassandra.db.rows.Unfiltered;
 /**
  * Observer for events in the lifecycle of writing out an sstable.
  */
-public interface SSTableFlushObserver
-{
+public interface SSTableFlushObserver {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableFlushObserver.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SSTableFlushObserver.class);
+
     /**
      * Called before writing any data to the sstable.
      */

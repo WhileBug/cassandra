@@ -17,7 +17,11 @@
  */
 package org.apache.cassandra.cache;
 
-public interface CacheProvider<K, V>
-{
+public interface CacheProvider<K, V> {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CacheProvider.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CacheProvider.class);
+
     ICache<K, V> create();
 }

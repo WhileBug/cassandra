@@ -19,12 +19,15 @@ package org.apache.cassandra.exceptions;
 
 import org.apache.cassandra.schema.TableId;
 
-public class UnknownTableException extends IncompatibleSchemaException
-{
-    public final TableId id;
+public class UnknownTableException extends IncompatibleSchemaException {
 
-    public UnknownTableException(String msg, TableId id)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnknownTableException.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(UnknownTableException.class);
+
+    public final transient TableId id;
+
+    public UnknownTableException(String msg, TableId id) {
         super(msg);
         this.id = id;
     }

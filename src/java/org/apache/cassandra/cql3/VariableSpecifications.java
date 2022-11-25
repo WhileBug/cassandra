@@ -20,18 +20,22 @@ package org.apache.cassandra.cql3;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 
-public class VariableSpecifications
-{
-    private final List<ColumnIdentifier> variableNames;
-    private final List<ColumnSpecification> specs;
-    private final ColumnMetadata[] targetColumns;
+public class VariableSpecifications {
 
-    public VariableSpecifications(List<ColumnIdentifier> variableNames)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VariableSpecifications.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(VariableSpecifications.class);
+
+    private final transient List<ColumnIdentifier> variableNames;
+
+    private final transient List<ColumnSpecification> specs;
+
+    private final transient ColumnMetadata[] targetColumns;
+
+    public VariableSpecifications(List<ColumnIdentifier> variableNames) {
         this.variableNames = variableNames;
         this.specs = Arrays.asList(new ColumnSpecification[variableNames.size()]);
         this.targetColumns = new ColumnMetadata[variableNames.size()];
@@ -41,18 +45,15 @@ public class VariableSpecifications
      * Returns an empty instance of <code>VariableSpecifications</code>.
      * @return an empty instance of <code>VariableSpecifications</code>
      */
-    public static VariableSpecifications empty()
-    {
+    public static VariableSpecifications empty() {
         return new VariableSpecifications(Collections.emptyList());
     }
 
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return variableNames.isEmpty();
     }
 
-    public List<ColumnSpecification> getBindVariables()
-    {
+    public List<ColumnSpecification> getBindVariables() {
         return specs;
     }
 
@@ -63,33 +64,25 @@ public class VariableSpecifications
      *
      * Callers of this method should ensure that all statements operate on the same table.
      */
-    public short[] getPartitionKeyBindVariableIndexes(TableMetadata metadata)
-    {
+    public short[] getPartitionKeyBindVariableIndexes(TableMetadata metadata) {
         short[] partitionKeyPositions = new short[metadata.partitionKeyColumns().size()];
         boolean[] set = new boolean[partitionKeyPositions.length];
-        for (int i = 0; i < targetColumns.length; i++)
-        {
+        for (int i = 0; i < targetColumns.length; i++) {
             ColumnMetadata targetColumn = targetColumns[i];
-            if (targetColumn != null && targetColumn.isPartitionKey())
-            {
+            if (targetColumn != null && targetColumn.isPartitionKey()) {
                 assert targetColumn.ksName.equals(metadata.keyspace) && targetColumn.cfName.equals(metadata.name);
                 partitionKeyPositions[targetColumn.position()] = (short) i;
                 set[targetColumn.position()] = true;
             }
         }
-
-        for (boolean b : set)
-            if (!b)
-                return null;
-
+        for (boolean b : set) if (!b)
+            return null;
         return partitionKeyPositions;
     }
 
-    public void add(int bindIndex, ColumnSpecification spec)
-    {
+    public void add(int bindIndex, ColumnSpecification spec) {
         if (spec instanceof ColumnMetadata)
             targetColumns[bindIndex] = (ColumnMetadata) spec;
-
         ColumnIdentifier bindMarkerName = variableNames.get(bindIndex);
         // Use the user name, if there is one
         if (bindMarkerName != null)
@@ -98,8 +91,7 @@ public class VariableSpecifications
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return specs.toString();
     }
 }

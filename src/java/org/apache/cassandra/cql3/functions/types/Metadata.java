@@ -22,8 +22,12 @@ import org.apache.cassandra.cql3.ColumnIdentifier;
 /**
  * Keeps metadata on the connected cluster, including known nodes and schema definitions.
  */
-public class Metadata
-{
+public class Metadata {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Metadata.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Metadata.class);
+
     /*
      * Deal with case sensitivity for a given element id (keyspace, table, column, etc.)
      *
@@ -34,40 +38,32 @@ public class Metadata
      * - identifiers that are mixed-case or contain special characters should be quoted.
      * - unquoted identifiers will be lowercased: getKeyspace("Foo") will look for a keyspace named "foo"
      */
-    static String handleId(String id)
-    {
+    static String handleId(String id) {
         // Shouldn't really happen for this method, but no reason to fail here
-        if (id == null) return null;
-
+        if (id == null)
+            return null;
         boolean isAlphanumericLowCase = true;
         boolean isAlphanumeric = true;
-        for (int i = 0; i < id.length(); i++)
-        {
+        for (int i = 0; i < id.length(); i++) {
             char c = id.charAt(i);
-            if (c >= 65 && c <= 90)
-            { // A-Z
+            if (c >= 65 && c <= 90) {
+                // A-Z
                 isAlphanumericLowCase = false;
-            }
-            else if (!((c >= 48 && c <= 57) // 0-9
-                       || (c == 95) // _ (underscore)
-                       || (c >= 97 && c <= 122) // a-z
-            ))
-            {
+            } else if (!(// 0-9
+            // _ (underscore)
+            (c >= 48 && c <= 57) || // a-z
+            (c == 95) || (c >= 97 && c <= 122))) {
                 isAlphanumeric = false;
                 isAlphanumericLowCase = false;
                 break;
             }
         }
-
-        if (isAlphanumericLowCase)
-        {
+        if (isAlphanumericLowCase) {
             return id;
         }
-        if (isAlphanumeric)
-        {
+        if (isAlphanumeric) {
             return id.toLowerCase();
         }
-
         // Check if it's enclosed in quotes. If it is, remove them and unescape internal double quotes
         return ParseUtils.unDoubleQuote(id);
     }
@@ -94,8 +90,7 @@ public class Metadata
      * @return the identifier as it would appear in a CQL query string. This is also how you need to
      * pass it to public driver methods, such as {@code #getKeyspace(String)}.
      */
-    static String quoteIfNecessary(String id)
-    {
+    static String quoteIfNecessary(String id) {
         return ColumnIdentifier.maybeQuote(id);
     }
 
@@ -118,8 +113,7 @@ public class Metadata
      * {@code #getKeyspace}, {@code KeyspaceMetadata#getTable} or even {@code
      * Cluster#connect(String)}.
      */
-    public static String quote(String id)
-    {
+    public static String quote(String id) {
         return ParseUtils.doubleQuote(id);
     }
 }

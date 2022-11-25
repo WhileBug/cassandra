@@ -19,80 +19,71 @@ package org.apache.cassandra.io.sstable;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public class BloomFilterTracker
-{
-    private final AtomicLong falsePositiveCount = new AtomicLong(0);
-    private final AtomicLong truePositiveCount = new AtomicLong(0);
-    private final AtomicLong trueNegativeCount = new AtomicLong(0);
-    private long lastFalsePositiveCount = 0L;
-    private long lastTruePositiveCount = 0L;
-    private long lastTrueNegativeCount = 0L;
+public class BloomFilterTracker {
 
-    public void addFalsePositive()
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BloomFilterTracker.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(BloomFilterTracker.class);
+
+    private final transient AtomicLong falsePositiveCount = new AtomicLong(0);
+
+    private final transient AtomicLong truePositiveCount = new AtomicLong(0);
+
+    private final transient AtomicLong trueNegativeCount = new AtomicLong(0);
+
+    private transient long lastFalsePositiveCount = 0L;
+
+    private transient long lastTruePositiveCount = 0L;
+
+    private transient long lastTrueNegativeCount = 0L;
+
+    public void addFalsePositive() {
         falsePositiveCount.incrementAndGet();
     }
 
-    public void addTruePositive()
-    {
+    public void addTruePositive() {
         truePositiveCount.incrementAndGet();
     }
 
-    public void addTrueNegative()
-    {
+    public void addTrueNegative() {
         trueNegativeCount.incrementAndGet();
     }
 
-    public long getFalsePositiveCount()
-    {
+    public long getFalsePositiveCount() {
         return falsePositiveCount.get();
     }
 
-    public long getRecentFalsePositiveCount()
-    {
+    public long getRecentFalsePositiveCount() {
         long fpc = getFalsePositiveCount();
-        try
-        {
+        try {
             return (fpc - lastFalsePositiveCount);
-        }
-        finally
-        {
+        } finally {
             lastFalsePositiveCount = fpc;
         }
     }
 
-    public long getTruePositiveCount()
-    {
+    public long getTruePositiveCount() {
         return truePositiveCount.get();
     }
 
-    public long getRecentTruePositiveCount()
-    {
+    public long getRecentTruePositiveCount() {
         long tpc = getTruePositiveCount();
-        try
-        {
+        try {
             return (tpc - lastTruePositiveCount);
-        }
-        finally
-        {
+        } finally {
             lastTruePositiveCount = tpc;
         }
     }
 
-    public long getTrueNegativeCount()
-    {
+    public long getTrueNegativeCount() {
         return trueNegativeCount.get();
     }
 
-    public long getRecentTrueNegativeCount()
-    {
+    public long getRecentTrueNegativeCount() {
         long tnc = getTrueNegativeCount();
-        try
-        {
+        try {
             return (tnc - lastTrueNegativeCount);
-        }
-        finally
-        {
+        } finally {
             lastTrueNegativeCount = tnc;
         }
     }

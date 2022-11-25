@@ -18,7 +18,6 @@
 package org.apache.cassandra.db.rows;
 
 import com.google.common.collect.UnmodifiableIterator;
-
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.db.*;
 
@@ -31,62 +30,55 @@ import org.apache.cassandra.db.*;
  * Note that if most of what you want to do is modifying/filtering the returned
  * {@code Unfiltered}, {@link org.apache.cassandra.db.transform.Transformation#merge(UnfilteredRowIterator,Transformation)} can be a simpler option.
  */
-public abstract class WrappingUnfilteredRowIterator extends UnmodifiableIterator<Unfiltered>  implements UnfilteredRowIterator
-{
-    protected final UnfilteredRowIterator wrapped;
+public abstract class WrappingUnfilteredRowIterator extends UnmodifiableIterator<Unfiltered> implements UnfilteredRowIterator {
 
-    protected WrappingUnfilteredRowIterator(UnfilteredRowIterator wrapped)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WrappingUnfilteredRowIterator.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(WrappingUnfilteredRowIterator.class);
+
+    protected final transient UnfilteredRowIterator wrapped;
+
+    protected WrappingUnfilteredRowIterator(UnfilteredRowIterator wrapped) {
         this.wrapped = wrapped;
     }
 
-    public TableMetadata metadata()
-    {
+    public TableMetadata metadata() {
         return wrapped.metadata();
     }
 
-    public RegularAndStaticColumns columns()
-    {
+    public RegularAndStaticColumns columns() {
         return wrapped.columns();
     }
 
-    public boolean isReverseOrder()
-    {
+    public boolean isReverseOrder() {
         return wrapped.isReverseOrder();
     }
 
-    public DecoratedKey partitionKey()
-    {
+    public DecoratedKey partitionKey() {
         return wrapped.partitionKey();
     }
 
-    public DeletionTime partitionLevelDeletion()
-    {
+    public DeletionTime partitionLevelDeletion() {
         return wrapped.partitionLevelDeletion();
     }
 
-    public Row staticRow()
-    {
+    public Row staticRow() {
         return wrapped.staticRow();
     }
 
-    public EncodingStats stats()
-    {
+    public EncodingStats stats() {
         return wrapped.stats();
     }
 
-    public boolean hasNext()
-    {
+    public boolean hasNext() {
         return wrapped.hasNext();
     }
 
-    public Unfiltered next()
-    {
+    public Unfiltered next() {
         return wrapped.next();
     }
 
-    public void close()
-    {
+    public void close() {
         wrapped.close();
     }
 }

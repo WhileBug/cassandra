@@ -20,12 +20,10 @@ package org.apache.cassandra.net;
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.locks.LockSupport;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPromise;
 import org.apache.cassandra.io.util.BufferedDataOutputStreamPlus;
 import org.apache.cassandra.io.util.DataOutputStreamPlus;
-
 import static java.lang.Math.max;
 
 /**
@@ -42,31 +40,44 @@ import static java.lang.Math.max;
  * Each thread has exclusive write access to certain state in the class, with the other thread only viewing the state,
  * simplifying concurrency considerations.
  */
-public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlus
-{
-    public static class FlushException extends IOException
-    {
-        public FlushException(String message)
-        {
+public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlus {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AsyncChannelOutputPlus.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(AsyncChannelOutputPlus.class);
+
+    public static class FlushException extends IOException {
+
+        public FlushException(String message) {
             super(message);
         }
 
-        public FlushException(String message, Throwable cause)
-        {
+        public FlushException(String message, Throwable cause) {
             super(message, cause);
         }
     }
 
-    final Channel channel;
+    final transient Channel channel;
 
-    /** the number of bytes we have begun flushing; updated only by writer */
-    private volatile long flushing;
-    /** the number of bytes we have finished flushing, successfully or otherwise; updated only by eventLoop */
-    private volatile long flushed;
-    /** the number of bytes we have finished flushing to the network; updated only by eventLoop */
-    private          long flushedToNetwork;
-    /** any error that has been thrown during a flush; updated only by eventLoop */
-    private volatile Throwable flushFailed;
+    /**
+     * the number of bytes we have begun flushing; updated only by writer
+     */
+    private volatile transient long flushing;
+
+    /**
+     * the number of bytes we have finished flushing, successfully or otherwise; updated only by eventLoop
+     */
+    private volatile transient long flushed;
+
+    /**
+     * the number of bytes we have finished flushing to the network; updated only by eventLoop
+     */
+    private transient long flushedToNetwork;
+
+    /**
+     * any error that has been thrown during a flush; updated only by eventLoop
+     */
+    private volatile transient Throwable flushFailed;
 
     /**
      * state for pausing until flushing has caught up - store the number of bytes we need to be flushed before
@@ -75,11 +86,13 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
      *
      * This works exactly like using a WaitQueue, except that we only need to manage a single waiting thread.
      */
-    private volatile long signalWhenFlushed; // updated only by writer
-    private volatile Thread waiting; // updated only by writer
+    // updated only by writer
+    private volatile transient long signalWhenFlushed;
 
-    public AsyncChannelOutputPlus(Channel channel)
-    {
+    // updated only by writer
+    private volatile transient Thread waiting;
+
+    public AsyncChannelOutputPlus(Channel channel) {
         super(null, null);
         this.channel = channel;
     }
@@ -92,29 +105,21 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
      * <p>
      * If this method returns normally, the ChannelPromise MUST be writtenAndFlushed, or else completed exceptionally.
      */
-    protected ChannelPromise beginFlush(int byteCount, int lowWaterMark, int highWaterMark) throws IOException
-    {
+    protected ChannelPromise beginFlush(int byteCount, int lowWaterMark, int highWaterMark) throws IOException {
         waitForSpace(byteCount, lowWaterMark, highWaterMark);
-
         return AsyncChannelPromise.withListener(channel, future -> {
-            if (future.isSuccess() && null == flushFailed)
-            {
+            if (future.isSuccess() && null == flushFailed) {
                 flushedToNetwork += byteCount;
                 releaseSpace(byteCount);
-            }
-            else if (null == flushFailed)
-            {
+            } else if (null == flushFailed) {
                 Throwable cause = future.cause();
-                if (cause == null)
-                {
+                if (cause == null) {
                     cause = new FlushException("Flush failed for unknown reason");
                     cause.fillInStackTrace();
                 }
                 flushFailed = cause;
                 releaseSpace(flushing - flushed);
-            }
-            else
-            {
+            } else {
                 assert flushing == flushed;
             }
         });
@@ -131,8 +136,7 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
      *
      * @throws IOException if a prior asynchronous flush failed
      */
-    private void waitForSpace(int bytesToWrite, int lowWaterMark, int highWaterMark) throws IOException
-    {
+    private void waitForSpace(int bytesToWrite, int lowWaterMark, int highWaterMark) throws IOException {
         // decide when we would be willing to carry on writing
         // we are always writable if we have lowWaterMark or fewer bytes, no matter how many bytes we are flushing
         // our callers should not be supplying more than (highWaterMark - lowWaterMark) bytes, but we must work correctly if they do
@@ -147,8 +151,7 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
      *
      * This may only be invoked by the writer thread, never by the eventLoop.
      */
-    void waitUntilFlushed(int wakeUpWhenExcessBytesWritten, int signalWhenExcessBytesWritten) throws IOException
-    {
+    void waitUntilFlushed(int wakeUpWhenExcessBytesWritten, int signalWhenExcessBytesWritten) throws IOException {
         // we assume that we are happy to wake up at least as early as we will be signalled; otherwise we will never exit
         assert signalWhenExcessBytesWritten <= wakeUpWhenExcessBytesWritten;
         // flushing shouldn't change during this method invocation, so our calculations for signal and flushed are consistent
@@ -164,15 +167,12 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
      *
      * This may only be invoked by the writer thread, never by the eventLoop.
      */
-    protected void parkUntilFlushed(long wakeUpWhenFlushed, long signalWhenFlushed)
-    {
+    protected void parkUntilFlushed(long wakeUpWhenFlushed, long signalWhenFlushed) {
         assert wakeUpWhenFlushed <= signalWhenFlushed;
         assert waiting == null;
         this.waiting = Thread.currentThread();
         this.signalWhenFlushed = signalWhenFlushed;
-
-        while (flushed < wakeUpWhenFlushed)
-            LockSupport.park();
+        while (flushed < wakeUpWhenFlushed) LockSupport.park();
         waiting = null;
     }
 
@@ -181,21 +181,17 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
      *
      * This may only be invoked by the eventLoop, never by the writer thread.
      */
-    protected void releaseSpace(long bytesFlushed)
-    {
+    protected void releaseSpace(long bytesFlushed) {
         long newFlushed = flushed + bytesFlushed;
         flushed = newFlushed;
-
         Thread thread = waiting;
         if (thread != null && signalWhenFlushed <= newFlushed)
             LockSupport.unpark(thread);
     }
 
-    private void propagateFailedFlush() throws IOException
-    {
+    private void propagateFailedFlush() throws IOException {
         Throwable t = flushFailed;
-        if (t != null)
-        {
+        if (t != null) {
             if (SocketFactory.isCausedByConnectionReset(t))
                 throw new FlushException("The channel this output stream was writing to has been closed", t);
             throw new FlushException("This output stream is in an unsafe state after an asynchronous flush failed", t);
@@ -207,14 +203,12 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
 
     abstract public long position();
 
-    public long flushed()
-    {
+    public long flushed() {
         // external flushed (that which has had flush() invoked implicitly or otherwise) == internal flushing
         return flushing;
     }
 
-    public long flushedToNetwork()
-    {
+    public long flushedToNetwork() {
         return flushedToNetwork;
     }
 
@@ -224,8 +218,7 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
      * @throws IOException if any flush fails
      */
     @Override
-    public void flush() throws IOException
-    {
+    public void flush() throws IOException {
         doFlush(0);
         waitUntilFlushed(0, 0);
     }
@@ -241,14 +234,10 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
      * final invocation to {@link #close()} or {@link #flush()} (that must not be followed by any further writes).
      */
     @Override
-    public void close() throws IOException
-    {
-        try
-        {
+    public void close() throws IOException {
+        try {
             flush();
-        }
-        finally
-        {
+        } finally {
             discard();
         }
     }
@@ -260,9 +249,7 @@ public abstract class AsyncChannelOutputPlus extends BufferedDataOutputStreamPlu
     public abstract void discard();
 
     @Override
-    protected WritableByteChannel newDefaultChannel()
-    {
+    protected WritableByteChannel newDefaultChannel() {
         throw new UnsupportedOperationException();
     }
-
 }

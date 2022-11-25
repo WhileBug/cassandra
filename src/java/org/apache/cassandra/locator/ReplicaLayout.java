@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.locator;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -27,7 +26,6 @@ import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.gms.FailureDetector;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.FBUtilities;
-
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -36,14 +34,18 @@ import java.util.function.Predicate;
  *
  * @param <E>
  */
-public abstract class ReplicaLayout<E extends Endpoints<E>>
-{
-    private final E natural;
-    // the snapshot of the replication strategy that corresponds to the replica layout
-    private final AbstractReplicationStrategy replicationStrategy;
+public abstract class ReplicaLayout<E extends Endpoints<E>> {
 
-    ReplicaLayout(AbstractReplicationStrategy replicationStrategy, E natural)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicaLayout.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(ReplicaLayout.class);
+
+    private final transient E natural;
+
+    // the snapshot of the replication strategy that corresponds to the replica layout
+    private final transient AbstractReplicationStrategy replicationStrategy;
+
+    ReplicaLayout(AbstractReplicationStrategy replicationStrategy, E natural) {
         this.replicationStrategy = replicationStrategy;
         this.natural = natural;
     }
@@ -53,13 +55,11 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
      * This excludes any pending owners, i.e. those that are in the process of taking ownership of a range, but
      * have not yet finished obtaining their view of the range.
      */
-    public final E natural()
-    {
+    public final E natural() {
         return natural;
     }
 
-    public final AbstractReplicationStrategy replicationStrategy()
-    {
+    public final AbstractReplicationStrategy replicationStrategy() {
         return replicationStrategy;
     }
 
@@ -67,70 +67,64 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
      * All relevant owners of the ring position(s) for this operation, as implied by the current ring layout.
      * For writes, this will include pending owners, and for reads it will be equivalent to natural()
      */
-    public E all()
-    {
+    public E all() {
         return natural;
     }
 
-    public String toString()
-    {
+    public String toString() {
         return "ReplicaLayout [ natural: " + natural + " ]";
     }
 
-    public static class ForTokenRead extends ReplicaLayout<EndpointsForToken> implements ForToken
-    {
-        public ForTokenRead(AbstractReplicationStrategy replicationStrategy, EndpointsForToken natural)
-        {
+    public static class ForTokenRead extends ReplicaLayout<EndpointsForToken> implements ForToken {
+
+        public ForTokenRead(AbstractReplicationStrategy replicationStrategy, EndpointsForToken natural) {
             super(replicationStrategy, natural);
         }
 
         @Override
-        public Token token()
-        {
+        public Token token() {
             return natural().token();
         }
 
-        public ReplicaLayout.ForTokenRead filter(Predicate<Replica> filter)
-        {
+        public ReplicaLayout.ForTokenRead filter(Predicate<Replica> filter) {
             EndpointsForToken filtered = natural().filter(filter);
             // AbstractReplicaCollection.filter returns itself if all elements match the filter
-            if (filtered == natural()) return this;
+            if (filtered == natural())
+                return this;
             return new ReplicaLayout.ForTokenRead(replicationStrategy(), filtered);
         }
     }
 
-    public static class ForRangeRead extends ReplicaLayout<EndpointsForRange> implements ForRange
-    {
-        final AbstractBounds<PartitionPosition> range;
+    public static class ForRangeRead extends ReplicaLayout<EndpointsForRange> implements ForRange {
 
-        public ForRangeRead(AbstractReplicationStrategy replicationStrategy, AbstractBounds<PartitionPosition> range, EndpointsForRange natural)
-        {
+        final transient AbstractBounds<PartitionPosition> range;
+
+        public ForRangeRead(AbstractReplicationStrategy replicationStrategy, AbstractBounds<PartitionPosition> range, EndpointsForRange natural) {
             super(replicationStrategy, natural);
             this.range = range;
         }
 
         @Override
-        public AbstractBounds<PartitionPosition> range()
-        {
+        public AbstractBounds<PartitionPosition> range() {
             return range;
         }
 
-        public ReplicaLayout.ForRangeRead filter(Predicate<Replica> filter)
-        {
+        public ReplicaLayout.ForRangeRead filter(Predicate<Replica> filter) {
             EndpointsForRange filtered = natural().filter(filter);
             // AbstractReplicaCollection.filter returns itself if all elements match the filter
-            if (filtered == natural()) return this;
+            if (filtered == natural())
+                return this;
             return new ReplicaLayout.ForRangeRead(replicationStrategy(), range(), filtered);
         }
     }
 
-    public static class ForWrite<E extends Endpoints<E>> extends ReplicaLayout<E>
-    {
-        final E all;
-        final E pending;
+    public static class ForWrite<E extends Endpoints<E>> extends ReplicaLayout<E> {
 
-        ForWrite(AbstractReplicationStrategy replicationStrategy, E natural, E pending, E all)
-        {
+        final transient E all;
+
+        final transient E pending;
+
+        ForWrite(AbstractReplicationStrategy replicationStrategy, E natural, E pending, E all) {
             super(replicationStrategy, natural);
             assert pending != null && !haveWriteConflicts(natural, pending);
             if (all == null)
@@ -139,58 +133,51 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
             this.pending = pending;
         }
 
-        public final E all()
-        {
+        public final E all() {
             return all;
         }
 
-        public final E pending()
-        {
+        public final E pending() {
             return pending;
         }
 
-        public String toString()
-        {
+        public String toString() {
             return "ReplicaLayout [ natural: " + natural() + ", pending: " + pending + " ]";
         }
     }
 
-    public static class ForTokenWrite extends ForWrite<EndpointsForToken> implements ForToken
-    {
-        public ForTokenWrite(AbstractReplicationStrategy replicationStrategy, EndpointsForToken natural, EndpointsForToken pending)
-        {
+    public static class ForTokenWrite extends ForWrite<EndpointsForToken> implements ForToken {
+
+        public ForTokenWrite(AbstractReplicationStrategy replicationStrategy, EndpointsForToken natural, EndpointsForToken pending) {
             this(replicationStrategy, natural, pending, null);
         }
-        public ForTokenWrite(AbstractReplicationStrategy replicationStrategy, EndpointsForToken natural, EndpointsForToken pending, EndpointsForToken all)
-        {
+
+        public ForTokenWrite(AbstractReplicationStrategy replicationStrategy, EndpointsForToken natural, EndpointsForToken pending, EndpointsForToken all) {
             super(replicationStrategy, natural, pending, all);
         }
 
         @Override
-        public Token token() { return natural().token(); }
+        public Token token() {
+            return natural().token();
+        }
 
-        public ReplicaLayout.ForTokenWrite filter(Predicate<Replica> filter)
-        {
+        public ReplicaLayout.ForTokenWrite filter(Predicate<Replica> filter) {
             EndpointsForToken filtered = all().filter(filter);
             // AbstractReplicaCollection.filter returns itself if all elements match the filter
-            if (filtered == all()) return this;
+            if (filtered == all())
+                return this;
             // unique by endpoint, so can for efficiency filter only on endpoint
-            return new ReplicaLayout.ForTokenWrite(
-                    replicationStrategy(),
-                    natural().keep(filtered.endpoints()),
-                    pending().keep(filtered.endpoints()),
-                    filtered
-            );
+            return new ReplicaLayout.ForTokenWrite(replicationStrategy(), natural().keep(filtered.endpoints()), pending().keep(filtered.endpoints()), filtered);
         }
     }
 
-    public interface ForRange
-    {
+    public interface ForRange {
+
         public AbstractBounds<PartitionPosition> range();
     }
 
-    public interface ForToken
-    {
+    public interface ForToken {
+
         public Token token();
     }
 
@@ -201,8 +188,7 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
      * only responsibility is to fetch the 'natural' and 'pending' replicas, then resolve any conflicts
      * {@link ReplicaLayout#haveWriteConflicts(Endpoints, Endpoints)}
      */
-    public static ReplicaLayout.ForTokenWrite forTokenWriteLiveAndDown(Keyspace keyspace, Token token)
-    {
+    public static ReplicaLayout.ForTokenWrite forTokenWriteLiveAndDown(Keyspace keyspace, Token token) {
         // TODO: these should be cached, not the natural replicas
         // TODO: race condition to fetch these. implications??
         AbstractReplicationStrategy replicationStrategy = keyspace.getReplicationStrategy();
@@ -211,10 +197,8 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
         return forTokenWrite(replicationStrategy, natural, pending);
     }
 
-    public static ReplicaLayout.ForTokenWrite forTokenWrite(AbstractReplicationStrategy replicationStrategy, EndpointsForToken natural, EndpointsForToken pending)
-    {
-        if (haveWriteConflicts(natural, pending))
-        {
+    public static ReplicaLayout.ForTokenWrite forTokenWrite(AbstractReplicationStrategy replicationStrategy, EndpointsForToken natural, EndpointsForToken pending) {
+        if (haveWriteConflicts(natural, pending)) {
             natural = resolveWriteConflictsInNatural(natural, pending);
             pending = resolveWriteConflictsInPending(natural, pending);
         }
@@ -269,11 +253,9 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
      * @param <E>
      * @return
      */
-    static <E extends Endpoints<E>> boolean haveWriteConflicts(E natural, E pending)
-    {
+    static <E extends Endpoints<E>> boolean haveWriteConflicts(E natural, E pending) {
         Set<InetAddressAndPort> naturalEndpoints = natural.endpoints();
-        for (InetAddressAndPort pendingEndpoint : pending.endpoints())
-        {
+        for (InetAddressAndPort pendingEndpoint : pending.endpoints()) {
             if (naturalEndpoints.contains(pendingEndpoint))
                 return true;
         }
@@ -286,17 +268,13 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
      * @return a 'natural' replica collection, that has had its conflicts with pending repaired
      */
     @VisibleForTesting
-    static EndpointsForToken resolveWriteConflictsInNatural(EndpointsForToken natural, EndpointsForToken pending)
-    {
+    static EndpointsForToken resolveWriteConflictsInNatural(EndpointsForToken natural, EndpointsForToken pending) {
         EndpointsForToken.Builder resolved = natural.newBuilder(natural.size());
-        for (Replica replica : natural)
-        {
+        for (Replica replica : natural) {
             // always prefer the full natural replica, if there is a conflict
-            if (replica.isTransient())
-            {
+            if (replica.isTransient()) {
                 Replica conflict = pending.byEndpoint().get(replica.endpoint());
-                if (conflict != null)
-                {
+                if (conflict != null) {
                     // it should not be possible to have conflicts of the same replication type for the same range
                     assert conflict.isFull();
                     // If we have any pending transient->full movement, we need to move the full replica to our 'natural' bucket
@@ -316,8 +294,7 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
      * @return a 'pending' replica collection, that has had its conflicts with natural repaired
      */
     @VisibleForTesting
-    static EndpointsForToken resolveWriteConflictsInPending(EndpointsForToken natural, EndpointsForToken pending)
-    {
+    static EndpointsForToken resolveWriteConflictsInPending(EndpointsForToken natural, EndpointsForToken pending) {
         return pending.without(natural.endpoints());
     }
 
@@ -325,8 +302,7 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
      * @return the read layout for a token - this includes only live natural replicas, i.e. those that are not pending
      * and not marked down by the failure detector. these are reverse sorted by the badness score of the configured snitch
      */
-    static ReplicaLayout.ForTokenRead forTokenReadLiveSorted(AbstractReplicationStrategy replicationStrategy, Token token)
-    {
+    static ReplicaLayout.ForTokenRead forTokenReadLiveSorted(AbstractReplicationStrategy replicationStrategy, Token token) {
         EndpointsForToken replicas = replicationStrategy.getNaturalReplicasForToken(token);
         replicas = DatabaseDescriptor.getEndpointSnitch().sortedByProximity(FBUtilities.getBroadcastAddressAndPort(), replicas);
         replicas = replicas.filter(FailureDetector.isReplicaAlive);
@@ -338,12 +314,10 @@ public abstract class ReplicaLayout<E extends Endpoints<E>>
      * @return the read layout for a range - this includes only live natural replicas, i.e. those that are not pending
      * and not marked down by the failure detector. these are reverse sorted by the badness score of the configured snitch
      */
-    static ReplicaLayout.ForRangeRead forRangeReadLiveSorted(AbstractReplicationStrategy replicationStrategy, AbstractBounds<PartitionPosition> range)
-    {
+    static ReplicaLayout.ForRangeRead forRangeReadLiveSorted(AbstractReplicationStrategy replicationStrategy, AbstractBounds<PartitionPosition> range) {
         EndpointsForRange replicas = replicationStrategy.getNaturalReplicas(range.right);
         replicas = DatabaseDescriptor.getEndpointSnitch().sortedByProximity(FBUtilities.getBroadcastAddressAndPort(), replicas);
         replicas = replicas.filter(FailureDetector.isReplicaAlive);
         return new ReplicaLayout.ForRangeRead(replicationStrategy, range, replicas);
     }
-
 }

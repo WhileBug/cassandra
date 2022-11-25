@@ -18,17 +18,19 @@
 package org.apache.cassandra.cql3.functions.types;
 
 import java.util.*;
-
 import com.google.common.reflect.TypeParameter;
 import com.google.common.reflect.TypeToken;
 
 /**
  * Utility methods to create {@code TypeToken} instances.
  */
-public final class TypeTokens
-{
-    private TypeTokens()
-    {
+public final class TypeTokens {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TypeTokens.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(TypeTokens.class);
+
+    private TypeTokens() {
     }
 
     /**
@@ -39,13 +41,10 @@ public final class TypeTokens
      * @return A {@link TypeToken} that represents a {@link List} whose elements are of the given
      * type.
      */
-    public static <T> TypeToken<List<T>> listOf(Class<T> eltType)
-    {
+    public static <T> TypeToken<List<T>> listOf(Class<T> eltType) {
         // @formatter:off
-        return new TypeToken<List<T>>()
-        {
-        }.where(new TypeParameter<T>()
-        {
+        return new TypeToken<List<T>>() {
+        }.where(new TypeParameter<T>() {
         }, eltType);
         // @formatter:on
     }
@@ -58,13 +57,10 @@ public final class TypeTokens
      * @return A {@link TypeToken} that represents a {@link List} whose elements are of the given
      * type.
      */
-    public static <T> TypeToken<List<T>> listOf(TypeToken<T> eltType)
-    {
+    public static <T> TypeToken<List<T>> listOf(TypeToken<T> eltType) {
         // @formatter:off
-        return new TypeToken<List<T>>()
-        {
-        }.where(new TypeParameter<T>()
-        {
+        return new TypeToken<List<T>>() {
+        }.where(new TypeParameter<T>() {
         }, eltType);
         // @formatter:on
     }
@@ -76,13 +72,10 @@ public final class TypeTokens
      * @param <T>     The set element type.
      * @return A {@link TypeToken} that represents a {@link Set} whose elements are of the given type.
      */
-    public static <T> TypeToken<Set<T>> setOf(Class<T> eltType)
-    {
+    public static <T> TypeToken<Set<T>> setOf(Class<T> eltType) {
         // @formatter:off
-        return new TypeToken<Set<T>>()
-        {
-        }.where(new TypeParameter<T>()
-        {
+        return new TypeToken<Set<T>>() {
+        }.where(new TypeParameter<T>() {
         }, eltType);
         // @formatter:on
     }
@@ -94,13 +87,10 @@ public final class TypeTokens
      * @param <T>     The set element type.
      * @return A {@link TypeToken} that represents a {@link Set} whose elements are of the given type.
      */
-    public static <T> TypeToken<Set<T>> setOf(TypeToken<T> eltType)
-    {
+    public static <T> TypeToken<Set<T>> setOf(TypeToken<T> eltType) {
         // @formatter:off
-        return new TypeToken<Set<T>>()
-        {
-        }.where(new TypeParameter<T>()
-        {
+        return new TypeToken<Set<T>>() {
+        }.where(new TypeParameter<T>() {
         }, eltType);
         // @formatter:on
     }
@@ -116,17 +106,12 @@ public final class TypeTokens
      * @return A {@link TypeToken} that represents a {@link Map} whose keys and values are of the
      * given key and value types
      */
-    public static <K, V> TypeToken<Map<K, V>> mapOf(Class<K> keyType, Class<V> valueType)
-    {
+    public static <K, V> TypeToken<Map<K, V>> mapOf(Class<K> keyType, Class<V> valueType) {
         // @formatter:off
-        return new TypeToken<Map<K, V>>()
-        {
-        }.where(new TypeParameter<K>()
-        {
-        }, keyType)
-         .where(new TypeParameter<V>()
-         {
-         }, valueType);
+        return new TypeToken<Map<K, V>>() {
+        }.where(new TypeParameter<K>() {
+        }, keyType).where(new TypeParameter<V>() {
+        }, valueType);
         // @formatter:on
     }
 
@@ -141,17 +126,12 @@ public final class TypeTokens
      * @return A {@link TypeToken} that represents a {@link Map} whose keys and values are of the
      * given key and value types
      */
-    public static <K, V> TypeToken<Map<K, V>> mapOf(TypeToken<K> keyType, TypeToken<V> valueType)
-    {
+    public static <K, V> TypeToken<Map<K, V>> mapOf(TypeToken<K> keyType, TypeToken<V> valueType) {
         // @formatter:off
-        return new TypeToken<Map<K, V>>()
-        {
-        }.where(new TypeParameter<K>()
-        {
-        }, keyType)
-         .where(new TypeParameter<V>()
-         {
-         }, valueType);
+        return new TypeToken<Map<K, V>>() {
+        }.where(new TypeParameter<K>() {
+        }, keyType).where(new TypeParameter<V>() {
+        }, valueType);
         // @formatter:on
     }
 }

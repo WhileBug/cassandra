@@ -23,12 +23,10 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.CRC32;
-
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.db.commitlog.CommitLogReadHandler.CommitLogReadErrorReason;
@@ -43,46 +41,46 @@ import org.apache.cassandra.io.util.RandomAccessReader;
 import org.apache.cassandra.io.util.RebufferingInputStream;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.utils.JVMStabilityInspector;
-
 import static org.apache.cassandra.utils.FBUtilities.updateChecksumInt;
 
-public class CommitLogReader
-{
-    private static final Logger logger = LoggerFactory.getLogger(CommitLogReader.class);
+public class CommitLogReader {
 
-    private static final int LEGACY_END_OF_SEGMENT_MARKER = 0;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CommitLogReader.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(CommitLogReader.class);
+
+    private static final transient Logger logger = LoggerFactory.getLogger(CommitLogReader.class);
+
+    private static final transient int LEGACY_END_OF_SEGMENT_MARKER = 0;
 
     @VisibleForTesting
-    public static final int ALL_MUTATIONS = -1;
-    private final CRC32 checksum;
-    private final Map<TableId, AtomicInteger> invalidMutations;
+    public static final transient int ALL_MUTATIONS = -1;
 
-    private byte[] buffer;
+    private final transient CRC32 checksum;
 
-    public CommitLogReader()
-    {
+    private final transient Map<TableId, AtomicInteger> invalidMutations;
+
+    private transient byte[] buffer;
+
+    public CommitLogReader() {
         checksum = new CRC32();
         invalidMutations = new HashMap<>();
         buffer = new byte[4096];
     }
 
-    public Set<Map.Entry<TableId, AtomicInteger>> getInvalidMutations()
-    {
+    public Set<Map.Entry<TableId, AtomicInteger>> getInvalidMutations() {
         return invalidMutations.entrySet();
     }
 
     /**
      * Reads all passed in files with no minimum, no start, and no mutation limit.
      */
-    public void readAllFiles(CommitLogReadHandler handler, File[] files) throws IOException
-    {
+    public void readAllFiles(CommitLogReadHandler handler, File[] files) throws IOException {
         readAllFiles(handler, files, CommitLogPosition.NONE);
     }
 
-    private static boolean shouldSkip(File file) throws IOException, ConfigurationException
-    {
-        try(RandomAccessReader reader = RandomAccessReader.open(file))
-        {
+    private static boolean shouldSkip(File file) throws IOException, ConfigurationException {
+        try (RandomAccessReader reader = RandomAccessReader.open(file)) {
             CommitLogDescriptor.readHeader(reader, DatabaseDescriptor.getEncryptionContext());
             int end = reader.readInt();
             long filecrc = reader.readInt() & 0xffffffffL;
@@ -90,41 +88,30 @@ public class CommitLogReader
         }
     }
 
-    static List<File> filterCommitLogFiles(File[] toFilter)
-    {
+    static List<File> filterCommitLogFiles(File[] toFilter) {
         List<File> filtered = new ArrayList<>(toFilter.length);
-        for (File file: toFilter)
-        {
-            try
-            {
-                if (shouldSkip(file))
-                {
+        for (File file : toFilter) {
+            try {
+                if (shouldSkip(file)) {
                     logger.info("Skipping playback of empty log: {}", file.getName());
-                }
-                else
-                {
+                } else {
                     filtered.add(file);
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 // let recover deal with it
                 filtered.add(file);
             }
         }
-
         return filtered;
     }
 
     /**
      * Reads all passed in files with minPosition, no start, and no mutation limit.
      */
-    public void readAllFiles(CommitLogReadHandler handler, File[] files, CommitLogPosition minPosition) throws IOException
-    {
+    public void readAllFiles(CommitLogReadHandler handler, File[] files, CommitLogPosition minPosition) throws IOException {
         List<File> filteredLogs = filterCommitLogFiles(files);
         int i = 0;
-        for (File file: filteredLogs)
-        {
+        for (File file : filteredLogs) {
             i++;
             readCommitLogSegment(handler, file, minPosition, ALL_MUTATIONS, i == filteredLogs.size());
         }
@@ -133,16 +120,14 @@ public class CommitLogReader
     /**
      * Reads passed in file fully
      */
-    public void readCommitLogSegment(CommitLogReadHandler handler, File file, boolean tolerateTruncation) throws IOException
-    {
+    public void readCommitLogSegment(CommitLogReadHandler handler, File file, boolean tolerateTruncation) throws IOException {
         readCommitLogSegment(handler, file, CommitLogPosition.NONE, ALL_MUTATIONS, tolerateTruncation);
     }
 
     /**
      * Reads all mutations from passed in file from minPosition
      */
-    public void readCommitLogSegment(CommitLogReadHandler handler, File file, CommitLogPosition minPosition, boolean tolerateTruncation) throws IOException
-    {
+    public void readCommitLogSegment(CommitLogReadHandler handler, File file, CommitLogPosition minPosition, boolean tolerateTruncation) throws IOException {
         readCommitLogSegment(handler, file, minPosition, ALL_MUTATIONS, tolerateTruncation);
     }
 
@@ -150,8 +135,7 @@ public class CommitLogReader
      * Reads passed in file fully, up to mutationLimit count
      */
     @VisibleForTesting
-    public void readCommitLogSegment(CommitLogReadHandler handler, File file, int mutationLimit, boolean tolerateTruncation) throws IOException
-    {
+    public void readCommitLogSegment(CommitLogReadHandler handler, File file, int mutationLimit, boolean tolerateTruncation) throws IOException {
         readCommitLogSegment(handler, file, CommitLogPosition.NONE, mutationLimit, tolerateTruncation);
     }
 
@@ -165,90 +149,54 @@ public class CommitLogReader
      *
      * @throws IOException
      */
-    public void readCommitLogSegment(CommitLogReadHandler handler,
-                                     File file,
-                                     CommitLogPosition minPosition,
-                                     int mutationLimit,
-                                     boolean tolerateTruncation) throws IOException
-    {
+    public void readCommitLogSegment(CommitLogReadHandler handler, File file, CommitLogPosition minPosition, int mutationLimit, boolean tolerateTruncation) throws IOException {
         // just transform from the file name (no reading of headers) to determine version
         CommitLogDescriptor desc = CommitLogDescriptor.fromFileName(file.getName());
-
-        try(RandomAccessReader reader = RandomAccessReader.open(file))
-        {
+        try (RandomAccessReader reader = RandomAccessReader.open(file)) {
             final long segmentIdFromFilename = desc.id;
-            try
-            {
+            try {
                 // The following call can either throw or legitimately return null. For either case, we need to check
                 // desc outside this block and set it to null in the exception case.
                 desc = CommitLogDescriptor.readHeader(reader, DatabaseDescriptor.getEncryptionContext());
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 desc = null;
             }
-            if (desc == null)
-            {
+            if (desc == null) {
                 // don't care about whether or not the handler thinks we can continue. We can't w/out descriptor.
                 // whether or not we can continue depends on whether this is the last segment
-                handler.handleUnrecoverableError(new CommitLogReadException(
-                    String.format("Could not read commit log descriptor in file %s", file),
-                    CommitLogReadErrorReason.UNRECOVERABLE_DESCRIPTOR_ERROR,
-                    tolerateTruncation));
+                handler.handleUnrecoverableError(new CommitLogReadException(String.format("Could not read commit log descriptor in file %s", file), CommitLogReadErrorReason.UNRECOVERABLE_DESCRIPTOR_ERROR, tolerateTruncation));
                 return;
             }
-
-            if (segmentIdFromFilename != desc.id)
-            {
-                if (handler.shouldSkipSegmentOnError(new CommitLogReadException(String.format(
-                    "Segment id mismatch (filename %d, descriptor %d) in file %s", segmentIdFromFilename, desc.id, file),
-                                                                                CommitLogReadErrorReason.RECOVERABLE_DESCRIPTOR_ERROR,
-                                                                                false)))
-                {
+            if (segmentIdFromFilename != desc.id) {
+                if (handler.shouldSkipSegmentOnError(new CommitLogReadException(String.format("Segment id mismatch (filename %d, descriptor %d) in file %s", segmentIdFromFilename, desc.id, file), CommitLogReadErrorReason.RECOVERABLE_DESCRIPTOR_ERROR, false))) {
                     return;
                 }
             }
-
             if (shouldSkipSegmentId(file, desc, minPosition))
                 return;
-
             CommitLogSegmentReader segmentReader;
-            try
-            {
+            try {
                 segmentReader = new CommitLogSegmentReader(handler, desc, reader, tolerateTruncation);
-            }
-            catch(Exception e)
-            {
-                handler.handleUnrecoverableError(new CommitLogReadException(
-                    String.format("Unable to create segment reader for commit log file: %s", e),
-                    CommitLogReadErrorReason.UNRECOVERABLE_UNKNOWN_ERROR,
-                    tolerateTruncation));
+            } catch (Exception e) {
+                handler.handleUnrecoverableError(new CommitLogReadException(String.format("Unable to create segment reader for commit log file: %s", e), CommitLogReadErrorReason.UNRECOVERABLE_UNKNOWN_ERROR, tolerateTruncation));
                 return;
             }
-
-            try
-            {
+            try {
                 ReadStatusTracker statusTracker = new ReadStatusTracker(mutationLimit, tolerateTruncation);
-                for (CommitLogSegmentReader.SyncSegment syncSegment : segmentReader)
-                {
+                for (CommitLogSegmentReader.SyncSegment syncSegment : segmentReader) {
                     // Only tolerate truncation if we allow in both global and segment
                     statusTracker.tolerateErrorsInSection = tolerateTruncation & syncSegment.toleratesErrorsInSection;
-
                     // Skip segments that are completely behind the desired minPosition
                     if (desc.id == minPosition.segmentId && syncSegment.endPosition < minPosition.position)
                         continue;
-
                     statusTracker.errorContext = String.format("Next section at %d in %s", syncSegment.fileStartPosition, desc.fileName());
-
                     readSection(handler, syncSegment.input, minPosition, syncSegment.endPosition, statusTracker, desc);
                     if (!statusTracker.shouldContinue())
                         break;
                 }
-            }
-            // Unfortunately AbstractIterator cannot throw a checked exception, so we check to see if a RuntimeException
+            }// Unfortunately AbstractIterator cannot throw a checked exception, so we check to see if a RuntimeException
             // is wrapping an IOException.
-            catch (RuntimeException re)
-            {
+             catch (RuntimeException re) {
                 if (re.getCause() instanceof IOException)
                     throw (IOException) re.getCause();
                 throw re;
@@ -260,16 +208,9 @@ public class CommitLogReader
     /**
      * Any segment with id >= minPosition.segmentId is a candidate for read.
      */
-    private boolean shouldSkipSegmentId(File file, CommitLogDescriptor desc, CommitLogPosition minPosition)
-    {
-        logger.debug("Reading {} (CL version {}, messaging version {}, compression {})",
-            file.getPath(),
-            desc.version,
-            desc.getMessagingVersion(),
-            desc.compression);
-
-        if (minPosition.segmentId > desc.id)
-        {
+    private boolean shouldSkipSegmentId(File file, CommitLogDescriptor desc, CommitLogPosition minPosition) {
+        logger.debug("Reading {} (CL version {}, messaging version {}, compression {})", file.getPath(), desc.version, desc.getMessagingVersion(), desc.compression);
+        if (minPosition.segmentId > desc.id) {
             logger.trace("Skipping read of fully-flushed {}", file);
             return true;
         }
@@ -286,115 +227,73 @@ public class CommitLogReader
      * @param statusTracker ReadStatusTracker with current state of mutation count, error state, etc
      * @param desc Descriptor for CommitLog serialization
      */
-    private void readSection(CommitLogReadHandler handler,
-                             FileDataInput reader,
-                             CommitLogPosition minPosition,
-                             int end,
-                             ReadStatusTracker statusTracker,
-                             CommitLogDescriptor desc) throws IOException
-    {
+    private void readSection(CommitLogReadHandler handler, FileDataInput reader, CommitLogPosition minPosition, int end, ReadStatusTracker statusTracker, CommitLogDescriptor desc) throws IOException {
         // seek rather than deserializing mutation-by-mutation to reach the desired minPosition in this SyncSegment
         if (desc.id == minPosition.segmentId && reader.getFilePointer() < minPosition.position)
             reader.seek(minPosition.position);
-
-        while (statusTracker.shouldContinue() && reader.getFilePointer() < end && !reader.isEOF())
-        {
+        while (statusTracker.shouldContinue() && reader.getFilePointer() < end && !reader.isEOF()) {
             long mutationStart = reader.getFilePointer();
             if (logger.isTraceEnabled())
                 logger.trace("Reading mutation at {}", mutationStart);
-
             long claimedCRC32;
             int serializedSize;
-            try
-            {
+            try {
                 // We rely on reading serialized size == 0 (LEGACY_END_OF_SEGMENT_MARKER) to identify the end
                 // of a segment, which happens naturally due to the 0 padding of the empty segment on creation.
                 // However, it's possible with 2.1 era commitlogs that the last mutation ended less than 4 bytes
                 // from the end of the file, which means that we'll be unable to read an a full int and instead
                 // read an EOF here
-                if(end - reader.getFilePointer() < 4)
-                {
+                if (end - reader.getFilePointer() < 4) {
                     logger.trace("Not enough bytes left for another mutation in this CommitLog section, continuing");
                     statusTracker.requestTermination();
                     return;
                 }
-
                 // any of the reads may hit EOF
                 serializedSize = reader.readInt();
-                if (serializedSize == LEGACY_END_OF_SEGMENT_MARKER)
-                {
+                if (serializedSize == LEGACY_END_OF_SEGMENT_MARKER) {
                     logger.trace("Encountered end of segment marker at {}", reader.getFilePointer());
                     statusTracker.requestTermination();
                     return;
                 }
-
                 // Mutation must be at LEAST 10 bytes:
-                //    3 for a non-empty Keyspace
-                //    3 for a Key (including the 2-byte length from writeUTF/writeWithShortLength)
-                //    4 bytes for column count.
+                // 3 for a non-empty Keyspace
+                // 3 for a Key (including the 2-byte length from writeUTF/writeWithShortLength)
+                // 4 bytes for column count.
                 // This prevents CRC by being fooled by special-case garbage in the file; see CASSANDRA-2128
-                if (serializedSize < 10)
-                {
-                    if (handler.shouldSkipSegmentOnError(new CommitLogReadException(
-                                                    String.format("Invalid mutation size %d at %d in %s", serializedSize, mutationStart, statusTracker.errorContext),
-                                                    CommitLogReadErrorReason.MUTATION_ERROR,
-                                                    statusTracker.tolerateErrorsInSection)))
-                    {
+                if (serializedSize < 10) {
+                    if (handler.shouldSkipSegmentOnError(new CommitLogReadException(String.format("Invalid mutation size %d at %d in %s", serializedSize, mutationStart, statusTracker.errorContext), CommitLogReadErrorReason.MUTATION_ERROR, statusTracker.tolerateErrorsInSection))) {
                         statusTracker.requestTermination();
                     }
                     return;
                 }
-
                 long claimedSizeChecksum = CommitLogFormat.calculateClaimedChecksum(reader, desc.version);
                 checksum.reset();
                 CommitLogFormat.updateChecksum(checksum, serializedSize, desc.version);
-
-                if (checksum.getValue() != claimedSizeChecksum)
-                {
-                    if (handler.shouldSkipSegmentOnError(new CommitLogReadException(
-                                                    String.format("Mutation size checksum failure at %d in %s", mutationStart, statusTracker.errorContext),
-                                                    CommitLogReadErrorReason.MUTATION_ERROR,
-                                                    statusTracker.tolerateErrorsInSection)))
-                    {
+                if (checksum.getValue() != claimedSizeChecksum) {
+                    if (handler.shouldSkipSegmentOnError(new CommitLogReadException(String.format("Mutation size checksum failure at %d in %s", mutationStart, statusTracker.errorContext), CommitLogReadErrorReason.MUTATION_ERROR, statusTracker.tolerateErrorsInSection))) {
                         statusTracker.requestTermination();
                     }
                     return;
                 }
-
                 if (serializedSize > buffer.length)
                     buffer = new byte[(int) (1.2 * serializedSize)];
                 reader.readFully(buffer, 0, serializedSize);
-
                 claimedCRC32 = CommitLogFormat.calculateClaimedCRC32(reader, desc.version);
-            }
-            catch (EOFException eof)
-            {
-                if (handler.shouldSkipSegmentOnError(new CommitLogReadException(
-                                                String.format("Unexpected end of segment at %d in %s", mutationStart, statusTracker.errorContext),
-                                                CommitLogReadErrorReason.EOF,
-                                                statusTracker.tolerateErrorsInSection)))
-                {
+            } catch (EOFException eof) {
+                if (handler.shouldSkipSegmentOnError(new CommitLogReadException(String.format("Unexpected end of segment at %d in %s", mutationStart, statusTracker.errorContext), CommitLogReadErrorReason.EOF, statusTracker.tolerateErrorsInSection))) {
                     statusTracker.requestTermination();
                 }
                 return;
             }
-
             checksum.update(buffer, 0, serializedSize);
-            if (claimedCRC32 != checksum.getValue())
-            {
-                if (handler.shouldSkipSegmentOnError(new CommitLogReadException(
-                                                String.format("Mutation checksum failure at %d in %s", mutationStart, statusTracker.errorContext),
-                                                CommitLogReadErrorReason.MUTATION_ERROR,
-                                                statusTracker.tolerateErrorsInSection)))
-                {
+            if (claimedCRC32 != checksum.getValue()) {
+                if (handler.shouldSkipSegmentOnError(new CommitLogReadException(String.format("Mutation checksum failure at %d in %s", mutationStart, statusTracker.errorContext), CommitLogReadErrorReason.MUTATION_ERROR, statusTracker.tolerateErrorsInSection))) {
                     statusTracker.requestTermination();
                 }
                 continue;
             }
-
             long mutationPosition = reader.getFilePointer();
-            readMutation(handler, buffer, serializedSize, minPosition, (int)mutationPosition, desc);
-
+            readMutation(handler, buffer, serializedSize, minPosition, (int) mutationPosition, desc);
             // Only count this as a processed mutation if it is after our min as we suppress reading of mutations that
             // are before this mark.
             if (mutationPosition >= minPosition.position)
@@ -413,66 +312,37 @@ public class CommitLogReader
      * @param desc CommitLogDescriptor being worked on
      */
     @VisibleForTesting
-    protected void readMutation(CommitLogReadHandler handler,
-                                byte[] inputBuffer,
-                                int size,
-                                CommitLogPosition minPosition,
-                                final int entryLocation,
-                                final CommitLogDescriptor desc) throws IOException
-    {
+    protected void readMutation(CommitLogReadHandler handler, byte[] inputBuffer, int size, CommitLogPosition minPosition, final int entryLocation, final CommitLogDescriptor desc) throws IOException {
         // For now, we need to go through the motions of deserializing the mutation to determine its size and move
         // the file pointer forward accordingly, even if we're behind the requested minPosition within this SyncSegment.
         boolean shouldReplay = entryLocation > minPosition.position;
-
         final Mutation mutation;
-        try (RebufferingInputStream bufIn = new DataInputBuffer(inputBuffer, 0, size))
-        {
-            mutation = Mutation.serializer.deserialize(bufIn,
-                                                       desc.getMessagingVersion(),
-                                                       DeserializationHelper.Flag.LOCAL);
+        try (RebufferingInputStream bufIn = new DataInputBuffer(inputBuffer, 0, size)) {
+            mutation = Mutation.serializer.deserialize(bufIn, desc.getMessagingVersion(), DeserializationHelper.Flag.LOCAL);
             // doublecheck that what we read is still] valid for the current schema
-            for (PartitionUpdate upd : mutation.getPartitionUpdates())
-                upd.validate();
-        }
-        catch (UnknownTableException ex)
-        {
+            for (PartitionUpdate upd : mutation.getPartitionUpdates()) upd.validate();
+        } catch (UnknownTableException ex) {
             if (ex.id == null)
                 return;
             AtomicInteger i = invalidMutations.get(ex.id);
-            if (i == null)
-            {
+            if (i == null) {
                 i = new AtomicInteger(1);
                 invalidMutations.put(ex.id, i);
-            }
-            else
+            } else
                 i.incrementAndGet();
             return;
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             JVMStabilityInspector.inspectThrowable(t);
             Path p = Files.createTempFile("mutation", "dat");
-
-            try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(p)))
-            {
+            try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(p))) {
                 out.write(inputBuffer, 0, size);
             }
-
             // Checksum passed so this error can't be permissible.
-            handler.handleUnrecoverableError(new CommitLogReadException(
-                String.format(
-                    "Unexpected error deserializing mutation; saved to %s.  " +
-                    "This may be caused by replaying a mutation against a table with the same name but incompatible schema.  " +
-                    "Exception follows: %s", p.toString(), t),
-                CommitLogReadErrorReason.MUTATION_ERROR,
-                false));
+            handler.handleUnrecoverableError(new CommitLogReadException(String.format("Unexpected error deserializing mutation; saved to %s.  " + "This may be caused by replaying a mutation against a table with the same name but incompatible schema.  " + "Exception follows: %s", p.toString(), t), CommitLogReadErrorReason.MUTATION_ERROR, false));
             return;
         }
-
         if (logger.isTraceEnabled())
-            logger.trace("Read mutation for {}.{}: {}", mutation.getKeyspaceName(), mutation.key(),
-                         "{" + StringUtils.join(mutation.getPartitionUpdates().iterator(), ", ") + "}");
-
+            logger.trace("Read mutation for {}.{}: {}", mutation.getKeyspaceName(), mutation.key(), "{" + StringUtils.join(mutation.getPartitionUpdates().iterator(), ", ") + "}");
         if (shouldReplay)
             handler.handleMutation(mutation, size, entryLocation, desc);
     }
@@ -480,51 +350,47 @@ public class CommitLogReader
     /**
      * Helper methods to deal with changing formats of internals of the CommitLog without polluting deserialization code.
      */
-    private static class CommitLogFormat
-    {
-        public static long calculateClaimedChecksum(FileDataInput input, int commitLogVersion) throws IOException
-        {
+    private static class CommitLogFormat {
+
+        public static long calculateClaimedChecksum(FileDataInput input, int commitLogVersion) throws IOException {
             return input.readInt() & 0xffffffffL;
         }
 
-        public static void updateChecksum(CRC32 checksum, int serializedSize, int commitLogVersion)
-        {
+        public static void updateChecksum(CRC32 checksum, int serializedSize, int commitLogVersion) {
             updateChecksumInt(checksum, serializedSize);
         }
 
-        public static long calculateClaimedCRC32(FileDataInput input, int commitLogVersion) throws IOException
-        {
+        public static long calculateClaimedCRC32(FileDataInput input, int commitLogVersion) throws IOException {
             return input.readInt() & 0xffffffffL;
         }
     }
 
-    private static class ReadStatusTracker
-    {
-        private int mutationsLeft;
-        public String errorContext = "";
-        public boolean tolerateErrorsInSection;
-        private boolean error;
+    private static class ReadStatusTracker {
 
-        public ReadStatusTracker(int mutationLimit, boolean tolerateErrorsInSection)
-        {
+        private transient int mutationsLeft;
+
+        public transient String errorContext = "";
+
+        public transient boolean tolerateErrorsInSection;
+
+        private transient boolean error;
+
+        public ReadStatusTracker(int mutationLimit, boolean tolerateErrorsInSection) {
             this.mutationsLeft = mutationLimit;
             this.tolerateErrorsInSection = tolerateErrorsInSection;
         }
 
-        public void addProcessedMutation()
-        {
+        public void addProcessedMutation() {
             if (mutationsLeft == ALL_MUTATIONS)
                 return;
             --mutationsLeft;
         }
 
-        public boolean shouldContinue()
-        {
+        public boolean shouldContinue() {
             return !error && (mutationsLeft != 0 || mutationsLeft == ALL_MUTATIONS);
         }
 
-        public void requestTermination()
-        {
+        public void requestTermination() {
             error = true;
         }
     }

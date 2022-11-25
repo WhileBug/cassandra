@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.cassandra.service.reads.range;
 
 import org.apache.cassandra.db.partitions.PartitionIterator;
@@ -28,47 +27,45 @@ import org.apache.cassandra.service.reads.ReadCallback;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.AbstractIterator;
 
-class SingleRangeResponse extends AbstractIterator<RowIterator> implements PartitionIterator
-{
-    private final DataResolver<EndpointsForRange, ReplicaPlan.ForRangeRead> resolver;
-    private final ReadCallback<EndpointsForRange, ReplicaPlan.ForRangeRead> handler;
-    private final ReadRepair<EndpointsForRange, ReplicaPlan.ForRangeRead> readRepair;
+class SingleRangeResponse extends AbstractIterator<RowIterator> implements PartitionIterator {
 
-    private PartitionIterator result;
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SingleRangeResponse.class);
 
-    SingleRangeResponse(DataResolver<EndpointsForRange, ReplicaPlan.ForRangeRead> resolver,
-                        ReadCallback<EndpointsForRange, ReplicaPlan.ForRangeRead> handler,
-                        ReadRepair<EndpointsForRange, ReplicaPlan.ForRangeRead> readRepair)
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(SingleRangeResponse.class);
+
+    private final transient DataResolver<EndpointsForRange, ReplicaPlan.ForRangeRead> resolver;
+
+    private final transient ReadCallback<EndpointsForRange, ReplicaPlan.ForRangeRead> handler;
+
+    private final transient ReadRepair<EndpointsForRange, ReplicaPlan.ForRangeRead> readRepair;
+
+    private transient PartitionIterator result;
+
+    SingleRangeResponse(DataResolver<EndpointsForRange, ReplicaPlan.ForRangeRead> resolver, ReadCallback<EndpointsForRange, ReplicaPlan.ForRangeRead> handler, ReadRepair<EndpointsForRange, ReplicaPlan.ForRangeRead> readRepair) {
         this.resolver = resolver;
         this.handler = handler;
         this.readRepair = readRepair;
     }
 
-    ReadRepair<EndpointsForRange, ReplicaPlan.ForRangeRead> getReadRepair()
-    {
+    ReadRepair<EndpointsForRange, ReplicaPlan.ForRangeRead> getReadRepair() {
         return readRepair;
     }
 
-    private void waitForResponse() throws ReadTimeoutException
-    {
+    private void waitForResponse() throws ReadTimeoutException {
         if (result != null)
             return;
-
         handler.awaitResults();
         result = resolver.resolve();
     }
 
     @Override
-    protected RowIterator computeNext()
-    {
+    protected RowIterator computeNext() {
         waitForResponse();
         return result.hasNext() ? result.next() : endOfData();
     }
 
     @Override
-    public void close()
-    {
+    public void close() {
         if (result != null)
             result.close();
     }

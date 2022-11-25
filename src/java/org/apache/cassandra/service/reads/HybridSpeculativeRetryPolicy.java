@@ -19,117 +19,94 @@ package org.apache.cassandra.service.reads;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import com.google.common.base.Objects;
-
 import com.codahale.metrics.Snapshot;
 import com.codahale.metrics.Timer;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.schema.TableParams;
 
-public class HybridSpeculativeRetryPolicy implements SpeculativeRetryPolicy
-{
-    private static final Pattern PATTERN =
-        Pattern.compile("^(?<fun>MIN|MAX)\\((?<val1>[0-9.]+[a-z]+)\\s*,\\s*(?<val2>[0-9.]+[a-z]+)\\)$",
-                        Pattern.CASE_INSENSITIVE);
+public class HybridSpeculativeRetryPolicy implements SpeculativeRetryPolicy {
 
-    public enum Function
-    {
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HybridSpeculativeRetryPolicy.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(HybridSpeculativeRetryPolicy.class);
+
+    private static final transient Pattern PATTERN = Pattern.compile("^(?<fun>MIN|MAX)\\((?<val1>[0-9.]+[a-z]+)\\s*,\\s*(?<val2>[0-9.]+[a-z]+)\\)$", Pattern.CASE_INSENSITIVE);
+
+    public enum Function {
+
         MIN, MAX;
 
-        long call(long val1, long val2)
-        {
+        long call(long val1, long val2) {
             return this == MIN ? Math.min(val1, val2) : Math.max(val1, val2);
         }
     }
 
-    private final PercentileSpeculativeRetryPolicy percentilePolicy;
-    private final FixedSpeculativeRetryPolicy fixedPolicy;
-    private final Function function;
+    private final transient PercentileSpeculativeRetryPolicy percentilePolicy;
 
-    HybridSpeculativeRetryPolicy(PercentileSpeculativeRetryPolicy percentilePolicy,
-                                 FixedSpeculativeRetryPolicy fixedPolicy,
-                                 Function function)
-    {
+    private final transient FixedSpeculativeRetryPolicy fixedPolicy;
+
+    private final transient Function function;
+
+    HybridSpeculativeRetryPolicy(PercentileSpeculativeRetryPolicy percentilePolicy, FixedSpeculativeRetryPolicy fixedPolicy, Function function) {
         this.percentilePolicy = percentilePolicy;
         this.fixedPolicy = fixedPolicy;
         this.function = function;
     }
 
     @Override
-    public long calculateThreshold(Snapshot latency, long existingValue)
-    {
+    public long calculateThreshold(Snapshot latency, long existingValue) {
         if (latency.size() <= 0)
             return existingValue;
         return function.call(percentilePolicy.calculateThreshold(latency, existingValue), fixedPolicy.calculateThreshold(latency, existingValue));
     }
 
     @Override
-    public Kind kind()
-    {
+    public Kind kind() {
         return Kind.HYBRID;
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
+    public boolean equals(Object obj) {
         if (!(obj instanceof HybridSpeculativeRetryPolicy))
             return false;
         HybridSpeculativeRetryPolicy rhs = (HybridSpeculativeRetryPolicy) obj;
-        return function == rhs.function
-            && Objects.equal(percentilePolicy, rhs.percentilePolicy)
-            && Objects.equal(fixedPolicy, rhs.fixedPolicy);
+        return function == rhs.function && Objects.equal(percentilePolicy, rhs.percentilePolicy) && Objects.equal(fixedPolicy, rhs.fixedPolicy);
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hashCode(function, percentilePolicy, fixedPolicy);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format("%s(%s,%s)", function, percentilePolicy, fixedPolicy);
     }
 
-    static HybridSpeculativeRetryPolicy fromString(String str)
-    {
+    static HybridSpeculativeRetryPolicy fromString(String str) {
         Matcher matcher = PATTERN.matcher(str);
-
         if (!matcher.matches())
             throw new IllegalArgumentException();
-
         String val1 = matcher.group("val1");
         String val2 = matcher.group("val2");
-
         SpeculativeRetryPolicy value1, value2;
-        try
-        {
+        try {
             value1 = SpeculativeRetryPolicy.fromString(val1);
             value2 = SpeculativeRetryPolicy.fromString(val2);
-        }
-        catch (ConfigurationException e)
-        {
+        } catch (ConfigurationException e) {
             throw new ConfigurationException(String.format("Invalid value %s for option '%s'", str, TableParams.Option.SPECULATIVE_RETRY));
         }
-
-        if (value1.kind() == value2.kind())
-        {
-            throw new ConfigurationException(String.format("Invalid value %s for option '%s': MIN()/MAX() arguments " +
-                                                           "should be of different types, but both are of type %s",
-                                                           str, TableParams.Option.SPECULATIVE_RETRY, value1.kind()));
+        if (value1.kind() == value2.kind()) {
+            throw new ConfigurationException(String.format("Invalid value %s for option '%s': MIN()/MAX() arguments " + "should be of different types, but both are of type %s", str, TableParams.Option.SPECULATIVE_RETRY, value1.kind()));
         }
-
         SpeculativeRetryPolicy policy1 = value1 instanceof PercentileSpeculativeRetryPolicy ? value1 : value2;
         SpeculativeRetryPolicy policy2 = value1 instanceof FixedSpeculativeRetryPolicy ? value1 : value2;
-
         Function function = Function.valueOf(matcher.group("fun").toUpperCase());
         return new HybridSpeculativeRetryPolicy((PercentileSpeculativeRetryPolicy) policy1, (FixedSpeculativeRetryPolicy) policy2, function);
     }
 
-    static boolean stringMatches(String str)
-    {
+    static boolean stringMatches(String str) {
         return PATTERN.matcher(str).matches();
     }
 }

@@ -19,7 +19,6 @@ package org.apache.cassandra.cql3;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.exceptions.InvalidRequestException;
@@ -32,8 +31,12 @@ import org.apache.cassandra.transport.ProtocolVersion;
  * from a raw term (Term.Raw) by poviding the actual receiver to which the term is supposed to be a
  * value of.
  */
-public interface Term
-{
+public interface Term {
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Term.class);
+
+    public static transient org.slf4j.Logger logger_IC = org.slf4j.LoggerFactory.getLogger(Term.class);
+
     /**
      * Collects the column specification for the bind variables in this Term.
      * This is obviously a no-op if the term is Terminal.
@@ -73,9 +76,9 @@ public interface Term
     /**
      * Whether that term is terminal (this is a shortcut for {@code this instanceof Term.Terminal}).
      */
-    default public boolean isTerminal()
-    {
-        return false; // overriden below by Terminal
+    default public boolean isTerminal() {
+        // overriden below by Terminal
+        return false;
     }
 
     public void addFunctionsTo(List<Function> functions);
@@ -89,8 +92,8 @@ public interface Term
      *   - a function call
      *   - a marker
      */
-    public abstract class Raw implements AssignmentTestable
-    {
+    public abstract class Raw implements AssignmentTestable {
+
         /**
          * This method validates this RawTerm is valid for provided column
          * specification and "prepare" this RawTerm, returning the resulting
@@ -120,26 +123,23 @@ public interface Term
         public abstract AbstractType<?> getExactTypeIfKnown(String keyspace);
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return getText();
         }
 
         @Override
-        public int hashCode()
-        {
+        public int hashCode() {
             return getText().hashCode();
         }
 
         @Override
-        public boolean equals(Object o)
-        {
+        public boolean equals(Object o) {
             return this == o || (o instanceof Raw && getText().equals(((Raw) o).getText()));
         }
     }
 
-    public abstract class MultiColumnRaw extends Term.Raw
-    {
+    public abstract class MultiColumnRaw extends Term.Raw {
+
         public abstract Term prepare(String keyspace, List<? extends ColumnSpecification> receiver) throws InvalidRequestException;
     }
 
@@ -157,25 +157,26 @@ public interface Term
      * Note that a terminal term will always have been type checked, and thus
      * consumer can (and should) assume so.
      */
-    public abstract class Terminal implements Term
-    {
-        public void collectMarkerSpecification(VariableSpecifications boundNames) {}
-        public Terminal bind(QueryOptions options) { return this; }
+    public abstract class Terminal implements Term {
 
-        public void addFunctionsTo(List<Function> functions)
-        {
+        public void collectMarkerSpecification(VariableSpecifications boundNames) {
+        }
+
+        public Terminal bind(QueryOptions options) {
+            return this;
+        }
+
+        public void addFunctionsTo(List<Function> functions) {
         }
 
         // While some NonTerminal may not have bind markers, no Term can be Terminal
         // with a bind marker
-        public boolean containsBindMarker()
-        {
+        public boolean containsBindMarker() {
             return false;
         }
 
         @Override
-        public boolean isTerminal()
-        {
+        public boolean isTerminal() {
             return true;
         }
 
@@ -185,14 +186,13 @@ public interface Term
          */
         public abstract ByteBuffer get(ProtocolVersion protocolVersion) throws InvalidRequestException;
 
-        public ByteBuffer bindAndGet(QueryOptions options) throws InvalidRequestException
-        {
+        public ByteBuffer bindAndGet(QueryOptions options) throws InvalidRequestException {
             return get(options.getProtocolVersion());
         }
     }
 
-    public abstract class MultiItemTerminal extends Terminal
-    {
+    public abstract class MultiItemTerminal extends Terminal {
+
         public abstract List<ByteBuffer> getElements();
     }
 
@@ -206,10 +206,9 @@ public interface Term
      *   - a function having bind marker
      *   - a non pure function (even if it doesn't have bind marker - see #5616)
      */
-    public abstract class NonTerminal implements Term
-    {
-        public ByteBuffer bindAndGet(QueryOptions options) throws InvalidRequestException
-        {
+    public abstract class NonTerminal implements Term {
+
+        public ByteBuffer bindAndGet(QueryOptions options) throws InvalidRequestException {
             Terminal t = bind(options);
             return t == null ? null : t.get(options.getProtocolVersion());
         }
